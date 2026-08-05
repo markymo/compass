@@ -10,11 +10,13 @@ import { LucideIcon, ChevronRight, Home } from "lucide-react";
 import React from "react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { getBreadcrumbIcon } from "@/lib/breadcrumb-icon-map";
 
 export interface BreadcrumbItemData {
     label: string;
     href?: string;
     icon?: LucideIcon;
+    iconName?: string;
 }
 
 interface StandardPageHeaderProps {
@@ -57,7 +59,7 @@ export function StandardPageHeader({
                     <BreadcrumbList className="flex-nowrap">
                         {breadcrumbs.map((item, index) => {
                             const isLast = index === breadcrumbs.length - 1;
-                            const Icon = item.icon;
+                            const Icon = item.icon || (item.iconName ? getBreadcrumbIcon(item.iconName) : undefined);
 
                             return (
                                 <React.Fragment key={index}>

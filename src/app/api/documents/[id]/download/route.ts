@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
 import { get } from '@vercel/blob';
-import { ensureApiAuthorization } from '@/lib/auth/api-auth';
-import { Action } from '@/lib/auth/permissions';
+import { getIdentity } from '@/lib/auth';
+import { canUserDownloadDocument } from '@/lib/auth/document-download-auth';
 
 const getToken = () => process.env.PRIVATE_BLOB_READ_WRITE_TOKEN;
 
@@ -12,20 +11,15 @@ export async function GET(
 ): Promise<NextResponse> {
     try {
         const { id } = await context.params;
-        const document = await prisma.document.findUnique({
-            where: { id }
-        });
+        const identity = await getIdentity();
 
-        if (!document) {
-            return new NextResponse("Document not found", { status: 404 });
+        // 1. Authorize document access via server-side entitlement helper (handles both Client and Supplier roles)
+        const authResult = await canUserDownloadDocument(identity?.userId, id);
+        if (!authResult.allowed || !authResult.document) {
+            return new NextResponse(authResult.reason || "Forbidden", { status: authResult.status });
         }
 
-        // 1. Authorize owner-side access via clientLEId
-        try {
-            await ensureApiAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId: document.clientLEId });
-        } catch (e) {
-            return new NextResponse("Forbidden", { status: 403 });
-        }
+        const document = authResult.document;
 
         // 2. Fetch the document stream
         let stream: ReadableStream | null = null;

@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GET } from '@/app/api/documents/[id]/download/route';
 import { get } from '@vercel/blob';
-import prisma from '@/lib/prisma';
-import { ensureApiAuthorization } from '@/lib/auth/api-auth';
+import { canUserDownloadDocument } from '@/lib/auth/document-download-auth';
 import { Readable } from 'stream';
 
 // Mock Dependencies
@@ -10,16 +9,12 @@ vi.mock('@vercel/blob', () => ({
     get: vi.fn()
 }));
 
-vi.mock('@/lib/prisma', () => ({
-    default: {
-        document: {
-            findUnique: vi.fn()
-        }
-    }
+vi.mock('@/lib/auth', () => ({
+    getIdentity: vi.fn().mockResolvedValue({ userId: 'u-1' })
 }));
 
-vi.mock('@/lib/auth/api-auth', () => ({
-    ensureApiAuthorization: vi.fn()
+vi.mock('@/lib/auth/document-download-auth', () => ({
+    canUserDownloadDocument: vi.fn()
 }));
 
 function createMockStream(buffer: Buffer) {
@@ -49,49 +44,58 @@ describe('Download API Route', () => {
     });
 
     it('should return 404 if document is not found', async () => {
-        vi.mocked(prisma.document.findUnique).mockResolvedValueOnce(null);
+        vi.mocked(canUserDownloadDocument).mockResolvedValueOnce({
+            allowed: false,
+            document: null,
+            status: 404,
+            reason: 'Document not found'
+        });
         
-        const response = await GET({} as Request, { params: { id: 'invalid-id' } });
+        const response = await GET({} as Request, { params: Promise.resolve({ id: 'invalid-id' }) });
         expect(response.status).toBe(404);
     });
 
     it('should return 403 if user lacks authorization', async () => {
-        vi.mocked(prisma.document.findUnique).mockResolvedValueOnce({
-            id: 'doc-1',
-            clientLEId: 'org-1'
-        } as any);
-
-        vi.mocked(ensureApiAuthorization).mockRejectedValueOnce(new Error('Unauthorized'));
+        vi.mocked(canUserDownloadDocument).mockResolvedValueOnce({
+            allowed: false,
+            document: null,
+            status: 403,
+            reason: 'Forbidden'
+        });
         
-        const response = await GET({} as Request, { params: { id: 'doc-1' } });
+        const response = await GET({} as Request, { params: Promise.resolve({ id: 'doc-1' }) });
         expect(response.status).toBe(403);
     });
 
     it('should return 400 if document is not a private Vercel Blob', async () => {
-        vi.mocked(prisma.document.findUnique).mockResolvedValueOnce({
-            id: 'doc-1',
-            clientLEId: 'org-1',
-            storageProvider: null,
-            fileUrl: null
-        } as any);
-
-        vi.mocked(ensureApiAuthorization).mockResolvedValueOnce({ userId: 'u-1', user: {} as any });
+        vi.mocked(canUserDownloadDocument).mockResolvedValueOnce({
+            allowed: true,
+            document: {
+                id: 'doc-1',
+                clientLEId: 'org-1',
+                storageProvider: null,
+                fileUrl: null
+            },
+            status: 200
+        });
         
-        const response = await GET({} as Request, { params: { id: 'doc-1' } });
+        const response = await GET({} as Request, { params: Promise.resolve({ id: 'doc-1' }) });
         expect(response.status).toBe(400);
     });
 
     it('should successfully proxy download with strict headers', async () => {
-        vi.mocked(prisma.document.findUnique).mockResolvedValueOnce({
-            id: 'doc-1',
-            clientLEId: 'org-1',
-            storageProvider: 'VERCEL_BLOB',
-            storagePathname: 'private/doc-1',
-            name: 'Report (Q1).pdf',
-            mimeType: 'application/pdf'
-        } as any);
-
-        vi.mocked(ensureApiAuthorization).mockResolvedValueOnce({ userId: 'u-1', user: {} as any });
+        vi.mocked(canUserDownloadDocument).mockResolvedValueOnce({
+            allowed: true,
+            document: {
+                id: 'doc-1',
+                clientLEId: 'org-1',
+                storageProvider: 'VERCEL_BLOB',
+                storagePathname: 'private/doc-1',
+                name: 'Report (Q1).pdf',
+                mimeType: 'application/pdf'
+            },
+            status: 200
+        });
         
         const mockBuffer = Buffer.from('pdf content');
         vi.mocked(get).mockResolvedValueOnce({
@@ -106,7 +110,7 @@ describe('Download API Route', () => {
             contentDisposition: '...'
         });
 
-        const response = await GET({} as Request, { params: { id: 'doc-1' } });
+        const response = await GET({} as Request, { params: Promise.resolve({ id: 'doc-1' }) });
         expect(response.status).toBe(200);
 
         // Verify Headers
