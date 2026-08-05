@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 130">
-    <g transform="translate(5, 5)">
-        <!-- Mirrored Arc (Navy O-Ring with Upper-Left Gap) -->
-        <path d="M 28 48 A 38 38 0 1 0 62 27" fill="none" stroke="#1d2b3a" stroke-width="11" stroke-linecap="round" />
-        
-        <!-- Power Stem (Orange Vertical P-Spine) -->
-        <line x1="60" y1="20" x2="60" y2="76" stroke="#f97316" stroke-width="12" stroke-linecap="round" />
-    </g>
-</svg>
