@@ -25,29 +25,29 @@ const steps = [
     },
     {
         number: "02",
-        title: "Build your “Knowledge Base”",
-        description: "Select suppliers from OnPro’s existing database, invite new suppliers, or upload data requirements yourself using our intuitive interface.",
+        title: "Add Supplier Relationships",
+        description: "Establish relationships with your suppliers and counterparties under your Legal Entity to manage compliance, data requests, and questionnaires in one central hub.",
         image: step2,
         color: "slate"
     },
     {
         number: "03",
-        title: "Never repeat yourself",
-        description: "As you work through your consolidated question list, OnPro learns and applies the responses to questions from other suppliers.",
+        title: "Attach Pre-Mapped Questionnaires",
+        description: "Once a relationship is created, add questionnaires directly from OnPro’s library of pre-mapped industry standards or custom questionnaire templates.",
         image: step3,
         color: "amber"
     },
     {
         number: "04",
-        title: "Controlled verification and release",
-        description: "With progress monitoring and separate permissions for response, verification and release, you can fully utilise internal and external teams whilst retaining full control.",
+        title: "Never repeat yourself",
+        description: "As you work through your consolidated question list, OnPro learns and automatically applies responses to questions from other suppliers.",
         image: step4,
         color: "slate"
     },
     {
         number: "05",
-        title: "Preserve for the next time",
-        description: "Update, verify and re-release your data at the touch of a button, when you start the next process or are asked for a refresh.",
+        title: "Controlled verification & refresh",
+        description: "With progress monitoring and separate permissions for response, verification and release, update and refresh your data at the touch of a button.",
         image: step5,
         color: "amber"
     }

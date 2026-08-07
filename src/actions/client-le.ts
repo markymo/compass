@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { EngagementStatus, SourceType } from "@prisma/client";
+import { EngagementStatus, SourceType, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { ExtractedItem } from "./ai-mapper"; // Importing type
 import { MasterSchemaDefinition } from "@/types/schema";
@@ -597,23 +597,50 @@ export async function getFullMasterData(clientLEId: string) {
     if (subjectLeId) {
         const allFields = await listAllMasterFields();
 
-        // Fetch usage stats (Questions, Questionnaires, Suppliers) for this LE's active engagements
+        // Fetch usage stats (Questions, Questionnaires, Suppliers) across all questionnaires assigned to this LE (engagements & common questionnaires)
         const stats = await prisma.$queryRaw<{masterFieldNo: number, questions: bigint, questionnaires: bigint, suppliers: bigint}[]>`
+            WITH client_questionnaires AS (
+                -- 1. Direct fiEngagementId
+                SELECT qn.id AS qn_id, e."fiOrgId" AS supplier_id
+                FROM "Questionnaire" qn
+                JOIN "FIEngagement" e ON qn."fiEngagementId" = e.id
+                WHERE e."clientLEId" = ${clientLEId}
+                  AND e."isDeleted" = false
+                  AND e."status" != 'ARCHIVED'
+                  AND qn."isDeleted" = false
+                  AND qn."isTemplate" = false
+
+                UNION
+
+                -- 2. m2m engagements relation (_FIEngagementToQuestionnaire)
+                SELECT qn.id AS qn_id, e."fiOrgId" AS supplier_id
+                FROM "Questionnaire" qn
+                JOIN "_FIEngagementToQuestionnaire" eq ON qn.id = eq."B"
+                JOIN "FIEngagement" e ON eq."A" = e.id
+                WHERE e."clientLEId" = ${clientLEId}
+                  AND e."isDeleted" = false
+                  AND e."status" != 'ARCHIVED'
+                  AND qn."isDeleted" = false
+                  AND qn."isTemplate" = false
+
+                UNION
+
+                -- 3. Common questionnaires linked to ClientLE (_ClientCommonQuestionnaires)
+                SELECT qn.id AS qn_id, qn."fiOrgId" AS supplier_id
+                FROM "Questionnaire" qn
+                JOIN "_ClientCommonQuestionnaires" ccq ON qn.id = ccq."B"
+                WHERE ccq."A" = ${clientLEId}
+                  AND qn."isDeleted" = false
+                  AND qn."isTemplate" = false
+            )
             SELECT 
                 q."masterFieldNo",
                 COUNT(q.id) as questions,
-                COUNT(DISTINCT q."questionnaireId") as questionnaires,
-                COUNT(DISTINCT e."fiOrgId") as suppliers
+                COUNT(DISTINCT cq.qn_id) as questionnaires,
+                COUNT(DISTINCT cq.supplier_id) as suppliers
             FROM "Question" q
-            JOIN "Questionnaire" qn ON q."questionnaireId" = qn.id
-            JOIN "FIEngagement" e ON qn."fiEngagementId" = e.id
-            WHERE e."clientLEId" = ${clientLEId}
-              AND e."isDeleted" = false
-              AND e."status" != 'ARCHIVED'
-              AND qn."isDeleted" = false
-              AND qn."isTemplate" = false
-              AND qn."kind" = 'ENGAGEMENT_QUESTIONNAIRE'
-              AND q."masterFieldNo" IS NOT NULL
+            JOIN client_questionnaires cq ON q."questionnaireId" = cq.qn_id
+            WHERE q."masterFieldNo" IS NOT NULL
             GROUP BY q."masterFieldNo"
         `;
 
@@ -1266,3 +1293,202 @@ export async function getEngagementDocuments(engagementId: string) {
         return { success: false, error: "Failed to fetch document details" };
     }
 }
+
+export interface RelationshipQuestionnaireGroup {
+    questionnaireId: string;
+    questionnaireName: string;
+    questions: Array<{ id: string; text: string }>;
+}
+
+export interface RelationshipUsageGroup {
+    supplierId: string;
+    supplierName: string;
+    supplierCode?: string;
+    questionnaires: RelationshipQuestionnaireGroup[];
+}
+
+export interface FieldUsageDetails {
+    totalQuestions: number;
+    totalQuestionnaires: number;
+    totalSuppliers: number;
+    relationships: RelationshipUsageGroup[];
+    questions: Array<{
+        id: string;
+        text: string;
+        questionnaireId: string;
+        questionnaireName: string;
+        supplierName?: string;
+    }>;
+    questionnaires: Array<{
+        id: string;
+        name: string;
+        supplierName?: string;
+    }>;
+    suppliers: Array<{
+        id: string;
+        name: string;
+        shortCode?: string;
+    }>;
+}
+
+export async function getFieldUsageDetails(
+    clientLEId: string,
+    masterFieldNo?: number,
+    customFieldId?: string
+): Promise<FieldUsageDetails> {
+    if (!clientLEId || (!masterFieldNo && !customFieldId)) {
+        return { totalQuestions: 0, totalQuestionnaires: 0, totalSuppliers: 0, relationships: [], questions: [], questionnaires: [], suppliers: [] };
+    }
+
+    try {
+        const fieldCondition = masterFieldNo
+            ? Prisma.sql`q."masterFieldNo" = ${masterFieldNo}`
+            : Prisma.sql`q."customFieldDefinitionId" = ${customFieldId}`;
+
+        const rows = await prisma.$queryRaw<Array<{
+            question_id: string;
+            question_text: string;
+            qn_id: string;
+            qn_name: string;
+            supplier_id: string;
+            supplier_name: string | null;
+            supplier_code: string | null;
+        }>>`
+            WITH client_questionnaires AS (
+                -- 1. Direct fiEngagementId
+                SELECT qn.id AS qn_id, qn.name AS qn_name, e."fiOrgId" AS supplier_id, org.name AS supplier_name, org."shortCode" AS supplier_code
+                FROM "Questionnaire" qn
+                JOIN "FIEngagement" e ON qn."fiEngagementId" = e.id
+                JOIN "Organization" org ON e."fiOrgId" = org.id
+                WHERE e."clientLEId" = ${clientLEId}
+                  AND e."isDeleted" = false
+                  AND e."status" != 'ARCHIVED'
+                  AND qn."isDeleted" = false
+                  AND qn."isTemplate" = false
+
+                UNION
+
+                -- 2. m2m engagements relation (_FIEngagementToQuestionnaire)
+                SELECT qn.id AS qn_id, qn.name AS qn_name, e."fiOrgId" AS supplier_id, org.name AS supplier_name, org."shortCode" AS supplier_code
+                FROM "Questionnaire" qn
+                JOIN "_FIEngagementToQuestionnaire" eq ON qn.id = eq."B"
+                JOIN "FIEngagement" e ON eq."A" = e.id
+                JOIN "Organization" org ON e."fiOrgId" = org.id
+                WHERE e."clientLEId" = ${clientLEId}
+                  AND e."isDeleted" = false
+                  AND e."status" != 'ARCHIVED'
+                  AND qn."isDeleted" = false
+                  AND qn."isTemplate" = false
+
+                UNION
+
+                -- 3. Common questionnaires linked to ClientLE (_ClientCommonQuestionnaires)
+                SELECT qn.id AS qn_id, qn.name AS qn_name, qn."fiOrgId" AS supplier_id, org.name AS supplier_name, org."shortCode" AS supplier_code
+                FROM "Questionnaire" qn
+                JOIN "_ClientCommonQuestionnaires" ccq ON qn.id = ccq."B"
+                JOIN "Organization" org ON qn."fiOrgId" = org.id
+                WHERE ccq."A" = ${clientLEId}
+                  AND qn."isDeleted" = false
+                  AND qn."isTemplate" = false
+            )
+            SELECT 
+                q.id AS question_id,
+                q.text AS question_text,
+                cq.qn_id,
+                cq.qn_name,
+                cq.supplier_id,
+                cq.supplier_name,
+                cq.supplier_code
+            FROM "Question" q
+            JOIN client_questionnaires cq ON q."questionnaireId" = cq.qn_id
+            WHERE ${fieldCondition}
+        `;
+
+        const relMap = new Map<string, RelationshipUsageGroup>();
+        const questionsMap = new Map<string, FieldUsageDetails['questions'][0]>();
+        const questionnairesMap = new Map<string, FieldUsageDetails['questionnaires'][0]>();
+        const suppliersMap = new Map<string, FieldUsageDetails['suppliers'][0]>();
+
+        for (const row of rows) {
+            let sId = row.supplier_id || "common";
+            let sName = row.supplier_name || "Common Questionnaires";
+            let sCode = row.supplier_code || undefined;
+
+            if (sName === "System" || sId === "common") {
+                sName = "Common Questionnaires";
+                sCode = "COMMON";
+                sId = "common";
+            }
+
+            let rel = relMap.get(sId);
+            if (!rel) {
+                rel = {
+                    supplierId: sId,
+                    supplierName: sName,
+                    supplierCode: sCode,
+                    questionnaires: []
+                };
+                relMap.set(sId, rel);
+            }
+
+            let qnGroup = rel.questionnaires.find(q => q.questionnaireId === row.qn_id);
+            if (!qnGroup) {
+                qnGroup = {
+                    questionnaireId: row.qn_id,
+                    questionnaireName: row.qn_name,
+                    questions: []
+                };
+                rel.questionnaires.push(qnGroup);
+            }
+
+            if (row.question_id && !qnGroup.questions.some(q => q.id === row.question_id)) {
+                qnGroup.questions.push({
+                    id: row.question_id,
+                    text: row.question_text
+                });
+            }
+
+            if (row.question_id && !questionsMap.has(row.question_id)) {
+                questionsMap.set(row.question_id, {
+                    id: row.question_id,
+                    text: row.question_text,
+                    questionnaireId: row.qn_id,
+                    questionnaireName: row.qn_name,
+                    supplierName: row.supplier_name || undefined
+                });
+            }
+
+            if (row.qn_id && !questionnairesMap.has(row.qn_id)) {
+                questionnairesMap.set(row.qn_id, {
+                    id: row.qn_id,
+                    name: row.qn_name,
+                    supplierName: row.supplier_name || undefined
+                });
+            }
+
+            if (row.supplier_id && !suppliersMap.has(row.supplier_id)) {
+                suppliersMap.set(row.supplier_id, {
+                    id: row.supplier_id,
+                    name: row.supplier_name || "Unknown Supplier",
+                    shortCode: row.supplier_code || undefined
+                });
+            }
+        }
+
+        const relationships = Array.from(relMap.values());
+
+        return {
+            totalQuestions: questionsMap.size,
+            totalQuestionnaires: questionnairesMap.size,
+            totalSuppliers: suppliersMap.size,
+            relationships,
+            questions: Array.from(questionsMap.values()),
+            questionnaires: Array.from(questionnairesMap.values()),
+            suppliers: Array.from(suppliersMap.values())
+        };
+    } catch (err) {
+        console.error("Error fetching field usage details:", err);
+        return { totalQuestions: 0, totalQuestionnaires: 0, totalSuppliers: 0, relationships: [], questions: [], questionnaires: [], suppliers: [] };
+    }
+}
+
