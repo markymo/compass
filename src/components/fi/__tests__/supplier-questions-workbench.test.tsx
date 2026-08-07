@@ -171,4 +171,22 @@ describe("SupplierQuestionsWorkbench Component Structure & Safety", () => {
         expect(filtered.map(q => q.id)).toEqual(["q-not-shared-1", "q-shared-1"]);
         expect(filtered.find(q => q.id === "q-released-1")).toBeUndefined();
     });
+
+    it("10. Dynamically computes summary scope and counts for active Relationship filter", () => {
+        const relFilterVal = "Vattenfall Solar";
+        const scopedQuestions = mockData.questions.filter((q) => q.clientLEName === relFilterVal);
+        
+        const summaryCounts = {
+            total: scopedQuestions.length,
+            notShared: scopedQuestions.filter((q) => q.answerVisibility === "NOT_SHARED").length,
+            shared: scopedQuestions.filter((q) => q.answerVisibility === "SHARED").length,
+            released: scopedQuestions.filter((q) => q.answerVisibility === "RELEASED").length
+        };
+
+        expect(summaryCounts.total).toBe(1);
+        expect(summaryCounts.released).toBe(1);
+        expect(summaryCounts.notShared).toBe(0);
+        expect(summaryCounts.shared).toBe(0);
+    });
 });
+
