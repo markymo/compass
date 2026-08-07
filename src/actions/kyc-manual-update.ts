@@ -382,8 +382,13 @@ export async function removeMultiValueEntry(
             return { success: false, message: "Claim not found" };
         }
 
-        if (!claim.instanceId) {
-            return { success: false, message: "Cannot remove: claim has no instanceId" };
+        let instanceId = claim.instanceId;
+        if (!instanceId) {
+            instanceId = claim.id;
+            await prisma.fieldClaim.update({
+                where: { id: claim.id },
+                data: { instanceId }
+            });
         }
 
         // Emit tombstone
@@ -391,7 +396,7 @@ export async function removeMultiValueEntry(
             { subjectLeId },
             fieldNo,
             claim.collectionId || def.categoryId || 'GENERAL',
-            claim.instanceId,
+            instanceId,
             ownerScopeId
         );
 

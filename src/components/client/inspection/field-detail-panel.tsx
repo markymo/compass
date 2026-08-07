@@ -12,8 +12,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon, Pencil, Check, Trash2, Plus, Lock, Save, Link2Off, ArrowRightLeft } from "lucide-react";
+import Link from "next/link";
+import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon, Pencil, Check, Trash2, Plus, Lock, Save, Link2Off, ArrowRightLeft, ChevronDown, ChevronRight, ArrowUpRight, HelpCircle, Building2 } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
+import { getFieldUsageDetails, FieldUsageDetails } from "@/actions/client-le";
 import { formatSystemDateTime } from "@/lib/date-utils";
 import { useSession } from "next-auth/react";
 import { checkCustomFieldDependencies, softDeleteCustomField, DependencyReport } from "@/actions/master-data-governance";
@@ -161,6 +163,33 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
         });
         return () => { isMounted = false; };
     }, []);
+
+    // Expandable usage details state
+    const [usageDetails, setUsageDetails] = useState<FieldUsageDetails | null>(null);
+    const [loadingUsageDetails, setLoadingUsageDetails] = useState(false);
+    const [expandedSections, setExpandedSections] = useState<{ questions: boolean; questionnaires: boolean; suppliers: boolean }>({
+        questions: false,
+        questionnaires: false,
+        suppliers: false,
+    });
+
+    useEffect(() => {
+        if (open && clientLEId && (fieldNo || customFieldId) && mappingStats && mappingStats.questions > 0) {
+            setLoadingUsageDetails(true);
+            getFieldUsageDetails(clientLEId, fieldNo, customFieldId)
+                .then((res) => {
+                    setUsageDetails(res);
+                })
+                .catch((err) => {
+                    console.error("Failed to load field usage details:", err);
+                })
+                .finally(() => {
+                    setLoadingUsageDetails(false);
+                });
+        } else {
+            setUsageDetails(null);
+        }
+    }, [open, clientLEId, fieldNo, customFieldId, mappingStats]);
 
     // Date & value formatting helpers
     const isDateType = data?.dataType === 'DATE' || data?.dataType === 'DATETIME';
@@ -1559,12 +1588,43 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         );
                                                     })}
                                                 </div>
-                                            ) : (
-                                                /* Empty state */
-                                                <div className="text-center py-4">
-                                                    <p className="text-sm text-slate-400 italic">No values recorded yet</p>
-                                                </div>
-                                            )}
+                                     ) : (
+                                         /* Empty state */
+                                         (data?.displayState === 'DEFAULT_RESPONSE' && data?.defaultResponse) ? (
+                                             <div className="py-3 px-1">
+                                                 <div className="flex items-center gap-2 not-italic text-blue-600 font-medium">
+                                                     <span>{data.defaultResponse}</span>
+                                                     <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-blue-500 bg-blue-50 border-blue-200">Field Default</Badge>
+                                                 </div>
+                                                 {!isLocked && (
+                                                     <div className="mt-3">
+                                                         <Button 
+                                                             variant="outline" 
+                                                             size="sm" 
+                                                             className="h-7 text-xs bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                                                             onClick={async () => {
+                                                                 if (data?.displayState === 'DEFAULT_RESPONSE' && data.defaultResponse) {
+                                                                     await releaseFieldDefault(clientLEId, fieldNo, data.defaultResponse);
+                                                                 }
+                                                                 const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                 setData(refreshed);
+                                                                 if (onUpdate && refreshed?.current) {
+                                                                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                 }
+                                                             }}
+                                                         >
+                                                             <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
+                                                             Sign off default
+                                                         </Button>
+                                                     </div>
+                                                 )}
+                                             </div>
+                                         ) : (
+                                             <div className="text-center py-4">
+                                                 <p className="text-sm text-slate-400 italic">No values recorded yet</p>
+                                             </div>
+                                         )
+                                     )}
 
                                             {/* Persistent add input */}
                                             {!isLocked && !isSystemOnlyParty && !isSystemOnlyAddress && (
@@ -2016,7 +2076,29 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                 <div className="flex items-start gap-3 mt-2">
                                                     <div className="flex-1 space-y-2">
                                                          {!isEditing ? (
-                                                             isCuratedPartyRef || isPersonOrContactField ? (
+                                                             (data?.displayState === 'DEFAULT_RESPONSE' && data?.defaultResponse) ? (
+                                                                 <div className="relative">
+                                                                     <div className="flex items-start justify-between">
+                                                                         <div className="mt-0.5">
+                                                                             <div className="py-3 px-1">
+                                                                                 <div className="flex items-center gap-2 not-italic text-blue-600 font-medium">
+                                                                                     <span>{data.defaultResponse}</span>
+                                                                                     <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-blue-500 bg-blue-50 border-blue-200">Field Default</Badge>
+                                                                                 </div>
+                                                                             </div>
+                                                                         </div>
+                                                                         {!isLocked && (
+                                                                             <button
+                                                                                 className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                 onClick={() => setIsEditing(true)}
+                                                                                 title="Add value"
+                                                                             >
+                                                                                 <Pencil className="h-3.5 w-3.5" />
+                                                                             </button>
+                                                                         )}
+                                                                     </div>
+                                                                 </div>
+                                                             ) : isCuratedPartyRef || isPersonOrContactField ? (
                                                                  <div className="flex flex-col items-center justify-center py-6 border border-dashed border-slate-200 rounded-lg bg-slate-50/50 p-4 space-y-3">
                                                                      <div className="text-sm text-slate-500 italic">
                                                                          {isCuratedPartyRef ? "No saved party assigned" : "No person/contact recorded"}
@@ -2091,30 +2173,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                     className="uppercase tracking-wider"
                                                                                     wrapperClassName="flex items-center gap-1.5"
                                                                                 />
-                                                                            </div>
-                                                                        )}
-                                                                        {!isLocked && (data?.displayState === 'DEFAULT_RESPONSE' || data?.displayState === 'CHECKED_NO_DATA') && (
-                                                                            <div className="mt-3">
-                                                                                <Button 
-                                                                                    variant="outline" 
-                                                                                    size="sm" 
-                                                                                    className="h-7 text-xs bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                                                                                    onClick={async () => {
-                                                                                        if (data?.displayState === 'DEFAULT_RESPONSE' && data.defaultResponse) {
-                                                                                            await releaseFieldDefault(clientLEId, fieldNo, data.defaultResponse);
-                                                                                        } else if (data?.displayState === 'CHECKED_NO_DATA') {
-                                                                                            await releaseFieldAbsence(clientLEId, fieldNo, data.current?.source || 'SYSTEM', data.current?.timestamp ? data.current.timestamp.toISOString() : null);
-                                                                                        }
-                                                                                        const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
-                                                                                        setData(refreshed);
-                                                                                        if (onUpdate && refreshed?.current) {
-                                                                                            onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
-                                                                                        }
-                                                                                    }}
-                                                                                >
-                                                                                    <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-                                                                                    {data.displayState === 'DEFAULT_RESPONSE' ? 'Sign off default' : 'Sign off absence'}
-                                                                                </Button>
                                                                             </div>
                                                                         )}
                                                                     </div>
@@ -2500,34 +2558,104 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         )}
                     </div> {/* Closes the rounded-xl "Current Value Card" div */}
 
-                    {/* ─── Usage Section ─── */}
+                    {/* ─── Usage Section (Hierarchical Relationship Tree) ─── */}
                     {!customFieldId && (
                         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mt-6 mb-2">
-                            <div className="bg-slate-50 border-b border-slate-100 p-3 px-5">
-                                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide flex items-center gap-1.5">
-                                    <Database className="w-3.5 h-3.5" /> Usage
+                            {/* Card Header */}
+                            <div className="bg-slate-50/80 border-b border-slate-100 p-3 px-4 flex items-center justify-between">
+                                <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Building2 className="w-3.5 h-3.5 text-slate-500" /> Relationships & Usage
                                 </span>
-                            </div>
-                            <div className="p-5 text-sm">
-                                {mappingStats && mappingStats.questions > 0 ? (
-                                    <div className="space-y-3">
-                                        <div className="font-medium text-slate-700 text-xs tracking-wider mb-2">Used by</div>
-                                        <div className="flex justify-between items-center py-1 border-b border-slate-50">
-                                            <span className="text-slate-500">Questions</span>
-                                            <span className="font-medium text-slate-900">{mappingStats.questions}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center py-1 border-b border-slate-50">
-                                            <span className="text-slate-500">Questionnaires</span>
-                                            <span className="font-medium text-slate-900">{mappingStats.questionnaires}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center py-1">
-                                            <span className="text-slate-500">Suppliers</span>
-                                            <span className="font-medium text-slate-900">{mappingStats.suppliers}</span>
-                                        </div>
+                                {mappingStats && mappingStats.questions > 0 && (
+                                    <div className="flex items-center gap-1.5">
+                                        <Badge variant="secondary" className="text-[10px] bg-white border border-slate-200 text-slate-600 font-medium">
+                                            {mappingStats.suppliers} Relationship{mappingStats.suppliers !== 1 ? 's' : ''}
+                                        </Badge>
+                                        <Badge variant="secondary" className="text-[10px] bg-white border border-slate-200 text-slate-600 font-medium">
+                                            {mappingStats.questions} Question{mappingStats.questions !== 1 ? 's' : ''}
+                                        </Badge>
                                     </div>
+                                )}
+                            </div>
+
+                            {/* Line-Level Tree Content */}
+                            <div className="p-4 text-xs">
+                                {mappingStats && mappingStats.questions > 0 ? (
+                                    loadingUsageDetails ? (
+                                        <div className="flex items-center justify-center py-6 text-slate-400 gap-2">
+                                            <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                                            <span>Loading usage hierarchy...</span>
+                                        </div>
+                                    ) : usageDetails?.relationships && usageDetails.relationships.length > 0 ? (
+                                        <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
+                                            {usageDetails.relationships.map((rel) => (
+                                                <div key={rel.supplierId} className="space-y-2">
+                                                    {/* Level 1: Relationship / Legal Entity Direct Link */}
+                                                    <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-md p-2 px-3 group">
+                                                        <Building2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                                                        <Link
+                                                            href={`/app/le/${clientLEId}/workbench4?rel=${encodeURIComponent(rel.supplierId === 'common' || rel.supplierName === 'Common Questionnaires' ? 'Common' : rel.supplierName)}`}
+                                                            target="_blank"
+                                                            className="font-semibold text-slate-800 hover:text-indigo-600 hover:underline transition-colors flex items-center gap-1.5"
+                                                            title={`View all questions from ${rel.supplierName} in Question Bank`}
+                                                        >
+                                                            <span>{rel.supplierName}</span>
+                                                            <ArrowUpRight className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                        </Link>
+                                                        {rel.supplierCode && (
+                                                            <Badge variant="outline" className="text-[9px] bg-white text-slate-500 font-mono py-0 px-1 ml-auto shrink-0">
+                                                                {rel.supplierCode}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Level 2 & 3: Nested Thread Lines */}
+                                                    <div className="border-l-2 border-slate-200 ml-3.5 pl-3.5 space-y-2.5 py-0.5">
+                                                        {rel.questionnaires.map((qn) => (
+                                                            <div key={qn.questionnaireId} className="space-y-1">
+                                                                {/* Level 2: Questionnaire Direct Link */}
+                                                                <div className="flex items-center gap-1.5 group">
+                                                                    <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                                    <Link
+                                                                        href={`/app/le/${clientLEId}/workbench4?q=${encodeURIComponent(qn.questionnaireName)}`}
+                                                                        target="_blank"
+                                                                        className="font-semibold text-slate-800 hover:text-indigo-600 hover:underline transition-colors inline-flex items-center gap-1 text-xs"
+                                                                        title={`Filter Question Bank by ${qn.questionnaireName}`}
+                                                                    >
+                                                                        <span>{qn.questionnaireName}</span>
+                                                                        <ArrowUpRight className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                    </Link>
+                                                                </div>
+
+                                                                {/* Level 3: Questions Direct Link */}
+                                                                <div className="space-y-1 pl-4">
+                                                                    {qn.questions.map((q) => (
+                                                                        <div key={q.id} className="group">
+                                                                            <Link
+                                                                                href={`/app/le/${clientLEId}/workbench4?s=${encodeURIComponent(q.text)}`}
+                                                                                target="_blank"
+                                                                                className="inline-flex items-start gap-1.5 text-slate-700 hover:text-indigo-600 hover:underline leading-snug font-normal text-xs transition-colors p-1 rounded hover:bg-slate-50"
+                                                                                title="Open this question in Question Bank"
+                                                                            >
+                                                                                <HelpCircle className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0 group-hover:text-indigo-600 transition-colors" />
+                                                                                <span>"{q.text}"</span>
+                                                                                <ArrowUpRight className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5 shrink-0" />
+                                                                            </Link>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-slate-500 py-2 italic text-center">No relationship or questionnaire mapping details found.</p>
+                                    )
                                 ) : (
                                     <div className="text-center py-4">
-                                        <p className="text-slate-600 mb-1">Not currently used by any questionnaires.</p>
+                                        <p className="text-slate-600 mb-1 font-medium">Not currently used by any relationships or questionnaires.</p>
                                         <p className="text-xs text-slate-400">This field can still be completed as part of the Master Record.</p>
                                     </div>
                                 )}
