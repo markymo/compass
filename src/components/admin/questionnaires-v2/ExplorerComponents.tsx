@@ -308,7 +308,7 @@ export function DetailPanelContent({ row, onAddToLibrary, onCreateWorkingCopy, o
             <div className="space-y-1.5 mt-auto">
                 {isRef && row.isOnProOwned ? (<>
                     <Link href={`/app/admin/questionnaires/${row.id}`} className="flex items-center justify-between w-full text-xs font-medium text-slate-700 hover:text-slate-900 px-3 py-2 rounded border border-slate-200 hover:border-slate-300 transition-colors">
-                        View questionnaire <ExternalLink className="w-3 h-3" />
+                        View questionnaire <ArrowRight className="w-3 h-3" />
                     </Link>
                     <button onClick={() => onCreateWorkingCopy(row)} className="flex items-center justify-between w-full text-xs font-semibold text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded border border-blue-200 hover:border-blue-300 transition-colors">
                         Create Working Copy <ArrowRight className="w-3 h-3" />
@@ -344,7 +344,7 @@ export function DetailPanelContent({ row, onAddToLibrary, onCreateWorkingCopy, o
                     </button>
                 </>) : (
                     <Link href={`/app/admin/questionnaires/${row.id}`} className="flex items-center justify-between w-full text-xs font-medium text-slate-700 hover:text-slate-900 px-3 py-2 rounded border border-slate-200 hover:border-slate-300 transition-colors">
-                        View <ExternalLink className="w-3 h-3" />
+                        View <ArrowRight className="w-3 h-3" />
                     </Link>
                 )}
             </div>

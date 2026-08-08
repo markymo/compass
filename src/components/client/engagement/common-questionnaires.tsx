@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, ArrowUpRight, Plus, Search, Check, Trash2, Loader2, X } from "lucide-react";
+import { FileText, ArrowUpRight, ArrowRight, Plus, Search, Check, Trash2, Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -265,7 +265,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                                         className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
                                                         title="Review in Question Bank"
                                                     >
-                                                        <ArrowUpRight className="h-4 w-4" />
+                                                        <ArrowRight className="h-4 w-4" />
                                                     </Link>
                                                     <Button 
                                                         variant="ghost" 
@@ -306,7 +306,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                         ) : (
                                             <div className="shrink-0 flex items-center gap-1">
                                                 <Link href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`} className="h-8 w-8 inline-flex items-center justify-center rounded-md text-slate-400">
-                                                    <ArrowUpRight className="h-4 w-4" />
+                                                    <ArrowRight className="h-4 w-4" />
                                                 </Link>
                                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400" onClick={() => setConfirmRemoveId(q.id)}>
                                                     <Trash2 className="h-4 w-4" />

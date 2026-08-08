@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { ClipboardCheck, FileQuestion, Database, ArrowRight, Building2, Search, SortDesc, SortAsc, FileText, UserCheck, Users, User } from "lucide-react";
-import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { ClipboardCheck, FileQuestion, Database, ArrowRight, Building2, Search, SortDesc, SortAsc, FileText, UserCheck, Users, User, PanelRightOpen } from "lucide-react";
 
 export type UnifiedAssignment = {
     id: string;
@@ -184,7 +183,7 @@ export function AssignmentsList({ myAssignments, teamAssignments, currentUserId 
                     <span className="font-semibold">{activeTab === "my" ? "My Master Field Assignments:" : "Team Master Field Assignments:"}</span>
                     <span className="font-bold">{masterSummary.total} total</span>
                     <span>•</span>
-                    <span className="text-amber-700 font-semibold">{masterSummary.open} open</span>
+                    <span className="text-slate-700 font-semibold">{masterSummary.open} open</span>
                     <span>•</span>
                     <span className="text-emerald-700 font-semibold">{masterSummary.done} done</span>
                 </div>
@@ -282,14 +281,14 @@ export function AssignmentsList({ myAssignments, teamAssignments, currentUserId 
                             <div key={item.id} className="p-4 hover:bg-slate-50 transition-colors group">
                                 <div className="flex items-start justify-between gap-4">
                                     <div className="flex gap-4 min-w-0 flex-1">
-                                        <div className={`shrink-0 h-10 w-10 rounded-xl flex items-center justify-center ${item.type === "question" ? "bg-indigo-50 text-indigo-600" : (item.workStatus === "DONE" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600")
+                                        <div className={`shrink-0 h-10 w-10 rounded-xl flex items-center justify-center ${item.type === "question" ? "bg-indigo-50 text-indigo-600" : (item.workStatus === "DONE" ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-700")
                                             }`}>
                                             {item.type === "question" ? <FileQuestion className="h-5 w-5" /> : <Database className="h-5 w-5" />}
                                         </div>
 
                                         <div className="space-y-1.5 min-w-0 flex-1">
                                             <div className="flex items-center gap-2 flex-wrap">
-                                                <Badge variant="outline" className={`text-[10px] uppercase font-bold tracking-wider ${item.type === "question" ? "text-indigo-600 bg-indigo-50/30 border-indigo-100" : (item.workStatus === "DONE" ? "text-emerald-700 bg-emerald-50/30 border-emerald-100" : "text-amber-700 bg-amber-50/30 border-amber-100")
+                                                <Badge variant="outline" className={`text-[10px] uppercase font-bold tracking-wider ${item.type === "question" ? "text-indigo-600 bg-indigo-50/30 border-indigo-100" : (item.workStatus === "DONE" ? "text-emerald-700 bg-emerald-50/30 border-emerald-100" : "text-slate-700 bg-slate-100/50 border-slate-200")
                                                     }`}>
                                                     {item.type === "question" ? "Question" : "Master Data"}
                                                 </Badge>
@@ -328,7 +327,7 @@ export function AssignmentsList({ myAssignments, teamAssignments, currentUserId 
                                                 <span>•</span>
                                                 <span>{new Date(item.createdAt).toLocaleDateString()}</span>
                                                 {item.type === "master" ? (
-                                                    <Badge variant="outline" className={item.workStatus === "DONE" ? "text-[9px] py-0 bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold" : "text-[9px] py-0 bg-amber-50 text-amber-700 border-amber-200 font-semibold"}>
+                                                    <Badge variant="outline" className={item.workStatus === "DONE" ? "text-[9px] py-0 bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold" : "text-[9px] py-0 bg-slate-100 text-slate-700 border-slate-200 font-semibold"}>
                                                         {item.workStatus === "DONE" ? "Done" : "Open"}
                                                     </Badge>
                                                 ) : (
@@ -341,8 +340,9 @@ export function AssignmentsList({ myAssignments, teamAssignments, currentUserId 
                                     <Link
                                         href={getItemUrl(item)}
                                         className="shrink-0 h-9 w-9 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 group-hover:border-indigo-200 group-hover:bg-indigo-50 transition-colors bg-white shadow-sm"
+                                        title="Inspect item in side panel"
                                     >
-                                        <ArrowRight className="h-5 w-5" />
+                                        <PanelRightOpen className="h-5 w-5" />
                                     </Link>
                                 </div>
                             </div>
@@ -353,3 +353,4 @@ export function AssignmentsList({ myAssignments, teamAssignments, currentUserId 
         </div>
     );
 }
+

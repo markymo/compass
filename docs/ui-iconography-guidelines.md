@@ -1,5 +1,8 @@
 # UI Iconography Guidelines
 
+> [!NOTE]
+> **Supporting Document**: This document provides background on entity icons. The single authoritative source for all OnPro UI rules and iconography conventions is [docs/ui-guidelines.md](file:///opt/code/coparity/docs/ui-guidelines.md).
+
 To ensure consistency across the platform (including the home page and PDF exports), the following semantic icons from `lucide-react` should be used to represent entity types:
 
 - **Client (Corporate, Partnership, Trust):** `Factory` (matches the factory icon from lucide-react used across dashboards).

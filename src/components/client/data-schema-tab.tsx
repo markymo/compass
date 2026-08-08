@@ -970,7 +970,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                                     </TooltipTrigger>
                                     <TooltipContent side="top" className="text-xs bg-slate-900 text-white border-slate-800 max-w-xs space-y-1">
                                         <p className="font-semibold">Assigned to: {assignment.assignedUser.name || assignment.assignedUser.email}</p>
-                                        <p className="text-[11px] opacity-80">Work status: <span className={assignment.status === 'DONE' ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold"}>{assignment.status === 'DONE' ? 'Done' : 'Open'}</span></p>
+                                        <p className="text-[11px] opacity-80">Work status: <span className={assignment.status === 'DONE' ? "text-emerald-400 font-semibold" : "text-slate-300 font-semibold"}>{assignment.status === 'DONE' ? 'Done' : 'Open'}</span></p>
                                         {assignment.assignedByUser && (
                                             <p className="text-[11px] opacity-80">Assigned by: {assignment.assignedByUser.name || assignment.assignedByUser.email}</p>
                                         )}

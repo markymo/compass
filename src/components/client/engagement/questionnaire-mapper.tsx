@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2, ChevronRight, Search, LayoutList, LayoutTemplate, Check, Plus, Settings, Pencil, Paperclip, RefreshCw, Cloud, CloudOff, GripVertical } from "lucide-react";
+import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2, ChevronRight, Search, LayoutList, LayoutTemplate, Check, Plus, Settings, Pencil, Paperclip, RefreshCw, Cloud, CloudOff, GripVertical, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -1015,7 +1015,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData, rea
                             <CheckCircle2 className="h-2.5 w-2.5" />
                             Mapped
                         </span>
-                        <span className="text-green-600 text-xs font-bold shrink-0">→</span>
+                        <ArrowRight className="h-3.5 w-3.5 text-green-600 shrink-0" />
                         <span className="text-sm font-medium text-slate-800 truncate flex-1 min-w-0">{selectedOption.label}</span>
                         {resolvedDisplay && (
                             <span className="text-xs text-slate-400 truncate shrink-0 max-w-[120px]" title={resolvedDisplay}>
@@ -1070,7 +1070,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData, rea
                                         <CheckCircle2 className="h-2.5 w-2.5" />
                                         Mapped
                                     </span>
-                                    <span className="text-green-600 text-xs font-bold shrink-0">→</span>
+                                    <ArrowRight className="h-3.5 w-3.5 text-green-600 shrink-0" />
                                     <span className="text-sm font-medium text-slate-800 truncate flex-1 min-w-0">{selectedOption.label}</span>
                                     {resolvedDisplay && (
                                         <span className="text-xs text-slate-400 truncate shrink-0 max-w-[120px]" title={resolvedDisplay}>

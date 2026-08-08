@@ -1136,7 +1136,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                     <span className="truncate max-w-[90px] font-semibold text-slate-800">
                                                         {data.assignment.assignedUser.name?.split(" ")[0] || data.assignment.assignedUser.email}
                                                     </span>
-                                                    <span className={cn("text-[10px] uppercase font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5", data.assignment.status === 'DONE' ? "text-emerald-700 bg-emerald-100/80" : "text-amber-700 bg-amber-100/80")}>
+                                                    <span className={cn("text-[10px] uppercase font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5", data.assignment.status === 'DONE' ? "text-emerald-700 bg-emerald-100/80" : "text-slate-700 bg-slate-200/80")}>
                                                         {data.assignment.status === 'DONE' ? (
                                                             <>
                                                                 <Check className="h-2.5 w-2.5" />
@@ -1211,7 +1211,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         onClick={() => handleUpdateStatus('OPEN')}
                                                         className={cn(
                                                             "h-7 text-xs flex-1 font-medium transition-all",
-                                                            data.assignment.status === 'OPEN' ? "bg-amber-500 hover:bg-amber-600 text-white shadow-xs" : "text-slate-600 hover:bg-white"
+                                                            data.assignment.status === 'OPEN' ? "bg-slate-800 hover:bg-slate-900 text-white shadow-xs" : "text-slate-600 hover:bg-white"
                                                         )}
                                                     >
                                                         Open

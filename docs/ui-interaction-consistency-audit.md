@@ -1,5 +1,8 @@
 # CoParity UI Interaction Consistency & Semantics Audit
 
+> [!NOTE]
+> **Historical Audit Document**: This document records an architectural audit of UI interactions and database soft-delete constraints. The single authoritative source for active OnPro UI rules and conventions is [docs/ui-guidelines.md](file:///opt/code/coparity/docs/ui-guidelines.md).
+
 This document serves as an audit and proposed standard for UI interaction consistency, focusing primarily on destructive actions (Delete, Archive, Remove) and their underlying database/semantic implications across the CoParity Next.js app.
 
 ## 1. Proposed CoParity UI Interaction Standard
