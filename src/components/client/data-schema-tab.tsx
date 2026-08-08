@@ -760,8 +760,17 @@ setIsRefreshingRegistry(false);
                         return (
                             <Card key={group.id} className="border-l-4 border-l-blue-500 shadow-sm overflow-hidden animate-in fade-in duration-300">
                                 <CardHeader 
-                                    className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 cursor-pointer hover:bg-slate-100/50 transition-colors group/header"
+                                    tabIndex={0}
+                                    role="button"
+                                    aria-label={`Toggle ${group.displayName} category`}
+                                    className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 cursor-pointer hover:bg-slate-100/50 transition-colors group/header focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none rounded-t-lg"
                                     onClick={() => toggleCategory(group.id)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            toggleCategory(group.id);
+                                        }
+                                    }}
                                 >
                                     <div className="flex items-center justify-between">
                                         <CardTitle className="flex items-center gap-2 text-lg">
@@ -812,8 +821,17 @@ setIsRefreshingRegistry(false);
                     {filteredUncategorized.length > 0 && (
                         <Card className="border-l-4 border-l-slate-400 shadow-sm overflow-hidden opacity-80 animate-in fade-in duration-300">
                             <CardHeader 
-                                className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 cursor-pointer hover:bg-slate-100/50 transition-colors group/header"
+                                tabIndex={0}
+                                role="button"
+                                aria-label="Toggle Uncategorized category"
+                                className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 cursor-pointer hover:bg-slate-100/50 transition-colors group/header focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none rounded-t-lg"
                                 onClick={() => toggleCategory("UNCATEGORIZED")}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        toggleCategory("UNCATEGORIZED");
+                                    }
+                                }}
                             >
                                 <div className="flex items-center justify-between">
                                     <CardTitle className="flex items-center gap-2 text-lg">
@@ -1034,12 +1052,21 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
             </div>
 
             <div 
+                tabIndex={onClick ? 0 : undefined}
+                role={onClick ? "button" : undefined}
+                aria-label={onClick ? `Inspect field ${fieldNo}: ${label}` : undefined}
                 className={cn(
-                    "flex p-3 bg-slate-50 rounded-md border border-slate-100 transition-all w-full",
+                    "flex p-3 bg-slate-50 rounded-md border border-slate-100 transition-all w-full focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none",
                     isRepeatingParty && isArrayValue ? "flex-col gap-3" : "items-center justify-between",
                     onClick && "cursor-pointer hover:border-blue-200 hover:bg-white hover:shadow-sm"
                 )}
                 onClick={onClick}
+                onKeyDown={(e) => {
+                    if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+                        e.preventDefault();
+                        onClick();
+                    }
+                }}
             >
                 {isRepeatingParty && isArrayValue ? (
                     <>
@@ -1047,12 +1074,14 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{value.length} Items</span>
                                 {canonicalDisplayModel?.allowAttachments && (
-                                    <FieldAttachments 
-                                        clientLEId={canonicalDisplayModel.clientLEId || ''}
-                                        fieldNo={canonicalDisplayModel.fieldNo}
-                                        attachments={(canonicalDisplayModel.attachments || []).filter(a => a.provenance?.some(p => p.type === 'FIELD'))}
-                                        mode="indicator" 
-                                    />
+                                    <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                                        <FieldAttachments 
+                                            clientLEId={canonicalDisplayModel.clientLEId || ''}
+                                            fieldNo={canonicalDisplayModel.fieldNo}
+                                            attachments={(canonicalDisplayModel.attachments || []).filter(a => a.provenance?.some(p => p.type === 'FIELD'))}
+                                            mode="indicator" 
+                                        />
+                                    </div>
                                 )}
                             </div>
                             <div className="flex items-center gap-2">
@@ -1155,12 +1184,14 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                                     <div className="flex flex-col gap-1">
                                         <FieldValueRenderer field={canonicalDisplayModel} />
                                         {canonicalDisplayModel.allowAttachments && (
-                                            <FieldAttachments 
-                                                clientLEId={canonicalDisplayModel.clientLEId || ''}
-                                                fieldNo={canonicalDisplayModel.fieldNo}
-                                                attachments={(canonicalDisplayModel.attachments || []).filter(a => a.provenance?.some(p => p.type === 'FIELD'))}
-                                                mode="indicator" 
-                                            />
+                                            <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                                                <FieldAttachments 
+                                                    clientLEId={canonicalDisplayModel.clientLEId || ''}
+                                                    fieldNo={canonicalDisplayModel.fieldNo}
+                                                    attachments={(canonicalDisplayModel.attachments || []).filter(a => a.provenance?.some(p => p.type === 'FIELD'))}
+                                                    mode="indicator" 
+                                                />
+                                            </div>
                                         )}
                                     </div>
                                 ) : (

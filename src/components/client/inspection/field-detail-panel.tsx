@@ -1117,6 +1117,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                         <Button
                                             variant="outline"
                                             size="sm"
+                                            aria-label={data?.assignment?.assignedUser ? `Assignment control, assigned to ${data.assignment.assignedUser.name || data.assignment.assignedUser.email}, status ${data.assignment.status || 'OPEN'}` : "Assign master field"}
                                             className={cn(
                                                 "h-8 shadow-xs gap-1.5 px-2.5 transition-all font-medium text-xs whitespace-nowrap",
                                                 data?.assignment?.assignedUser

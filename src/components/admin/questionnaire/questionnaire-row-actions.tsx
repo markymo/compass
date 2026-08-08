@@ -76,7 +76,7 @@ export function QuestionnaireRowActions({ questionnaireId, questionnaireName, st
 
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900 ml-2">
+                    <Button variant="ghost" size="icon" aria-label={`Actions for questionnaire ${questionnaireName}`} className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900 ml-2">
                         <span className="sr-only">Open menu</span>
                         {isDeleting || isArchiving ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
                     </Button>

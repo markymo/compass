@@ -454,6 +454,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                     <Button
                         variant={currentViewMode === "classic" ? "secondary" : "ghost"}
                         size="sm"
+                        aria-label="Classic view mode"
                         onClick={() => handleViewChange("classic")}
                         className={cn(
                             "h-7 text-xs font-semibold px-2.5 rounded-lg gap-1.5 transition-all",
@@ -465,6 +466,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                     <Button
                         variant={currentViewMode === "flow" ? "secondary" : "ghost"}
                         size="sm"
+                        aria-label="Flow view mode"
                         onClick={() => handleViewChange("flow")}
                         className={cn(
                             "h-7 text-xs font-semibold px-2.5 rounded-lg gap-1.5 transition-all",
@@ -476,6 +478,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                     <Button
                         variant={currentViewMode === "compact" ? "secondary" : "ghost"}
                         size="sm"
+                        aria-label="Compact view mode"
                         onClick={() => handleViewChange("compact")}
                         className={cn(
                             "h-7 text-xs font-semibold px-2.5 rounded-lg gap-1.5 transition-all",

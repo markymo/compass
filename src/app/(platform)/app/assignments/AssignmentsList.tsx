@@ -339,8 +339,9 @@ export function AssignmentsList({ myAssignments, teamAssignments, currentUserId 
 
                                     <Link
                                         href={getItemUrl(item)}
-                                        className="shrink-0 h-9 w-9 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 group-hover:border-indigo-200 group-hover:bg-indigo-50 transition-colors bg-white shadow-sm"
-                                        title="Inspect item in side panel"
+                                        className="shrink-0 h-9 w-9 rounded-full border border-slate-200 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 group-hover:border-indigo-200 group-hover:bg-indigo-50 transition-colors bg-white shadow-sm focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+                                        title={`Inspect assignment: ${item.title}`}
+                                        aria-label={`Inspect assignment: ${item.title}`}
                                     >
                                         <PanelRightOpen className="h-5 w-5" />
                                     </Link>
