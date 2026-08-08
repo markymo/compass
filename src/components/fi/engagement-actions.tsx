@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { archiveEngagement, deleteEngagement } from "@/actions/fi";
 import { useState } from "react";
-import { ConfirmArchiveDialog } from "@/components/shared/confirm-dialogs";
+import { ConfirmArchiveDialog, ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
@@ -25,6 +25,7 @@ export function EngagementActions({ engagementId, clientName }: EngagementAction
     const router = useRouter(); // For refresh
     const [isLoading, setIsLoading] = useState(false);
     const [showArchive, setShowArchive] = useState(false);
+    const [showDelete, setShowDelete] = useState(false);
 
     const handleArchiveConfirm = async () => {
         setIsLoading(true);
@@ -38,8 +39,7 @@ export function EngagementActions({ engagementId, clientName }: EngagementAction
         setIsLoading(false);
     };
 
-    const handleDelete = async () => {
-        if (!confirm(`Delete engagement with ${clientName}? This is permanent.`)) return;
+    const handleDeleteConfirm = async () => {
         setIsLoading(true);
         const res = await deleteEngagement(engagementId);
         if (res.success) {
@@ -60,25 +60,35 @@ export function EngagementActions({ engagementId, clientName }: EngagementAction
                 onConfirm={handleArchiveConfirm}
                 isLoading={isLoading}
             />
+            <ConfirmDeleteDialog
+                open={showDelete}
+                onOpenChange={setShowDelete}
+                itemName={`engagement with ${clientName}`}
+                title="Delete engagement?"
+                description={`This will permanently delete the engagement with "${clientName}" and its associated questionnaires. This action cannot be undone.`}
+                confirmLabel="Delete Engagement"
+                onConfirm={handleDeleteConfirm}
+                isLoading={isLoading}
+            />
             <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" disabled={isLoading} className="h-6 w-6 p-0 hover:bg-slate-100 text-slate-400">
-                    {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <MoreVertical className="h-3 w-3" />}
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setShowArchive(true); }}>
-                    <Archive className="mr-2 h-4 w-4" />
-                    <span>Archive</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleDelete} className="text-red-600 focus:text-red-600">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    <span>Delete</span>
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" disabled={isLoading} className="h-6 w-6 p-0 hover:bg-slate-100 text-slate-400">
+                        {isLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <MoreVertical className="h-3 w-3" />}
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setShowArchive(true); }}>
+                        <Archive className="mr-2 h-4 w-4" />
+                        <span>Archive</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setShowDelete(true); }} className="text-red-600 focus:text-red-600">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        <span>Delete</span>
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
         </>
     );
 }

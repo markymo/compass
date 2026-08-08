@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, ArrowUpRight, Plus, Search, Check, Trash2, Loader2, X } from "lucide-react";
+import { FileText, ArrowUpRight, ArrowRight, Plus, Search, Check, Trash2, Loader2, X } from "lucide-react";
 import Link from "next/link";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -12,6 +12,7 @@ import { getAvailableCommonQuestionnaires, addCommonQuestionnaire, removeCommonQ
 import { toast } from "sonner";
 import { ProgressTracker } from "@/components/shared/progress-tracker";
 import { cn } from "@/lib/utils";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 const DASHBOARD_GRID_V2 = "grid-cols-[minmax(350px,1fr)_60px_160px_160px_150px]";
 
@@ -49,7 +50,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
     const [available, setAvailable] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [open, setOpen] = useState(false);
-    const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+    const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
 
     useEffect(() => {
         setLinked(initialQuestionnaires || []);
@@ -84,7 +85,9 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
         }
     };
 
-    const handleRemove = async (id: string, name: string) => {
+    const handleRemoveConfirm = async () => {
+        if (!removeTarget) return;
+        const { id, name } = removeTarget;
         const prev = [...linked];
         setLinked(linked.filter((q: any) => q.id !== id));
 
@@ -93,7 +96,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
             success: `Removed ${name}`,
             error: () => {
                 setLinked(prev);
-                return "Failed to remove";
+                return "Failed to remove questionnaire";
             }
         });
     };
@@ -239,45 +242,22 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                             <div className="text-xs text-slate-500 italic pr-4">No data</div>
                                         )}
                                         <div className="shrink-0 flex items-center gap-1 pl-4">
-                                            {confirmRemoveId === q.id ? (
-                                                <div className="flex items-center gap-1 animate-in fade-in zoom-in duration-200">
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="sm"
-                                                        onClick={() => { setConfirmRemoveId(null); handleRemove(q.id, q.name); }}
-                                                        className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 px-2 text-xs"
-                                                    >
-                                                        Yes
-                                                    </Button>
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="sm"
-                                                        onClick={() => setConfirmRemoveId(null)}
-                                                        className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 h-8 px-2 text-xs"
-                                                    >
-                                                        No
-                                                    </Button>
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <Link 
-                                                        href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`}
-                                                        className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
-                                                        title="Review in Question Bank"
-                                                    >
-                                                        <ArrowUpRight className="h-4 w-4" />
-                                                    </Link>
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="icon" 
-                                                        className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                                                        onClick={() => setConfirmRemoveId(q.id)}
-                                                        title="Remove Common Questionnaire"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </>
-                                            )}
+                                            <Link 
+                                                href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`}
+                                                className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                                                title="Review in Question Bank"
+                                            >
+                                                <ArrowRight className="h-4 w-4" />
+                                            </Link>
+                                            <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                                onClick={() => setRemoveTarget({ id: q.id, name: q.name })}
+                                                title="Remove Common Questionnaire"
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
                                         </div>
                                     </div>
                                 </div>
@@ -298,21 +278,14 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                                 </div>
                                             </div>
                                         </div>
-                                        {confirmRemoveId === q.id ? (
-                                            <div className="flex items-center gap-1 animate-in fade-in zoom-in duration-200">
-                                                <Button variant="ghost" size="sm" onClick={() => { setConfirmRemoveId(null); handleRemove(q.id, q.name); }} className="text-red-600 h-6 px-2 text-xs">Yes</Button>
-                                                <Button variant="ghost" size="sm" onClick={() => setConfirmRemoveId(null)} className="text-slate-500 h-6 px-2 text-xs">No</Button>
-                                            </div>
-                                        ) : (
-                                            <div className="shrink-0 flex items-center gap-1">
-                                                <Link href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`} className="h-8 w-8 inline-flex items-center justify-center rounded-md text-slate-400">
-                                                    <ArrowUpRight className="h-4 w-4" />
-                                                </Link>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400" onClick={() => setConfirmRemoveId(q.id)}>
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
-                                        )}
+                                        <div className="shrink-0 flex items-center gap-1">
+                                            <Link href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`} className="h-8 w-8 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-slate-600">
+                                                <ArrowRight className="h-4 w-4" />
+                                            </Link>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-600" onClick={() => setRemoveTarget({ id: q.id, name: q.name })}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
                                     </div>
                                     {q.metrics && (
                                         <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-slate-50/50" />
@@ -328,6 +301,17 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                      <p className="text-sm text-slate-400 mt-1">Search above to add standard questionnaires.</p>
                  </div>
             )}
+
+            <ConfirmDeleteDialog
+                open={removeTarget !== null}
+                onOpenChange={(open) => { if (!open) setRemoveTarget(null); }}
+                itemName={removeTarget?.name}
+                title="Remove Common Questionnaire?"
+                description={removeTarget ? `This will remove "${removeTarget.name}" from your common questionnaires list.` : ""}
+                confirmLabel="Remove Questionnaire"
+                onConfirm={handleRemoveConfirm}
+                isLoading={isLoading}
+            />
         </div>
     );
 }

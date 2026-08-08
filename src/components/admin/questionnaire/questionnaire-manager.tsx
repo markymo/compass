@@ -17,6 +17,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -117,6 +118,34 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
     const [rawText, setRawText] = useState<string>(initialQ.rawText || "");
 
     const [extracting, setExtracting] = useState(false);
+    const [pendingOcr, setPendingOcr] = useState<{ iframeSrc: string } | null>(null);
+
+    const handleRunOcrConfirm = async () => {
+        if (!pendingOcr) return;
+        setExtracting(true);
+        try {
+            const images = await convertPdfToImages(pendingOcr.iframeSrc);
+            const imgRes = await extractDetailedContent(questionnaire.id, images);
+            if (imgRes.success) {
+                const ocrQ = await fetchQ();
+                if (ocrQ && ocrQ.questions && ocrQ.questions.length > 0) {
+                    setItems(mapQuestionsToExtractedItems(ocrQ.questions));
+                } else {
+                    setItems(ocrQ && ocrQ.extractedContent ? ocrQ.extractedContent as any[] : []);
+                }
+                if (ocrQ && ocrQ.rawText) setRawText(ocrQ.rawText);
+                toast.success("OCR extraction completed");
+            } else {
+                setExtractionError(imgRes.error || "OCR Failed");
+                toast.error(imgRes.error || "OCR Failed");
+            }
+        } catch (e) {
+            toast.error("OCR extraction failed");
+        } finally {
+            setExtracting(false);
+            setPendingOcr(null);
+        }
+    };
     const [extractionError, setExtractionError] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [isEditingName, setIsEditingName] = useState(false);
@@ -284,24 +313,8 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
                 if (errorQ && errorQ.rawText) setRawText(errorQ.rawText);
 
                 if (chainRes.error === "SCANNED_PDF_DETECTED" && isPDF) {
-                    // Handle Scanned PDF
-                    if (confirm("Scanned PDF detected. Use browser-side OCR? (Slow)")) {
-                        const images = await convertPdfToImages(iframeSrc);
-                        const imgRes = await extractDetailedContent(questionnaire.id, images);
-                        if (imgRes.success) {
-                            const ocrQ = await fetchQ();
-                            if (ocrQ && ocrQ.questions && ocrQ.questions.length > 0) {
-                                setItems(mapQuestionsToExtractedItems(ocrQ.questions));
-                            } else {
-                                setItems(ocrQ && ocrQ.extractedContent ? ocrQ.extractedContent as any[] : []);
-                            }
-                            if (ocrQ && ocrQ.rawText) setRawText(ocrQ.rawText);
-                        } else {
-                            setExtractionError(imgRes.error || "OCR Failed");
-                        }
-                    } else {
-                        setExtractionError("Scanned PDF detected. Auto-extraction skipped.");
-                    }
+                    setPendingOcr({ iframeSrc });
+                    setExtractionError("Scanned PDF detected. Browser-side OCR available.");
                 } else {
                     console.warn("Extraction warning:", chainRes.error);
                     setExtractionError(chainRes.error || "Failed to extract content.");
@@ -1103,6 +1116,17 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
                     </div>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmDeleteDialog
+                open={pendingOcr !== null}
+                onOpenChange={(open) => { if (!open) setPendingOcr(null); }}
+                title="Use browser-side OCR?"
+                description="A scanned PDF was detected. Running browser-side OCR will convert pages to images and extract text. This process may take a few moments."
+                confirmLabel="Run OCR"
+                buttonVariant="default"
+                onConfirm={handleRunOcrConfirm}
+                isLoading={extracting}
+            />
 
         </div>
     );

@@ -36,7 +36,8 @@ import {
     Rows,
     TableProperties,
     X,
-    ExternalLink
+    ExternalLink,
+    ArrowRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -453,6 +454,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                     <Button
                         variant={currentViewMode === "classic" ? "secondary" : "ghost"}
                         size="sm"
+                        aria-label="Classic view mode"
                         onClick={() => handleViewChange("classic")}
                         className={cn(
                             "h-7 text-xs font-semibold px-2.5 rounded-lg gap-1.5 transition-all",
@@ -464,6 +466,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                     <Button
                         variant={currentViewMode === "flow" ? "secondary" : "ghost"}
                         size="sm"
+                        aria-label="Flow view mode"
                         onClick={() => handleViewChange("flow")}
                         className={cn(
                             "h-7 text-xs font-semibold px-2.5 rounded-lg gap-1.5 transition-all",
@@ -475,6 +478,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                     <Button
                         variant={currentViewMode === "compact" ? "secondary" : "ghost"}
                         size="sm"
+                        aria-label="Compact view mode"
                         onClick={() => handleViewChange("compact")}
                         className={cn(
                             "h-7 text-xs font-semibold px-2.5 rounded-lg gap-1.5 transition-all",
@@ -529,7 +533,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
 
                                     <div className="flex items-center gap-3 shrink-0">
                                         <Link href={`/app/s/${orgId}?expand=${q.relationshipId}`} className="text-xs text-teal-700 hover:text-teal-800 font-medium flex items-center gap-1">
-                                            <span>Relationship</span> <ExternalLink className="h-3 w-3" />
+                                            <span>Relationship</span> <ArrowRight className="h-3 w-3" />
                                         </Link>
 
                                         {isReleased ? (
@@ -682,7 +686,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                                             )}
 
                                             <Link href={`/app/s/${orgId}?expand=${q.relationshipId}`} className="text-xs text-teal-700 hover:text-teal-800 font-medium inline-flex items-center gap-1 pt-1">
-                                                <span>View Relationship</span> <ExternalLink className="h-3 w-3" />
+                                                <span>View Relationship</span> <ArrowRight className="h-3 w-3" />
                                             </Link>
                                         </div>
 
@@ -799,7 +803,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                                                             href={`/app/s/${orgId}?expand=${q.relationshipId}`}
                                                             className="text-[11px] text-teal-700 hover:text-teal-800 font-medium inline-flex items-center gap-0.5 pt-0.5"
                                                         >
-                                                            <span>Relationship</span> <ExternalLink className="h-2.5 w-2.5" />
+                                                            <span>Relationship</span> <ArrowRight className="h-2.5 w-2.5" />
                                                         </Link>
                                                     </div>
                                                 </TableCell>

@@ -13,6 +13,7 @@ import { PartyAddressSection } from "./PartyAddressSection";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 interface CanonicalPartyEditorProps {
     clientLEId: string;
@@ -28,18 +29,9 @@ interface CanonicalPartyEditorProps {
 
 export function CanonicalPartyEditor({ clientLEId, partyId, formState, onChange, previewLabel, disabled, isNew = false, onRequestCreateAddress, allowedPartyTypes }: CanonicalPartyEditorProps) {
     const [docCount, setDocCount] = useState<number>(0);
+    const [pendingTypeChange, setPendingTypeChange] = useState<CanonicalPartyFormState['partyType'] | null>(null);
 
-    const handlePartyTypeChange = (newType: CanonicalPartyFormState['partyType']) => {
-        if (!isNew) return;
-        
-        // Confirmation if they have entered identity data
-        const hasIdentityData = formState.identity.forenames || formState.identity.surname || formState.identity.legalName || formState.identity.teamName;
-        if (hasIdentityData) {
-            if (!window.confirm("Changing the Party Type will clear the current identity fields. Are you sure?")) {
-                return;
-            }
-        }
-
+    const applyPartyTypeChange = (newType: CanonicalPartyFormState['partyType']) => {
         onChange({
             ...formState,
             partyType: newType,
@@ -59,6 +51,17 @@ export function CanonicalPartyEditor({ clientLEId, partyId, formState, onChange,
             registeredAddressRef: null,
             correspondenceAddressRef: null
         });
+        setPendingTypeChange(null);
+    };
+
+    const handlePartyTypeChange = (newType: CanonicalPartyFormState['partyType']) => {
+        if (!isNew) return;
+        const hasIdentityData = !!(formState.identity.forenames || formState.identity.surname || formState.identity.legalName || formState.identity.teamName);
+        if (hasIdentityData) {
+            setPendingTypeChange(newType);
+            return;
+        }
+        applyPartyTypeChange(newType);
     };
 
     const setFormState = (updater: React.SetStateAction<CanonicalPartyFormState>) => {
@@ -191,6 +194,16 @@ export function CanonicalPartyEditor({ clientLEId, partyId, formState, onChange,
                     />
                 </div>
             )}
+
+            <ConfirmDeleteDialog
+                open={pendingTypeChange !== null}
+                onOpenChange={(open) => { if (!open) setPendingTypeChange(null); }}
+                title="Change Party Type?"
+                description="Changing the Party Type will clear the current identity fields."
+                confirmLabel="Change Type"
+                buttonVariant="default"
+                onConfirm={() => { if (pendingTypeChange) applyPartyTypeChange(pendingTypeChange); }}
+            />
         </div>
     );
 }

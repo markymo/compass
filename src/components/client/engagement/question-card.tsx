@@ -16,10 +16,13 @@ export interface QuestionTask {
     status: 'DRAFT' | 'APPROVED' | 'SHARED' | 'RELEASED';
     assignedToUserId?: string;
     assignedEmail?: string;
+    assignmentNote?: string | null;
     assignee?: {
         name: string;
         avatar?: string;
         type: 'AI' | 'USER' | 'BANK' | 'INVITEE';
+        userId?: string;
+        email?: string;
     };
     masterFieldNo?: number | null;
     masterQuestionGroupId?: string | null;

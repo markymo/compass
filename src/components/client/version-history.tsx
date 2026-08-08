@@ -8,6 +8,8 @@ import { createVersion, getVersions, getVersionPDF } from "@/actions/versioning"
 import { pdf } from "@react-pdf/renderer";
 import { QuestionnairePDF } from "@/components/pdf/QuestionnairePDF";
 import { format } from "date-fns";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
+import { toast } from "sonner";
 
 interface VersionHistoryProps {
     questionnaireId: string;
@@ -30,6 +32,7 @@ export function VersionHistory({
     const [loading, setLoading] = useState(true);
     const [creating, setCreating] = useState(false);
     const [downloadingId, setDownloadingId] = useState<string | null>(null);
+    const [showCreateConfirm, setShowCreateConfirm] = useState(false);
 
     useEffect(() => {
         loadVersions();
@@ -48,9 +51,7 @@ export function VersionHistory({
         }
     }
 
-    async function handleCreateVersion() {
-        if (!confirm("This will create a permanent snapshot of the current answers and generate a PDF. Continue?")) return;
-
+    async function handleCreateVersionConfirm() {
         setCreating(true);
         try {
             // 1. Generate PDF blob
@@ -128,11 +129,11 @@ export function VersionHistory({
                 a.click();
                 URL.revokeObjectURL(url);
             } else {
-                alert("Failed to download: " + (res.error || "Unknown error"));
+                toast.error("Failed to download: " + (res.error || "Unknown error"));
             }
         } catch (e) {
             console.error(e);
-            alert("Download failed");
+            toast.error("Download failed");
         } finally {
             setDownloadingId(null);
         }
@@ -140,6 +141,16 @@ export function VersionHistory({
 
     return (
         <Card className="mt-12 bg-slate-50 border-slate-200 shadow-sm">
+            <ConfirmDeleteDialog
+                open={showCreateConfirm}
+                onOpenChange={setShowCreateConfirm}
+                title="Create permanent snapshot?"
+                description="This will lock a permanent snapshot of current answers and generate a PDF export."
+                confirmLabel="Create Snapshot"
+                buttonVariant="default"
+                onConfirm={handleCreateVersionConfirm}
+                isLoading={creating}
+            />
             <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                     <div>
@@ -152,7 +163,7 @@ export function VersionHistory({
                         </CardDescription>
                     </div>
                     <Button
-                        onClick={handleCreateVersion}
+                        onClick={() => setShowCreateConfirm(true)}
                         disabled={creating}
                         className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-sm"
                     >

@@ -7,7 +7,7 @@ import { StandingDataWorkbench } from "./standing-data-workbench";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Building2, ArrowUpRight, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { Building2, ArrowUpRight, ArrowRight, CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -139,13 +139,13 @@ export function LEPortalContainer({ le, schema, requirements, standingData, prog
                                         <div className="flex items-center gap-2">
                                             <Link href={`/app/le/${le.id}/requirements`} title="View Requirements">
                                                 <div className="h-10 w-10 rounded-full border flex items-center justify-center hover:bg-slate-50 transition-all text-slate-400">
-                                                    <ArrowUpRight className="h-5 w-5" />
+                                                    <ArrowRight className="h-5 w-5" />
                                                 </div>
                                             </Link>
                                             <Link href={`/app/le/${le.id}/engagement-new/${eng.id}`}>
                                                 <Button size="sm" variant="default" className="gap-2">
                                                     Open Workbench
-                                                    <ArrowUpRight className="h-4 w-4" />
+                                                    <ArrowRight className="h-4 w-4" />
                                                 </Button>
                                             </Link>
                                         </div>

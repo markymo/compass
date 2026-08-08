@@ -1,5 +1,8 @@
 # Phase 1B: Remaining window.confirm Audit
 
+> [!NOTE]
+> **Historical Checklist**: This document serves as a tracking catalog for replacing `window.confirm` calls. The single authoritative source for active OnPro UI rules and conventions is [docs/ui-guidelines.md](file:///opt/code/coparity/docs/ui-guidelines.md).
+
 This document catalogues the remaining `window.confirm` and `confirm` usages across the codebase, outlining the risk level and the recommended replacement component for each. 
 
 | File Path | Line/Context | Action Confirmed | User/Admin | Classification | Current Backend Behaviour | Risk Level | Recommended Replacement | Suggested Phase |

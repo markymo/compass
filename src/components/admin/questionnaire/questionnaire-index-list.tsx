@@ -319,7 +319,7 @@ export function QuestionnaireIndexList({ items }: { items: QuestionnaireIndexIte
                                                     >
                                                         {q.fiEngagement.org.shortCode ?? q.fiEngagement.org.name.slice(0, 6).toUpperCase()}
                                                     </span>
-                                                    <span className="text-slate-300 text-xs">→</span>
+                                                    <ArrowRight className="h-3 w-3 text-slate-400 shrink-0" />
                                                     <span
                                                         className="text-xs text-slate-600 truncate max-w-[130px]"
                                                         title={q.fiEngagement.clientLE.name}

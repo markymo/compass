@@ -1,5 +1,8 @@
 # UI Consistency & Semantics: Phase 1 Implementation Plan
 
+> [!NOTE]
+> **Implementation Plan Document**: This document outlines the Phase 1 execution plan. The single authoritative source for active OnPro UI rules and conventions is [docs/ui-guidelines.md](file:///opt/code/coparity/docs/ui-guidelines.md).
+
 ## 1. Goal Description
 
 This Phase 1 plan establishes the foundational UI patterns for destructive actions across CoParity without modifying business logic, database schemas, or backend semantics. The primary goal is to safely standardize user feedback and confirmations, replacing inconsistent UI patterns like `window.confirm` with robust, accessible React components. 

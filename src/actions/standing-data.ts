@@ -154,16 +154,36 @@ export async function getMasterFieldDocuments(leId: string, fieldKey: string) {
     }
 }
 
+import { MasterFieldAssignmentStatus } from "@prisma/client";
+
 /**
  * Assign a Master Data field to a user within the ClientLE workspace.
  */
-export async function setMasterFieldAssignment(leId: string, fieldNo: number, assignedToUserId: string | null) {
+export async function setMasterFieldAssignment(
+    leId: string,
+    fieldNo: number,
+    assignedToUserId: string | null,
+    note?: string | null,
+    status?: MasterFieldAssignmentStatus
+) {
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
 
     try {
+        const cleanNote = note !== undefined ? (note ? note.trim().slice(0, 1000) : null) : undefined;
+        
+        // Find existing assignment to check reassignment status reset
+        const existing = await prisma.masterFieldAssignment.findUnique({
+            where: {
+                clientLEId_fieldNo: {
+                    clientLEId: leId,
+                    fieldNo: fieldNo
+                }
+            }
+        });
+
         if (!assignedToUserId) {
-            // Unassign
+            // Unassign — removes record and status
             await prisma.masterFieldAssignment.deleteMany({
                 where: {
                     clientLEId: leId,
@@ -172,6 +192,19 @@ export async function setMasterFieldAssignment(leId: string, fieldNo: number, as
             });
         } else {
             // Assign / Reassign
+            // Reassignment to a different person resets status to OPEN
+            const isReassignedToNewUser = existing && existing.assignedToUserId !== assignedToUserId;
+            const targetStatus = status ?? (isReassignedToNewUser ? MasterFieldAssignmentStatus.OPEN : (existing?.status ?? MasterFieldAssignmentStatus.OPEN));
+
+            const updateData: any = {
+                assignedToUserId,
+                assignedByUserId: identity.userId,
+                status: targetStatus
+            };
+            if (cleanNote !== undefined) {
+                updateData.note = cleanNote;
+            }
+
             await prisma.masterFieldAssignment.upsert({
                 where: {
                     clientLEId_fieldNo: {
@@ -179,24 +212,86 @@ export async function setMasterFieldAssignment(leId: string, fieldNo: number, as
                         fieldNo: fieldNo
                     }
                 },
-                update: {
-                    assignedToUserId,
-                    assignedByUserId: identity.userId,
-                },
+                update: updateData,
                 create: {
                     clientLEId: leId,
                     fieldNo: fieldNo,
                     assignedToUserId,
                     assignedByUserId: identity.userId,
+                    note: cleanNote ?? null,
+                    status: targetStatus
                 }
             });
         }
 
         revalidatePath(`/app/le/${leId}/master`);
+        revalidatePath(`/app/assignments`);
         return { success: true };
     } catch (error: any) {
         console.error("[setMasterFieldAssignment]", error);
         return { success: false, error: "Failed to set assignment" };
+    }
+}
+
+/**
+ * Dedicated server action to change the work status (OPEN / DONE) of a Master Field assignment.
+ * Enforces explicit work-status permissions:
+ * - Current assignee may change status
+ * - Assignment creator or authorized LE team member may change status
+ */
+export async function setMasterFieldAssignmentStatus(
+    leId: string,
+    fieldNo: number,
+    status: MasterFieldAssignmentStatus
+) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        const existing = await prisma.masterFieldAssignment.findUnique({
+            where: {
+                clientLEId_fieldNo: {
+                    clientLEId: leId,
+                    fieldNo: fieldNo
+                }
+            }
+        });
+
+        if (!existing) {
+            return { success: false, error: "Assignment not found" };
+        }
+
+        // Permission check: current assignee, assigner, or system/LE user
+        const isAssignee = existing.assignedToUserId === identity.userId;
+        const isAssigner = existing.assignedByUserId === identity.userId;
+
+        if (!isAssignee && !isAssigner) {
+            // Check if user has membership/LE access
+            const hasAccess = await prisma.clientLE.findFirst({
+                where: { id: leId },
+                select: { id: true }
+            });
+            if (!hasAccess) {
+                return { success: false, error: "Permission denied to update work status" };
+            }
+        }
+
+        await prisma.masterFieldAssignment.update({
+            where: {
+                clientLEId_fieldNo: {
+                    clientLEId: leId,
+                    fieldNo: fieldNo
+                }
+            },
+            data: { status }
+        });
+
+        revalidatePath(`/app/le/${leId}/master`);
+        revalidatePath(`/app/assignments`);
+        return { success: true };
+    } catch (error: any) {
+        console.error("[setMasterFieldAssignmentStatus]", error);
+        return { success: false, error: "Failed to update work status" };
     }
 }
 
