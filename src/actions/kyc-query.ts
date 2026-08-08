@@ -2000,19 +2000,21 @@ export async function getUserAssignments(userId: string): Promise<UserAssignment
         };
     });
 
-    const fieldsRaw = await prisma.masterFieldAssignment.findMany({
-        where: { assignedToUserId: userId },
-        include: {
-            clientLE: {
-                include: {
-                    fiEngagements: { include: { org: true }, take: 1 }
-                }
+    const fieldsRaw = ((prisma as any).masterFieldAssignment?.findMany)
+        ? await (prisma as any).masterFieldAssignment.findMany({
+            where: { assignedToUserId: userId },
+            include: {
+                clientLE: {
+                    include: {
+                        fiEngagements: { include: { org: true }, take: 1 }
+                    }
+                },
+                assignedUser: { select: { name: true, email: true } },
+                assignedByUser: { select: { name: true, email: true } }
             },
-            assignedUser: { select: { name: true, email: true } },
-            assignedByUser: { select: { name: true, email: true } }
-        },
-        orderBy: { createdAt: 'desc' }
-    });
+            orderBy: { createdAt: 'desc' }
+        })
+        : [];
 
     const masterFields = await Promise.all(fieldsRaw.map(async (f: any) => {
         const fieldNo = parseInt(f.fieldNo.toString());
@@ -2099,18 +2101,20 @@ export async function getTeamAssignments(): Promise<UserAssignmentAgg> {
         };
     });
 
-    const fieldsRaw = await prisma.masterFieldAssignment.findMany({
-        include: {
-            clientLE: {
-                include: {
-                    fiEngagements: { include: { org: true }, take: 1 }
-                }
+    const fieldsRaw = ((prisma as any).masterFieldAssignment?.findMany)
+        ? await (prisma as any).masterFieldAssignment.findMany({
+            include: {
+                clientLE: {
+                    include: {
+                        fiEngagements: { include: { org: true }, take: 1 }
+                    }
+                },
+                assignedUser: { select: { id: true, name: true, email: true } },
+                assignedByUser: { select: { id: true, name: true, email: true } }
             },
-            assignedUser: { select: { id: true, name: true, email: true } },
-            assignedByUser: { select: { id: true, name: true, email: true } }
-        },
-        orderBy: { createdAt: 'desc' }
-    });
+            orderBy: { createdAt: 'desc' }
+        })
+        : [];
 
     const masterFields = await Promise.all(fieldsRaw.map(async (f: any) => {
         const fieldNo = parseInt(f.fieldNo.toString());

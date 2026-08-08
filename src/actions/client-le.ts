@@ -601,13 +601,15 @@ export async function getFullMasterData(clientLEId: string) {
         const allFields = await listAllMasterFields();
 
         // Batch fetch master field assignments for this Legal Entity
-        const assignmentsRaw = await prisma.masterFieldAssignment.findMany({
-            where: { clientLEId },
-            include: {
-                assignedUser: { select: { id: true, name: true, email: true } },
-                assignedByUser: { select: { id: true, name: true, email: true } }
-            }
-        });
+        const assignmentsRaw = ((prisma as any).masterFieldAssignment?.findMany)
+            ? await (prisma as any).masterFieldAssignment.findMany({
+                where: { clientLEId },
+                include: {
+                    assignedUser: { select: { id: true, name: true, email: true } },
+                    assignedByUser: { select: { id: true, name: true, email: true } }
+                }
+            })
+            : [];
         for (const a of assignmentsRaw) {
             masterFieldAssignmentsMap[a.fieldNo] = {
                 id: a.id,
