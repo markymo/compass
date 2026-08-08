@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 import { getQuestionnaireById, saveQuestionnaireChanges, analyzeQuestionnaire, getMasterSchemaContext } from "@/actions/questionnaire";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 interface QuestionnaireManageDialogProps {
     open: boolean;
@@ -112,9 +113,9 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
         }
     };
 
-    const handleAutoMap = async () => {
-        if (!confirm("This will use AI to re-analyze mappings. Existing manual mappings might be overwritten. Continue?")) return;
+    const [showAutoMapConfirm, setShowAutoMapConfirm] = useState(false);
 
+    const handleAutoMapConfirm = async () => {
         setAnalyzing(true);
         try {
             // analyzeQuestionnaire returns suggestions
@@ -198,7 +199,7 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
                             </DialogDescription>
                         </div>
                         <div className="flex gap-2">
-                            <Button variant="outline" size="sm" onClick={handleAutoMap} disabled={analyzing || loading}>
+                            <Button variant="outline" size="sm" onClick={() => setShowAutoMapConfirm(true)} disabled={analyzing || loading}>
                                 {analyzing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
                                 Auto-Map
                             </Button>
@@ -208,6 +209,17 @@ export function QuestionnaireManageDialog({ open, onOpenChange, questionnaireId,
                             </Button>
                         </div>
                     </div>
+
+                    <ConfirmDeleteDialog
+                        open={showAutoMapConfirm}
+                        onOpenChange={setShowAutoMapConfirm}
+                        title="Re-analyze mappings?"
+                        description="This will use AI to re-analyze mappings. Existing manual mappings might be overwritten."
+                        confirmLabel="Re-analyze Mappings"
+                        buttonVariant="default"
+                        onConfirm={handleAutoMapConfirm}
+                        isLoading={analyzing}
+                    />
 
                     <div className="mt-4">
                         <Input

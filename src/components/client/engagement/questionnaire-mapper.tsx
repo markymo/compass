@@ -17,6 +17,7 @@ import { Loader2, Save, Sparkles, AlertCircle, CheckCircle2, ChevronRight, Searc
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 // --- Inline Text Editor Component ---
 function InlineTextEditor({ value, onSave, className, readOnly }: { value: string, onSave: (val: string) => void, className?: string, readOnly?: boolean }) {
@@ -283,8 +284,9 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData, rea
         if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
     }, []);
 
-    const handleAutoMap = async () => {
-        if (!confirm(`Auto-Map will use AI to suggest mappings with >${confidenceThreshold}% confidence. Continue?`)) return;
+    const [showAutoMapConfirm, setShowAutoMapConfirm] = useState(false);
+
+    const handleAutoMapConfirm = async () => {
         setAnalyzing(true);
         try {
             const result = await analyzeQuestionnaire(questionnaire.id);
@@ -764,10 +766,20 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData, rea
                                     Save failed
                                 </span>
                             )}
-                            <Button variant="outline" size="sm" onClick={handleAutoMap} disabled={analyzing} className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+                            <Button variant="outline" size="sm" onClick={() => setShowAutoMapConfirm(true)} disabled={analyzing} className="border-indigo-200 text-indigo-700 hover:bg-indigo-50">
                                 {analyzing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
                                 Auto-Map
                             </Button>
+                            <ConfirmDeleteDialog
+                                open={showAutoMapConfirm}
+                                onOpenChange={setShowAutoMapConfirm}
+                                title="Run Auto-Map?"
+                                description={`Auto-Map will use AI to suggest field mappings with >${confidenceThreshold}% confidence. Existing unverified mappings may be updated.`}
+                                confirmLabel="Run Auto-Map"
+                                buttonVariant="default"
+                                onConfirm={handleAutoMapConfirm}
+                                isLoading={analyzing}
+                            />
                             <Button size="sm" onClick={handleSave} disabled={saving} className="bg-slate-900 text-white hover:bg-slate-800">
                                 {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
                                 Save

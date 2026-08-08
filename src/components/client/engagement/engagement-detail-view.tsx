@@ -18,6 +18,7 @@ import { ProgressTracker } from "@/components/shared/progress-tracker";
 import { DashboardMetric } from "@/lib/dashboard-metrics";
 import { InviteSupplierDialog } from "./invite-supplier-dialog";
 import { ShareQuestionnaireDialog } from "../questionnaire/share-questionnaire-dialog";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 interface EngagementDetailViewProps {
     le: any;
@@ -41,7 +42,6 @@ import { useRouter } from "next/navigation";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal, Settings, Trash2 } from "lucide-react";
-import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 import { QuestionnaireMapper } from "./questionnaire-mapper";
 
@@ -92,15 +92,17 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
         } as any);
     }
 
+    const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
+
     const handleAdd = (_type: string, _data: any) => {
         // The AddQuestionnaireDialog owns creation via assignQuestionnaireToEngagement
         // (idempotency-checked). We only need to refresh the list here.
         router.refresh();
     };
 
-    const handleDeleteQuestionnaire = async (id: string, name: string) => {
-        if (!confirm(`Are you sure you want to remove "${name}" from this engagement?`)) return;
-
+    const handleDeleteQuestionnaireConfirm = async () => {
+        if (!removeTarget) return;
+        const id = removeTarget.id;
         toast.promise(deleteQuestionnaire(id), {
             loading: "Removing questionnaire...",
             success: () => {
@@ -275,7 +277,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                                                                             <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2"><path d="M5 2.5C5 2.22386 5.22386 2 5.5 2H12.5C12.7761 2 13 2.22386 13 2.5V9.5C13 9.77614 12.7761 10 12.5 10H8.5V11.5C8.5 11.6663 8.41804 11.8217 8.27639 11.9056C8.13475 11.9894 7.95473 11.9894 7.81309 11.9056L3.81309 9.53056C3.60155 9.40498 3.5 9.14159 3.5 8.875V3.5C3.5 3.22386 3.72386 3 4 3H8.5V2H5.5C4.67157 2 4 2.67157 4 3.5V8.5H1.5C1.22386 8.5 1 8.72386 1 9V11.5C1 12.3284 1.67157 13 2.5 13H5V14.5C5 14.6663 5.08196 14.8217 5.22361 14.9056C5.36525 14.9894 5.54527 14.9894 5.68691 14.9056L9.68691 12.5306C9.89845 12.405 10 12.1416 10 11.875V11H12.5C13.3284 11 14 10.3284 14 9.5V2.5C14 1.67157 13.3284 1 12.5 1H5.5C4.67157 1 4 1.67157 4 2.5V3H5V2.5ZM2.5 12C2.22386 12 2 11.7761 2 11.5V9.5H4V11.082L7.5 13.1601V12H5.5C4.67157 12 4 11.3284 4 10.5V9H2.5C2.22386 9 2 9.22386 2 9.5V12C2 12.2761 2.22386 12.5 2.5 12Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
                                                                             Share to other Engagements
                                                                         </DropdownMenuItem>
-                                                                         <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteQuestionnaire(q.id, q.name)}>
+                                                                         <DropdownMenuItem className="text-red-600" onSelect={(e) => { e.preventDefault(); setRemoveTarget({ id: q.id, name: q.name }); }}>
                                                                              <Trash2 className="h-4 w-4 mr-2" />
                                                                              Remove
                                                                          </DropdownMenuItem>
@@ -433,6 +435,17 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                 questionnaireName={shareTarget?.name || ""}
             />
 
+            <ConfirmDeleteDialog
+                open={removeTarget !== null}
+                onOpenChange={(open) => {
+                    if (!open) setRemoveTarget(null);
+                }}
+                itemName={removeTarget?.name}
+                title="Remove questionnaire?"
+                description={removeTarget ? `This will remove "${removeTarget.name}" from this engagement.` : ""}
+                confirmLabel="Remove Questionnaire"
+                onConfirm={handleDeleteQuestionnaireConfirm}
+            />
 
         </div>
     );

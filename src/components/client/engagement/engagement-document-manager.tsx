@@ -14,6 +14,7 @@ import { revokeDocumentAccess } from "@/actions/documents";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 interface SharedDocument {
     id: string;
@@ -58,23 +59,37 @@ const statusColors: Record<string, string> = {
 
 export function EngagementDocumentManager({ engagementId, documents, evidenceDocuments = [] }: EngagementDocumentManagerProps) {
     const [isPickerOpen, setIsPickerOpen] = useState(false);
+    const [revokeDoc, setRevokeDoc] = useState<{ id: string; name: string } | null>(null);
+    const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
 
     const totalEvidenceDocs = evidenceDocuments.reduce((acc: any, q: any) => acc + q.documents.length, 0);
 
-    const handleRevoke = async (docId: string, docName: string) => {
-        if (!confirm(`Revoke access to "${docName}"? The bank will no longer see this file.`)) return;
-        const res = await revokeDocumentAccess(docId, engagementId);
+    const handleRevokeConfirm = async () => {
+        if (!revokeDoc) return;
+        setIsLoading(true);
+        const res = await revokeDocumentAccess(revokeDoc.id, engagementId);
         if (res.success) {
             toast.success("Access revoked");
             router.refresh();
         } else {
             toast.error("Failed to revoke access");
         }
+        setIsLoading(false);
     };
 
     return (
         <div className="space-y-6">
+            <ConfirmDeleteDialog
+                open={!!revokeDoc}
+                onOpenChange={(open) => { if (!open) setRevokeDoc(null); }}
+                itemName={revokeDoc?.name}
+                title="Revoke document access?"
+                description={revokeDoc ? `The bank will no longer be able to access "${revokeDoc.name}".` : ""}
+                confirmLabel="Revoke Access"
+                onConfirm={handleRevokeConfirm}
+                isLoading={isLoading}
+            />
             <Tabs defaultValue="evidence" className="w-full">
                 <div className="flex items-center justify-between mb-4">
                     <div>
@@ -228,7 +243,7 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                                             </div>
                                             <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button variant="ghost" size="sm" className="gap-2 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                    onClick={() => handleRevoke(doc.id, doc.name)}>
+                                                    onClick={() => setRevokeDoc({ id: doc.id, name: doc.name })}>
                                                     <Trash2 className="h-4 w-4" /> Revoke
                                                 </Button>
                                             </div>

@@ -70,6 +70,10 @@ describe("CanonicalPartyEditor Integrations", () => {
         const orgRadio = screen.getByLabelText("Organisation");
         fireEvent.click(orgRadio);
 
+        // Click Change Type in confirmation dialog
+        const confirmBtn = screen.getByRole("button", { name: "Change Type" });
+        fireEvent.click(confirmBtn);
+
         expect(onChange).toHaveBeenCalledTimes(1);
         const newState = onChange.mock.calls[0][0];
 

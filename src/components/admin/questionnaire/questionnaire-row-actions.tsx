@@ -13,6 +13,7 @@ import {
 import { deleteQuestionnaire, archiveQuestionnaire } from "@/actions/questionnaire";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
 interface QuestionnaireRowActionsProps {
     questionnaireId: string;
@@ -24,12 +25,9 @@ export function QuestionnaireRowActions({ questionnaireId, questionnaireName, st
     const router = useRouter();
     const [isDeleting, setIsDeleting] = useState(false);
     const [isArchiving, setIsArchiving] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-    const handleDelete = async () => {
-        if (!confirm(`Are you sure you want to delete "${questionnaireName}"? This action cannot be undone.`)) {
-            return;
-        }
-
+    const handleDeleteConfirm = async () => {
         setIsDeleting(true);
         try {
             const res = await deleteQuestionnaire(questionnaireId);
@@ -64,28 +62,41 @@ export function QuestionnaireRowActions({ questionnaireId, questionnaireName, st
     };
 
     return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900 ml-2">
-                    <span className="sr-only">Open menu</span>
-                    {isDeleting || isArchiving ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[160px]">
-                {status !== "ARCHIVED" && (
-                    <DropdownMenuItem onClick={handleArchive}>
-                        <Archive className="mr-2 h-4 w-4" />
-                        <span>Archive</span>
+        <>
+            <ConfirmDeleteDialog
+                open={showDeleteConfirm}
+                onOpenChange={setShowDeleteConfirm}
+                itemName={questionnaireName}
+                title="Delete questionnaire?"
+                description={`This will permanently delete questionnaire "${questionnaireName}". This action cannot be undone.`}
+                confirmLabel="Delete Questionnaire"
+                onConfirm={handleDeleteConfirm}
+                isLoading={isDeleting}
+            />
+
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 p-0 text-slate-500 hover:text-slate-900 ml-2">
+                        <span className="sr-only">Open menu</span>
+                        {isDeleting || isArchiving ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[160px]">
+                    {status !== "ARCHIVED" && (
+                        <DropdownMenuItem onClick={handleArchive}>
+                            <Archive className="mr-2 h-4 w-4" />
+                            <span>Archive</span>
+                        </DropdownMenuItem>
+                    )}
+
+                    {status !== "ARCHIVED" && <DropdownMenuSeparator />}
+
+                    <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setShowDeleteConfirm(true); }} className="text-red-600 focus:text-red-700 focus:bg-red-50">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        <span>Delete</span>
                     </DropdownMenuItem>
-                )}
-
-                {status !== "ARCHIVED" && <DropdownMenuSeparator />}
-
-                <DropdownMenuItem onClick={handleDelete} className="text-red-600 focus:text-red-700 focus:bg-red-50">
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    <span>Delete</span>
-                </DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </>
     );
 }

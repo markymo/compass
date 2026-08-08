@@ -21,6 +21,8 @@ import {
 } from "@/actions/questionnaire";
 import { ExtractedItem } from "@/actions/ai-mapper";
 import { QuestionnaireFiller } from "@/components/client/questionnaire-filler";
+import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
+import { toast } from "sonner";
 
 export default function LEManageQuestionnairePage() {
     const params = useParams();
@@ -31,6 +33,7 @@ export default function LEManageQuestionnairePage() {
     const [loading, setLoading] = useState(true);
     const [extracting, setExtracting] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
+    const [showExtractConfirm, setShowExtractConfirm] = useState(false);
 
     // Data State
     const [items, setItems] = useState<ExtractedItem[]>([]);
@@ -44,14 +47,13 @@ export default function LEManageQuestionnairePage() {
     async function loadData() {
         setLoading(true);
         try {
-            const [q] = await Promise.all([
-                getQuestionnaireById(qId)
-            ]);
-            setQuestionnaire(q);
-
-            const qAny = q as any;
-            if (qAny.extractedContent) {
-                setItems(qAny.extractedContent as unknown as ExtractedItem[]);
+            const q = await getQuestionnaireById(qId);
+            if (q) {
+                setQuestionnaire(q);
+                const qAny = q as any;
+                if (qAny.extractedContent) {
+                    setItems(qAny.extractedContent as unknown as ExtractedItem[]);
+                }
             }
         } catch (error) {
             console.error(error);
@@ -60,22 +62,22 @@ export default function LEManageQuestionnairePage() {
         }
     }
 
-    async function handleExtract() {
-        if (!confirm("This will re-analyze the document and overwrite existing extraction data. Continue?")) return;
-
+    async function handleExtractConfirm() {
         setExtracting(true);
         try {
             const res = await extractDetailedContent(qId);
             if (res.success) {
                 if (res.count === 0) {
-                    alert("Extraction finished but found 0 items. The document might be empty.");
+                    toast.warning("Extraction finished but found 0 items. The document might be empty.");
+                } else {
+                    toast.success("Extraction completed successfully.");
                 }
                 loadData();
             } else {
-                alert("Extraction failed: " + (res.error || "Unknown Error"));
+                toast.error("Extraction failed: " + (res.error || "Unknown Error"));
             }
         } catch (e) {
-            alert("Error running extraction");
+            toast.error("Error running extraction");
         } finally {
             setExtracting(false);
         }
@@ -135,12 +137,24 @@ export default function LEManageQuestionnairePage() {
                         {showPreview ? "Hide Original" : "Show Original"}
                     </Button>
 
-                    <Button size="sm" onClick={handleExtract} disabled={extracting} className="gap-2 bg-slate-900 text-white hover:bg-slate-800">
-                        {extracting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                        {items.length > 0 ? "Re-Run Analysis" : "Run Analysis"}
+                    <Button size="sm" onClick={() => setShowExtractConfirm(true)} disabled={extracting} className="gap-2 bg-slate-900 text-white hover:bg-slate-800">
+                        {extracting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
+                        {items.length === 0 ? "Extract Structure" : "Re-Analyze"}
                     </Button>
                 </div>
             </header>
+
+            {/* Confirm Extraction Dialog */}
+            <ConfirmDeleteDialog
+                open={showExtractConfirm}
+                onOpenChange={setShowExtractConfirm}
+                title="Re-analyze document?"
+                description="This will re-analyze the document and replace existing extraction data. Existing items will be updated."
+                confirmLabel="Re-analyze Document"
+                buttonVariant="default"
+                onConfirm={handleExtractConfirm}
+                isLoading={extracting}
+            />
 
             {/* 2. Document Preview Section (Collapsible) */}
             <div
