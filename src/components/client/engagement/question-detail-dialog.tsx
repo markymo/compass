@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Bot, User, Send, History, MessageSquare, Sparkles, Lock, Unlock, Loader2, Database, UserPlus, Paperclip, FileText, Download, Trash2, Check, Share2, CheckCircle, CheckCircle2, AlertTriangle, Upload, Library } from "lucide-react";
@@ -248,7 +249,16 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
         }
     };
 
-    const handleAssign = async (assigneeVal: string) => {
+    const [assignmentNoteInput, setAssignmentNoteInput] = useState(task?.assignmentNote || "");
+    const [isSavingAssignmentNote, setIsSavingAssignmentNote] = useState(false);
+
+    useEffect(() => {
+        if (task) {
+            setAssignmentNoteInput(task.assignmentNote || "");
+        }
+    }, [task]);
+
+    const handleAssign = async (assigneeVal: string, noteVal?: string | null) => {
         if (!task) return;
         setIsAssigning(true);
 
@@ -259,9 +269,11 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
             assignee = { email: assigneeVal.substring(2) };
         }
 
-        const res = await assignQuestion(task.id, assignee);
+        const noteToSave = noteVal !== undefined ? noteVal : assignmentNoteInput;
+        const res = await assignQuestion(task.id, assignee, noteToSave);
         if (res.success) {
-            toast.success("Assignee updated");
+            toast.success(assignee ? "Question assigned" : "Assignment removed");
+            if (!assignee) setAssignmentNoteInput("");
             if (res.activity) {
                 setLocalActivities([res.activity, ...localActivities]);
             }
@@ -269,6 +281,25 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
             toast.error("Failed to update assignee");
         }
         setIsAssigning(false);
+    };
+
+    const handleSaveAssignmentNote = async () => {
+        if (!task?.assignee) return;
+        setIsSavingAssignmentNote(true);
+        let assignee: { userId?: string, email?: string } | null = null;
+        if (task.assignee.userId) assignee = { userId: task.assignee.userId };
+        else if (task.assignee.email) assignee = { email: task.assignee.email };
+
+        const res = await assignQuestion(task.id, assignee, assignmentNoteInput);
+        if (res.success) {
+            toast.success("Assignment note updated");
+            if (res.activity) {
+                setLocalActivities([res.activity, ...localActivities]);
+            }
+        } else {
+            toast.error("Failed to update assignment note");
+        }
+        setIsSavingAssignmentNote(false);
     };
 
     if (!task) return null;
@@ -388,6 +419,34 @@ export function QuestionDetailDialog({ open, onOpenChange, task, clientLEId }: Q
                             )}
                         </div>
                     </div>
+
+                    {task.assignee && (
+                        <div className="mt-3 p-3 bg-indigo-50/50 rounded-lg border border-indigo-100/70 space-y-2">
+                            <div className="flex items-center justify-between text-xs text-indigo-900 font-semibold">
+                                <div className="flex items-center gap-1.5">
+                                    <FileText className="h-3.5 w-3.5 text-indigo-600" />
+                                    <span>Assignment Instruction / Note</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    type="text"
+                                    placeholder="Add instruction for assignee (optional)..."
+                                    value={assignmentNoteInput}
+                                    onChange={(e) => setAssignmentNoteInput(e.target.value)}
+                                    className="h-8 text-xs bg-white border-indigo-200 focus-visible:ring-indigo-500"
+                                />
+                                <Button
+                                    size="sm"
+                                    onClick={handleSaveAssignmentNote}
+                                    disabled={isSavingAssignmentNote}
+                                    className="h-8 text-xs bg-indigo-600 text-white hover:bg-indigo-700 shrink-0"
+                                >
+                                    {isSavingAssignmentNote ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save Note"}
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                 </DialogHeader>
 
                 <div className="flex-1 overflow-hidden flex flex-col md:flex-row">

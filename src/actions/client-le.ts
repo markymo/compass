@@ -572,6 +572,8 @@ export async function getFullMasterData(clientLEId: string) {
     const subjectLeId = clientLE.legalEntityId;
     const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
 
+    const masterFieldAssignmentsMap: Record<number, any> = {};
+
     const flattened: Record<number, { 
         value: any, 
         formattedDisplayValue?: string,
@@ -580,7 +582,8 @@ export async function getFullMasterData(clientLEId: string) {
         displayState: "HAS_VALUE" | "MAPPED_NOT_CHECKED" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "UNMAPPED_NO_RESPONSE",
         defaultResponse?: string,
         mappingStats?: { questions: number, questionnaires: number, suppliers: number },
-        canonicalDisplayModel?: FieldDisplayModel
+        canonicalDisplayModel?: FieldDisplayModel,
+        assignment?: any
     }> = {};
 
     const allMappings = await prisma.sourceFieldMapping.findMany({
@@ -596,6 +599,27 @@ export async function getFullMasterData(clientLEId: string) {
 
     if (subjectLeId) {
         const allFields = await listAllMasterFields();
+
+        // Batch fetch master field assignments for this Legal Entity
+        const assignmentsRaw = await prisma.masterFieldAssignment.findMany({
+            where: { clientLEId },
+            include: {
+                assignedUser: { select: { id: true, name: true, email: true } },
+                assignedByUser: { select: { id: true, name: true, email: true } }
+            }
+        });
+        for (const a of assignmentsRaw) {
+            masterFieldAssignmentsMap[a.fieldNo] = {
+                id: a.id,
+                assignedToUserId: a.assignedToUserId,
+                assignedByUserId: a.assignedByUserId,
+                note: a.note || null,
+                status: a.status || 'OPEN',
+                createdAt: a.createdAt,
+                assignedUser: a.assignedUser,
+                assignedByUser: a.assignedByUser
+            };
+        }
 
         // Fetch usage stats (Questions, Questionnaires, Suppliers) across all questionnaires assigned to this LE (engagements & common questionnaires)
         const stats = await prisma.$queryRaw<{masterFieldNo: number, questions: bigint, questionnaires: bigint, suppliers: bigint}[]>`
@@ -874,7 +898,8 @@ export async function getFullMasterData(clientLEId: string) {
                         displayState,
                         defaultResponse: def.defaultResponse ?? undefined,
                         mappingStats: mappingStatsMap.get(def.fieldNo) || { questions: 0, questionnaires: 0, suppliers: 0 },
-                        canonicalDisplayModel: displayModel
+                        canonicalDisplayModel: displayModel,
+                        assignment: masterFieldAssignmentsMap[def.fieldNo] || null
                     };
                 }
 
@@ -985,7 +1010,8 @@ export async function getFullMasterData(clientLEId: string) {
         // Sourced from RegistryReference.authority.id — the authoritative GLEIF identifier.
         registrationAuthorityId: clientLE.registryReferences?.[0]?.authority?.id ?? undefined,
         masterFields: await listAllMasterFields(), // Already fetched above, but for clarity
-        masterGroups: await listAllMasterGroupsWithItems()
+        masterGroups: await listAllMasterGroupsWithItems(),
+        masterFieldAssignments: masterFieldAssignmentsMap
     };
 
 }

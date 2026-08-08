@@ -151,16 +151,37 @@ export async function acceptInvitation(rawToken: string) {
             });
         }
 
-        // --- UsageLog (Unified platform-wide analytics) ---
-        const { logActivityDirect } = await import("./logging");
-        logActivityDirect(user.id, "INVITATION_ACCEPTED", `/invite`, {
-            email: invite.sentToEmail,
-            role: invite.role,
-            scope: scopeType,
-            organizationId: invite.organizationId,
-            clientLEId: invite.clientLEId,
-            fiEngagementId: invite.fiEngagementId,
-        });
+        // Reconcile question assignments matching the invitee's email within the scope of this invitation
+        if (invite.sentToEmail) {
+            let scopeWhere: any = { assignedEmail: invite.sentToEmail, assignedToUserId: null };
+            if (invite.clientLEId) {
+                scopeWhere.questionnaire = {
+                    OR: [
+                        { fiEngagement: { clientLEId: invite.clientLEId } },
+                        { engagements: { some: { clientLEId: invite.clientLEId } } },
+                        { clientLEs: { some: { id: invite.clientLEId } } }
+                    ]
+                };
+            } else if (invite.fiEngagementId) {
+                scopeWhere.questionnaire = {
+                    OR: [
+                        { fiEngagementId: invite.fiEngagementId },
+                        { engagements: { some: { id: invite.fiEngagementId } } }
+                    ]
+                };
+            } else if (invite.organizationId) {
+                scopeWhere.questionnaire = {
+                    OR: [
+                        { fiOrgId: invite.organizationId },
+                        { fiEngagement: { fiOrgId: invite.organizationId } }
+                    ]
+                };
+            }
+            await prisma.question.updateMany({
+                where: scopeWhere,
+                data: { assignedToUserId: user.id }
+            }).catch((err: any) => console.error("Failed to reconcile question assignments for invitee:", err));
+        }
 
         // 7. Mark invitation as used (idempotent guard at top handles double-clicks)
         await prisma.invitation.update({

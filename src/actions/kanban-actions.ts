@@ -1330,11 +1330,13 @@ export async function getLETeamMembers(clientLEId: string) {
 /**
  * Assign a question to a user or invitee
  */
-export async function assignQuestion(questionId: string, assignee: { userId?: string, email?: string } | null) {
+export async function assignQuestion(questionId: string, assignee: { userId?: string, email?: string } | null, note?: string | null) {
     try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     const { userId: actorId } = identity;
+
+    const cleanNote = note ? note.trim().slice(0, 1000) : null;
 
     try {
         const question = await prisma.question.update({
@@ -1342,7 +1344,8 @@ export async function assignQuestion(questionId: string, assignee: { userId?: st
             data: {
                 assignedToUserId: assignee?.userId || null,
                 assignedByUserId: actorId, // Audit: who made the assignment
-                assignedEmail: assignee?.email || null
+                assignedEmail: assignee?.email || null,
+                assignmentNote: cleanNote
             }
         });
 
@@ -1356,14 +1359,18 @@ export async function assignQuestion(questionId: string, assignee: { userId?: st
                 details: {
                     assignedToUserId: assignee?.userId || null,
                     assignedByUserId: actorId,
-                    assignedEmail: assignee?.email || null
+                    assignedEmail: assignee?.email || null,
+                    note: cleanNote
                 }
             },
             include: { user: true }
         });
 
+        revalidatePath('/app/assignments');
+
         return {
             success: true,
+            question,
             activity: {
                 id: activity.id,
                 type: activity.type,

@@ -1,5 +1,5 @@
 import { getIdentity } from "@/lib/auth";
-import { getUserAssignments } from "@/actions/kyc-query";
+import { getUserAssignments, getTeamAssignments } from "@/actions/kyc-query";
 import { redirect } from "next/navigation";
 import { AssignmentsList, UnifiedAssignment } from "./AssignmentsList";
 import Link from "next/link";
@@ -13,11 +13,13 @@ export default async function GlobalAssignmentsPage() {
         redirect("/login");
     }
 
-    const assignments = await getUserAssignments(identity.userId);
+    const [userAss, teamAss] = await Promise.all([
+        getUserAssignments(identity.userId),
+        getTeamAssignments()
+    ]);
 
-    // Map to unified structure
-    const unified: UnifiedAssignment[] = [
-        ...assignments.questions.map((q: any) => ({
+    const mapAssignments = (raw: typeof userAss): UnifiedAssignment[] => [
+        ...raw.questions.map((q: any) => ({
             id: q.id,
             type: "question" as const,
             title: q.text,
@@ -25,36 +27,48 @@ export default async function GlobalAssignmentsPage() {
             status: q.status,
             clientName: q.engagementOrgName ?? null,
             clientLEId: q.clientLEId ?? null,
+            engagementId: q.engagementId ?? null,
+            questionnaireId: q.questionnaireId ?? null,
             contextName: q.questionnaireName,
+            assignedToUserId: q.assignedToUserId,
+            assignedToUserName: q.assignedToUserName ?? "Team Member",
             assignedBy: q.assignedByUserName ?? "Unknown",
+            note: q.note ?? null,
             createdAt: q.createdAt,
         })),
-        ...assignments.masterFields.map((f: any) => ({
+        ...raw.masterFields.map((f: any) => ({
             id: f.id,
             type: "master" as const,
             title: f.fieldName,
             description: "",
-            status: "Assigned",
+            status: f.workStatus === 'DONE' ? "Done" : "Open",
+            workStatus: (f.workStatus || 'OPEN') as 'OPEN' | 'DONE',
             clientName: f.engagementOrgName ?? null,
             clientLEId: f.clientLEId ?? null,
             contextName: `Field ${f.fieldNo}`,
+            assignedToUserId: f.assignedToUserId,
+            assignedToUserName: f.assignedToUserName ?? "Team Member",
             assignedBy: f.assignedByUserName ?? "Unknown",
+            note: f.note ?? null,
             createdAt: f.createdAt,
             fieldNo: f.fieldNo,
         }))
     ];
+
+    const myAssignments = mapAssignments(userAss);
+    const teamAssignments = mapAssignments(teamAss);
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50/30">
             <StandardPageHeader
                 title="Assignments"
                 typeLabel="Tasks"
-                subtitle="Global view of all tasks and data points assigned to you across all clients and workspaces."
+                subtitle="Global view of all tasks and data points assigned across your personal workload and team."
                 breadcrumbs={[{ label: "Home", href: "/app", icon: Home }, { label: "Assignments" }]}
             />
 
             <div className="max-w-7xl mx-auto px-6 py-8 space-y-6 w-full">
-                <AssignmentsList assignments={unified} />
+                <AssignmentsList myAssignments={myAssignments} teamAssignments={teamAssignments} currentUserId={identity.userId} />
             </div>
         </div>
     );

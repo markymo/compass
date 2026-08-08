@@ -25,7 +25,7 @@ import { useRouter } from "next/navigation";
 import { updateFieldManually, applyCandidate, updateCustomFieldManually, addMultiValueEntry, removeMultiValueEntry, applyBulkOverride, promoteClaim, releaseFieldDefault, releaseFieldAbsence, restoreSourceValue } from "@/actions/kyc-manual-update";
 import { promoteClaimToCCParty } from "@/actions/cc-party-actions";
 import { saveAddressForReuse } from "@/actions/cc-address-actions";
-import { setMasterFieldAssignment } from "@/actions/standing-data";
+import { setMasterFieldAssignment, setMasterFieldAssignmentStatus } from "@/actions/standing-data";
 import { renameCustomField } from "@/actions/master-data-governance";
 import { saveMasterFieldNote } from "@/actions/master-data-notes";
 import { getLETeamMembers } from "@/actions/kanban-actions";
@@ -294,6 +294,8 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     // Team/Assignment State
     const [team, setTeam] = useState<any[]>([]);
     const [isAssigning, setIsAssigning] = useState(false);
+    const [assignmentNoteInput, setAssignmentNoteInput] = useState("");
+    const [isSavingAssignmentNote, setIsSavingAssignmentNote] = useState(false);
 
     // Custom Field Rename State
     const [isRenamingField, setIsRenamingField] = useState(false);
@@ -483,6 +485,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
             const result = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
             setData(result);
             setNoteText(result?.userNote || "");
+            setAssignmentNoteInput(result?.assignment?.note || "");
         } catch (error) {
             console.error("Error loading field details:", error);
             toast.error("Failed to load field details");
@@ -934,7 +937,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
         setCandidateToApply(candidate);
     };
 
-    const handleAssign = async (userId: string | null) => {
+    const handleAssign = async (userId: string | null, noteOverride?: string | null) => {
         if (customFieldId) {
             toast.error("Assignments on custom fields are not yet supported.");
             return;
@@ -942,15 +945,53 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
 
         setIsAssigning(true);
         try {
-            const res = await setMasterFieldAssignment(clientLEId, fieldNo, userId);
+            const noteToSave = noteOverride !== undefined ? noteOverride : assignmentNoteInput;
+            const res = await setMasterFieldAssignment(clientLEId, fieldNo, userId, noteToSave);
             if (res.success) {
                 toast.success(userId ? "Field assigned successfully" : "Assignment removed");
+                if (!userId) setAssignmentNoteInput("");
                 await loadData();
             } else {
                 toast.error(res.error || "Failed to assign field");
             }
         } catch (e) {
             toast.error("An error occurred during assignment.");
+        } finally {
+            setIsAssigning(false);
+        }
+    };
+
+    const handleSaveAssignmentNote = async () => {
+        if (!data?.assignment?.assignedToUserId) return;
+        setIsSavingAssignmentNote(true);
+        try {
+            const res = await setMasterFieldAssignment(clientLEId, fieldNo, data.assignment.assignedToUserId, assignmentNoteInput);
+            if (res.success) {
+                toast.success("Assignment instruction updated");
+                await loadData();
+            } else {
+                toast.error(res.error || "Failed to update assignment instruction");
+            }
+        } catch (e) {
+            toast.error("Error saving instruction");
+        } finally {
+            setIsSavingAssignmentNote(false);
+        }
+    };
+
+    const handleUpdateStatus = async (newStatus: "OPEN" | "DONE") => {
+        if (!data?.assignment?.assignedToUserId) return;
+        setIsAssigning(true);
+        try {
+            const res = await setMasterFieldAssignmentStatus(clientLEId, fieldNo, newStatus as any);
+            if (res.success) {
+                toast.success(newStatus === 'DONE' ? "Assignment marked as Done" : "Assignment reopened as Open");
+                await loadData();
+            } else {
+                toast.error(res.error || "Failed to update work status");
+            }
+        } catch (e) {
+            toast.error("Error updating work status");
         } finally {
             setIsAssigning(false);
         }
@@ -1128,6 +1169,59 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                             )}
                         </div>
                     </div>
+
+                    {data?.assignment && (
+                        <div className="mt-3 p-3 bg-indigo-50/50 rounded-lg border border-indigo-100/70 space-y-3">
+                            <div className="flex items-center justify-between flex-wrap gap-2">
+                                <div className="flex items-center gap-1.5 text-xs text-indigo-900 font-semibold">
+                                    <FileText className="h-3.5 w-3.5 text-indigo-600" />
+                                    <span>Assignment Instruction</span>
+                                </div>
+
+                                {/* Work State Controls */}
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] uppercase font-bold text-slate-400 mr-0.5">Work:</span>
+                                    <div className="flex items-center gap-1 bg-white p-0.5 rounded-md border border-slate-200">
+                                        <Button
+                                            variant={data.assignment.status === 'OPEN' ? 'default' : 'ghost'}
+                                            size="sm"
+                                            onClick={() => handleUpdateStatus('OPEN')}
+                                            className={cn("h-6 text-[11px] px-2 font-medium transition-all", data.assignment.status === 'OPEN' ? "bg-amber-500 hover:bg-amber-600 text-white shadow-xs" : "text-slate-600 hover:bg-slate-100")}
+                                        >
+                                            Open
+                                        </Button>
+                                        <Button
+                                            variant={data.assignment.status === 'DONE' ? 'default' : 'ghost'}
+                                            size="sm"
+                                            onClick={() => handleUpdateStatus('DONE')}
+                                            className={cn("h-6 text-[11px] px-2 font-medium transition-all", data.assignment.status === 'DONE' ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs" : "text-slate-600 hover:bg-slate-100")}
+                                        >
+                                            <Check className="h-3 w-3 mr-1" />
+                                            Done
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <Input
+                                    type="text"
+                                    placeholder="Add instruction for assignee (optional)..."
+                                    value={assignmentNoteInput}
+                                    onChange={(e) => setAssignmentNoteInput(e.target.value)}
+                                    className="h-8 text-xs bg-white border-indigo-200 focus-visible:ring-indigo-500"
+                                />
+                                <Button
+                                    size="sm"
+                                    onClick={handleSaveAssignmentNote}
+                                    disabled={isSavingAssignmentNote}
+                                    className="h-8 text-xs bg-indigo-600 text-white hover:bg-indigo-700 shrink-0"
+                                >
+                                    {isSavingAssignmentNote ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save Instruction"}
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                     {/* Category moved to top */}
                     {customFieldId && fieldNo === 0 && (
                         <div className="flex items-start gap-2.5 mt-3">

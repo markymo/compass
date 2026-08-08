@@ -376,6 +376,7 @@ model Question {
   sourceSectionId             String?
   assignedToUserId            String?
   assignedEmail               String?
+  assignmentNote              String?                @db.VarChar(1000)
   createdAt                   DateTime               @default(now())
   updatedAt                   DateTime               @updatedAt
   allowAttachments            Boolean                @default(true)
@@ -431,13 +432,15 @@ model QuestionActivity {
 }
 
 model MasterFieldAssignment {
-  id               String   @id @default(uuid())
+  id               String                      @id @default(uuid())
   clientLEId       String
   fieldNo          Int
   assignedToUserId String
   assignedByUserId String
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  note             String?                     @db.VarChar(1000)
+  status           MasterFieldAssignmentStatus @default(OPEN)
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
   assignedByUser   User     @relation("MasterFieldAssignmentsCreated", fields: [assignedByUserId], references: [id])
   assignedUser     User     @relation("AssignedMasterFields", fields: [assignedToUserId], references: [id])
   clientLE         ClientLE @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
@@ -1140,6 +1143,11 @@ enum EngagementStatus {
 enum QueryStatus {
   OPEN
   RESOLVED
+}
+
+enum MasterFieldAssignmentStatus {
+  OPEN
+  DONE
 }
 
 enum AdminTodoStatus {

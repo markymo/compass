@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { Fingerprint, RefreshCcw, ArrowRight, ShieldCheck, Ban, Info, Building2, FileText, Users, Sparkles, ChevronDown, ChevronUp, Clock, ClipboardList, PanelRightOpen } from "lucide-react";
+import { Fingerprint, RefreshCcw, ArrowRight, ShieldCheck, Ban, Info, Building2, FileText, Users, Sparkles, ChevronDown, ChevronUp, Clock, ClipboardList, PanelRightOpen, User, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 import { refreshGleifProposals } from "@/actions/kyc-proposals";
 import { refreshRegistryReferenceAction } from "@/actions/registry";
@@ -26,6 +26,8 @@ import { ExpandableText } from "@/components/ui/expandable-text";
 import { isPersonOrContactValue, getPersonOrContactSummary } from "@/lib/master-data/person-or-contact-value";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, AlertCircle, CheckCircle2, Circle } from "lucide-react";
+import { getLETeamMembers } from "@/actions/kanban-actions";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
     Select,
     SelectContent,
@@ -93,7 +95,38 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     const catFilter = searchParams.get("category") || "ALL";
     const popFilter = searchParams.get("status") || "ALL";
     const usageFilter = searchParams.get("usage") || "ALL";
+    const assignStateFilter = searchParams.get("assignment") || "ALL";
+    const assigneeFilter = searchParams.get("assignee") || "ALL";
+    const workFilter = searchParams.get("work") || "ALL";
     const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+
+    const [teamMembers, setTeamMembers] = useState<any[]>([]);
+    useEffect(() => {
+        if (leId) {
+            getLETeamMembers(leId).then(res => {
+                if (res.success && res.team) {
+                    setTeamMembers(res.team);
+                }
+            }).catch(err => console.error("Failed to load team for assignment filter:", err));
+        }
+    }, [leId]);
+
+    // Deep linking: auto-open field detail drawer when ?fieldNo=X is in URL
+    const fieldNoParam = searchParams.get("fieldNo");
+    useEffect(() => {
+        if (fieldNoParam) {
+            const num = parseInt(fieldNoParam, 10);
+            if (!isNaN(num)) {
+                const field = masterFields.find((f: any) => f.fieldNo === num);
+                const data = masterData[num];
+                setSelectedField({
+                    fieldNo: num,
+                    name: field?.fieldName || `Field ${num}`,
+                    mappingStats: data?.mappingStats
+                });
+            }
+        }
+    }, [fieldNoParam, masterFields, masterData]);
 
     // Sync search input to URL with debounce
     useEffect(() => {
@@ -169,6 +202,36 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
         });
     }, [categories]);
 
+    const currentUserId = (session?.user as any)?.id;
+
+    const checkAssignmentMatch = (fieldNo: number) => {
+        const data = masterData[fieldNo];
+        const assignment = (data as any)?.assignment;
+        const isAssigned = !!assignment?.assignedToUserId;
+        const workStatus = assignment?.status || 'OPEN';
+
+        // Work filter: Open or Done automatically implies Assigned. Unassigned fields MUST be excluded.
+        if (workFilter !== "ALL") {
+            if (!isAssigned) return false;
+            if (workFilter === "OPEN" && workStatus !== "OPEN") return false;
+            if (workFilter === "DONE" && workStatus !== "DONE") return false;
+        }
+
+        // Selecting a specific team member or "Me" automatically implies Assigned
+        if (assigneeFilter !== "ALL") {
+            if (!isAssigned) return false;
+            if (assigneeFilter === "ME") return assignment.assignedToUserId === currentUserId;
+            if (assigneeFilter.startsWith("email:")) {
+                return assignment.assignedUser?.email === assigneeFilter.substring(6);
+            }
+            return assignment.assignedToUserId === assigneeFilter;
+        }
+
+        if (assignStateFilter === "UNASSIGNED") return !isAssigned;
+        if (assignStateFilter === "ASSIGNED") return isAssigned;
+        return true;
+    };
+
     // Filtering logic
     const filteredCustomFields = useMemo(() => {
         return customDefinitions.filter((def: any) => {
@@ -197,8 +260,9 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                 const matchesPop = popFilter === "ALL" || (popFilter === "POPULATED" ? hasValue : !hasValue);
                 const questionsCount = data?.mappingStats?.questions || 0;
                 const matchesUsage = usageFilter === "ALL" || (usageFilter === "USED" ? questionsCount > 0 : questionsCount === 0);
+                const matchesAssignment = checkAssignmentMatch(f.fieldNo);
 
-                return matchesSearch && matchesPop && matchesUsage;
+                return matchesSearch && matchesPop && matchesUsage && matchesAssignment;
             });
 
             return { ...cat, fields };
@@ -206,7 +270,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
             const matchesCat = catFilter === "ALL" || catFilter === cat.id;
             return matchesCat && cat.fields.length > 0;
         });
-    }, [categoryList, masterData, search, catFilter, popFilter, usageFilter]);
+    }, [categoryList, masterData, search, catFilter, popFilter, usageFilter, assignStateFilter, assigneeFilter, workFilter, currentUserId]);
 
     const filteredUncategorized = useMemo(() => {
         if (catFilter !== "ALL" && catFilter !== "UNCATEGORIZED") return [];
@@ -220,10 +284,11 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
             const matchesPop = popFilter === "ALL" || (popFilter === "POPULATED" ? hasValue : !hasValue);
             const questionsCount = data?.mappingStats?.questions || 0;
             const matchesUsage = usageFilter === "ALL" || (usageFilter === "USED" ? questionsCount > 0 : questionsCount === 0);
+            const matchesAssignment = checkAssignmentMatch(f.fieldNo);
 
-            return matchesSearch && matchesPop && matchesUsage;
+            return matchesSearch && matchesPop && matchesUsage && matchesAssignment;
         });
-    }, [uncategorizedFields, masterData, search, catFilter, popFilter, usageFilter]);
+    }, [uncategorizedFields, masterData, search, catFilter, popFilter, usageFilter, assignStateFilter, assigneeFilter, workFilter, currentUserId]);
 
     const totalVisible = filteredCustomFields.length + filteredCategories.reduce((acc: any, c: any) => acc + c.fields.length, 0) + filteredUncategorized.length;
 
@@ -526,7 +591,7 @@ setIsRefreshingRegistry(false);
                         </Select>
 
                         <Select value={usageFilter} onValueChange={(v) => updateQuery("usage", v)}>
-                            <SelectTrigger className="w-full md:w-[220px] bg-white border-slate-200">
+                            <SelectTrigger className="w-full md:w-[200px] bg-white border-slate-200">
                                 <span className="flex items-center gap-2">
                                     <ClipboardList className="h-3.5 w-3.5 text-slate-400" />
                                     <SelectValue placeholder="Usage" />
@@ -536,6 +601,101 @@ setIsRefreshingRegistry(false);
                                 <SelectItem value="ALL">All fields</SelectItem>
                                 <SelectItem value="USED">Used in questionnaires</SelectItem>
                                 <SelectItem value="UNUSED">Not used in questionnaires</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        {/* Assignment State Filter */}
+                        <Select 
+                            value={assigneeFilter !== "ALL" ? "ASSIGNED" : assignStateFilter} 
+                            onValueChange={(v) => {
+                                const params = new URLSearchParams(searchParams.toString());
+                                if (v === "UNASSIGNED") {
+                                    params.set("assignment", "UNASSIGNED");
+                                    params.delete("assignee");
+                                } else if (v === "ASSIGNED") {
+                                    params.set("assignment", "ASSIGNED");
+                                } else {
+                                    params.delete("assignment");
+                                }
+                                startTransition(() => {
+                                    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+                                });
+                            }}
+                        >
+                            <SelectTrigger className="w-full md:w-[170px] bg-white border-slate-200">
+                                <span className="flex items-center gap-2">
+                                    <UserCheck className="h-3.5 w-3.5 text-slate-400" />
+                                    <SelectValue placeholder="Assignment" />
+                                </span>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ALL">All Assignments</SelectItem>
+                                <SelectItem value="ASSIGNED">Assigned</SelectItem>
+                                <SelectItem value="UNASSIGNED">Unassigned</SelectItem>
+                            </SelectContent>
+                        </Select>
+
+                        {/* Assignee Filter */}
+                        <Select
+                            value={assigneeFilter}
+                            disabled={assignStateFilter === "UNASSIGNED"}
+                            onValueChange={(v) => {
+                                const params = new URLSearchParams(searchParams.toString());
+                                if (v !== "ALL") {
+                                    params.set("assignee", v);
+                                    params.set("assignment", "ASSIGNED");
+                                } else {
+                                    params.delete("assignee");
+                                }
+                                startTransition(() => {
+                                    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+                                });
+                            }}
+                        >
+                            <SelectTrigger className={cn("w-full md:w-[180px] bg-white border-slate-200", assignStateFilter === "UNASSIGNED" && "opacity-50 cursor-not-allowed")}>
+                                <span className="flex items-center gap-2">
+                                    <User className="h-3.5 w-3.5 text-slate-400" />
+                                    <SelectValue placeholder="Assignee" />
+                                </span>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ALL">Anyone</SelectItem>
+                                <SelectItem value="ME">Me</SelectItem>
+                                {teamMembers.map((m: any) => (
+                                    <SelectItem key={m.id || m.email} value={m.id || `email:${m.email}`}>
+                                        {m.name || m.email}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+
+                        {/* Work Status Filter */}
+                        <Select
+                            value={workFilter}
+                            disabled={assignStateFilter === "UNASSIGNED"}
+                            onValueChange={(v) => {
+                                const params = new URLSearchParams(searchParams.toString());
+                                if (v !== "ALL") {
+                                    params.set("work", v);
+                                    params.set("assignment", "ASSIGNED");
+                                } else {
+                                    params.delete("work");
+                                }
+                                startTransition(() => {
+                                    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+                                });
+                            }}
+                        >
+                            <SelectTrigger className={cn("w-full md:w-[140px] bg-white border-slate-200", assignStateFilter === "UNASSIGNED" && "opacity-50 cursor-not-allowed")}>
+                                <span className="flex items-center gap-2">
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-slate-400" />
+                                    <SelectValue placeholder="Work" />
+                                </span>
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="ALL">All Work</SelectItem>
+                                <SelectItem value="OPEN">Open</SelectItem>
+                                <SelectItem value="DONE">Done</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
@@ -638,6 +798,7 @@ setIsRefreshingRegistry(false);
                                                 mappingStats={data?.mappingStats}
                                                 canonicalDisplayModel={data?.canonicalDisplayModel}
                                                 sourceCheckedAt={(data as any)?.sourceCheckedAt}
+                                                assignment={(data as any)?.assignment}
                                                 onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName, mappingStats: data?.mappingStats })}
                                             />
                                         );
@@ -689,6 +850,7 @@ setIsRefreshingRegistry(false);
                                             mappingStats={data?.mappingStats}
                                             canonicalDisplayModel={data?.canonicalDisplayModel}
                                             sourceCheckedAt={(data as any)?.sourceCheckedAt}
+                                            assignment={(data as any)?.assignment}
                                             onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName, mappingStats: data?.mappingStats })}
                                         />
                                     );
@@ -730,7 +892,7 @@ setIsRefreshingRegistry(false);
     );
 }
 
-function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, source, sourceReference, sourceCheckedAt, registrationAuthorityId, onClick, description, isCustom, groups = [], displayState, defaultResponse, mappingStats, fieldDef, canonicalDisplayModel }: {
+function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, source, sourceReference, sourceCheckedAt, registrationAuthorityId, onClick, description, isCustom, groups = [], displayState, defaultResponse, mappingStats, fieldDef, canonicalDisplayModel, assignment }: {
     label: string,
     fieldNo: number,
     value: any,
@@ -748,7 +910,8 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
     defaultResponse?: string,
     mappingStats?: { questions: number; questionnaires: number; suppliers: number },
     fieldDef?: any,
-    canonicalDisplayModel?: FieldDisplayModel
+    canonicalDisplayModel?: FieldDisplayModel,
+    assignment?: { id: string; assignedToUserId: string; assignedByUserId: string; note?: string | null; status?: "OPEN" | "DONE"; assignedUser?: { id: string; name: string | null; email: string }; assignedByUser?: { id: string; name: string | null; email: string } } | null
 }) {
     const hasValue = value !== null && value !== undefined && value !== "";
     const resolvedState = displayState || (hasValue ? "HAS_VALUE" : (source ? "CHECKED_NO_DATA" : "UNMAPPED_NO_RESPONSE"));
@@ -779,6 +942,46 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                 </div>
                 {!isCustom && (
                     <div className="flex items-center gap-1.5 shrink-0">
+                        {assignment?.assignedUser && (
+                            <TooltipProvider delayDuration={150}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Badge
+                                            variant="outline"
+                                            className={cn(
+                                                "text-[10px] font-medium flex items-center gap-1.5 py-0.5 px-2 transition-all",
+                                                assignment.status === 'DONE'
+                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                    : "bg-indigo-50 text-indigo-700 border-indigo-200/80"
+                                            )}
+                                        >
+                                            <Avatar className="h-3.5 w-3.5 border border-indigo-200">
+                                                <AvatarFallback className={cn("text-[8px] font-bold", assignment.status === 'DONE' ? "bg-emerald-100 text-emerald-800" : "bg-indigo-100 text-indigo-800")}>
+                                                    {(assignment.assignedUser.name || assignment.assignedUser.email || "U").substring(0, 2).toUpperCase()}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <span>{assignment.assignedUser.name || assignment.assignedUser.email}</span>
+                                            {assignment.status === 'DONE' ? (
+                                                <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                                            ) : (
+                                                assignment.note && <FileText className="h-3 w-3 text-indigo-500 shrink-0" />
+                                            )}
+                                        </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-xs bg-slate-900 text-white border-slate-800 max-w-xs space-y-1">
+                                        <p className="font-semibold">Assigned to: {assignment.assignedUser.name || assignment.assignedUser.email}</p>
+                                        <p className="text-[11px] opacity-80">Work status: <span className={assignment.status === 'DONE' ? "text-emerald-400 font-semibold" : "text-amber-400 font-semibold"}>{assignment.status === 'DONE' ? 'Done' : 'Open'}</span></p>
+                                        {assignment.assignedByUser && (
+                                            <p className="text-[11px] opacity-80">Assigned by: {assignment.assignedByUser.name || assignment.assignedByUser.email}</p>
+                                        )}
+                                        {assignment.note && (
+                                            <p className="text-[11px] italic pt-1 border-t border-slate-700 text-indigo-200">Instruction: "{assignment.note}"</p>
+                                        )}
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+
                         <TooltipProvider delayDuration={150}>
                             {groups.map(group => (
                                 <Tooltip key={group.id}>

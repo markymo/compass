@@ -6,6 +6,7 @@ import { FieldValueRenderer } from "@/components/client/fields/FieldValueRendere
 import { FieldAttachments } from "@/components/client/fields/FieldAttachments";
 import { FieldSourceBadge } from "@/components/client/fields/FieldSourceBadge";
 import { FieldAttachmentIndicator } from "@/components/shared/FieldAttachmentIndicator";
+import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
 
 import { useState, useMemo, useTransition } from "react";
 import { Workbench4Data, mapQuestionToField, getAIFieldNameSuggestion } from "@/actions/kyc-workbench";
@@ -289,24 +290,83 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     };
 
     const handleFieldUpdate = (fieldNo: number, customFieldId: string | undefined, newValue: any, newSource: string, newUpdatedAt: Date) => {
-        setData(prev => ({
-            ...prev,
-            questions: prev.questions.map((q: any) => {
+        const rawSourceToUse = {
+            type: newSource || 'USER_INPUT',
+            reference: null,
+            timestamp: newUpdatedAt || new Date(),
+            sourceCheckedAt: newUpdatedAt || new Date()
+        };
+
+        setData(prev => {
+            const masterDef = prev.masterFields.find((f: any) => f.fieldNo === fieldNo);
+            const customDef = customFieldId ? prev.customFields.find((f: any) => f.id === customFieldId) : undefined;
+
+            const updatedQuestions = prev.questions.map((q: any) => {
                 const isMatch = customFieldId
                     ? (q as any).customFieldDefinitionId === customFieldId
-                    : q.masterFieldNo === fieldNo;
+                    : (fieldNo > 0 && q.masterFieldNo === fieldNo);
 
                 if (isMatch) {
+                    const label = q.canonicalDisplayModel?.label || masterDef?.label || customDef?.label || q.text || '';
+                    const appDataType = masterDef?.dataType || customDef?.dataType || 'TEXT';
+                    const hasVal = newValue !== null && newValue !== undefined && newValue !== '';
+
+                    const metadata = {
+                        fieldNo: fieldNo || -1,
+                        label,
+                        displayState: hasVal ? ('HAS_VALUE' as const) : ('CHECKED_NO_DATA' as const),
+                        appDataType: appDataType?.toUpperCase(),
+                        isMultiValue: q.canonicalDisplayModel?.isMultiValue || false,
+                        attachments: q.canonicalDisplayModel?.attachments || [],
+                        allowAttachments: q.canonicalDisplayModel?.allowAttachments,
+                        displayContext: q.canonicalDisplayModel?.displayContext
+                    };
+
+                    const updatedCanonicalModel = resolveFieldForDisplay(
+                        newValue,
+                        rawSourceToUse,
+                        metadata
+                    );
+
                     return {
                         ...q,
                         masterDataValue: newValue,
                         masterDataSource: newSource,
-                        masterDataUpdatedAt: newUpdatedAt
+                        masterDataUpdatedAt: newUpdatedAt,
+                        canonicalDisplayModel: updatedCanonicalModel
                     };
                 }
                 return q;
-            })
-        }));
+            });
+
+            const updatedMasterFields = prev.masterFields.map((f: any) => {
+                if (fieldNo > 0 && f.fieldNo === fieldNo) {
+                    return {
+                        ...f,
+                        currentValue: newValue,
+                        displayState: (newValue !== null && newValue !== undefined && newValue !== '') ? 'HAS_VALUE' : 'CHECKED_NO_DATA'
+                    };
+                }
+                return f;
+            });
+
+            const updatedCustomFields = prev.customFields.map((f: any) => {
+                if (customFieldId && f.id === customFieldId) {
+                    return {
+                        ...f,
+                        currentValue: newValue
+                    };
+                }
+                return f;
+            });
+
+            return {
+                ...prev,
+                questions: updatedQuestions,
+                masterFields: updatedMasterFields,
+                customFields: updatedCustomFields
+            };
+        });
     };
 
     const handleCreateCustomField = async () => {
@@ -859,7 +919,9 @@ function QuestionCard({
 
     const handleStartEdit = () => {
         if (!isMapped) return;
-        const currentVal = question.masterDataValue != null ? String(question.masterDataValue) : "";
+        const currentVal = question.masterDataValue != null
+            ? String(question.masterDataValue)
+            : question.canonicalDisplayModel?.textSummary || "";
         setEditValue(currentVal);
         setIsEditing(true);
     };
@@ -873,9 +935,10 @@ function QuestionCard({
         if (!isMapped || isSaving) return;
         setIsSaving(true);
         try {
-            const { updateFieldManually } = await import("@/actions/kyc-manual-update");
-            const fieldNo = question.masterFieldNo || 0;
-            const res = await updateFieldManually(leId, fieldNo, editValue, "Inline edit");
+            const { applyManualOverride } = await import("@/actions/kyc-manual-update");
+            const targetFieldId = question.masterFieldNo || (question as any).customFieldDefinitionId;
+            if (!targetFieldId) return;
+            const res = await applyManualOverride(leId, targetFieldId, editValue, "Inline edit");
             if (res.success) {
                 onInlineEdit(editValue, "USER_INPUT", new Date());
                 toast.success("Value updated");
@@ -1585,7 +1648,9 @@ function QuestionTableRow({
 
     const handleStartEdit = () => {
         if (!isMapped) return;
-        const currentVal = question.masterDataValue != null ? String(question.masterDataValue) : "";
+        const currentVal = question.masterDataValue != null
+            ? String(question.masterDataValue)
+            : question.canonicalDisplayModel?.textSummary || "";
         setEditValue(currentVal);
         setIsEditing(true);
     };
@@ -1599,9 +1664,10 @@ function QuestionTableRow({
         if (!isMapped || isSaving) return;
         setIsSaving(true);
         try {
-            const { updateFieldManually } = await import("@/actions/kyc-manual-update");
-            const fieldNo = question.masterFieldNo || 0;
-            const res = await updateFieldManually(leId, fieldNo, editValue, "Inline edit");
+            const { applyManualOverride } = await import("@/actions/kyc-manual-update");
+            const targetFieldId = question.masterFieldNo || (question as any).customFieldDefinitionId;
+            if (!targetFieldId) return;
+            const res = await applyManualOverride(leId, targetFieldId, editValue, "Inline edit");
             if (res.success) {
                 onInlineEdit(editValue, "USER_INPUT", new Date());
                 toast.success("Value updated");
