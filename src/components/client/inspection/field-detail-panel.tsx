@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
@@ -96,6 +97,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     const [partyEditDialogState, setPartyEditDialogState] = useState<{ open: boolean; rowId?: string; ccPartyId?: string; legacyPartyData?: any } | null>(null);
 
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isAssignmentPopoverOpen, setIsAssignmentPopoverOpen] = useState(false);
     const [isCheckingDependencies, setIsCheckingDependencies] = useState(false);
     const [dependencyReport, setDependencyReport] = useState<DependencyReport | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -1091,6 +1093,15 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                     textClassName="text-sm text-slate-600 leading-relaxed"
                                 />
                             )}
+                            {data?.assignment?.note && (
+                                <div className="mt-2 text-xs text-indigo-900/90 font-medium italic flex items-start gap-1.5 max-w-full overflow-hidden">
+                                    <FileText className="h-3.5 w-3.5 text-indigo-500 shrink-0 mt-0.5" />
+                                    <span className="break-words line-clamp-3">
+                                        <strong className="not-italic font-semibold text-indigo-950 mr-1">Instruction:</strong>
+                                        "{data.assignment.note}"
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Assignment */}
@@ -1101,64 +1112,152 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                     Assigning...
                                 </div>
                             ) : (
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="outline" size="sm" className="h-8 shadow-sm group whitespace-nowrap">
+                                <Popover open={isAssignmentPopoverOpen} onOpenChange={setIsAssignmentPopoverOpen}>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className={cn(
+                                                "h-8 shadow-xs gap-1.5 px-2.5 transition-all font-medium text-xs whitespace-nowrap",
+                                                data?.assignment?.assignedUser
+                                                    ? (data.assignment.status === 'DONE'
+                                                        ? "bg-emerald-50/70 text-emerald-900 border-emerald-200 hover:bg-emerald-100/80"
+                                                        : "bg-indigo-50/70 text-indigo-900 border-indigo-200 hover:bg-indigo-100/80")
+                                                    : "text-slate-600 border-slate-200 hover:bg-slate-50"
+                                            )}
+                                        >
                                             {data?.assignment?.assignedUser ? (
                                                 <>
-                                                    <Avatar className="h-5 w-5 mr-1.5 border">
-                                                        <AvatarFallback className="text-[9px] bg-indigo-50 text-indigo-700 font-semibold">
+                                                    <Avatar className="h-4 w-4 border border-indigo-200 shrink-0">
+                                                        <AvatarFallback className={cn("text-[8px] font-bold", data.assignment.status === 'DONE' ? "bg-emerald-100 text-emerald-800" : "bg-indigo-100 text-indigo-800")}>
                                                             {(data.assignment.assignedUser.name || data.assignment.assignedUser.email || "U").substring(0, 2).toUpperCase()}
                                                         </AvatarFallback>
                                                     </Avatar>
-                                                    <span className="text-xs truncate max-w-[100px] font-medium text-slate-700">
-                                                        {data.assignment.assignedUser.name || data.assignment.assignedUser.email}
+                                                    <span className="truncate max-w-[90px] font-semibold text-slate-800">
+                                                        {data.assignment.assignedUser.name?.split(" ")[0] || data.assignment.assignedUser.email}
+                                                    </span>
+                                                    <span className={cn("text-[10px] uppercase font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5", data.assignment.status === 'DONE' ? "text-emerald-700 bg-emerald-100/80" : "text-amber-700 bg-amber-100/80")}>
+                                                        {data.assignment.status === 'DONE' ? (
+                                                            <>
+                                                                <Check className="h-2.5 w-2.5" />
+                                                                Done
+                                                            </>
+                                                        ) : (
+                                                            "Open"
+                                                        )}
                                                     </span>
                                                 </>
                                             ) : (
                                                 <>
-                                                    <UserIcon className="h-3.5 w-3.5 mr-1.5 text-slate-400 group-hover:text-slate-700 transition-colors" />
-                                                    <span className="text-xs text-slate-500 group-hover:text-slate-800 transition-colors font-medium">Assign</span>
+                                                    <UserIcon className="h-3.5 w-3.5 text-slate-400" />
+                                                    <span className="text-slate-600 font-medium">Assign</span>
                                                 </>
                                             )}
+                                            <ChevronDown className="h-3 w-3 text-slate-400 shrink-0 ml-0.5" />
                                         </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-[220px]">
-                                        <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 border-b mb-1">Assign to Team Member</div>
-                                        <div className="max-h-[200px] overflow-y-auto">
-                                            <DropdownMenuItem
-                                                className="text-xs py-2 cursor-pointer"
-                                                onClick={() => handleAssign(null)}
-                                            >
-                                                <div className="flex items-center gap-2 text-slate-500">
-                                                    <UserIcon className="h-4 w-4" />
-                                                    <span>Unassigned</span>
-                                                </div>
-                                            </DropdownMenuItem>
-                                            {team.map((user: any) => (
-                                                <DropdownMenuItem
-                                                    key={user.id}
-                                                    className="text-xs py-2 cursor-pointer focus:bg-indigo-50"
-                                                    onClick={() => handleAssign(user.id)}
+                                    </PopoverTrigger>
+
+                                    <PopoverContent align="end" className="w-[300px] p-3.5 space-y-3.5 shadow-lg border-slate-200 z-50">
+                                        <div className="flex items-center justify-between text-xs font-semibold text-slate-900 border-b border-slate-100 pb-2">
+                                            <span>Assignment & Work</span>
+                                            {data?.assignment && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={async () => {
+                                                        await handleAssign(null);
+                                                        setIsAssignmentPopoverOpen(false);
+                                                    }}
+                                                    className="h-6 text-[11px] text-red-600 hover:text-red-700 hover:bg-red-50 px-1.5 font-normal"
                                                 >
-                                                    <div className="flex items-center gap-2 w-full">
-                                                        <Avatar className="h-5 w-5 shrink-0">
-                                                            <AvatarFallback className="text-[9px] bg-slate-100 text-slate-600">
-                                                                {user.name?.substring(0, 2).toUpperCase() || user.email?.substring(0, 2).toUpperCase()}
-                                                            </AvatarFallback>
-                                                        </Avatar>
-                                                        <div className="flex flex-col min-w-0">
-                                                            <span className="font-medium text-slate-900 truncate">{user.name}</span>
-                                                            {(user.name && user.name !== user.email) && (
-                                                                <span className="text-[10px] text-slate-500 truncate">{user.email}</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </DropdownMenuItem>
-                                            ))}
+                                                    Unassign
+                                                </Button>
+                                            )}
                                         </div>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+
+                                        {/* Assigned To */}
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned To</label>
+                                            <Select
+                                                value={data?.assignment?.assignedToUserId || "UNASSIGNED"}
+                                                onValueChange={async (val) => {
+                                                    await handleAssign(val === "UNASSIGNED" ? null : val);
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-8 text-xs bg-white border-slate-200">
+                                                    <SelectValue placeholder="Select assignee..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="UNASSIGNED" className="text-xs">
+                                                        <span className="text-slate-500 italic">Unassigned</span>
+                                                    </SelectItem>
+                                                    {team.map((user: any) => (
+                                                        <SelectItem key={user.id} value={user.id} className="text-xs">
+                                                            <span className="font-medium text-slate-800">{user.name || user.email}</span>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        {/* Work Status (if assigned) */}
+                                        {data?.assignment && (
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Work Status</label>
+                                                <div className="flex items-center gap-1 bg-slate-100/80 p-0.5 rounded-lg border border-slate-200">
+                                                    <Button
+                                                        variant={data.assignment.status === 'OPEN' ? 'default' : 'ghost'}
+                                                        size="sm"
+                                                        onClick={() => handleUpdateStatus('OPEN')}
+                                                        className={cn(
+                                                            "h-7 text-xs flex-1 font-medium transition-all",
+                                                            data.assignment.status === 'OPEN' ? "bg-amber-500 hover:bg-amber-600 text-white shadow-xs" : "text-slate-600 hover:bg-white"
+                                                        )}
+                                                    >
+                                                        Open
+                                                    </Button>
+                                                    <Button
+                                                        variant={data.assignment.status === 'DONE' ? 'default' : 'ghost'}
+                                                        size="sm"
+                                                        onClick={() => handleUpdateStatus('DONE')}
+                                                        className={cn(
+                                                            "h-7 text-xs flex-1 font-medium transition-all",
+                                                            data.assignment.status === 'DONE' ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs" : "text-slate-600 hover:bg-white"
+                                                        )}
+                                                    >
+                                                        <Check className="h-3 w-3 mr-1" />
+                                                        Done
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Instruction Note */}
+                                        {data?.assignment && (
+                                            <div className="space-y-1.5 pt-1.5 border-t border-slate-100">
+                                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Instruction</label>
+                                                <Textarea
+                                                    placeholder="Add instruction for assignee (optional)..."
+                                                    value={assignmentNoteInput}
+                                                    onChange={(e) => setAssignmentNoteInput(e.target.value)}
+                                                    rows={2}
+                                                    className="text-xs bg-slate-50 border-slate-200 resize-none focus-visible:ring-indigo-500"
+                                                />
+                                                <Button
+                                                    size="sm"
+                                                    onClick={async () => {
+                                                        await handleSaveAssignmentNote();
+                                                        setIsAssignmentPopoverOpen(false);
+                                                    }}
+                                                    disabled={isSavingAssignmentNote}
+                                                    className="w-full h-7 text-xs bg-indigo-600 text-white hover:bg-indigo-700 font-medium"
+                                                >
+                                                    {isSavingAssignmentNote ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save Instruction"}
+                                                </Button>
+                                            </div>
+                                        )}
+                                    </PopoverContent>
+                                </Popover>
                             )}
 
                             {isLocked && (
@@ -1169,59 +1268,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                             )}
                         </div>
                     </div>
-
-                    {data?.assignment && (
-                        <div className="mt-3 p-3 bg-indigo-50/50 rounded-lg border border-indigo-100/70 space-y-3">
-                            <div className="flex items-center justify-between flex-wrap gap-2">
-                                <div className="flex items-center gap-1.5 text-xs text-indigo-900 font-semibold">
-                                    <FileText className="h-3.5 w-3.5 text-indigo-600" />
-                                    <span>Assignment Instruction</span>
-                                </div>
-
-                                {/* Work State Controls */}
-                                <div className="flex items-center gap-1.5">
-                                    <span className="text-[10px] uppercase font-bold text-slate-400 mr-0.5">Work:</span>
-                                    <div className="flex items-center gap-1 bg-white p-0.5 rounded-md border border-slate-200">
-                                        <Button
-                                            variant={data.assignment.status === 'OPEN' ? 'default' : 'ghost'}
-                                            size="sm"
-                                            onClick={() => handleUpdateStatus('OPEN')}
-                                            className={cn("h-6 text-[11px] px-2 font-medium transition-all", data.assignment.status === 'OPEN' ? "bg-amber-500 hover:bg-amber-600 text-white shadow-xs" : "text-slate-600 hover:bg-slate-100")}
-                                        >
-                                            Open
-                                        </Button>
-                                        <Button
-                                            variant={data.assignment.status === 'DONE' ? 'default' : 'ghost'}
-                                            size="sm"
-                                            onClick={() => handleUpdateStatus('DONE')}
-                                            className={cn("h-6 text-[11px] px-2 font-medium transition-all", data.assignment.status === 'DONE' ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs" : "text-slate-600 hover:bg-slate-100")}
-                                        >
-                                            <Check className="h-3 w-3 mr-1" />
-                                            Done
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <Input
-                                    type="text"
-                                    placeholder="Add instruction for assignee (optional)..."
-                                    value={assignmentNoteInput}
-                                    onChange={(e) => setAssignmentNoteInput(e.target.value)}
-                                    className="h-8 text-xs bg-white border-indigo-200 focus-visible:ring-indigo-500"
-                                />
-                                <Button
-                                    size="sm"
-                                    onClick={handleSaveAssignmentNote}
-                                    disabled={isSavingAssignmentNote}
-                                    className="h-8 text-xs bg-indigo-600 text-white hover:bg-indigo-700 shrink-0"
-                                >
-                                    {isSavingAssignmentNote ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save Instruction"}
-                                </Button>
-                            </div>
-                        </div>
-                    )}
                     {/* Category moved to top */}
                     {customFieldId && fieldNo === 0 && (
                         <div className="flex items-start gap-2.5 mt-3">
