@@ -78,16 +78,14 @@ export function AssignmentsList({ myAssignments, teamAssignments, currentUserId 
     }, [myAssignments]);
 
     const getItemUrl = (item: UnifiedAssignment) => {
+        if (!item.clientLEId) return `/app`;
         if (item.type === "master") {
             return `/app/le/${item.clientLEId}/master?fieldNo=${item.fieldNo}`;
         }
-        if (item.clientLEId && item.engagementId && item.questionnaireId) {
+        if (item.engagementId && item.questionnaireId) {
             return `/app/le/${item.clientLEId}/engagement-new/${item.engagementId}/questionnaire/${item.questionnaireId}?questionId=${item.id}`;
         }
-        if (item.clientLEId) {
-            return `/app/le/${item.clientLEId}/requirements?questionId=${item.id}`;
-        }
-        return `/app`;
+        return `/app/le/${item.clientLEId}/requirements?questionId=${item.id}`;
     };
 
     const filteredAndSorted = useMemo(() => {
@@ -305,9 +303,12 @@ export function AssignmentsList({ myAssignments, teamAssignments, currentUserId 
                                                 </span>
                                             </div>
 
-                                            <p className="text-sm font-semibold text-slate-900 line-clamp-2">
+                                            <Link
+                                                href={getItemUrl(item)}
+                                                className="text-sm font-semibold text-slate-900 hover:text-indigo-600 hover:underline line-clamp-2 transition-colors block"
+                                            >
                                                 {item.title}
-                                            </p>
+                                            </Link>
 
                                             {item.note && (
                                                 <p className="text-xs text-indigo-700 bg-indigo-50/70 p-2 rounded border border-indigo-100 italic flex items-start gap-1.5 mt-1">
