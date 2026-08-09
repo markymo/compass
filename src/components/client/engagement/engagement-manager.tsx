@@ -342,8 +342,8 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                         <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Sign-Off</span>
                             <div className="flex justify-between pr-[18px] items-end">
-                                <span className="text-[10px] font-bold text-indigo-600 uppercase">Apprv</span>
-                                <span className="text-[10px] font-bold text-emerald-600 uppercase">Relsd</span>
+                                <span className="text-[10px] font-bold text-indigo-600 uppercase">Approved</span>
+                                <span className="text-[10px] font-bold text-emerald-600 uppercase">Released</span>
                             </div>
                         </div>
                     </div>
@@ -411,11 +411,11 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                     <>
                                                         <div className="flex flex-col items-center gap-0.5">
                                                             <span className={cn("text-[13px] font-bold font-mono", eng.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{eng.metrics.approved}</span>
-                                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Apprv</span>
+                                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Approved</span>
                                                         </div>
                                                         <div className="flex flex-col items-center gap-0.5">
                                                             <span className={cn("text-[13px] font-bold font-mono", eng.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{eng.metrics.released}</span>
-                                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Relsd</span>
+                                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Released</span>
                                                         </div>
                                                     </>
                                                 )}
@@ -579,11 +579,11 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                                 <>
                                                                                     <div className="flex flex-col items-center gap-0.5">
                                                                                         <span className={cn("text-[13px] font-bold font-mono", q.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{q.metrics.approved}</span>
-                                                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Apprv</span>
+                                                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Approved</span>
                                                                                     </div>
                                                                                     <div className="flex flex-col items-center gap-0.5">
                                                                                         <span className={cn("text-[13px] font-bold font-mono", q.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{q.metrics.released}</span>
-                                                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Relsd</span>
+                                                                                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Released</span>
                                                                                     </div>
                                                                                 </>
                                                                             )}

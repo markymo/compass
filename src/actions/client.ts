@@ -6,7 +6,16 @@ import { revalidatePath } from "next/cache";
 import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
 
 import { cookies } from "next/headers";
-import { emptyMetrics, calculateEngagementMetrics, rollupMetrics, DashboardMetric, calculateQuestionnaireMetrics } from "@/lib/metrics-calc";
+import {
+    emptyMetrics,
+    calculateEngagementMetrics,
+    calculateEngagementOwnMetrics,
+    calculateEffectiveEngagementMetrics,
+    calculateCommonQuestionnaireMetrics,
+    rollupMetrics,
+    DashboardMetric,
+    calculateQuestionnaireMetrics
+} from "@/lib/metrics-calc";
 import { LegalEntityEnrichmentService } from "@/domain/registry";
 import { getLEDisplayName } from "@/lib/le-display-name";
 
@@ -670,6 +679,9 @@ export async function getDashboardMetrics(leId: string) {
         where: { id: leId },
         include: {
             standingDataSections: true,
+            commonQuestionnaires: {
+                where: { isDeleted: false, isTemplate: false }
+            },
             fiEngagements: {
                 where: { isDeleted: false },
                 include: {
@@ -696,39 +708,33 @@ export async function getDashboardMetrics(leId: string) {
     const standingDataCount = le.standingDataSections.length;
     const standingDataScore = Math.min(standingDataCount, 5) / 5 * 60;
 
-    let totalQuestions = 0;
-    let answeredQuestions = 0;
-
     // CP Tracker Buckets
     // Use the shared metric structure
     const leMetrics = emptyMetrics();
 
+    // Roll up unique active Common Questionnaires ONCE to LE level
+    if (le.commonQuestionnaires) {
+        for (const cq of le.commonQuestionnaires) {
+            const cqMetrics = await calculateCommonQuestionnaireMetrics(cq.id, leId);
+            rollupMetrics(leMetrics, cqMetrics);
+        }
+    }
+
     const engagementStats = new Map<string, { total: number, answered: number }>();
 
     for (const eng of le.fiEngagements) {
-        // Calculate Metrics using shared logic
-        const m = await calculateEngagementMetrics(eng.id);
+        // Roll up relationship-own metrics ONCE to LE level
+        const ownMetrics = await calculateEngagementOwnMetrics(eng.id);
+        rollupMetrics(leMetrics, ownMetrics);
 
-        // Accumulate to LE level
-        rollupMetrics(leMetrics, m);
+        // Effective metrics for supplier relationship view
+        const effectiveMetrics = await calculateEffectiveEngagementMetrics(eng.id, leId);
 
-        // Calculate "Total/Answered" for Progress Bar / Score
-        // Approximation based on buckets:
-        // Total = sum of all buckets
-        // Answered = Approved + Released + Acknowledged + (maybe Drafted if answered?)
-        // The old logic counted "isAnswered" if status was significant or if it had an answer.
-        // Our new logic puts things in buckets based on status.
-        // Let's rely on the buckets for the score to be consistent.
-
-        const eTotal = m.total;
-        const eAnswered = m.answered;
-        const effectiveAnswered = m.answered;
-
-        engagementStats.set(eng.id, { total: eTotal, answered: effectiveAnswered });
-
-        totalQuestions += eTotal;
-        answeredQuestions += effectiveAnswered;
+        engagementStats.set(eng.id, { total: effectiveMetrics.total, answered: effectiveMetrics.answered });
     }
+
+    const totalQuestions = leMetrics.total;
+    const answeredQuestions = leMetrics.answered;
 
     const questionnaireScore = totalQuestions > 0
         ? (answeredQuestions / totalQuestions) * 40

@@ -11,9 +11,10 @@ export default async function Workbench4Page({ params }: { params: Promise<{ id:
     if (!data) return notFound();
 
     return (
-        <div className="p-6">
+        <div className="space-y-6">
             <SetPageBreadcrumbs 
                 items={[]}
+                isWide={true}
             />
 
             <CrossQuestionnaireMapper

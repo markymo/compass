@@ -4,13 +4,20 @@ import prisma from "@/lib/prisma";
 import { getIdentity } from "@/lib/auth";
 import { getLEDisplayName } from "@/lib/le-display-name";
 
-import { DashboardMetric, emptyMetrics, calculateEngagementMetrics, rollupMetrics } from "@/lib/metrics-calc";
+import { DashboardMetric, emptyMetrics, calculateEngagementOwnMetrics, calculateCommonQuestionnaireMetrics, rollupMetrics } from "@/lib/metrics-calc";
 
 export type DashboardContexts = {
     clients: Array<{ id: string; name: string; role: string; source: "DIRECT" | "DERIVED"; metrics: DashboardMetric }>;
     financialInstitutions: Array<{ id: string; name: string; role: string; metrics: DashboardMetric }>;
     lawFirms: Array<{ id: string; name: string; role: string }>;
-    legalEntities: Array<{ id: string; name: string; clientName: string; role: string; metrics: DashboardMetric }>;
+    legalEntities: Array<{
+        id: string;
+        name: string;
+        clientName: string;
+        role: string;
+        metrics: DashboardMetric;
+        commonQuestionnaires?: Array<{ id: string; name: string; status: string; updatedAt: Date; metrics: DashboardMetric }>;
+    }>;
     relationships: Array<{
         id: string;
         leName: string;
@@ -59,7 +66,7 @@ export async function getUserContexts(): Promise<DashboardContexts> {
 
     const clientMap = new Map<string, { id: string; name: string; role: string; source: "DIRECT" | "DERIVED"; metrics: DashboardMetric }>();
     const fiMap = new Map<string, { id: string; name: string; role: string; metrics: DashboardMetric }>();
-    const leMap = new Map<string, { id: string; name: string; clientName: string; role: string; metrics: DashboardMetric }>();
+    const leMap = new Map<string, { id: string; name: string; clientName: string; role: string; metrics: DashboardMetric; commonQuestionnaires?: any[] }>();
 
     for (const m of memberships) {
         // A. Direct Party Memberships
@@ -172,7 +179,49 @@ export async function getUserContexts(): Promise<DashboardContexts> {
     const leIds = context.legalEntities.map((l: any) => l.id);
     const fiIds = context.financialInstitutions.map((fi: any) => fi.id);
 
-    // 2. Fetch Relationships (Engagements) for visible LEs OR visible FIs
+    // 2. Process Common Questionnaires for visible LEs (roll up ONCE into LE metrics)
+    const leCommonQsMap = new Map<string, Array<{ id: string; name: string; status: string; updatedAt: Date; metrics: DashboardMetric }>>();
+
+    if (leIds.length > 0) {
+        const lesWithCQs = await prisma.clientLE.findMany({
+            where: { id: { in: leIds } },
+            select: {
+                id: true,
+                commonQuestionnaires: {
+                    where: { isDeleted: false, isTemplate: false },
+                    select: { id: true, name: true, status: true, updatedAt: true }
+                }
+            }
+        });
+
+        await Promise.all(lesWithCQs.flatMap((le: any) =>
+            le.commonQuestionnaires.map(async (cq: any) => {
+                const cqMetrics = await calculateCommonQuestionnaireMetrics(cq.id, le.id);
+                if (!leCommonQsMap.has(le.id)) {
+                    leCommonQsMap.set(le.id, []);
+                }
+                leCommonQsMap.get(le.id)!.push({
+                    id: cq.id,
+                    name: cq.name,
+                    status: cq.status,
+                    updatedAt: cq.updatedAt,
+                    metrics: cqMetrics
+                });
+
+                // Rollup metrics to LE ONCE
+                const leItem = leMap.get(le.id);
+                if (leItem) {
+                    rollupMetrics(leItem.metrics, cqMetrics);
+                }
+            })
+        ));
+
+        context.legalEntities.forEach(le => {
+            le.commonQuestionnaires = leCommonQsMap.get(le.id) || [];
+        });
+    }
+
+    // 3. Fetch Relationships (Engagements) for visible LEs OR visible FIs
     if (leIds.length > 0 || fiIds.length > 0) {
         const engagements = await prisma.fIEngagement.findMany({
             where: {
@@ -201,27 +250,29 @@ export async function getUserContexts(): Promise<DashboardContexts> {
 
         context.relationships = await Promise.all(engagements.map(async (e: any) => {
             const owner = e.clientLE.owners[0];
-            const rawMetrics = await calculateEngagementMetrics(e.id);
+            const ownMetrics = await calculateEngagementOwnMetrics(e.id);
             const userIsSupplier = fiIds.includes(e.fiOrgId);
 
-            // Filter metrics for Supplier view
-            const finalMetrics = userIsSupplier ? {
-                total: rawMetrics.total,
-                noData: rawMetrics.noData,
-                mapped: rawMetrics.mapped,
-                answered: rawMetrics.answered,
-                approved: rawMetrics.approved,
-                released: rawMetrics.released
-            } : rawMetrics;
-
-            // Rollup metrics to LE and Client
+            // Rollup engagement-own metrics to LE (relationship questions)
             const le = leMap.get(e.clientLEId);
-            if (le) rollupMetrics(le.metrics, finalMetrics);
+            if (le) rollupMetrics(le.metrics, ownMetrics);
 
-            if (owner) {
-                const client = clientMap.get(owner.partyId);
-                if (client) rollupMetrics(client.metrics, finalMetrics);
-            }
+            // Effective progress metrics for Supplier Relationship (ownMetrics + applicable CQs for e.clientLEId)
+            const rawEffectiveMetrics = { ...ownMetrics };
+            const leCQs = leCommonQsMap.get(e.clientLEId) || [];
+            leCQs.forEach(cq => {
+                rollupMetrics(rawEffectiveMetrics, cq.metrics);
+            });
+
+            // Filter metrics for Supplier view if needed
+            const finalMetrics = userIsSupplier ? {
+                total: rawEffectiveMetrics.total,
+                noData: rawEffectiveMetrics.noData,
+                mapped: rawEffectiveMetrics.mapped,
+                answered: rawEffectiveMetrics.answered,
+                approved: rawEffectiveMetrics.approved,
+                released: rawEffectiveMetrics.released
+            } : rawEffectiveMetrics;
 
             // Rollup to FI if user is a supplier
             if (userIsSupplier) {
@@ -245,6 +296,15 @@ export async function getUserContexts(): Promise<DashboardContexts> {
             };
         }));
     }
+
+    // 4. Rollup LE metrics to Client Orgs ONCE per LE (after CQs + engagement-own metrics are in le.metrics)
+    context.legalEntities.forEach(le => {
+        const ownerName = le.clientName;
+        const client = context.clients.find(c => c.name === ownerName);
+        if (client) {
+            rollupMetrics(client.metrics, le.metrics);
+        }
+    });
 
     return context;
 }

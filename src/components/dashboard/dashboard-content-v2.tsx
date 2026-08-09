@@ -56,7 +56,17 @@ function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
         const les: OrgChild[] = ctx.legalEntities
             .filter((le: any) => le.clientName === client.name)
             .map((le: any) => {
-                const leEngagements = ctx.relationships
+                const leCommonQs: OrgChild[] = (le.commonQuestionnaires || []).map((cq: any) => ({
+                    type: "questionnaire" as const,
+                    id: cq.id,
+                    name: cq.name,
+                    subtitle: "Common Questionnaire",
+                    status: cq.status,
+                    href: `/app/le/${le.id}/relationships`,
+                    metrics: cq.metrics
+                }));
+
+                const leEngagements: OrgChild[] = ctx.relationships
                     .filter((r: any) => r.clientLEId === le.id && r.userIsClient)
                     .map((r: any) => ({
                         type: "engagement" as const,
@@ -74,7 +84,7 @@ function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
                     subtitle: le.role,
                     href: `/app/le/${le.id}`,
                     metrics: le.metrics,
-                    children: leEngagements
+                    children: [...leCommonQs, ...leEngagements]
                 };
             });
 

@@ -562,11 +562,11 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                                 <TableHead className="w-[130px] text-[10px] font-bold uppercase tracking-wider text-slate-500 py-2.5 px-3">Status & Actions</TableHead>
                                 <TableHead className="w-[180px] text-[10px] font-bold uppercase tracking-wider text-slate-500 py-2.5 px-3">Relationship & Doc</TableHead>
                                 <TableHead className="min-w-[250px] text-[10px] font-bold uppercase tracking-wider text-slate-500 py-2.5 px-3">Question (Q)</TableHead>
-                                <TableHead className="w-[260px] text-[10px] font-bold uppercase tracking-wider text-slate-500 py-2.5 px-3">Master Data Mapping</TableHead>
                                 <TableHead className="min-w-[280px] text-[10px] font-bold uppercase tracking-wider text-slate-500 py-2.5 px-3">Answer Value & Details (A)</TableHead>
+                                <TableHead className="w-[260px] text-[10px] font-bold uppercase tracking-wider text-slate-500 py-2.5 px-3">Master Data Mapping</TableHead>
                             </TableRow>
                         </TableHeader>
-                        <TableBody className="divide-y divide-slate-100">
+                        <TableBody className="divide-y divide-slate-300">
                             {filteredQuestions.map((q: any) => (
                                 <QuestionTableRow
                                     key={q.id}
@@ -1789,51 +1789,7 @@ function QuestionTableRow({
                 </div>
             </TableCell>
 
-            {/* Cell 4: Master Data Mapping */}
-            <TableCell className="py-2.5 px-3 align-top">
-                <div className="flex items-center gap-1.5 w-[240px]">
-                    <div className="flex-1">
-                        <SuperFieldSelector
-                            value={
-                                question.masterFieldNo
-                                    ? `master:${question.masterFieldNo}${question.masterFieldProjectionPath ? `:${question.masterFieldProjectionPath}` : ''}`
-                                    : question.masterQuestionGroupId
-                                        ? `group:${question.masterQuestionGroupId}`
-                                        : (question as any).customFieldDefinitionId
-                                            ? `custom:${(question as any).customFieldDefinitionId}`
-                                            : null
-                            }
-                            onSelect={(val, type, label) => {
-                                if (type === 'clear') onMap("UNMAP");
-                                else if (type === 'create') onMap("CREATE_NEW");
-                                else if (type === 'master') onMap(val);
-                                else if (type === 'group') onMap(`GROUP_${val}`);
-                                else if (type === 'custom') onMap(`CUSTOM_${val}`);
-                            }}
-                            masterFields={masterFields}
-                            masterGroups={masterGroups}
-                            customFields={customFields}
-                            questionText={question.text}
-                            disabled={disabled || question.status === 'RELEASED'}
-                        />
-                    </div>
-
-                    {isMapped && question.status !== 'RELEASED' && (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 shrink-0"
-                            onClick={() => onMap("UNMAP")}
-                            disabled={disabled}
-                            title="Unmap field"
-                        >
-                            <Unlink className="h-3.5 w-3.5" />
-                        </Button>
-                    )}
-                </div>
-            </TableCell>
-
-            {/* Cell 5: Answer Value & Details */}
+            {/* Cell 4: Answer Value & Details */}
             <TableCell className="py-2.5 px-3 align-top">
                 <div className="space-y-1.5">
                     <div className="flex items-start gap-1.5">
@@ -1931,6 +1887,50 @@ function QuestionTableRow({
                                 )}
                             </div>
                         ) : null
+                    )}
+                </div>
+            </TableCell>
+
+            {/* Cell 5: Master Data Mapping */}
+            <TableCell className="py-2.5 px-3 align-top">
+                <div className="flex items-center gap-1.5 w-[240px]">
+                    <div className="flex-1">
+                        <SuperFieldSelector
+                            value={
+                                question.masterFieldNo
+                                    ? `master:${question.masterFieldNo}${question.masterFieldProjectionPath ? `:${question.masterFieldProjectionPath}` : ''}`
+                                    : question.masterQuestionGroupId
+                                        ? `group:${question.masterQuestionGroupId}`
+                                        : (question as any).customFieldDefinitionId
+                                            ? `custom:${(question as any).customFieldDefinitionId}`
+                                            : null
+                            }
+                            onSelect={(val, type, label) => {
+                                if (type === 'clear') onMap("UNMAP");
+                                else if (type === 'create') onMap("CREATE_NEW");
+                                else if (type === 'master') onMap(val);
+                                else if (type === 'group') onMap(`GROUP_${val}`);
+                                else if (type === 'custom') onMap(`CUSTOM_${val}`);
+                            }}
+                            masterFields={masterFields}
+                            masterGroups={masterGroups}
+                            customFields={customFields}
+                            questionText={question.text}
+                            disabled={disabled || question.status === 'RELEASED'}
+                        />
+                    </div>
+
+                    {isMapped && question.status !== 'RELEASED' && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 shrink-0"
+                            onClick={() => onMap("UNMAP")}
+                            disabled={disabled}
+                            title="Unmap field"
+                        >
+                            <Unlink className="h-3.5 w-3.5" />
+                        </Button>
                     )}
                 </div>
             </TableCell>

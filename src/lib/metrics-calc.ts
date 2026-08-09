@@ -3,12 +3,13 @@ import { DashboardMetric, emptyMetrics, rollupMetrics } from "./dashboard-metric
 
 export { type DashboardMetric, emptyMetrics, rollupMetrics };
 
-export async function calculateEngagementMetrics(engagementId: string): Promise<DashboardMetric> {
+export async function calculateEngagementOwnMetrics(engagementId: string): Promise<DashboardMetric> {
     const questions = await prisma.question.findMany({
         where: {
             questionnaire: {
                 fiEngagementId: engagementId,
-                isDeleted: false
+                isDeleted: false,
+                isTemplate: false
             }
         },
         select: {
@@ -35,10 +36,10 @@ export async function calculateEngagementMetrics(engagementId: string): Promise<
 
     const m = await calculateMetricsFromQuestions(questions, engagement.clientLE?.legalEntityId, engagement.clientLE?.customData as any, engagement.clientLE?.id);
 
-    // 3. Process Legacy/JSON content (Fallback) - Only if no structured questions exist
+    // Process Legacy/JSON content (Fallback) - Only if no structured questions exist
     if (questions.length === 0) {
         const questionnaires = await prisma.questionnaire.findMany({
-            where: { fiEngagementId: engagementId, isDeleted: false },
+            where: { fiEngagementId: engagementId, isDeleted: false, isTemplate: false },
             select: { extractedContent: true, updatedAt: true }
         });
 
@@ -49,6 +50,60 @@ export async function calculateEngagementMetrics(engagementId: string): Promise<
     }
 
     return m;
+}
+
+export async function calculateEffectiveEngagementMetrics(
+    engagementId: string,
+    clientLeId?: string,
+    cachedCqMetricsMap?: Map<string, DashboardMetric>
+): Promise<DashboardMetric> {
+    const ownMetrics = await calculateEngagementOwnMetrics(engagementId);
+
+    let targetClientLeId = clientLeId;
+    if (!targetClientLeId) {
+        const engagement = await prisma.fIEngagement.findUnique({
+            where: { id: engagementId },
+            select: { clientLEId: true }
+        });
+        targetClientLeId = engagement?.clientLEId;
+    }
+
+    if (!targetClientLeId) return ownMetrics;
+
+    // Fetch active Common Questionnaires for targetClientLeId
+    const clientLe = await prisma.clientLE.findUnique({
+        where: { id: targetClientLeId },
+        select: {
+            commonQuestionnaires: {
+                where: { isDeleted: false, isTemplate: false },
+                select: { id: true }
+            }
+        }
+    });
+
+    if (!clientLe || !clientLe.commonQuestionnaires || clientLe.commonQuestionnaires.length === 0) {
+        return ownMetrics;
+    }
+
+    const effectiveMetrics = { ...ownMetrics };
+
+    for (const cq of clientLe.commonQuestionnaires) {
+        const cacheKey = `${cq.id}:${targetClientLeId}`;
+        let cqMetrics = cachedCqMetricsMap?.get(cacheKey);
+        if (!cqMetrics) {
+            cqMetrics = await calculateCommonQuestionnaireMetrics(cq.id, targetClientLeId);
+            if (cachedCqMetricsMap) {
+                cachedCqMetricsMap.set(cacheKey, cqMetrics);
+            }
+        }
+        rollupMetrics(effectiveMetrics, cqMetrics);
+    }
+
+    return effectiveMetrics;
+}
+
+export async function calculateEngagementMetrics(engagementId: string): Promise<DashboardMetric> {
+    return calculateEffectiveEngagementMetrics(engagementId);
 }
 
 export async function calculateQuestionnaireMetrics(questionnaireId: string): Promise<DashboardMetric> {
