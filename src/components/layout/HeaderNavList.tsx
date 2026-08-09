@@ -7,6 +7,8 @@ import { LucideIcon } from "lucide-react";
 import React from "react";
 import { getBreadcrumbIcon } from "@/lib/breadcrumb-icon-map";
 
+import { resolveSectionAccent, SectionAccentKey } from "@/config/section-accent";
+
 export interface NavItem {
     label: string;
     href: string;
@@ -15,28 +17,12 @@ export interface NavItem {
     isActive?: (pathname: string) => boolean;
     alignRight?: boolean;
     activeBorderClass?: string;
+    sectionAccentKey?: SectionAccentKey;
 }
 
 export function getActiveBorderClass(item: NavItem): string {
     if (item.activeBorderClass) return item.activeBorderClass;
-
-    const labelLower = item.label.toLowerCase();
-    const hrefLower = item.href.toLowerCase();
-
-    if (labelLower.includes("source") || hrefLower.includes("/sources")) {
-        return "border-sky-500";
-    }
-    if (labelLower.includes("master") || hrefLower.includes("/master")) {
-        return "border-orange-500";
-    }
-    if (labelLower.includes("relationship") || hrefLower.includes("/relationships")) {
-        return "border-purple-600";
-    }
-    if (labelLower.includes("question bank") || hrefLower.includes("/workbench4")) {
-        return "border-indigo-600";
-    }
-
-    return "border-slate-900 dark:border-slate-100";
+    return resolveSectionAccent(item.href, item.sectionAccentKey).navBorderClass;
 }
 
 export function isNavItemActive(item: NavItem, pathname: string): boolean {
