@@ -115,7 +115,7 @@ Buttons are styled via `src/components/ui/button.tsx`.
 | **Primary (`default`)** | `bg-slate-900 text-white hover:bg-slate-800` | The single main action on a page or modal. | `[ Create Questionnaire ]`, `[ Save Changes ]` |
 | **Secondary (`secondary`)**| `bg-slate-100 text-slate-900 hover:bg-slate-200` | Alternative supportive actions. | `[ Export PDF ]`, `[ Duplicate ]` |
 | **Outline (`outline`)** | `border border-slate-200 bg-white hover:bg-slate-50` | Standard secondary actions, filter toggles, drawers. | `[ Assign ▾ ]`, `[ Clear Filters ]` |
-| **Ghost (`ghost`)** | `hover:bg-slate-100 text-slate-700` | Low-prominence actions, table row actions, icon buttons. | `[ Cancel ]`, row action triggers |
+| **Ghost (`ghost`)** | `hover:bg-slate-100 text-slate-700` | Low-prominence actions, table row actions, icon buttons. | `[ Cancel ]`, view action triggers (`Expand all`) |
 | **Destructive (`destructive`)**| `bg-red-600 text-white hover:bg-red-700` | Irreversible or destructive actions inside confirmation modals. | `[ Delete Item ]`, `[ Revoke Access ]` |
 | **Icon-Only (`size="icon"`)**| `h-8 w-8` or `h-9 w-9` centered icon button | Standalone quick actions. **Must include `title="..."` or `aria-label`.** | Edit pencil, close `X`, history icon |
 
@@ -145,7 +145,7 @@ OnPro standardizes icon usage via `lucide-react`. Raw text characters (`→`, `>
 | **Error / Failure** | `<AlertCircle />` or `<XCircle />` | Validation failures and system errors. |
 | **Instruction / Note** | `<FileText />` | Assignment instructions and field notes. |
 | **Search Input** | `<Search />` | Search input icons. |
-| **Filter Control** | `<Filter />` or `<SlidersHorizontal />` | Table and grid filter dropdown triggers. |
+| **Filter Control** | `<Filter />` or `<SlidersHorizontal />` | Table and grid filter popover or dropdown triggers. Must not be used beside search inputs or to label view actions like Expand/Collapse. |
 | **Client Corporate Entity** | `<Factory />` | Represents a Corporate Client / Group entity. |
 | **Client Legal Entity (LE)** | `<Landmark />` | Represents a registered Legal Entity. |
 | **Supplier / FI Entity** | `<Landmark />` | Represents a Bank, FI, or Service Provider. |
@@ -197,7 +197,116 @@ OnPro enforces strict visual rules for status badges. Data State, Assignment Sta
 
 ---
 
-## 9. Preferred Shared Components
+## 9. Standard Filtering Architecture & Interaction Model
+
+OnPro enforces a single product-wide standard for filtering and view controls across all data surfaces (Master Record, Question Bank, Kanban, Assignments, etc.).
+
+> [!IMPORTANT]
+> **Architecture Principle**: Filtering semantics and state remain owned by individual surfaces. We enforce **one OnPro filtering standard, optionally supported by lightweight shared primitives** (e.g., `FilterToolbar`, `FilterSelect`, `MoreFiltersPopover`, `ActiveFilterCount`). Do NOT attempt to build a single, highly configurable, monolithic generic filtering framework prematurely.
+
+### A. Core Filtering Principles
+
+#### 1. Search and Filters are Distinct Interaction Concepts
+- **Search**: Answers *"Find items matching this text"*.
+  - Must appear **first** in the toolbar.
+  - Must be visually distinct from structured filter controls.
+  - Must **not** require a generic `<Filter />` icon beside it merely to describe or label the toolbar container.
+- **Filters**: Restrict the visible dataset according to structured domain properties.
+- **Rule**: Avoid visually conflating Search and Filters.
+
+#### 2. Primary vs. Additional Filters
+Do not display every possible filter permanently in a horizontal row. An OnPro filtering toolbar follows the baseline pattern:
+
+`[ 🔍 Search ]  [ Primary Filter ▾ ]  [ Primary Filter ▾ ]  [ More filters ▾ ]`
+
+- **Inline Limit**: Expose a maximum of **2–3 high-frequency primary filters** inline.
+- **Contextual Selection**: Which filters are primary depends on the specific surface:
+  - *Master Record*: `Search` | `Category` | `Status` | `More filters`
+  - *Assignments*: `Search` | `Status` | `Assignee` | `More filters`
+  - *Question Bank*: `Search` | `Questionnaire` | `Status` | `More filters`
+- The standard governs the **interaction model**, not rigid identical filter fields across every surface.
+
+#### 3. "More Filters" Panel & Grouping
+Specialist, secondary, or lower-frequency filters must be placed behind a **"More filters"** trigger:
+- Opens a popover, slide-over panel, or suitable responsive container.
+- Organizes related filters into logical sections (e.g., `FIELD PROPERTIES` vs `WORKFLOW & TASKS`).
+- Displays the number of **active additional filters** directly on the trigger badge (e.g., `More filters (2)` or `More filters 2`).
+- **Default values do not count as active**.
+- **Rule**: Do NOT create or display a permanently visible second toolbar merely because workflow or assignment filters exist.
+
+#### 4. Active Filter State & Feedback
+Users must immediately recognize when they are viewing a filtered subset of data.
+- **Trigger Labels**: Primary filter triggers must display their currently selected value (e.g., `[ Governance ▾ ]` instead of `[ Category ▾ ]`).
+- **Inactive Defaults**: Default selections (`All categories`, `All statuses`, `Anyone`, `All fields`) are considered inactive states.
+- **Clear Action**: Show a `Clear filters` text action **only** when at least one structured filter is active.
+- **No Default Filter Chips**: Do NOT automatically render a permanent row of active-filter chips/pills. Chips add vertical and visual clutter and are reserved for exceptionally complex ad-hoc query surfaces.
+
+#### 5. Search Clearing vs. Filter Clearing
+Search text and structured filters are separate interaction concepts.
+- **Search input** should feature its own inline clear interaction (`X`).
+- **`Clear filters`** resets structured filtering state back to defaults.
+- Clearing filters must **not** unexpectedly clear the search text input unless the surface explicitly defines that behavior.
+
+#### 6. View Actions Must NOT Be Mixed With Filters
+Actions that alter visual presentation or formatting rather than dataset membership are **View Actions**, NOT filters.
+- **Examples**: `Expand all`, `Collapse all`, view density toggles, card/table view mode switches.
+- View actions must **never** sit inside filtering control blocks or under a `<Filter />` icon label.
+- For accordion surfaces (like Master Record), `Expand all / Collapse all` must sit near the section or page heading, visually subordinate to primary actions (using subtle text or `ghost`/`outline` action buttons).
+
+#### 7. Responsive Toolbar Behavior
+Filter controls must **never** cause page-level horizontal scrollbars or uncontrolled multi-line wrapping on desktop.
+- **Desktop**: `Search` + 2–3 `Primary Filters` + `More filters` remain inline.
+- **Tablet / Narrow Widths**: Primary filters progressively collapse into the `More filters` container, or the search input takes its own row.
+- **Mobile**: Reduces cleanly to `Search` + `Filters (n)`.
+- **Rule**: Responsive overflow adaptation must be deliberate, not left to default horizontal flex wrapping.
+
+#### 8. Dependent Filter Rules
+When one filter relies on another (e.g., `Assignee` depending on `Assignment` state):
+- Make dependencies clear; do not leave disabled controls unexplained.
+- Prefer removing unnecessary dependencies where user intent implies them (e.g., selecting `Assignee = Mark` inherently implies `Assignment = Assigned`).
+- Filters should express the user's question, not expose internal database schemas or data model constraints.
+
+#### 9. State Persistence & Navigation
+- For page-level filtering, prefer reflecting filter state in the URL query string (`searchParams`) so that page refreshes, browser navigation (Back/Forward), and link sharing work seamlessly.
+- Do not mandate URL state for ephemeral or localized component filters where it introduces unnecessary complexity.
+
+#### 10. Component Architecture Expectations
+OnPro filtering is defined as: **"One OnPro filtering standard, optionally supported by lightweight shared primitives."**
+- Small shared primitives (such as `FilterToolbar`, `FilterSelect`, `MoreFiltersPopover`, or `ActiveFilterCount`) may be extracted only where genuine repetition exists.
+- Component semantics, filter logic, and state management remain owned by individual surfaces.
+- Avoid building a highly configurable generic filtering framework prematurely.
+
+---
+
+### B. Reference Implementation Specification: Master Record
+
+The **Master Record** page serves as the initial reference implementation of this filtering standard.
+
+#### Standard Toolbar Layout (Desktop)
+```
+Master Record                                                 [ Expand all ] [ Collapse all ]
+
+[ 🔍 Search fields... ]  [ Category ▾ ]  [ Status ▾ ]  [ More filters ▾ ]
+```
+
+#### Active Filtering Toolbar State
+```
+[ 🔍 Search fields... ]  [ Governance ▾ ]  [ Missing ▾ ]  [ More filters (2) ▾ ]    Clear filters
+```
+
+#### "More Filters" Popover Grouping
+Inside `More filters ▾`, options are structured into distinct semantic groups:
+
+- **FIELD PROPERTIES**
+  - Questionnaire usage (`All fields` | `Used in questionnaires` | `Not used in questionnaires`)
+- **WORKFLOW & TASKS**
+  - Assignment state (`All` | `Assigned` | `Unassigned`)
+  - Assignee (`Anyone` | `Me` | *Team members...*)
+  - Work status (`All Work` | `Open` | `Done`)
+
+---
+
+## 10. Preferred Shared Components
 
 Engineers should adopt standard shared primitives rather than recreating local variations:
 
@@ -213,16 +322,18 @@ Engineers should adopt standard shared primitives rather than recreating local v
    - *Usage*: Long-form inline descriptions with "Show more" / "Show less" toggle.
 6. **`sonner` Toast Notifications** (`src/components/ui/sonner.tsx`):
    - *Usage*: All non-blocking success/error feedback (`toast.success`, `toast.error`).
+7. **Optional Filtering Primitives** (`FilterToolbar`, `FilterSelect`, `MoreFiltersPopover`):
+   - *Usage*: Lightweight optional shared UI primitives supporting the product filtering standard (see Section 9).
 
 ---
 
-## 10. Behavioral Conventions
+## 11. Behavioral Conventions
 
 - **Save vs. Auto-Save**:
   - *Explicit Save*: Form workflows use an explicit `[ Save ]` button with loading state (`Loader2`).
   - *Auto-Save*: Inline inputs that auto-save on blur must provide subtle status feedback (`Saving...` → `Saved`).
 - **Destructive Actions**: All delete/archive operations must be gated by a `ConfirmDeleteDialog` or `ConfirmArchiveDialog`. Never use browser-native `window.confirm`.
 - **Toast Feedback**: Non-blocking toast feedback via `sonner` after async operations complete.
-- **Filter Reset**: Tables and grids with filters must provide a clear `[ Clear all filters ]` action when zero results match.
+- **Filter Reset**: Surfaces with active structured filters must display a clear `[ Clear filters ]` text action whenever at least one filter is active (as specified in Section 9).
 - **Loading Feedback**: Async buttons must show a `Loader2` spinner and be `disabled` in-flight to prevent double-submissions.
 - **Focus & Keyboard**: Interactive controls must feature visible focus rings (`focus-visible:ring-2 focus-visible:ring-indigo-500/20`) and full keyboard accessibility.

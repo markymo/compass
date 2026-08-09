@@ -25,7 +25,8 @@ import { isAddressValue, getAddressSummary } from "@/lib/master-data/address-val
 import { ExpandableText } from "@/components/ui/expandable-text";
 import { isPersonOrContactValue, getPersonOrContactSummary } from "@/lib/master-data/person-or-contact-value";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, AlertCircle, CheckCircle2, Circle } from "lucide-react";
+import { Search, Filter, AlertCircle, CheckCircle2, Circle, SlidersHorizontal, ChevronsUpDown, X } from "lucide-react";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { getLETeamMembers } from "@/actions/kanban-actions";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -147,6 +148,40 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
         const params = new URLSearchParams(searchParams.toString());
         if (value && value !== "ALL") params.set(key, value);
         else params.delete(key);
+        startTransition(() => {
+            router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+        });
+    };
+
+    const moreFiltersCount = useMemo(() => {
+        let count = 0;
+        if (usageFilter !== "ALL") count++;
+        if (assigneeFilter !== "ALL") {
+            count++;
+        } else if (assignStateFilter !== "ALL") {
+            count++;
+        }
+        if (workFilter !== "ALL") count++;
+        return count;
+    }, [usageFilter, assignStateFilter, assigneeFilter, workFilter]);
+
+    const hasActiveStructuredFilters = useMemo(() => {
+        return catFilter !== "ALL" ||
+            popFilter !== "ALL" ||
+            usageFilter !== "ALL" ||
+            assignStateFilter !== "ALL" ||
+            assigneeFilter !== "ALL" ||
+            workFilter !== "ALL";
+    }, [catFilter, popFilter, usageFilter, assignStateFilter, assigneeFilter, workFilter]);
+
+    const clearStructuredFilters = () => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.delete("category");
+        params.delete("status");
+        params.delete("usage");
+        params.delete("assignment");
+        params.delete("assignee");
+        params.delete("work");
         startTransition(() => {
             router.replace(`${pathname}?${params.toString()}`, { scroll: false });
         });
@@ -535,170 +570,278 @@ setIsRefreshingRegistry(false);
             </div>
 
             {/* Master Record — full width */}
-            <div className="space-y-6">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div className="space-y-4">
+                {/* Header Row with View Actions */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
                     <div>
-                        <h2 className="text-2xl font-semibold tracking-tight">Master Record</h2>
-                        <div className="flex items-center gap-3 mt-1">
-                            <Filter className="h-4 w-4 text-slate-400" />
-                            <span className="text-slate-300 text-xs">•</span>
-                            <div className="flex items-center gap-1">
-                                <button onClick={expandAll} className="text-xs text-blue-600 hover:text-blue-700 font-medium hover:underline transition-all">Expand all</button>
-                                <span className="text-slate-300 text-xs px-1">/</span>
-                                <button onClick={collapseAll} className="text-xs text-blue-600 hover:text-blue-700 font-medium hover:underline transition-all">Collapse all</button>
+                        <h2 className="text-2xl font-bold text-slate-900 tracking-tight font-heading">Master Record</h2>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                            Canonical data fields and corporate specifications
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={expandAll}
+                            className="text-xs text-slate-600 hover:text-slate-900 h-8 px-2.5 font-medium"
+                        >
+                            <ChevronsUpDown className="h-3.5 w-3.5 mr-1.5 text-slate-400" />
+                            Expand all
+                        </Button>
+                        <span className="text-slate-200 text-xs">|</span>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={collapseAll}
+                            className="text-xs text-slate-600 hover:text-slate-900 h-8 px-2.5 font-medium"
+                        >
+                            <ChevronUp className="h-3.5 w-3.5 mr-1.5 text-slate-400" />
+                            Collapse all
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Filtering Toolbar */}
+                <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
+                    {/* Search */}
+                    <div className="relative w-full sm:w-64 md:w-72">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                            placeholder="Search fields..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-9 pr-8 bg-white border-slate-200 focus-visible:ring-slate-400 text-sm"
+                        />
+                        {search && (
+                            <button
+                                type="button"
+                                onClick={() => setSearch("")}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100 transition-colors"
+                                title="Clear search"
+                            >
+                                <X className="h-3.5 w-3.5" />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Primary Filter: Category */}
+                    <Select value={catFilter} onValueChange={(v) => updateQuery("category", v)}>
+                        <SelectTrigger className="w-full sm:w-auto min-w-[150px] bg-white border-slate-200 text-sm">
+                            <SelectValue placeholder="All Categories" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL">All Categories</SelectItem>
+                            {customDefinitions.length > 0 && <SelectItem value="CUSTOM">Custom Fields</SelectItem>}
+                            {categoryList.map((cat: any) => (
+                                <SelectItem key={cat.id} value={cat.id}>{cat.displayName}</SelectItem>
+                            ))}
+                            {uncategorizedFields.length > 0 && <SelectItem value="UNCATEGORIZED">Uncategorized</SelectItem>}
+                        </SelectContent>
+                    </Select>
+
+                    {/* Primary Filter: Status */}
+                    <Select value={popFilter} onValueChange={(v) => updateQuery("status", v)}>
+                        <SelectTrigger className="w-full sm:w-auto min-w-[140px] bg-white border-slate-200 text-sm">
+                            <span className="flex items-center gap-2">
+                                {popFilter === 'POPULATED' ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                                ) : popFilter === 'EMPTY' ? (
+                                    <Circle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                                ) : null}
+                                <SelectValue placeholder="All Status" />
+                            </span>
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL">All Status</SelectItem>
+                            <SelectItem value="POPULATED">Populated</SelectItem>
+                            <SelectItem value="EMPTY">Missing Data</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    {/* More Filters Trigger */}
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button 
+                                variant="outline" 
+                                size="default" 
+                                className={cn(
+                                    "w-full sm:w-auto bg-white border-slate-200 text-sm font-normal flex items-center justify-between sm:justify-start gap-2",
+                                    moreFiltersCount > 0 && "border-indigo-200 bg-indigo-50/30 font-medium text-indigo-950"
+                                )}
+                            >
+                                <span className="flex items-center gap-2">
+                                    <SlidersHorizontal className="h-3.5 w-3.5 text-slate-500" />
+                                    <span>More filters</span>
+                                </span>
+                                {moreFiltersCount > 0 && (
+                                    <Badge variant="secondary" className="h-5 px-1.5 text-xs font-semibold bg-indigo-100 text-indigo-700 border-none rounded-full ml-0.5">
+                                        {moreFiltersCount}
+                                    </Badge>
+                                )}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-80 p-4 space-y-4">
+                            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                                <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">More Filters</h4>
+                                {moreFiltersCount > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const params = new URLSearchParams(searchParams.toString());
+                                            params.delete("usage");
+                                            params.delete("assignment");
+                                            params.delete("assignee");
+                                            params.delete("work");
+                                            startTransition(() => {
+                                                router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+                                            });
+                                        }}
+                                        className="text-xs text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                                    >
+                                        Reset group
+                                    </button>
+                                )}
                             </div>
-                        </div>
-                    </div>
 
-                    <div className="flex flex-col md:flex-row gap-3 items-center">
-                        <div className="relative w-full md:w-64">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                            <Input
-                                placeholder="Search fields..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                className="pl-9 bg-white border-slate-200 focus-visible:ring-blue-500"
-                            />
-                        </div>
-
-                        <Select value={catFilter} onValueChange={(v) => updateQuery("category", v)}>
-                            <SelectTrigger className="w-full md:w-[180px] bg-white border-slate-200">
-                                <Filter className="h-3.5 w-3.5 mr-2 text-slate-400" />
-                                <SelectValue placeholder="Category" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="ALL">All Categories</SelectItem>
-                                {customDefinitions.length > 0 && <SelectItem value="CUSTOM">Custom Fields</SelectItem>}
-                                {categoryList.map((cat: any) => (
-                                    <SelectItem key={cat.id} value={cat.id}>{cat.displayName}</SelectItem>
-                                ))}
-                                {uncategorizedFields.length > 0 && <SelectItem value="UNCATEGORIZED">Uncategorized</SelectItem>}
-                            </SelectContent>
-                        </Select>
-
-                        <Select value={popFilter} onValueChange={(v) => updateQuery("status", v)}>
-                            <SelectTrigger className="w-full md:w-[160px] bg-white border-slate-200">
-                                <span className="flex items-center gap-2">
-                                    {popFilter === 'POPULATED' ? <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> : <Circle className="h-3.5 w-3.5 text-slate-300" />}
-                                    <SelectValue placeholder="Status" />
+                            {/* FIELD PROPERTIES */}
+                            <div className="space-y-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                    Field Properties
                                 </span>
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="ALL">All Status</SelectItem>
-                                <SelectItem value="POPULATED">Populated</SelectItem>
-                                <SelectItem value="EMPTY">Missing Data</SelectItem>
-                            </SelectContent>
-                        </Select>
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-medium text-slate-700">Questionnaire usage</label>
+                                    <Select value={usageFilter} onValueChange={(v) => updateQuery("usage", v)}>
+                                        <SelectTrigger className="w-full bg-white border-slate-200 text-xs h-9">
+                                            <SelectValue placeholder="All fields" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ALL">All fields</SelectItem>
+                                            <SelectItem value="USED">Used in questionnaires</SelectItem>
+                                            <SelectItem value="UNUSED">Not used in questionnaires</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
 
-                        <Select value={usageFilter} onValueChange={(v) => updateQuery("usage", v)}>
-                            <SelectTrigger className="w-full md:w-[200px] bg-white border-slate-200">
-                                <span className="flex items-center gap-2">
-                                    <ClipboardList className="h-3.5 w-3.5 text-slate-400" />
-                                    <SelectValue placeholder="Usage" />
+                            {/* WORKFLOW & TASKS */}
+                            <div className="space-y-2.5 pt-2 border-t border-slate-100">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                                    Workflow & Tasks
                                 </span>
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="ALL">All fields</SelectItem>
-                                <SelectItem value="USED">Used in questionnaires</SelectItem>
-                                <SelectItem value="UNUSED">Not used in questionnaires</SelectItem>
-                            </SelectContent>
-                        </Select>
 
-                        {/* Assignment State Filter */}
-                        <Select 
-                            value={assigneeFilter !== "ALL" ? "ASSIGNED" : assignStateFilter} 
-                            onValueChange={(v) => {
-                                const params = new URLSearchParams(searchParams.toString());
-                                if (v === "UNASSIGNED") {
-                                    params.set("assignment", "UNASSIGNED");
-                                    params.delete("assignee");
-                                } else if (v === "ASSIGNED") {
-                                    params.set("assignment", "ASSIGNED");
-                                } else {
-                                    params.delete("assignment");
-                                }
-                                startTransition(() => {
-                                    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-                                });
-                            }}
+                                {/* Assignment State */}
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-medium text-slate-700">Assignment</label>
+                                    <Select 
+                                        value={assigneeFilter !== "ALL" ? "ASSIGNED" : assignStateFilter} 
+                                        onValueChange={(v) => {
+                                            const params = new URLSearchParams(searchParams.toString());
+                                            if (v === "UNASSIGNED") {
+                                                params.set("assignment", "UNASSIGNED");
+                                                params.delete("assignee");
+                                            } else if (v === "ASSIGNED") {
+                                                params.set("assignment", "ASSIGNED");
+                                            } else {
+                                                params.delete("assignment");
+                                            }
+                                            startTransition(() => {
+                                                router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+                                            });
+                                        }}
+                                    >
+                                        <SelectTrigger className="w-full bg-white border-slate-200 text-xs h-9">
+                                            <SelectValue placeholder="All Assignments" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ALL">All Assignments</SelectItem>
+                                            <SelectItem value="ASSIGNED">Assigned</SelectItem>
+                                            <SelectItem value="UNASSIGNED">Unassigned</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* Assignee */}
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-medium text-slate-700">Assignee</label>
+                                    <Select
+                                        value={assigneeFilter}
+                                        disabled={assignStateFilter === "UNASSIGNED"}
+                                        onValueChange={(v) => {
+                                            const params = new URLSearchParams(searchParams.toString());
+                                            if (v !== "ALL") {
+                                                params.set("assignee", v);
+                                                params.set("assignment", "ASSIGNED");
+                                            } else {
+                                                params.delete("assignee");
+                                            }
+                                            startTransition(() => {
+                                                router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+                                            });
+                                        }}
+                                    >
+                                        <SelectTrigger className={cn("w-full bg-white border-slate-200 text-xs h-9", assignStateFilter === "UNASSIGNED" && "opacity-50 cursor-not-allowed")}>
+                                            <SelectValue placeholder="Anyone" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ALL">Anyone</SelectItem>
+                                            <SelectItem value="ME">Me</SelectItem>
+                                            {teamMembers.map((m: any) => (
+                                                <SelectItem key={m.id || m.email} value={m.id || `email:${m.email}`}>
+                                                    {m.name || m.email}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                {/* Work Status */}
+                                <div className="space-y-1.5">
+                                    <label className="text-xs font-medium text-slate-700">Work Status</label>
+                                    <Select
+                                        value={workFilter}
+                                        disabled={assignStateFilter === "UNASSIGNED"}
+                                        onValueChange={(v) => {
+                                            const params = new URLSearchParams(searchParams.toString());
+                                            if (v !== "ALL") {
+                                                params.set("work", v);
+                                                params.set("assignment", "ASSIGNED");
+                                            } else {
+                                                params.delete("work");
+                                            }
+                                            startTransition(() => {
+                                                router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+                                            });
+                                        }}
+                                    >
+                                        <SelectTrigger className={cn("w-full bg-white border-slate-200 text-xs h-9", assignStateFilter === "UNASSIGNED" && "opacity-50 cursor-not-allowed")}>
+                                            <SelectValue placeholder="All Work" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ALL">All Work</SelectItem>
+                                            <SelectItem value="OPEN">Open</SelectItem>
+                                            <SelectItem value="DONE">Done</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        </PopoverContent>
+                    </Popover>
+
+                    {/* Clear Structured Filters Button */}
+                    {hasActiveStructuredFilters && (
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={clearStructuredFilters}
+                            className="text-xs text-slate-500 hover:text-slate-800 hover:bg-slate-100 h-9 px-2.5 font-medium ml-auto sm:ml-0"
                         >
-                            <SelectTrigger className="w-full md:w-[170px] bg-white border-slate-200">
-                                <span className="flex items-center gap-2">
-                                    <UserCheck className="h-3.5 w-3.5 text-slate-400" />
-                                    <SelectValue placeholder="Assignment" />
-                                </span>
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="ALL">All Assignments</SelectItem>
-                                <SelectItem value="ASSIGNED">Assigned</SelectItem>
-                                <SelectItem value="UNASSIGNED">Unassigned</SelectItem>
-                            </SelectContent>
-                        </Select>
-
-                        {/* Assignee Filter */}
-                        <Select
-                            value={assigneeFilter}
-                            disabled={assignStateFilter === "UNASSIGNED"}
-                            onValueChange={(v) => {
-                                const params = new URLSearchParams(searchParams.toString());
-                                if (v !== "ALL") {
-                                    params.set("assignee", v);
-                                    params.set("assignment", "ASSIGNED");
-                                } else {
-                                    params.delete("assignee");
-                                }
-                                startTransition(() => {
-                                    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-                                });
-                            }}
-                        >
-                            <SelectTrigger className={cn("w-full md:w-[180px] bg-white border-slate-200", assignStateFilter === "UNASSIGNED" && "opacity-50 cursor-not-allowed")}>
-                                <span className="flex items-center gap-2">
-                                    <User className="h-3.5 w-3.5 text-slate-400" />
-                                    <SelectValue placeholder="Assignee" />
-                                </span>
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="ALL">Anyone</SelectItem>
-                                <SelectItem value="ME">Me</SelectItem>
-                                {teamMembers.map((m: any) => (
-                                    <SelectItem key={m.id || m.email} value={m.id || `email:${m.email}`}>
-                                        {m.name || m.email}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-
-                        {/* Work Status Filter */}
-                        <Select
-                            value={workFilter}
-                            disabled={assignStateFilter === "UNASSIGNED"}
-                            onValueChange={(v) => {
-                                const params = new URLSearchParams(searchParams.toString());
-                                if (v !== "ALL") {
-                                    params.set("work", v);
-                                    params.set("assignment", "ASSIGNED");
-                                } else {
-                                    params.delete("work");
-                                }
-                                startTransition(() => {
-                                    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-                                });
-                            }}
-                        >
-                            <SelectTrigger className={cn("w-full md:w-[140px] bg-white border-slate-200", assignStateFilter === "UNASSIGNED" && "opacity-50 cursor-not-allowed")}>
-                                <span className="flex items-center gap-2">
-                                    <CheckCircle2 className="h-3.5 w-3.5 text-slate-400" />
-                                    <SelectValue placeholder="Work" />
-                                </span>
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="ALL">All Work</SelectItem>
-                                <SelectItem value="OPEN">Open</SelectItem>
-                                <SelectItem value="DONE">Done</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
+                            <X className="h-3.5 w-3.5 mr-1" />
+                            Clear filters
+                        </Button>
+                    )}
                 </div>
 
                 {/* Master Record Content */}

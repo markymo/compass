@@ -1,10 +1,5 @@
 import { headers } from "next/headers";
-import dynamic from "next/dynamic";
-
-const FeedbackWidget = dynamic(
-    () => import("@/components/dev/feedback-widget").then((mod) => mod.FeedbackWidget),
-    { ssr: false }
-);
+import { FeedbackWidget } from "@/components/dev/feedback-widget";
 
 const ALLOWED_HOSTS = ["localhost", "dev.onpro.tech", "onpro.tech"];
 
