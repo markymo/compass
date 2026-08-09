@@ -14,6 +14,29 @@ export interface NavItem {
     iconName?: string;
     isActive?: (pathname: string) => boolean;
     alignRight?: boolean;
+    activeBorderClass?: string;
+}
+
+export function getActiveBorderClass(item: NavItem): string {
+    if (item.activeBorderClass) return item.activeBorderClass;
+
+    const labelLower = item.label.toLowerCase();
+    const hrefLower = item.href.toLowerCase();
+
+    if (labelLower.includes("source") || hrefLower.includes("/sources")) {
+        return "border-sky-500";
+    }
+    if (labelLower.includes("master") || hrefLower.includes("/master")) {
+        return "border-orange-500";
+    }
+    if (labelLower.includes("relationship") || hrefLower.includes("/relationships")) {
+        return "border-purple-600";
+    }
+    if (labelLower.includes("question bank") || hrefLower.includes("/workbench4")) {
+        return "border-indigo-600";
+    }
+
+    return "border-slate-900 dark:border-slate-100";
 }
 
 export function isNavItemActive(item: NavItem, pathname: string): boolean {
@@ -56,6 +79,7 @@ export function HeaderNavList({ items }: HeaderNavListProps) {
             >
                 {items.map((item) => {
                     const active = isNavItemActive(item, fullPath);
+                    const activeBorderClass = getActiveBorderClass(item);
                     const Icon = item.icon || (item.iconName ? getBreadcrumbIcon(item.iconName) : undefined);
                     return (
                         <Link
@@ -64,7 +88,7 @@ export function HeaderNavList({ items }: HeaderNavListProps) {
                             className={cn(
                                 "group inline-flex items-center gap-2.5 py-4 border-b-2 font-semibold text-sm transition-all duration-200 ease-in-out whitespace-nowrap shrink-0",
                                 active
-                                    ? "border-amber-500 text-blue-600 dark:text-blue-400"
+                                    ? cn("text-slate-900 dark:text-slate-100", activeBorderClass)
                                     : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 dark:text-zinc-500 dark:hover:text-zinc-100",
                                 item.alignRight && "ml-auto"
                             )}
@@ -73,7 +97,7 @@ export function HeaderNavList({ items }: HeaderNavListProps) {
                             {Icon && (
                                 <Icon className={cn(
                                     "h-4 w-4 transition-colors",
-                                    active ? "text-blue-600 dark:text-blue-400" : "text-slate-400 group-hover:text-slate-600 dark:text-zinc-600 dark:group-hover:text-zinc-400"
+                                    active ? "text-slate-700 dark:text-slate-300" : "text-slate-400 group-hover:text-slate-600 dark:text-zinc-600 dark:group-hover:text-zinc-400"
                                 )} />
                             )}
                             <span>{item.label}</span>
