@@ -254,7 +254,7 @@ export default function MasterDataSortBuilder({ initialData }: { initialData: an
             </DragDropContext>
 
             <div className="mt-12 opacity-75">
-                <h3 className="font-semibold text-lg mb-4 pl-4 border-l-4 border-orange-400">Uncategorized Fields</h3>
+                <h3 className="font-semibold text-lg text-slate-900 mb-4">Uncategorized Fields</h3>
                 <div className="space-y-2 pl-8">
                     {uncategorizedFields.map((field: any) => (
                         <div key={field.fieldNo} className="flex items-center gap-3 p-3 bg-white dark:bg-slate-900 border rounded-md shadow-sm opacity-60">

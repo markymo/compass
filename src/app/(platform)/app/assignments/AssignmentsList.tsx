@@ -176,7 +176,7 @@ export function AssignmentsList({ myAssignments, teamAssignments, currentUserId 
 
             {/* Master Field Summary Bar */}
             {masterSummary.total > 0 && (
-                <div className="flex items-center gap-3 text-xs bg-indigo-50/70 border border-indigo-100 text-indigo-900 px-4 py-2.5 rounded-xl shadow-xs font-medium flex-wrap">
+                <div className="flex items-center gap-3 text-xs bg-indigo-50/70 border border-indigo-100 text-indigo-900 px-4 py-2.5 rounded-md shadow-xs font-medium flex-wrap">
                     <Database className="h-4 w-4 text-indigo-600 shrink-0" />
                     <span className="font-semibold">{activeTab === "my" ? "My Master Field Assignments:" : "Team Master Field Assignments:"}</span>
                     <span className="font-bold">{masterSummary.total} total</span>
@@ -188,7 +188,7 @@ export function AssignmentsList({ myAssignments, teamAssignments, currentUserId 
             )}
 
             {/* Controls */}
-            <div className="flex flex-wrap items-center gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex flex-wrap items-center gap-3 bg-white p-3 rounded-md border border-slate-200 shadow-sm">
                 <div className="relative flex-1 min-w-[200px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <input
@@ -261,7 +261,7 @@ export function AssignmentsList({ myAssignments, teamAssignments, currentUserId 
             </div>
 
             {/* List */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
                 {filteredAndSorted.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                         <ClipboardCheck className="h-12 w-12 mb-4 opacity-10" />

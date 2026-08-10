@@ -9,6 +9,7 @@ import { toast } from "sonner";
 
 import { GleifRefreshButton } from "./gleif-refresh-button";
 import { RawPayloadViewer } from "./raw-payload-viewer";
+import { cn } from "@/lib/utils";
 
 interface GleifTabProps {
     leId: string;
@@ -85,7 +86,7 @@ export function GleifTab({ leId, data, fetchedAt }: GleifTabProps) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
                 {/* Core Identity */}
-                <Card>
+                <Card variant="structural">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-base flex items-center gap-2">
                             <Fingerprint className="h-4 w-4 text-slate-500" />
@@ -156,7 +157,7 @@ export function GleifTab({ leId, data, fetchedAt }: GleifTabProps) {
                 </Card>
 
                 {/* Registration Details */}
-                <Card>
+                <Card variant="structural">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-base flex items-center gap-2">
                             <Calendar className="h-4 w-4 text-slate-500" />
@@ -200,8 +201,71 @@ export function GleifTab({ leId, data, fetchedAt }: GleifTabProps) {
                     </CardContent>
                 </Card>
 
+                {/* Entity Status & Details */}
+                <Card variant="structural" className="md:col-span-2">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                            <Scale className="h-4 w-4 text-slate-500" />
+                            Entity Status & Details
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="grid md:grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Entity Status</label>
+                                <div className="mt-1">
+                                    <Badge variant="outline" className={cn(
+                                        "font-semibold text-xs",
+                                        entity.entityStatus === 'ACTIVE' ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-amber-50 text-amber-700 border-amber-200"
+                                    )}>
+                                        {entity.entityStatus}
+                                    </Badge>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Legal Form</label>
+                                <div className="font-medium text-slate-900 dark:text-slate-100 mt-0.5">
+                                    {entity.legalForm?.name || entity.legalForm?.code || "N/A"}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Entity Category</label>
+                                <div className="font-medium text-slate-900 dark:text-slate-100 mt-0.5">
+                                    {entity.category || "N/A"}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Registration Authority</label>
+                                <div className="font-medium text-slate-900 dark:text-slate-100 mt-0.5">
+                                    {reg.registrationAuthority?.registrationAuthorityID || "N/A"}
+                                    {reg.registrationAuthority?.otherRegistrationAuthorityID && ` (${reg.registrationAuthority.otherRegistrationAuthorityID})`}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Registered Entity ID</label>
+                                <div className="font-mono text-sm font-medium text-slate-900 dark:text-slate-100 mt-0.5">
+                                    {reg.registrationAuthority?.registrationAuthorityEntityID || "N/A"}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Managing LOU</label>
+                                <div className="font-mono text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                                    {reg.managingLOU || "N/A"}
+                                </div>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
                 {/* Addresses - Full Width */}
-                <Card className="md:col-span-2">
+                <Card variant="structural" className="md:col-span-2">
                     <CardHeader className="pb-3">
                         <CardTitle className="text-base flex items-center gap-2">
                             <MapPin className="h-4 w-4 text-slate-500" />
