@@ -92,7 +92,7 @@ export function SupplierRelationshipsView({
     return (
         <div className="w-full space-y-6 pb-20 p-8">
             {/* Header & Subtitle */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-md border border-slate-200 shadow-sm">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900">Client Relationships</h1>
                     <p className="text-xs text-slate-500 font-medium mt-1">
@@ -106,7 +106,7 @@ export function SupplierRelationshipsView({
                         placeholder="Search clients, legal entities or questionnaires..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="pl-10 pr-9 bg-slate-50/50 border-slate-200 focus-visible:ring-teal-500 text-xs h-10 rounded-xl"
+                        className="pl-10 pr-9 bg-slate-50/50 border-slate-200 focus-visible:ring-teal-500 text-xs h-10 rounded-lg"
                     />
                     {search && (
                         <button
@@ -121,7 +121,7 @@ export function SupplierRelationshipsView({
 
             {/* Main Tree Hierarchy */}
             {filteredRelationships.length === 0 ? (
-                <div className="py-20 text-center bg-white rounded-2xl border border-dashed border-slate-300 p-8 space-y-2">
+                <div className="py-20 text-center bg-white rounded-md border border-dashed border-slate-300 p-8 space-y-2">
                     <AlertCircle className="h-10 w-10 text-slate-300 mx-auto mb-2" />
                     <h3 className="text-base font-bold text-slate-800">
                         {search ? "No Client Relationships found" : "No Client Relationships available"}
@@ -152,7 +152,7 @@ export function SupplierRelationshipsView({
                                 key={clientGroup.clientOrganizationId}
                                 open={isClientOpen}
                                 onOpenChange={() => handleToggleNode(clientNodeKey, isClientOpen)}
-                                className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all"
+                                className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden transition-all"
                             >
                                 {/* Level 1: Client Card Header */}
                                 <div className="p-5 flex items-center justify-between gap-4 bg-slate-50/40 hover:bg-slate-50 transition-colors border-b border-slate-100">
@@ -235,14 +235,14 @@ export function SupplierRelationshipsView({
                                                     key={le.relationshipId}
                                                     open={isRelOpen}
                                                     onOpenChange={() => handleToggleNode(relNodeKey, isRelOpen)}
-                                                    className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden"
+                                                    className="bg-white rounded-md border border-slate-200 shadow-2xs overflow-hidden"
                                                 >
                                                     {/* ClientLE Row Header */}
                                                     <div
                                                         className={cn(
                                                             "p-4 flex items-center justify-between gap-4 transition-colors",
                                                             isTargetedRel
-                                                                ? "bg-teal-50/30 border-l-4 border-l-teal-500"
+                                                                ? "bg-teal-50/40 border-l-2 border-l-teal-500"
                                                                 : "hover:bg-slate-50/60"
                                                         )}
                                                     >

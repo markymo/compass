@@ -48,7 +48,7 @@ export function QuestionnaireQAMode({ questions }: QuestionnaireQAModeProps) {
                                 id={`question-${q.id}`}
                                 className={cn(
                                     "w-full text-left p-4 hover:bg-slate-50 transition-colors flex gap-3",
-                                    activeQuestionId === q.id ? "bg-indigo-50/50 border-l-4 border-l-indigo-500" : "border-l-4 border-l-transparent"
+                                    activeQuestionId === q.id ? "bg-slate-100/80 font-semibold border-l-2 border-l-slate-900" : "border-l-2 border-l-transparent"
                                 )}
                             >
                                 <div className="mt-1">

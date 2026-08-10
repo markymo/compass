@@ -14,7 +14,7 @@ import { ProgressTracker } from "@/components/shared/progress-tracker";
 import { cn } from "@/lib/utils";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
-const DASHBOARD_GRID_V2 = "grid-cols-[minmax(350px,1fr)_60px_160px_160px_150px]";
+const DASHBOARD_GRID_V2 = "grid-cols-[minmax(280px,1fr)_60px_160px_160px_195px]";
 
 function MicroChart({ value, total, colorClass, emptyClass, numeratorLabel, denominatorLabel }: { value: number, total: number, colorClass: string, emptyClass: string, numeratorLabel: string, denominatorLabel: string }) {
     if (total === 0) {
@@ -186,7 +186,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                         {/* 5. Workflow Group */}
                         <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Sign-Off</span>
-                            <div className="flex justify-between pr-[18px] items-end">
+                            <div className="flex justify-between pr-[80px] items-end">
                                 <span className="text-[10px] font-bold text-indigo-600 uppercase">Approved</span>
                                 <span className="text-[10px] font-bold text-emerald-600 uppercase">Released</span>
                             </div>

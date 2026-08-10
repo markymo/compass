@@ -18,6 +18,7 @@ Our core design principles are:
 5. **Annotate, Don't Compete**: Secondary metadata (assignments, status badges, timestamps, provenance) must annotate domain content, not visually overwhelm primary field values or section titles.
 6. **Independent Domain States**: Data State (*Populated* vs *Missing*), Assignment State (*Assigned* vs *Unassigned*), and Work State (*Open* vs *Done*) are strictly independent concepts. Missing data is NEVER automatically an open task or warning.
 7. **Standardize the Best Existing Behavior**: Prefer consolidating around existing modern OnPro patterns over inventing new design abstractions.
+8. **Restrained Persistent Actions vs. Directive Contextual Guidance**: *Persistent actions should be restrained; contextual actions may be more directive when guidance is needed.* Persistent page actions should remain available and discoverable without becoming the visual focal point of a populated workspace. Stronger CTA emphasis is appropriate when context makes the next action particularly critical — such as empty states, onboarding, or recovery from a blocked state.
 
 ---
 
@@ -95,8 +96,10 @@ Having a section accent token does **NOT** justify spreading color into page con
 
 - ❌ **NO Coloured Page Headings or Body Text**: Page titles remain Dark Navy (`text-slate-900`).
 - ❌ **NO Active Navigation Fills or Coloured Text/Icons**: Active nav tabs use Navy text (`text-slate-900 font-semibold`) and Slate 700 icons (`text-slate-700`). Active text and icons are NEVER recoloured to match the section accent.
+- ❌ **NO Section Accent-Coloured Action Buttons**: *Section accent colour does not automatically determine action colour.* The existence of a section character accent (e.g., Relationships purple) must NOT cause persistent actions or primary buttons to inherit that color automatically. Buttons communicate interaction hierarchy, not section identity. Section character belongs strictly to approved structural punctuation (2px nav underline, 3px footer edge line).
 - ❌ **NO Tinted Card Surfaces or Page Backgrounds**: Card containers remain white (`bg-white`).
-- ❌ **NO Coloured Buttons or Icons Everywhere**: Primary buttons remain Slate 900 (`bg-slate-900 text-white`).
+- ❌ **NO Decorative Category Spines or Tinted Containers**: *Large structural groupings must rely on neutral geometry, typography, spacing, and alignment.* Do not use section character colors or arbitrary colors to decorate every category/group container (e.g., 4px blue/purple vertical borders or broad tinted background fills). Where a domain distinction is useful, prefer a small semantic marker (for example, a restrained `Custom` badge as in Master Record Custom Fields) over coloring the entire container.
+- ❌ **NO Coloured Buttons or Icons Everywhere**: Primary buttons remain Slate 900 (`bg-slate-900 text-white`) or restrained neutral outline buttons.
 - ❌ **NO Coloured Table Rows or Thick Section Borders**: Gridlines remain subtle Slate 100/200.
 - ❌ **NO Decorative Gradients or Rainbow Route Colouring**: Color is visual punctuation, not decorative fill.
 
@@ -165,12 +168,14 @@ const inter = Inter({ variable: "--font-inter", subsets: ["latin"] });
 
 - **Standard Page Container**: `max-w-7xl mx-auto px-6 py-8 space-y-6 w-full`
 - **Section Spacing**: `space-y-6` between major page blocks; `space-y-4` inside cards.
-- **Card & Panel Padding**:
-  - Compact Cards: `p-4 rounded-xl border border-slate-200 bg-white shadow-xs`
-  - Standard Panels: `p-6 rounded-xl border border-slate-200 bg-white shadow-sm`
-- **Border Radius**:
-  - Cards & Drawers: `rounded-xl` (12px)
-  - Buttons, Inputs & Badges: `rounded-lg` (8px) or `rounded-full` (pills)
+- **Card & Panel Surface Geometry**:
+  - **Large Structural Containers**: `p-6 rounded-md border border-slate-200 bg-white shadow-sm` (or `<Card variant="structural" />`). Major workspace containers, category groups, table wrappers, and section panels use quiet neutral geometry and a restrained ~6px (`rounded-md`) radius.
+  - **Standalone Content Cards**: `p-4 rounded-xl border border-slate-200 bg-white shadow-xs` (or `<Card variant="default" />`). Individual standalone content items or Kanban cards may use `rounded-xl`.
+- **Border Radius Standard**:
+  - **Major Structural Application Containers**: Restrained radius ~6px (`rounded-md` / `<Card variant="structural">`).
+  - **Interactive Overlays (`Sheet`, `Dialog`, `Popover`)**: `rounded-xl` / `rounded-2xl` (12–16px).
+  - **Small Interactive Controls (Buttons, Inputs, Badges)**: `rounded-lg` (8px) or `rounded-full` (pills).
+- **Responsive / Mobile Geometry**: Structural containers adjust seamlessly to narrow viewports (`px-4 py-4 sm:p-6`). Avoid nested card-within-card borders on mobile displays to prevent visual clutter and horizontal scroll.
 - **Side Drawers (`Sheet`)**: Standard width `w-full max-w-2xl sm:max-w-2xl` (`672px`), sliding in from the right (`side="right"`).
 
 ---
@@ -183,16 +188,50 @@ Buttons are styled via `src/components/ui/button.tsx`.
 <Button variant="default | secondary | outline | ghost | destructive" size="default | sm | lg | icon">
 ```
 
-### Action Hierarchy Guidelines
+### A. Action Hierarchy Matrix
 
 | Button Variant | Visual Treatment | Intended Use Case | Example |
 | :--- | :--- | :--- | :--- |
-| **Primary (`default`)** | `bg-slate-900 text-white hover:bg-slate-800` | The single main action on a page or modal. | `[ Create Questionnaire ]`, `[ Save Changes ]` |
+| **Primary (`default`)** | `bg-slate-900 text-white hover:bg-slate-800` | Main global action, directive modal submit, or directive empty-state CTA. | `[ Create Questionnaire ]`, `[ Add your first Relationship ]` |
 | **Secondary (`secondary`)**| `bg-slate-100 text-slate-900 hover:bg-slate-200` | Alternative supportive actions. | `[ Export PDF ]`, `[ Duplicate ]` |
-| **Outline (`outline`)** | `border border-slate-200 bg-white hover:bg-slate-50` | Standard secondary actions, filter toggles, drawers. | `[ Assign ▾ ]`, `[ Clear Filters ]` |
+| **Outline (`outline`)** | `border border-slate-200 bg-white hover:bg-slate-50` | Persistent heading-level actions (`+ Add`), filter toggles, drawers. | `[ + Add ]`, `[ Assign ▾ ]`, `[ Clear Filters ]` |
 | **Ghost (`ghost`)** | `hover:bg-slate-100 text-slate-700` | Low-prominence actions, table row actions, icon buttons. | `[ Cancel ]`, view action triggers (`Expand all`) |
 | **Destructive (`destructive`)**| `bg-red-600 text-white hover:bg-red-700` | Irreversible or destructive actions inside confirmation modals. | `[ Delete Item ]`, `[ Revoke Access ]` |
 | **Icon-Only (`size="icon"`)**| `h-8 w-8` or `h-9 w-9` centered icon button | Standalone quick actions. **Must include `title="..."` or `aria-label`.** | Edit pencil, close `X`, history icon |
+
+---
+
+### B. Persistent Heading-Level Page Actions
+
+Persistent page actions — such as adding an item alongside a section or subsection heading — must remain discoverable without competing with populated domain content for visual focus.
+
+* **Visual Restraint**: Use small, restrained outline styling (e.g. `<Button variant="outline" size="sm" />`) rather than a prominent, saturated filled primary button.
+* **Inline Heading Alignment**: Position actions inline with section headers (e.g. `<div className="flex flex-col md:flex-row md:items-center justify-between gap-4">`).
+* **Concise Contextual Labels**: Prefer concise labels like `+ Add` when the adjacent heading already establishes the noun (e.g., `Common Questionnaires        + Add` or `Supplier Relationships        + Add`).
+* **Avoid Mandatory Noun Repetition**: Do not make `+ Add` a universal mandatory rule — where context is ambiguous or multi-object, use explicit object labels (e.g. `+ Add Section`).
+* **Hierarchy Over Section Identity**: **Buttons express interaction hierarchy, not section identity.** Section accent colours do not automatically determine button colours. A section's character accent (e.g., Relationships purple) must NOT cause header buttons to be rendered as filled buttons in that section color.
+
+---
+
+### C. Empty States & Contextual Action Guidance
+
+Empty states perform a guidance role rather than just reporting missing data. They guide new or unblocked users toward their immediate next step.
+
+* **Pattern**: **`State Explanation + Useful Next Action`**
+  - *Example*: `No active relationships found.` + `[ + Add your first Relationship ]`
+* **Directive Contextual CTAs**: Empty-state CTAs may be visually more directive and prominent (e.g. a filled primary button `<Button variant="default" size="sm" />`) than persistent header actions because there is no domain content on the page competing for user attention.
+* **Hierarchy Over Section Identity**: **Buttons express interaction hierarchy, not section identity.** Empty-state CTA prominence is determined by user guidance context, not by assigning section character colours to buttons.
+* **Precise Domain Terminology**: Empty-state wording must use official OnPro domain terms (e.g. `Relationship` rather than `partner`) to reinforce product concepts for first-time users.
+* **Proportional Restraint**: CTA strength must remain proportional to context. When data populates the page, the user's data becomes the visual focal point and persistent actions revert to restrained inline treatments.
+
+---
+
+### D. Responsive Hierarchy Implications
+
+The action hierarchy must survive responsive screen transformations:
+* **Persistent Actions**: At narrow mobile breakpoints, persistent heading-level actions may adjust composition (e.g., moving into an overflow/action menu or inline top bar).
+* **Empty-State Actions**: Contextual empty-state CTAs must remain prominently placed and readily discoverable in the main viewport flow.
+* **Task Hierarchy Integrity**: The underlying task hierarchy (`restrained persistent action` vs `directive contextual CTA`) is preserved even as physical screen layouts adapt.
 
 ---
 
@@ -324,6 +363,8 @@ To maintain architectural stability while allowing future design iteration, this
 - **Neutral Active Text & Icons**: Active navigation text remains Slate 900 and icons remain Slate 700.
 - **Product Filtering Interaction Model**: Search first, 2–3 primary filters, `More filters (n)` popover, distinct view actions.
 - **Domain State Independence**: Data, Assignment, and Work states are strictly independent.
+- **Restrained Persistent Actions & Contextual Empty States**: Persistent heading-level actions are visually restrained (`variant="outline"`); empty-state CTAs carry directive contextual guidance using precise OnPro domain terminology. Section character accents do not dictate button fill colors.
+- **Neutral Category Containers & Semantic Markers**: Large structural category and group containers are carried by neutral geometry and typography rather than decorative colored spines or broad tinted backgrounds. Domain distinctions (e.g., Custom Fields) are expressed via small, restrained semantic badges rather than container fills or 4px borders.
 
 ### B. Areas Open for Future Exploration
 - **Status & Provenance Visual Redesign**: Refinements to badge shapes, micro-icons, or provenance indicators.

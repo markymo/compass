@@ -43,7 +43,7 @@ export function QuestionKanbanCard({ question }: QuestionKanbanCardProps) {
         <Dialog>
             <DialogTrigger asChild>
                 <div className="block group cursor-pointer">
-                    <Card className="mb-3 hover:shadow-md transition-all border-l-4 border-l-slate-200 hover:border-l-indigo-500 text-left">
+                    <Card className="mb-3 rounded-md border border-slate-200 hover:border-slate-300 hover:shadow-sm text-left">
                         <CardContent className="p-4 space-y-3">
                             {/* Header: Client & Questionnaire */}
                             <div className="flex items-start justify-between gap-2">

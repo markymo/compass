@@ -37,6 +37,8 @@ import {
     SelectValue
 } from "@/components/ui/select";
 
+const MASTER_CATEGORY_CARD_CLASS = "rounded-md shadow-sm overflow-hidden animate-in fade-in duration-300";
+
 interface CategoryDef {
     id: string;
     key: string;
@@ -848,26 +850,29 @@ setIsRefreshingRegistry(false);
                 <div className="space-y-6">
                     {/* Custom Fields */}
                     {filteredCustomFields.length > 0 && (
-                        <Card className="border-l-4 border-l-purple-500 shadow-sm overflow-hidden animate-in fade-in duration-300">
+                        <Card className={MASTER_CATEGORY_CARD_CLASS}>
                             <CardHeader 
-                                className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-purple-50/30 cursor-pointer hover:bg-purple-50/50 transition-colors group/header"
+                                className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 cursor-pointer hover:bg-slate-100/50 transition-colors group/header"
                                 onClick={() => toggleCategory("CUSTOM")}
                             >
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <CardTitle className="flex items-center gap-2 text-lg text-purple-900">
-                                            <Sparkles className="h-5 w-5 text-purple-600" />
+                                        <CardTitle className="flex items-center gap-2 text-lg text-slate-900">
+                                            <Sparkles className="h-5 w-5 text-slate-500" />
                                             Custom Fields
+                                            <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-600 border-purple-200 ml-1 font-medium">
+                                                Custom
+                                            </Badge>
                                         </CardTitle>
-                                        <CardDescription className="text-purple-700/70">
+                                        <CardDescription className="text-slate-500">
                                             Organization-specific data points
                                         </CardDescription>
                                     </div>
-                                    <div className="flex items-center gap-3 text-purple-600/70">
+                                    <div className="flex items-center gap-3 text-slate-500">
                                         <span className="text-sm font-medium hidden sm:inline-block">
                                             {filteredCustomFields.length}{filteredCustomFields.length !== customDefinitions.length ? ` of ${customDefinitions.length}` : ''} fields
                                         </span>
-                                        {collapsedCategories.has("CUSTOM") ? <ChevronDown className="h-5 w-5 group-hover/header:text-purple-900 transition-colors" /> : <ChevronUp className="h-5 w-5 group-hover/header:text-purple-900 transition-colors" />}
+                                        {collapsedCategories.has("CUSTOM") ? <ChevronDown className="h-5 w-5 group-hover/header:text-slate-800 transition-colors" /> : <ChevronUp className="h-5 w-5 group-hover/header:text-slate-800 transition-colors" />}
                                     </div>
                                 </div>
                             </CardHeader>
@@ -901,12 +906,12 @@ setIsRefreshingRegistry(false);
                     {filteredCategories.map((group: any) => {
                         const Icon = group.icon;
                         return (
-                            <Card key={group.id} className="border-l-4 border-l-blue-500 shadow-sm overflow-hidden animate-in fade-in duration-300">
+                            <Card key={group.id} className={MASTER_CATEGORY_CARD_CLASS}>
                                 <CardHeader 
                                     tabIndex={0}
                                     role="button"
                                     aria-label={`Toggle ${group.displayName} category`}
-                                    className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 cursor-pointer hover:bg-slate-100/50 transition-colors group/header focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none rounded-t-lg"
+                                    className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 cursor-pointer hover:bg-slate-100/50 transition-colors group/header focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
                                     onClick={() => toggleCategory(group.id)}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' || e.key === ' ') {
@@ -916,8 +921,8 @@ setIsRefreshingRegistry(false);
                                     }}
                                 >
                                     <div className="flex items-center justify-between">
-                                        <CardTitle className="flex items-center gap-2 text-lg">
-                                            <Icon className="h-5 w-5 text-blue-600" />
+                                        <CardTitle className="flex items-center gap-2 text-lg text-slate-900">
+                                            <Icon className="h-5 w-5 text-slate-500" />
                                             {group.displayName}
                                         </CardTitle>
                                         <div className="flex items-center gap-3 text-slate-500">
@@ -962,12 +967,12 @@ setIsRefreshingRegistry(false);
                     })}
 
                     {filteredUncategorized.length > 0 && (
-                        <Card className="border-l-4 border-l-slate-400 shadow-sm overflow-hidden opacity-80 animate-in fade-in duration-300">
+                        <Card className={cn(MASTER_CATEGORY_CARD_CLASS, "opacity-80")}>
                             <CardHeader 
                                 tabIndex={0}
                                 role="button"
                                 aria-label="Toggle Uncategorized category"
-                                className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 cursor-pointer hover:bg-slate-100/50 transition-colors group/header focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none rounded-t-lg"
+                                className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 cursor-pointer hover:bg-slate-100/50 transition-colors group/header focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
                                 onClick={() => toggleCategory("UNCATEGORIZED")}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' || e.key === ' ') {

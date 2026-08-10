@@ -25,7 +25,7 @@ import { ProgressTracker } from "@/components/shared/progress-tracker";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { usePreferences } from "@/components/providers/user-preferences-provider";
 import { InlineDocumentManager, InlineOutputBuilder, InlineTeamManager } from "./inline-engagement-sections";
-const DASHBOARD_GRID_V2 = "grid-cols-[minmax(350px,1fr)_60px_160px_160px_150px]";
+const DASHBOARD_GRID_V2 = "grid-cols-[minmax(280px,1fr)_60px_160px_160px_195px]";
 
 function MicroChart({ value, total, colorClass, emptyClass, numeratorLabel, denominatorLabel }: { value: number, total: number, colorClass: string, emptyClass: string, numeratorLabel: string, denominatorLabel: string }) {
     if (total === 0) {
@@ -233,14 +233,20 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-xl font-semibold text-slate-900">Supplier Relationships</h2>
                 </div>
                 {!isAdding && (
-                    <Button onClick={() => setIsAdding(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white" size="sm" title="Add Supplier">
-                        <Plus className="h-4 w-4 mr-1.5" />
-                        Relationship
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setIsAdding(true)} 
+                        className="h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 w-fit"
+                        title="Add Supplier Relationship"
+                    >
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add
                     </Button>
                 )}
             </div>
@@ -341,7 +347,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                         {/* 5. Workflow Group */}
                         <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Sign-Off</span>
-                            <div className="flex justify-between pr-[18px] items-end">
+                            <div className="flex justify-between pr-[80px] items-end">
                                 <span className="text-[10px] font-bold text-indigo-600 uppercase">Approved</span>
                                 <span className="text-[10px] font-bold text-emerald-600 uppercase">Released</span>
                             </div>
@@ -740,8 +746,13 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                 !isAdding && (
                     <div className="text-center py-20 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
                         <p className="text-slate-500">No active relationships found.</p>
-                        <Button variant="link" onClick={() => setIsAdding(true)} className="mt-2 text-indigo-600">
-                            Add your first partner
+                        <Button 
+                            onClick={() => setIsAdding(true)} 
+                            className="mt-3 bg-indigo-600 hover:bg-indigo-700 text-white" 
+                            size="sm"
+                        >
+                            <Plus className="h-4 w-4 mr-1.5" />
+                            Add your first Relationship
                         </Button>
                     </div>
                 )

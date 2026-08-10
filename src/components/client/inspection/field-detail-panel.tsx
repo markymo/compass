@@ -55,6 +55,7 @@ import { ExpandableRowItem } from "./expandable-row-item";
 import { SharedResourceUsageNotice } from "./SharedResourceUsageNotice";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 import { ExpandableText } from "@/components/ui/expandable-text";
+import { getExpectedDataTypeLabel } from "@/lib/master-data/field-type-resolver";
 
 import {
     DropdownMenu,
@@ -1085,6 +1086,11 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                     {data?.category || `Field #${fieldNo}`}
                                 </span>
                             )}
+                            {data && (
+                                <div className="text-xs text-slate-500 font-normal">
+                                    <span className="text-slate-400">Expected data:</span> <span className="text-slate-600 font-medium">{getExpectedDataTypeLabel(data)}</span>
+                                </div>
+                            )}
                             {data?.description && (
                                 <ExpandableText
                                     text={data.description}
@@ -1352,16 +1358,13 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     )}
                 </SheetHeader>
 
-                <div className="flex-1 overflow-y-auto pr-6 -mr-6 pt-3 space-y-6">
-
-                    {/* ─── Current Value Card ─── */}
-                    <div className="rounded-xl border border-slate-200 overflow-hidden shrink-0">
-                        <div className="bg-slate-50/50 px-5 py-3 border-b border-slate-100">
-                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-                                Current Authoritative Value
-                            </div>
+                <div className="flex-1 overflow-y-auto pr-6 -mr-6 pt-3">
+                    {/* ─── Current Authoritative Value ─── */}
+                    <div className="space-y-3 shrink-0">
+                        <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                            Current Authoritative Value
                         </div>
-                        <div className="p-5">
+                        <div>
                             {loading ? (
                                 <div className="flex items-center gap-2 text-slate-400 py-4">
                                     <Loader2 className="h-4 w-4 animate-spin" /> Loading...
@@ -1422,394 +1425,146 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                             : row.value;
 
                                                         const inferredKind = inferClaimValueKind({ valueJson: parsedRowValue });
-                                                        const isSourceEmbParty = inferredKind === 'EMBEDDED_PARTY' && row.source !== 'USER_INPUT';
-                                                        const isUserEmbParty = inferredKind === 'EMBEDDED_PARTY' && row.source === 'USER_INPUT';
-                                                        const isUserPartyRef = inferredKind === 'PARTY_REF' && row.source === 'USER_INPUT';
                                                         const isPartyRefValue = inferredKind === 'PARTY_REF';
-                                                        const isComplexEditor = inferredKind === 'PARTY_REF' || inferredKind === 'EMBEDDED_PARTY' || inferredKind === 'ADDRESS' || inferredKind === 'ADDRESS_REF';
                                                         
-                                                        const showPromote = (inferredKind === 'EMBEDDED_PARTY' && isPartyField) || (inferredKind === 'ADDRESS' && isAddressField);
-                                                        const isReadOnlySource = row.source !== 'USER_INPUT';
-                                                        const canEdit = !isReadOnlySource;
-                                                        const canRemove = !isReadOnlySource;
+                                                        const canEdit = row.source === 'USER_INPUT';
+                                                        const canRemove = row.source === 'USER_INPUT';
+                                                        
+                                                        const actionButtons = !isLocked && (
+                                                            <div className="flex items-center gap-0.5 shrink-0">
+                                                                {canEdit && (
+                                                                    <button
+                                                                        className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                                                                        onClick={() => {
+                                                                            if (isObjectRef) {
+                                                                                handleEditNode(row);
+                                                                            } else if (inferredKind === 'PARTY_REF' || inferredKind === 'EMBEDDED_PARTY' || isPersonOrContactField || isCuratedPartyRef) {
+                                                                                const partyData = row.data?.ccParty?.data || row.data?._resolvedData?.ccParty?.data || parsedRowValue;
+                                                                                const ccPartyId = inferredKind === 'PARTY_REF' ? parsedRowValue?.ccPartyId : undefined;
+                                                                                setPartyEditDialogState({
+                                                                                    open: true,
+                                                                                    rowId: row.id,
+                                                                                    ccPartyId,
+                                                                                    legacyPartyData: partyData
+                                                                                });
+                                                                            } else {
+                                                                                setEditingRowId(row.id);
+                                                                                if (inferredKind === 'ADDRESS_REF') {
+                                                                                    setEditingRowValue(row.data?.ccAddress?.data || row.data?._resolvedData?.ccAddress?.data || parsedRowValue);
+                                                                                } else {
+                                                                                    setEditingRowValue(parsedRowValue);
+                                                                                }
+                                                                            }
+                                                                        }}
+                                                                        title="Edit value"
+                                                                    >
+                                                                        <Pencil className="h-3.5 w-3.5" />
+                                                                    </button>
+                                                                )}
+                                                                {canRemove && (
+                                                                    <button
+                                                                        className="p-1.5 rounded text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+                                                                        onClick={() => setDeletingRowId(row.id)}
+                                                                        title={isPartyRefValue ? "Break link to party reference" : "Remove value"}
+                                                                    >
+                                                                        {isPartyRefValue ? <Link2Off className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        );
+
+                                                        const partyValForExpandable = (parsedRowValue && typeof parsedRowValue === 'object' && (isPersonOrContactValue(parsedRowValue) || 'ccPartyId' in parsedRowValue)) 
+                                                            ? (parsedRowValue.ccParty?.data || parsedRowValue._resolvedData?.ccParty?.data || row?.data?.ccParty?.data || parsedRowValue)
+                                                            : null;
 
                                                         return (
-                                                        <div key={row.id}>
-                                                            {/* Delete confirmation mode */}
-                                                            {deletingRowId === row.id ? (
-                                                                <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 animate-in fade-in duration-150">
-                                                                    <span className="text-xs text-red-700 font-medium truncate flex-1 flex items-center gap-1">
-                                                                        {isPartyRefValue ? (
-                                                                            <span>Break link to "{row.data?.resolvedSummary || (typeof row.value === 'object' && row.value?.ccPartyId) || 'saved party'}"?</span>
-                                                                        ) : (
-                                                                            <>
-                                                                                Remove "{renderRowValue(row.value, row)}"?
-                                                                            </>
-                                                                        )}
-                                                                    </span>
-                                                                    <div className="flex items-center gap-1.5 shrink-0">
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            className="h-6 px-2 text-[11px] text-red-700 hover:bg-red-100 hover:text-red-800"
-                                                                            onClick={() => handleRemoveEntry(row.id)}
-                                                                            disabled={isSaving}
-                                                                        >
-                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isPartyRefValue ? 'Yes, break link' : 'Yes, remove'}
-                                                                        </Button>
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="sm"
-                                                                            className="h-6 px-2 text-[11px] text-slate-500 hover:bg-slate-100"
-                                                                            onClick={() => setDeletingRowId(null)}
-                                                                        >
-                                                                            Cancel
-                                                                        </Button>
+                                                        <div key={row.id} className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 hover:border-slate-300 transition-all">
+                                                            <div className="flex-1 min-w-0">
+                                                                {partyValForExpandable ? (
+                                                                    <ExpandableRowItem
+                                                                        isExpanded={expandedRowId === row.id}
+                                                                        onToggle={() => setExpandedRowId(expandedRowId === row.id ? null : row.id)}
+                                                                        collapsedContent={<PersonOrContactValueViewer value={partyValForExpandable} layout="row" displayMask={data?.profileConfig?.displayMask} />}
+                                                                        expandedContent={<PersonOrContactValueViewer value={partyValForExpandable} layout="detailed" displayMask={data?.profileConfig?.displayMask} />}
+                                                                    />
+                                                                ) : (
+                                                                    <div className="text-sm font-medium text-slate-800 truncate">
+                                                                        {renderRowValue(row.value, row)}
                                                                     </div>
+                                                                )}
+                                                                <div className="mt-1 flex items-center gap-2">
+                                                                    <FieldSourceBadge 
+                                                                        legacySourceType={row.source || 'UNKNOWN'} 
+                                                                        legacySourceReference={row.sourceReference} 
+                                                                        legacyRaId={registrationAuthorityId} 
+                                                                        legacyRaName={(registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined) || 'Registration Authority'}
+                                                                        variant="span"
+                                                                        className="uppercase tracking-wider"
+                                                                        wrapperClassName="flex items-center gap-1.5"
+                                                                    />
                                                                 </div>
-                                                            ) : editingRowId === row.id ? (
-                                                                /* Inline edit mode */
-                                                                <div className={cn(
-                                                                    "px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-200 animate-in fade-in duration-150",
-                                                                    isComplexEditor ? "flex flex-col gap-3 flex-1" : "flex items-center gap-1.5"
-                                                                )}>
-                                                                    {isObjectRef ? (
-                                                                        <div className="flex-1">
-                                                                            <GraphNodePicker
-                                                                                clientLEId={clientLEId}
-                                                                                graphNodeType={graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS")}
-                                                                                filterEdgeType={graphBindings.find(b => b.isActive)?.filterEdgeType}
-                                                                                allowCreate={graphBindings.find(b => b.isActive)?.allowCreate ?? true}
-                                                                                pickerLabel={graphBindings.find(b => b.isActive)?.pickerLabel || (isPartyRef ? "Select Party" : "Select Address")}
-                                                                                pickerConfig={graphBindings.find(b => b.isActive)?.pickerConfig ?? null}
-                                                                                isMultiValue={false}
-                                                                                selectedNodeIds={currentSelectionIds}
-                                                                                disabled={isAddingSaving || isLoadingBindings}
-                                                                                className="border-slate-400 bg-white"
-                                                                                onSelect={(item) => handleGraphNodeSelect(item, row.instanceId)}
-                                                                                onCreateNew={() => handleCreateNewNode(graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS"))}
-                                                                            />
-                                                                        </div>
-                                                                    ) : inferredKind === 'ADDRESS_REF' || inferredKind === 'ADDRESS' ? (
-                                                                        <div className="flex-1 min-w-0 bg-slate-50 p-3 rounded border border-slate-200 space-y-3">
-                                                                            {parsedRowValue?.ccAddressId && (
-                                                                                <SharedResourceUsageNotice
-                                                                                    resourceType="ADDRESS"
-                                                                                    resourceId={parsedRowValue.ccAddressId}
-                                                                                    clientLEId={clientLEId}
-                                                                                    currentFieldNo={fieldNo}
-                                                                                />
-                                                                            )}
-                                                                            <AddressValueEditor
-                                                                                value={editingRowValue || {} as any}
-                                                                                onChange={setEditingRowValue}
-                                                                                disabled={isSaving}
-                                                                            />
-                                                                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/60 bg-slate-50/50">
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    variant="outline"
-                                                                                    className="h-8 text-xs bg-white text-slate-700 border-slate-200"
-                                                                                    onClick={() => { setEditingRowId(null); setEditingRowValue(""); }}
-                                                                                    disabled={isSaving}
-                                                                                >
-                                                                                    Cancel
-                                                                                </Button>
-                                                                                <Button
-                                                                                    size="sm"
-                                                                                    className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
-                                                                                    onClick={() => handleInlineEditSave(row)}
-                                                                                    disabled={isSaving}
-                                                                                >
-                                                                                    {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
-                                                                                    Save
-                                                                                </Button>
-                                                                            </div>
-                                                                        </div>
-                                                                    ) : (
-                                                                        data?.options && data.options.length > 0 ? (
-                                                                            <Select
-                                                                                value={editingRowValue}
-                                                                                onValueChange={setEditingRowValue}
-                                                                                disabled={isSaving}
-                                                                            >
-                                                                                <SelectTrigger className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400">
-                                                                                    <SelectValue placeholder="Select a value..." />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent position="item-aligned">
-                                                                                    {data.options.map((opt) => {
-                                                                                        const v = typeof opt === 'object' ? opt.value : opt;
-                                                                                        const l = typeof opt === 'object' ? opt.label : opt;
-                                                                                        return <SelectItem key={v} value={v}>{l}</SelectItem>;
-                                                                                    })}
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        ) : isBooleanType ? (
-                                                                            <Select
-                                                                                value={String(editingRowValue)}
-                                                                                onValueChange={(val) => setEditingRowValue(val === 'true')}
-                                                                                disabled={isSaving}
-                                                                            >
-                                                                                <SelectTrigger className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400">
-                                                                                    <SelectValue placeholder="Select Yes/No..." />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    <SelectItem value="true">Yes</SelectItem>
-                                                                                    <SelectItem value="false">No</SelectItem>
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        ) : (
-                                                                            <Input
-                                                                                type={isDateType ? 'date' : 'text'}
-                                                                                value={isDateType ? formatDateForInput(editingRowValue) : editingRowValue}
-                                                                                onChange={(e) => setEditingRowValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
-                                                                                onKeyDown={(e) => {
-                                                                                    if (e.key === 'Enter' && (typeof editingRowValue === 'string' ? editingRowValue.trim() : true)) handleInlineEditSave(row);
-                                                                                    if (e.key === 'Escape') { setEditingRowId(null); setEditingRowValue(""); }
-                                                                                }}
-                                                                                className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400"
-                                                                                autoFocus
-                                                                                disabled={isSaving}
-                                                                            />
-                                                                        )
-                                                                    )}
-                                                                    {!isObjectRef && !isComplexEditor && (
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="h-7 w-7 text-green-600 hover:bg-green-50"
-                                                                            onClick={() => handleInlineEditSave(row)}
-                                                                            disabled={isSaving || (typeof editingRowValue === 'string' ? !editingRowValue.trim() : ((inferredKind as any) === 'EMBEDDED_PARTY' && !isValidPartyValue(editingRowValue)))}
-                                                                        >
-                                                                            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                                                                        </Button>
-                                                                    )}
-                                                                    {!isComplexEditor && (
-                                                                        <Button
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="h-7 w-7 text-slate-400 hover:bg-slate-100"
-                                                                            onClick={() => { setEditingRowId(null); setEditingRowValue(""); }}
-                                                                        >
-                                                                            <X className="h-3.5 w-3.5" />
-                                                                        </Button>
-                                                                    )}
-                                                                </div>
-                                                            ) : (
-                                                                /* Normal display row */
-                                                                (() => {
-                                                                    const partyValForExpandable = (parsedRowValue && typeof parsedRowValue === 'object' && (isPersonOrContactValue(parsedRowValue) || 'ccPartyId' in parsedRowValue)) 
-                                                                        ? (parsedRowValue.ccParty?.data || parsedRowValue._resolvedData?.ccParty?.data || row?.data?.ccParty?.data || parsedRowValue)
-                                                                        : null;
-
-                                                                    const actionButtons = !isLocked && (
-                                                                        <div className="flex items-center gap-0.5 shrink-0">
-                                                                            {showPromote && (
-                                                                                row.isPromotedToCCC ? (
-                                                                                    <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 mr-2 hover:bg-emerald-50 font-medium h-6" title="A reusable copy already exists for this item.">
-                                                                                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                                                                                        Saved for reuse
-                                                                                    </Badge>
-                                                                                ) : (
-                                                                                    <Button
-                                                                                        variant="ghost"
-                                                                                        size="sm"
-                                                                                        className="h-7 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 mr-2"
-                                                                                        onClick={() => handleSaveForReuse(row.id, inferredKind!)}
-                                                                                        disabled={isPromoting === row.id}
-                                                                                        title="Create a reusable copy without changing the source data."
-                                                                                    >
-                                                                                        {isPromoting === row.id ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Database className="h-3 w-3 mr-1" />}
-                                                                                        Save for reuse
-                                                                                    </Button>
-                                                                                )
-                                                                            )}
-                                                                            {canEdit && (
-                                                                                <button
-                                                                                    className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-                                                                                    onClick={() => {
-                                                                                        if (isObjectRef) {
-                                                                                            handleEditNode(row);
-                                                                                        } else if (inferredKind === 'PARTY_REF' || inferredKind === 'EMBEDDED_PARTY') {
-                                                                                            const partyData = row.data?.ccParty?.data || row.data?._resolvedData?.ccParty?.data || parsedRowValue;
-                                                                                            const ccPartyId = inferredKind === 'PARTY_REF' ? parsedRowValue?.ccPartyId : undefined;
-                                                                                            setPartyEditDialogState({
-                                                                                                open: true,
-                                                                                                rowId: row.id,
-                                                                                                ccPartyId,
-                                                                                                legacyPartyData: partyData
-                                                                                            });
-                                                                                        } else {
-                                                                                            setEditingRowId(row.id);
-                                                                                            if (inferredKind === 'ADDRESS_REF') {
-                                                                                                setEditingRowValue(row.data?.ccAddress?.data || row.data?._resolvedData?.ccAddress?.data || parsedRowValue);
-                                                                                            } else {
-                                                                                                setEditingRowValue(parsedRowValue);
-                                                                                            }
-                                                                                        }
-                                                                                    }}
-                                                                                    title="Edit value"
-                                                                                >
-                                                                                    <Pencil className="h-3 w-3" />
-                                                                                </button>
-                                                                            )}
-                                                                            {canRemove && (
-                                                                                <button
-                                                                                    className={cn(
-                                                                                        "p-1.5 rounded text-slate-400 transition-colors",
-                                                                                        isPartyRefValue 
-                                                                                            ? "hover:bg-indigo-50 hover:text-indigo-600" 
-                                                                                            : "hover:bg-red-50 hover:text-red-500"
-                                                                                    )}
-                                                                                    onClick={() => setDeletingRowId(row.id)}
-                                                                                    title={isPartyRefValue ? "Break link to saved party" : "Remove value"}
-                                                                                >
-                                                                                    {isPartyRefValue ? (
-                                                                                        <Link2Off className="h-3.5 w-3.5" />
-                                                                                    ) : (
-                                                                                        <Trash2 className="h-3 w-3" />
-                                                                                    )}
-                                                                                </button>
-                                                                            )}
-                                                                        </div>
-                                                                    );
-                                                                    
-                                                                    const badges = (
-                                                                        <FieldSourceBadge 
-                                                                            source={row.canonicalDisplayModel?.source}
-                                                                            legacySourceType={row.source as any} 
-                                                                            legacySourceReference={row.sourceReference} 
-                                                                            legacyRaId={registrationAuthorityId} 
-                                                                            legacyRaName={(registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined) || 'Registration Authority'}
-                                                                            legacyTimestamp={row.timestamp}
-                                                                            showLastValidated={true}
-                                                                            variant="span"
-                                                                            className="uppercase tracking-wider"
-                                                                            wrapperClassName="flex items-center gap-1.5"
-                                                                        />
-                                                                    );
-
-                                                                    if (partyValForExpandable) {
-                                                                        return (
-                                                                            <ExpandableRowItem
-                                                                                isExpanded={expandedRowId === row.id}
-                                                                                onToggle={() => setExpandedRowId(expandedRowId === row.id ? null : row.id)}
-                                                                                collapsedContent={<PersonOrContactValueViewer value={partyValForExpandable} layout="row" displayMask={data?.profileConfig?.displayMask} />}
-                                                                                expandedContent={<PersonOrContactValueViewer value={partyValForExpandable} layout="detailed" displayMask={data?.profileConfig?.displayMask} />}
-                                                                                actions={actionButtons}
-                                                                                badges={badges}
-                                                                            />
-                                                                        );
-                                                                    }
-
-                                                                    return (
-                                                                        <div className="group flex items-center gap-2 px-3 py-2.5 rounded-lg border border-slate-150 bg-white hover:border-slate-300 hover:shadow-sm transition-all">
-                                                                            <div className="flex-1 min-w-0">
-                                                                                {/* Structured collection row (e.g. Field 5 Previous Names) */}
-                                                                                {(() => {
-                                                                                    if (parsedRowValue && typeof parsedRowValue === 'object' && parsedRowValue.name) {
-                                                                                        return <CollectionRowDisplay fieldNo={fieldNo} row={parsedRowValue} />;
-                                                                                    }
-                                                                                    return (
-                                                                                        <div className="text-sm font-medium text-slate-900 truncate">
-                                                                                            {row.canonicalDisplayModel ? <FieldValueRenderer field={row.canonicalDisplayModel} /> : renderRowValue(row.value, row)}
-                                                                                        </div>
-                                                                                    );
-                                                                                })()}
-                                                                                <div className="flex items-center gap-2 mt-0.5">
-                                                                                    {badges}
-                                                                                </div>
-                                                                            </div>
-                                                                            {actionButtons}
-                                                                        </div>
-                                                                    );
-                                                                })()
-                                                            )}
+                                                            </div>
+                                                            {actionButtons}
                                                         </div>
                                                         );
                                                     })}
                                                 </div>
-                                     ) : (
-                                         /* Empty state */
-                                         (data?.displayState === 'DEFAULT_RESPONSE' && data?.defaultResponse) ? (
-                                             <div className="py-3 px-1">
-                                                 <div className="flex items-center gap-2 not-italic text-blue-600 font-medium">
-                                                     <span>{data.defaultResponse}</span>
-                                                     <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-blue-500 bg-blue-50 border-blue-200">Field Default</Badge>
-                                                 </div>
-                                                 {!isLocked && (
-                                                     <div className="mt-3">
-                                                         <Button 
-                                                             variant="outline" 
-                                                             size="sm" 
-                                                             className="h-7 text-xs bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                                                             onClick={async () => {
-                                                                 if (data?.displayState === 'DEFAULT_RESPONSE' && data.defaultResponse) {
-                                                                     await releaseFieldDefault(clientLEId, fieldNo, data.defaultResponse);
-                                                                 }
-                                                                 const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
-                                                                 setData(refreshed);
-                                                                 if (onUpdate && refreshed?.current) {
-                                                                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
-                                                                 }
-                                                             }}
-                                                         >
-                                                             <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-emerald-600" />
-                                                             Sign off default
-                                                         </Button>
-                                                     </div>
-                                                 )}
-                                             </div>
-                                         ) : (
-                                             <div className="text-center py-4">
-                                                 <p className="text-sm text-slate-400 italic">No values recorded yet</p>
-                                             </div>
-                                         )
-                                     )}
+                                            ) : null}
 
-                                            {/* Persistent add input */}
-                                            {!isLocked && !isSystemOnlyParty && !isSystemOnlyAddress && (
-                                                <div className="pt-3 mt-2 border-t border-slate-100">
+                                            {/* Add item control for repeating fields */}
+                                            {!isLocked && (
+                                                <div className="pt-2">
                                                     {isObjectRef ? (
-                                                        <Button
-                                                            variant="outline"
-                                                            onClick={() => setAddDialogOpen(true)}
-                                                            className="w-full justify-center bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200 text-indigo-700 border-dashed"
-                                                        >
-                                                            <Plus className="h-4 w-4 mr-2" />
-                                                            Add {graphBindings.find(b => b.isActive)?.pickerLabel?.replace('Select ', '') || (isPartyRef ? "Party" : "Address")}
-                                                        </Button>
-                                                    ) : (isCuratedPartyRef || isPersonOrContactField) ? (
-                                                        <div className="pt-2">
-                                                            <UnifiedPartyPicker
-                                                                clientLEId={clientLEId}
-                                                                fieldNo={fieldNo}
-                                                                allowedPartyTypes={data?.profileConfig?.allowedPartyTypes}
-                                                                onSuccess={async () => {
-                                                                    setNewEntryValue("");
-                                                                    const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
-                                                                    setData(refreshed);
-                                                                    if (onUpdate && refreshed?.current) {
-                                                                        onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
-                                                                    }
-                                                                }}
-                                                            />
-                                                        </div>
+                                                        <GraphNodePicker
+                                                            clientLEId={clientLEId}
+                                                            graphNodeType={graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS")}
+                                                            filterEdgeType={graphBindings.find(b => b.isActive)?.filterEdgeType}
+                                                            filterActiveOnly={graphBindings.find(b => b.isActive)?.filterActiveOnly ?? true}
+                                                            allowCreate={graphBindings.find(b => b.isActive)?.allowCreate ?? true}
+                                                            pickerLabel={graphBindings.find(b => b.isActive)?.pickerLabel || (isPartyRef ? "Select Party" : "Select Address")}
+                                                            pickerConfig={graphBindings.find(b => b.isActive)?.pickerConfig ?? null}
+                                                            isMultiValue={false}
+                                                            selectedNodeIds={currentSelectionIds}
+                                                            disabled={isAddingSaving || isLoadingBindings}
+                                                            className="border-slate-300 bg-slate-50/50"
+                                                            onSelect={(item) => handleGraphNodeSelect(item)}
+                                                            onCreateNew={() => handleCreateNewNode(graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS"))}
+                                                        />
+                                                    ) : isCuratedPartyRef || isPersonOrContactField ? (
+                                                        <UnifiedPartyPicker
+                                                            clientLEId={clientLEId}
+                                                            fieldNo={fieldNo}
+                                                            onSuccess={async () => {
+                                                                setNewEntryValue("");
+                                                                const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                setData(refreshed);
+                                                                if (onUpdate && refreshed?.current) {
+                                                                    onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                }
+                                                            }}
+                                                            trigger={
+                                                                <Button
+                                                                    variant="outline"
+                                                                    className="w-full bg-slate-50/50 hover:bg-slate-100 border-slate-200 text-slate-700 border-dashed text-xs shadow-xs"
+                                                                >
+                                                                    <Plus className="h-3.5 w-3.5 mr-1.5 text-slate-500" />
+                                                                    {isCuratedPartyRef ? "Select saved party" : (fieldNo === 63 ? 'Add Director' : 'Select Party / Contact')}
+                                                                </Button>
+                                                            }
+                                                        />
                                                     ) : isAddressField ? (
-                                                        <div className="pt-2">
-                                                            <UnifiedAddressPicker
-                                                                clientLEId={clientLEId}
-                                                                fieldNo={fieldNo}
-                                                                onSuccess={async () => {
-                                                                    setNewEntryValue("");
-                                                                    const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
-                                                                    setData(refreshed);
-                                                                    if (onUpdate && refreshed?.current) {
-                                                                        onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
-                                                                    }
-                                                                }}
-                                                            />
-                                                        </div>
+                                                        <UnifiedAddressPicker
+                                                            clientLEId={clientLEId}
+                                                            fieldNo={fieldNo}
+                                                            onSuccess={async () => {
+                                                                setNewEntryValue("");
+                                                                const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                setData(refreshed);
+                                                                if (onUpdate && refreshed?.current) {
+                                                                    onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                }
+                                                            }}
+                                                        />
                                                     ) : (
                                                         <div className="flex items-center gap-1.5">
                                                             {data?.options && data.options.length > 0 ? (
@@ -1888,7 +1643,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                     )}
                                                 </div>
                                             )}
-                                            </> /* closes isCodeList ternary else */
+                                            </>
                                             )}
                                         </div>
                                     ) : (
@@ -1934,8 +1689,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                             })}
                                                                         </div>
                                                                     ) : (
-                                                                        // Use renderRowValue to handle JSONB objects (e.g. {code, label} SIC codes)
-                                                                        // instead of String() which produces [object Object]
                                                                         renderRowValue(data.current.value)
                                                                     )}
                                                                 </div>
@@ -1956,60 +1709,28 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                              {!isLocked && (
                                                                  isPersonOrContactField || isCuratedPartyRef ? (
                                                                      <div className="flex items-center gap-1.5 shrink-0">
-                                                                         {isCuratedPartyRef || data?.current?.source === 'USER_INPUT' ? (
-                                                                             <button
-                                                                                 className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
-                                                                                 onClick={() => {
-                                                                                     setManualValue(data?.current?.value?._resolvedData?.ccParty?.data || data?.current?.value || {
-                                                                                         contactType: "PERSON",
-                                                                                         title: null,
-                                                                                         forenames: null,
-                                                                                         surname: null,
-                                                                                         email: null,
-                                                                                         phones: [],
-                                                                                         nationality: [],
-                                                                                         countryOfResidence: null,
-                                                                                         dateOfBirth: null,
-                                                                                         placeOfBirth: null,
-                                                                                         roles: [],
-                                                                                         sourceIdentifiers: [],
-                                                                                         isActivePersonOrContact: null,
-                                                                                         visibility: { scope: "CLIENT_LE" }
-                                                                                     } as any);
-                                                                                     setIsEditing(true);
-                                                                                     setRelatedValues({});
-                                                                                 }}
-                                                                                 title={isCuratedPartyRef ? "Edit saved party" : "Edit value"}
-                                                                             >
-                                                                                 <Pencil className="h-3.5 w-3.5" />
-                                                                             </button>
-                                                                         ) : (
-                                                                             data?.current?.isPromotedToCCC ? (
-                                                                                 <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50 font-medium h-6" title="A reusable copy already exists for this item.">
-                                                                                     <CheckCircle2 className="w-3 h-3 mr-1" />
-                                                                                     Saved for reuse
-                                                                                 </Badge>
-                                                                             ) : (
-                                                                                 <Button
-                                                                                     variant="ghost"
-                                                                                     size="sm"
-                                                                                     className="h-7 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700"
-                                                                                     disabled={isPromoting === data?.current?.claimId}
-                                                                                     onClick={() => data?.current?.claimId && handleSaveForReuse(data.current.claimId, 'EMBEDDED_PARTY')}
-                                                                                     title="Create a reusable copy without changing the source data."
-                                                                                 >
-                                                                                     {isPromoting === data?.current?.claimId ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Database className="h-3 w-3 mr-1" />}
-                                                                                     Save for reuse
-                                                                                 </Button>
-                                                                             )
-                                                                         )}
+                                                                         <button
+                                                                             className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                             onClick={() => {
+                                                                                 const partyData = data?.current?.value?._resolvedData?.ccParty?.data || data?.current?.value || parsedAuthoritativeValue;
+                                                                                 const ccPartyId = isCuratedPartyRef ? (data?.current?.value?.ccPartyId || parsedAuthoritativeValue?.ccPartyId) : undefined;
+                                                                                 setPartyEditDialogState({
+                                                                                     open: true,
+                                                                                     ccPartyId,
+                                                                                     legacyPartyData: partyData
+                                                                                 });
+                                                                             }}
+                                                                             title={isCuratedPartyRef ? "Edit saved party" : "Edit party details"}
+                                                                         >
+                                                                             <Pencil className="h-3.5 w-3.5" />
+                                                                         </button>
                                                                          {data?.current?.source === 'USER_INPUT' && (
                                                                              <button
-                                                                                 className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                 className="p-1.5 rounded text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
                                                                                  onClick={() => setIsClearingSingleValue(true)}
-                                                                                 title="Break link to party reference"
+                                                                                 title={isCuratedPartyRef ? "Break link to party reference" : "Clear value"}
                                                                              >
-                                                                                 <Link2Off className="h-3.5 w-3.5" />
+                                                                                 {isCuratedPartyRef ? <Link2Off className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
                                                                              </button>
                                                                          )}
                                                                          {isCuratedPartyRef && (
@@ -2034,186 +1755,67 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                              />
                                                                          )}
                                                                      </div>
-                                                                 ) : isAddressField || isCuratedAddressRef ? (
+                                                                 ) : (
                                                                      <div className="flex items-center gap-1.5 shrink-0">
-                                                                         {!isSystemOnlyAddress && (
-                                                                             (isCuratedAddressRef || (data?.current?.value && typeof data.current.value === 'object' && 'ccAddressId' in data.current.value)) ? (
-                                                                                 <button
-                                                                                     className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
-                                                                                     onClick={() => {
-                                                                                         setManualValue(data?.current?.value?._resolvedData?.ccAddress?.data || data?.current?.value || { addressLines: [] });
-                                                                                         setIsEditing(true);
-                                                                                         setRelatedValues({});
-                                                                                     }}
-                                                                                     title={isCuratedAddressRef ? "Edit saved address" : "Edit value"}
-                                                                                 >
-                                                                                     <Pencil className="h-3.5 w-3.5" />
-                                                                                 </button>
-                                                                             ) : (
-                                                                                 <UnifiedAddressPicker
-                                                                                     clientLEId={clientLEId}
-                                                                                     fieldNo={fieldNo}
-                                                                                     onSuccess={async () => {
-                                                                                         const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
-                                                                                         setData(refreshed);
-                                                                                         if (onUpdate && refreshed?.current) {
-                                                                                             onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
-                                                                                         }
-                                                                                     }}
-                                                                                     trigger={
-                                                                                         <button
-                                                                                             className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
-                                                                                             title="Use saved address"
-                                                                                         >
-                                                                                             <Pencil className="h-3.5 w-3.5" />
-                                                                                         </button>
-                                                                                     }
-                                                                                 />
-                                                                             )
-                                                                         )}
-                                                                         {(!isSystemOnlyAddress && isCuratedAddressRef) && (
-                                                                             <UnifiedAddressPicker
-                                                                                 clientLEId={clientLEId}
-                                                                                 fieldNo={fieldNo}
-                                                                                 onSuccess={async () => {
-                                                                                     const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
-                                                                                     setData(refreshed);
-                                                                                     if (onUpdate && refreshed?.current) {
-                                                                                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
-                                                                                     }
-                                                                                 }}
-                                                                                 trigger={
-                                                                                     <button
-                                                                                         className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
-                                                                                         title="Change saved address"
-                                                                                     >
-                                                                                         <ArrowRightLeft className="h-3.5 w-3.5" />
-                                                                                     </button>
+                                                                         <button
+                                                                             className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                             onClick={() => {
+                                                                                 if (data?.current) {
+                                                                                     setManualValue(data.current.value);
                                                                                  }
-                                                                             />
-                                                                         )}
-                                                                         {data?.current?.source !== 'USER_INPUT' && !isCuratedAddressRef && (
-                                                                             data?.current?.isPromotedToCCC ? (
-                                                                                 <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-50 font-medium h-6" title="A reusable copy already exists for this item.">
-                                                                                     <CheckCircle2 className="w-3 h-3 mr-1" />
-                                                                                     Saved for reuse
-                                                                                 </Badge>
-                                                                             ) : (
-                                                                                 <Button
-                                                                                     variant="ghost"
-                                                                                     size="sm"
-                                                                                     className="h-7 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700"
-                                                                                     disabled={isPromoting === data?.current?.claimId}
-                                                                                     onClick={() => data?.current?.claimId && handleSaveForReuse(data.current.claimId, 'ADDRESS')}
-                                                                                     title="Create a reusable copy without changing the source data."
-                                                                                 >
-                                                                                     {isPromoting === data?.current?.claimId ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Database className="h-3 w-3 mr-1" />}
-                                                                                     Save for reuse
-                                                                                 </Button>
-                                                                             )
-                                                                         )}
+                                                                                 setIsEditing(true);
+                                                                                 setRelatedValues({});
+                                                                             }}
+                                                                             title="Edit value"
+                                                                         >
+                                                                             <Pencil className="h-3.5 w-3.5" />
+                                                                         </button>
                                                                          {data?.current?.source === 'USER_INPUT' && (
                                                                              <button
-                                                                                 className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                 className="p-1.5 rounded text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
                                                                                  onClick={() => setIsClearingSingleValue(true)}
-                                                                                 title="Break link to address reference"
+                                                                                 title="Clear value"
                                                                              >
-                                                                                 <Link2Off className="h-3.5 w-3.5" />
+                                                                                 <Trash2 className="h-3.5 w-3.5" />
                                                                              </button>
                                                                          )}
-                                                                         {isCuratedAddressRef && (
-                                                                             <UnifiedAddressPicker
-                                                                                 clientLEId={clientLEId}
-                                                                                 fieldNo={fieldNo}
-                                                                                 onSuccess={async () => {
-                                                                                     const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
-                                                                                     setData(refreshed);
-                                                                                     if (onUpdate && refreshed?.current) {
-                                                                                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
-                                                                                     }
-                                                                                 }}
-                                                                                 trigger={
-                                                                                     <button
-                                                                                         className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
-                                                                                         title="Change saved address"
-                                                                                     >
-                                                                                         <ArrowRightLeft className="h-3.5 w-3.5" />
-                                                                                     </button>
-                                                                                 }
-                                                                             />
-                                                                         )}
                                                                      </div>
-                                                                 ) : (
-                                                                     <button
-                                                                         className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
-                                                                         onClick={() => {
-                                                                             setManualValue(String(data?.current?.value || ""));
-                                                                             setIsEditing(true);
-                                                                             setRelatedValues({});
-                                                                         }}
-                                                                         title="Edit value"
-                                                                     >
-                                                                         <Pencil className="h-3.5 w-3.5" />
-                                                                     </button>
                                                                  )
                                                              )}
-                                                         </div>
-                                                         {isClearingSingleValue && (
-                                                             <div className="mt-4 flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 animate-in fade-in duration-150">
-                                                                 <span className="text-xs text-red-700 font-medium truncate flex-1">
-                                                                    {isAddressField || isCuratedAddressRef ? "Break link and return to source management?" : "Break link to party reference?"}
+                                                        </div>
+
+                                                        {/* Clear value confirmation overlay */}
+                                                        {isClearingSingleValue && (
+                                                            <div className="mt-3 flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 animate-in fade-in duration-150">
+                                                                <span className="text-xs text-red-700 font-medium truncate flex-1 flex items-center gap-1">
+                                                                    {isCuratedPartyRef ? 'Break link to party reference?' : 'Clear this value?'}
                                                                 </span>
-                                                                 <div className="flex items-center gap-1.5 shrink-0">
-                                                                     <Button
-                                                                         variant="ghost"
-                                                                         size="sm"
-                                                                         className="h-6 px-2 text-[11px] text-red-700 hover:bg-red-100 hover:text-red-800"
-                                                                         onClick={async () => {
-    setIsSaving(true);
-    try {
-        let result;
-        if (isAddressField || isCuratedAddressRef) {
-            result = await restoreSourceValue(clientLEId, fieldNo);
-        } else {
-            result = await updateFieldManually(clientLEId, fieldNo, null, "Break party link", undefined, 'CLIENT_LE');
-        }
-        if (result.success) {
-                                                                                     toast.success("Link broken");
-                                                                                     setIsClearingSingleValue(false);
-                                                                                     const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
-                                                                                     setData(refreshed);
-                                                                                     if (onUpdate && refreshed?.current) {
-                                                                                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
-                                                                                     }
-                                                                                 } else {
-                                                                                     toast.error("Failed to break link");
-                                                                                 }
-                                                                             } catch (err) {
-                                                                                 toast.error("An error occurred");
-                                                                             } finally {
-                                                                                 setIsSaving(false);
-                                                                             }
-                                                                         }}
-                                                                         disabled={isSaving}
-                                                                     >
-                                                                         {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Yes, break link'}
-                                                                     </Button>
-                                                                     <Button
-                                                                         variant="ghost"
-                                                                         size="sm"
-                                                                         className="h-6 px-2 text-[11px] text-slate-500 hover:bg-slate-100"
-                                                                         onClick={() => setIsClearingSingleValue(false)}
-                                                                         disabled={isSaving}
-                                                                     >
-                                                                         Cancel
-                                                                     </Button>
-                                                                 </div>
-                                                             </div>
-                                                         )}
-                                                     </div>
-                                                 ) : null
+                                                                <div className="flex items-center gap-1.5 shrink-0">
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-6 px-2 text-[11px] text-red-700 hover:bg-red-100 hover:text-red-800"
+                                                                        onClick={() => handleRemoveEntry('current')}
+                                                                        disabled={isSaving}
+                                                                    >
+                                                                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isCuratedPartyRef ? 'Yes, break link' : 'Yes, clear'}
+                                                                    </Button>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="h-6 px-2 text-[11px] text-slate-500 hover:bg-slate-100"
+                                                                        onClick={() => setIsClearingSingleValue(false)}
+                                                                        disabled={isSaving}
+                                                                    >
+                                                                        Cancel
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ) : null
                                             ) : (
-                                                /* Empty state — show state-aware display first, then inline input */
+                                                /* Empty state */
                                                 <div className="flex items-start gap-3 mt-2">
                                                     <div className="flex-1 space-y-2">
                                                          {!isEditing ? (
@@ -2239,53 +1841,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                          )}
                                                                      </div>
                                                                  </div>
-                                                             ) : isCuratedPartyRef || isPersonOrContactField ? (
-                                                                 <div className="flex flex-col items-center justify-center py-6 border border-dashed border-slate-200 rounded-lg bg-slate-50/50 p-4 space-y-3">
-                                                                     <div className="text-sm text-slate-500 italic">
-                                                                         {isCuratedPartyRef ? "No saved party assigned" : "No person/contact recorded"}
-                                                                     </div>
-                                                                     {!isLocked && (
-                                                                         <UnifiedPartyPicker
-                                                                             clientLEId={clientLEId}
-                                                                             fieldNo={fieldNo}
-                                                                             onSuccess={async () => {
-                                                                                 const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
-                                                                                 setData(refreshed);
-                                                                                 if (onUpdate && refreshed?.current) {
-                                                                                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
-                                                                                 }
-                                                                             }}
-                                                                             trigger={
-                                                                                 <Button
-                                                                                     variant="outline"
-                                                                                     className="bg-indigo-50/50 hover:bg-indigo-50 border-indigo-200 text-indigo-700 border-dashed shadow-sm shrink-0"
-                                                                                 >
-                                                                                     <Plus className="h-4 w-4 mr-2" />
-                                                                                     {isCuratedPartyRef ? "Select saved party" : (fieldNo === 63 ? 'Add Director' : 'Select Party / Contact')}
-                                                                                 </Button>
-                                                                             }
-                                                                         />
-                                                                     )}
-                                                                 </div>
-                                                             ) : isAddressField ? (
-                                                                 <div className="flex flex-col items-center justify-center py-6 border border-dashed border-slate-200 rounded-lg bg-slate-50/50 p-4 space-y-3">
-                                                                     <div className="text-sm text-slate-500 italic">
-                                                                         No address recorded
-                                                                     </div>
-                                                                     {!isLocked && !isSystemOnlyAddress && (
-                                                                         <UnifiedAddressPicker
-                                                                             clientLEId={clientLEId}
-                                                                             fieldNo={fieldNo}
-                                                                             onSuccess={async () => {
-                                                                                 const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
-                                                                                 setData(refreshed);
-                                                                                 if (onUpdate && refreshed?.current) {
-                                                                                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
-                                                                                 }
-                                                                             }}
-                                                                         />
-                                                                     )}
-                                                                 </div>
                                                              ) : (
                                                                 <div className="relative">
                                                                     <div className="flex items-start justify-between">
@@ -2302,20 +1857,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                             )}
                                                                             {(!data?.displayState || data?.displayState === 'UNMAPPED_NO_RESPONSE' || data?.displayState === 'MAPPED_NOT_CHECKED') && 'No response recorded'}
                                                                         </div>
-                                                                        {data?.displayState === 'CHECKED_NO_DATA' && (data?.canonicalDisplayModel?.source || data?.current?.source) && (
-                                                                            <div className="mt-2 flex items-center gap-2">
-                                                                                <FieldSourceBadge 
-                                                                                    source={data?.canonicalDisplayModel?.source}
-                                                                                    showLastValidated={true}
-                                                                                    legacySourceType={data.current?.source} 
-                                                                                    legacyRaId={registrationAuthorityId} 
-                                                                                    legacyRaName={(registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined) || 'Registration Authority'}
-                                                                                    variant="span"
-                                                                                    className="uppercase tracking-wider"
-                                                                                    wrapperClassName="flex items-center gap-1.5"
-                                                                                />
-                                                                            </div>
-                                                                        )}
                                                                     </div>
                                                                     {!isLocked && (
                                                                         <button
@@ -2342,146 +1883,38 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         Cancel
                                                                     </Button>
                                                                 </div>
-                                                                {isObjectRef ? (
-                                                                    <GraphNodePicker
-                                                                        clientLEId={clientLEId}
-                                                                        graphNodeType={graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS")}
-                                                                        filterEdgeType={graphBindings.find(b => b.isActive)?.filterEdgeType}
-                                                                        filterActiveOnly={graphBindings.find(b => b.isActive)?.filterActiveOnly ?? true}
-                                                                        allowCreate={graphBindings.find(b => b.isActive)?.allowCreate ?? true}
-                                                                        pickerLabel={graphBindings.find(b => b.isActive)?.pickerLabel || (isPartyRef ? "Select Party" : "Select Address")}
-                                                                        pickerConfig={graphBindings.find(b => b.isActive)?.pickerConfig ?? null}
-                                                                        isMultiValue={false}
-                                                                        selectedNodeIds={currentSelectionIds}
-                                                                        disabled={isAddingSaving || isLoadingBindings}
-                                                                        className="border-slate-300 bg-slate-50/50"
-                                                                        onSelect={handleGraphNodeSelect}
-                                                                        onCreateNew={() => handleCreateNewNode(graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS"))}
+                                                                <>
+                                                                    <Input
+                                                                        type={isDateType ? 'date' : 'text'}
+                                                                        value={isDateType ? formatDateForInput(manualValue) : manualValue}
+                                                                        onChange={(e) => setManualValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
+                                                                        onKeyDown={(e) => {
+                                                                            if (e.key === 'Enter' && manualValue) {
+                                                                                setIsEditing(true);
+                                                                                handleManualSave();
+                                                                            }
+                                                                        }}
+                                                                        placeholder={isDateType ? '' : 'Type a value and press Enter...'}
+                                                                        className="bg-white border-slate-200 focus:border-indigo-300 focus:ring-indigo-200"
                                                                     />
-                                                                ) : (
-                                                                    <>
-                                                                        {isAddressField ? (
-                                                                            <div className="mt-4">
-                                                                                <UnifiedAddressPicker
-                                                                                    clientLEId={clientLEId}
-                                                                                    fieldNo={fieldNo}
-                                                                                    onSuccess={async () => {
-                                                                                        setIsEditing(false);
-                                                                                        const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
-                                                                                        setData(refreshed);
-                                                                                        if (onUpdate && refreshed?.current) {
-                                                                                            onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
-                                                                                        }
-                                                                                    }}
-                                                                                />
-                                                                            </div>
-                                                                        ) : isCuratedPartyRef || isPersonOrContactField ? (
-                                                                            <div className="mt-4">
-                                                                                <UnifiedPartyPicker
-                                                                                    clientLEId={clientLEId}
-                                                                                    fieldNo={fieldNo}
-                                                                                    onSuccess={async () => {
-                                                                                        setIsEditing(false);
-                                                                                        const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
-                                                                                        setData(refreshed);
-                                                                                        if (onUpdate && refreshed?.current) {
-                                                                                            onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
-                                                                                        }
-                                                                                    }}
-                                                                                />
-                                                                            </div>
-                                                                        ) : data?.options && data.options.length > 0 ? (
-                                                                            <div className="space-y-2">
-                                                                                <Select value={manualValue} onValueChange={(v) => setManualValue(v)}>
-                                                                                    <SelectTrigger className="bg-white border-slate-200 focus:border-indigo-300">
-                                                                                        <SelectValue placeholder={`Select ${fieldName}...`} />
-                                                                                    </SelectTrigger>
-                                                                                    <SelectContent position="item-aligned">
-                                                                                        {data.options.map((opt) => {
-                                                                                            const v = typeof opt === 'object' ? opt.value : opt;
-                                                                                            const l = typeof opt === 'object' ? opt.label : opt;
-                                                                                            return <SelectItem key={v} value={v}>{l}</SelectItem>;
-                                                                                        })}
-                                                                                    </SelectContent>
-                                                                                </Select>
-                                                                                {manualValue && (
-                                                                                    <div className="flex items-center gap-2">
-                                                                                        <Button
-                                                                                            size="sm"
-                                                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                                                            onClick={() => { setIsEditing(true); handleManualSave(); }}
-                                                                                            disabled={isSaving}
-                                                                                        >
-                                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                                                                            Save
-                                                                                        </Button>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        ) : isBooleanType ? (
-                                                                            <div className="space-y-2">
-                                                                                <Select
-                                                                                    value={String(manualValue || '')}
-                                                                                    onValueChange={(val) => setManualValue(val === 'true')}
-                                                                                >
-                                                                                    <SelectTrigger className="bg-white border-slate-300">
-                                                                                        <SelectValue placeholder="Select Yes/No..." />
-                                                                                    </SelectTrigger>
-                                                                                    <SelectContent>
-                                                                                        <SelectItem value="true">Yes</SelectItem>
-                                                                                        <SelectItem value="false">No</SelectItem>
-                                                                                    </SelectContent>
-                                                                                </Select>
-                                                                                {manualValue !== undefined && manualValue !== null && manualValue !== "" && (
-                                                                                    <div className="flex items-center gap-2">
-                                                                                        <Button
-                                                                                            size="sm"
-                                                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                                                            onClick={() => { setIsEditing(true); handleManualSave(); }}
-                                                                                            disabled={isSaving}
-                                                                                        >
-                                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                                                                            Save
-                                                                                        </Button>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        ) : (
-                                                                            <>
-                                                                                <Input
-                                                                                    type={isDateType ? 'date' : 'text'}
-                                                                                    value={isDateType ? formatDateForInput(manualValue) : manualValue}
-                                                                                    onChange={(e) => setManualValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
-                                                                                    onKeyDown={(e) => {
-                                                                                        if (e.key === 'Enter' && manualValue) {
-                                                                                            setIsEditing(true);
-                                                                                            handleManualSave();
-                                                                                        }
-                                                                                    }}
-                                                                                    placeholder={isDateType ? '' : 'Type a value and press Enter...'}
-                                                                                    className="bg-white border-slate-200 focus:border-indigo-300 focus:ring-indigo-200"
-                                                                                />
-                                                                                {manualValue && (
-                                                                                    <div className="flex items-center gap-2">
-                                                                                        <Button
-                                                                                            size="sm"
-                                                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                                                            onClick={() => {
-                                                                                                setIsEditing(true);
-                                                                                                handleManualSave();
-                                                                                            }}
-                                                                                            disabled={isSaving}
-                                                                                        >
-                                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                                                                            Save
-                                                                                        </Button>
-                                                                                        <span className="text-[10px] text-slate-400">or press Enter</span>
-                                                                                    </div>
-                                                                                )}
-                                                                            </>
-                                                                        )}
-                                                                    </>
-                                                                )}
+                                                                    {manualValue && (
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Button
+                                                                                size="sm"
+                                                                                className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                                onClick={() => {
+                                                                                    setIsEditing(true);
+                                                                                    handleManualSave();
+                                                                                }}
+                                                                                disabled={isSaving}
+                                                                            >
+                                                                                {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                                Save
+                                                                            </Button>
+                                                                            <span className="text-[10px] text-slate-400">or press Enter</span>
+                                                                        </div>
+                                                                    )}
+                                                                </>
                                                             </div>
                                                         ) : (
                                                             <div className="text-[13px] text-slate-400 italic mt-2">No value provided.</div>
@@ -2494,7 +1927,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                 </div>
                             )}
 
-                            {/* Explicit Edit Mode (when editing an existing value) */}
+                            {/* Explicit Edit Mode */}
                             {isEditing && !data?.isRepeating && data?.current?.value != null && data.current.value !== '' && (
                                 <div className="mt-4 pt-4 border-t border-slate-200 animate-in fade-in slide-in-from-top-2">
                                     <div className="space-y-4">
@@ -2517,92 +1950,42 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                             </div>
                                         )}
 
-                                        <div className="space-y-4 pt-2">
-                                            <div className="space-y-1.5">
-                                                <label className="text-xs font-semibold text-slate-600 uppercase tracking-tight">
-                                                    {fieldName} (Primary Value)
-                                                </label>
-                                                 {isCuratedPartyRef || isPersonOrContactField ? (
-                                                     <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                                         {parsedAuthoritativeValue?.ccPartyId && (
-                                                             <SharedResourceUsageNotice
-                                                                 resourceType="PARTY"
-                                                                 resourceId={parsedAuthoritativeValue.ccPartyId}
-                                                                 clientLEId={clientLEId}
-                                                                 currentFieldNo={fieldNo}
-                                                             />
-                                                         )}
-                                                         <div className="mt-2 flex items-center justify-between">
-                                                             <span className="text-sm text-slate-600">
-                                                                 Use the canonical editor to update this party's details.
-                                                             </span>
-                                                             <Button
-                                                                 variant="outline"
-                                                                 size="sm"
-                                                                 className="text-indigo-600 border-indigo-200 hover:bg-indigo-50"
-                                                                 onClick={() => {
-                                                                     setPartyEditDialogState({
-                                                                         open: true,
-                                                                         rowId: selectedRowId || undefined,
-                                                                         ccPartyId: parsedAuthoritativeValue?.ccPartyId,
-                                                                         legacyPartyData: parsedAuthoritativeValue
-                                                                     });
-                                                                 }}
-                                                             >
-                                                                 <Pencil className="h-3.5 w-3.5 mr-2" />
-                                                                 Edit Party Details
-                                                             </Button>
-                                                         </div>
-                                                     </div>
-                                                ) : isAddressField || isCuratedAddressRef ? (
-                                                     <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                                                         {parsedAuthoritativeValue?.ccAddressId && (
-                                                             <SharedResourceUsageNotice
-                                                                 resourceType="ADDRESS"
-                                                                 resourceId={parsedAuthoritativeValue.ccAddressId}
-                                                                 clientLEId={clientLEId}
-                                                                 currentFieldNo={fieldNo}
-                                                             />
-                                                         )}
-                                                         <AddressValueEditor
-                                                             value={typeof manualValue === 'object' && manualValue ? manualValue : { addressLines: [] } as any}
-                                                             onChange={(val) => setManualValue(val as any)}
-                                                             disabled={isSaving}
-                                                         />
-                                                     </div>
-                                                ) : data?.options && data.options.length > 0 ? (
-                                                    <Select value={manualValue} onValueChange={setManualValue}>
-                                                        <SelectTrigger className="w-full bg-white border-slate-300">
-                                                            <SelectValue placeholder={`Select ${fieldName}...`} />
-                                                        </SelectTrigger>
-                                                        <SelectContent position="item-aligned">
-                                                            {data.options.map((opt) => {
-                                                                const v = typeof opt === 'object' ? opt.value : opt;
-                                                                const l = typeof opt === 'object' ? opt.label : opt;
-                                                                return <SelectItem key={v} value={v}>{l}</SelectItem>;
-                                                            })}
-                                                        </SelectContent>
-                                                    </Select>
-                                                ) : isDateType ? (
-                                                    <Input
-                                                        type="date"
-                                                        value={formatDateForInput(manualValue)}
-                                                        onChange={(e) => setManualValue(parseDateFromInput(e.target.value))}
-                                                        className="bg-white border-slate-300"
-                                                    />
-                                                ) : (
-                                                    <Input
-                                                        value={manualValue}
-                                                        onChange={(e) => setManualValue(e.target.value)}
-                                                        placeholder={`Enter ${fieldName}...`}
-                                                        className="bg-white border-slate-300"
+                                        {isCuratedPartyRef || isPersonOrContactField ? (
+                                            <div className="space-y-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+                                                {parsedAuthoritativeValue?.ccPartyId && (
+                                                    <SharedResourceUsageNotice
+                                                        resourceType="PARTY"
+                                                        resourceId={parsedAuthoritativeValue.ccPartyId}
+                                                        clientLEId={clientLEId}
+                                                        currentFieldNo={fieldNo}
                                                     />
                                                 )}
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <span className="text-xs text-slate-600 font-medium">
+                                                        Use the canonical editor to update this party's details.
+                                                    </span>
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 text-xs shrink-0"
+                                                        onClick={() => {
+                                                            setPartyEditDialogState({
+                                                                open: true,
+                                                                rowId: selectedRowId || undefined,
+                                                                ccPartyId: parsedAuthoritativeValue?.ccPartyId,
+                                                                legacyPartyData: parsedAuthoritativeValue
+                                                            });
+                                                        }}
+                                                    >
+                                                        <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                                                        Edit Party Details
+                                                    </Button>
+                                                </div>
                                             </div>
-                                        </div>
+                                        ) : null}
                                     </div>
 
-                                    {/* ─── Related Fields (UX Enhancement) ─── */}
+                                    {/* Related Fields */}
                                     {selectedRowId && (data?.fieldNo === 62 || data?.fieldNo === 64) && (
                                         <div className="space-y-3 bg-slate-50 p-3 rounded-md border border-slate-200">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Related Information</p>
@@ -2629,33 +2012,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                         </div>
                                     )}
 
-                                    {/* Contact Model Related Fields */}
-                                    {selectedRowId && (fieldName.toLowerCase().includes('contact')) && (
-                                        <div className="space-y-3 bg-slate-50 p-3 rounded-md border border-slate-200">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Related Information</p>
-
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-medium text-slate-500">Email Address</label>
-                                                <Input
-                                                    value={relatedValues.email || ""}
-                                                    onChange={(e) => setRelatedValues(prev => ({ ...prev, email: e.target.value }))}
-                                                    placeholder="Enter email..."
-                                                    className="h-8 text-xs"
-                                                />
-                                            </div>
-
-                                            <div className="space-y-1">
-                                                <label className="text-[10px] font-medium text-slate-500">Phone Number</label>
-                                                <Input
-                                                    value={relatedValues.phone || ""}
-                                                    onChange={(e) => setRelatedValues(prev => ({ ...prev, phone: e.target.value }))}
-                                                    placeholder="Enter phone..."
-                                                    className="h-8 text-xs"
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-
                                     <div>
                                         <label className="text-xs font-semibold text-slate-600 mb-1.5 block uppercase tracking-tight">Audit Notes (Optional)</label>
                                         <Textarea
@@ -2671,7 +2027,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                          <Button
                                              size="sm"
                                              onClick={handleManualSave}
-                                             disabled={isSaving || ((isPersonOrContactField || isCuratedPartyRef) && !isValidPartyValue(manualValue))}
+                                             disabled={isSaving}
                                          >
                                             {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <CheckCircle className="h-3 w-3 mr-2" />}
                                             Save
@@ -2679,40 +2035,40 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                     </div>
                                 </div>
                             )}
-                        </div> {/* Closes the p-5 inner padding div */}
+                        </div>
+                    </div>
 
-                        {/* ─── Field Attachments (New Phase 4 Path) ─── */}
-                        {data?.canonicalDisplayModel?.allowAttachments && (
-                            <div className="bg-slate-50/50 border-t border-slate-100 p-5">
-                                <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide flex items-center gap-1.5 mb-3">
-                                    <Paperclip className="w-3.5 h-3.5" /> Field Attachments
-                                </span>
-                                <FieldAttachments 
-                                    clientLEId={clientLEId} 
-                                    fieldNo={data.fieldNo || fieldNo} 
-                                    attachments={data.canonicalDisplayModel.attachments || []} 
-                                    isEditable={!isLocked}
-                                    mode="manage" 
-                                    onChange={loadData}
-                                />
+                    {/* ─── Field Attachments ─── */}
+                    {data?.canonicalDisplayModel?.allowAttachments && (
+                        <div className="pt-6 border-t border-slate-200/80 space-y-3">
+                            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                                <Paperclip className="w-3.5 h-3.5 text-slate-400" /> Field Attachments
                             </div>
-                        )}
-                    </div> {/* Closes the rounded-xl "Current Value Card" div */}
+                            <FieldAttachments 
+                                clientLEId={clientLEId} 
+                                fieldNo={data.fieldNo || fieldNo} 
+                                attachments={data.canonicalDisplayModel.attachments || []} 
+                                isEditable={!isLocked}
+                                mode="manage" 
+                                onChange={loadData}
+                            />
+                        </div>
+                    )}
 
                     {/* ─── Usage Section (Hierarchical Relationship Tree) ─── */}
                     {!customFieldId && (
-                        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mt-6 mb-2">
-                            {/* Card Header */}
-                            <div className="bg-slate-50/80 border-b border-slate-100 p-3 px-4 flex items-center justify-between">
-                                <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-                                    <Building2 className="w-3.5 h-3.5 text-slate-500" /> Relationships & Usage
+                        <div className="pt-6 border-t border-slate-200/80 space-y-3">
+                            {/* Section Header */}
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                                    <Building2 className="w-3.5 h-3.5 text-slate-400" /> Relationships & Usage
                                 </span>
                                 {mappingStats && mappingStats.questions > 0 && (
                                     <div className="flex items-center gap-1.5">
-                                        <Badge variant="secondary" className="text-[10px] bg-white border border-slate-200 text-slate-600 font-medium">
+                                        <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200 font-medium">
                                             {mappingStats.suppliers} Relationship{mappingStats.suppliers !== 1 ? 's' : ''}
                                         </Badge>
-                                        <Badge variant="secondary" className="text-[10px] bg-white border border-slate-200 text-slate-600 font-medium">
+                                        <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200 font-medium">
                                             {mappingStats.questions} Question{mappingStats.questions !== 1 ? 's' : ''}
                                         </Badge>
                                     </div>
@@ -2720,7 +2076,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                             </div>
 
                             {/* Line-Level Tree Content */}
-                            <div className="p-4 text-xs">
+                            <div className="text-xs">
                                 {mappingStats && mappingStats.questions > 0 ? (
                                     loadingUsageDetails ? (
                                         <div className="flex items-center justify-center py-6 text-slate-400 gap-2">
@@ -2731,7 +2087,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                         <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
                                             {usageDetails.relationships.map((rel) => (
                                                 <div key={rel.supplierId} className="space-y-2">
-                                                    {/* Level 1: Relationship / Legal Entity Direct Link */}
+                                                    {/* Level 1: Relationship */}
                                                     <div className="flex items-center gap-2 bg-slate-50 border border-slate-200/80 rounded-md p-2 px-3 group">
                                                         <Building2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                                                         <Link
@@ -2750,32 +2106,30 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         )}
                                                     </div>
 
-                                                    {/* Level 2 & 3: Nested Thread Lines */}
-                                                    <div className="border-l-2 border-slate-200 ml-3.5 pl-3.5 space-y-2.5 py-0.5">
-                                                        {rel.questionnaires.map((qn) => (
-                                                            <div key={qn.questionnaireId} className="space-y-1">
-                                                                {/* Level 2: Questionnaire Direct Link */}
-                                                                <div className="flex items-center gap-1.5 group">
-                                                                    <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                                    {/* Level 2 & 3: Questionnaires & Questions */}
+                                                    <div className="pl-4 space-y-3 border-l-2 border-slate-100 ml-3">
+                                                        {rel.questionnaires.map((qGroup) => (
+                                                            <div key={qGroup.questionnaireId} className="space-y-1.5">
+                                                                <div className="flex items-center justify-between text-[11px] font-medium text-slate-600">
                                                                     <Link
-                                                                        href={`/app/le/${clientLEId}/workbench4?q=${encodeURIComponent(qn.questionnaireName)}`}
+                                                                        href={`/app/le/${clientLEId}/workbench4?q=${encodeURIComponent(qGroup.questionnaireName)}`}
                                                                         target="_blank"
-                                                                        className="font-semibold text-slate-800 hover:text-indigo-600 hover:underline transition-colors inline-flex items-center gap-1 text-xs"
-                                                                        title={`Filter Question Bank by ${qn.questionnaireName}`}
+                                                                        className="flex items-center gap-1.5 hover:text-indigo-600 transition-colors"
                                                                     >
-                                                                        <span>{qn.questionnaireName}</span>
-                                                                        <ArrowUpRight className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                                                        <FileText className="w-3 h-3 text-slate-400 shrink-0" />
+                                                                        <span>{qGroup.questionnaireName}</span>
                                                                     </Link>
+                                                                    <span className="text-[10px] text-slate-400">{qGroup.questions.length} Qs</span>
                                                                 </div>
 
-                                                                {/* Level 3: Questions Direct Link */}
-                                                                <div className="space-y-1 pl-4">
-                                                                    {qn.questions.map((q) => (
-                                                                        <div key={q.id} className="group">
+                                                                {/* Level 3: Individual Mapped Questions */}
+                                                                <div className="pl-3 space-y-1">
+                                                                    {qGroup.questions.map((q) => (
+                                                                        <div key={q.id} className="flex items-start justify-between gap-2 text-[11px] text-slate-600 group">
                                                                             <Link
                                                                                 href={`/app/le/${clientLEId}/workbench4?s=${encodeURIComponent(q.text)}`}
                                                                                 target="_blank"
-                                                                                className="inline-flex items-start gap-1.5 text-slate-700 hover:text-indigo-600 hover:underline leading-snug font-normal text-xs transition-colors p-1 rounded hover:bg-slate-50"
+                                                                                className="flex items-start gap-1.5 hover:text-indigo-600 transition-colors flex-1"
                                                                                 title="Open this question in Question Bank"
                                                                             >
                                                                                 <HelpCircle className="w-3.5 h-3.5 text-slate-400 mt-0.5 shrink-0 group-hover:text-indigo-600 transition-colors" />
@@ -2792,11 +2146,11 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-xs text-slate-500 py-2 italic text-center">No relationship or questionnaire mapping details found.</p>
+                                        <p className="text-xs text-slate-500 py-1 italic">No relationship or questionnaire mapping details found.</p>
                                     )
                                 ) : (
-                                    <div className="text-center py-4">
-                                        <p className="text-slate-600 mb-1 font-medium">Not currently used by any relationships or questionnaires.</p>
+                                    <div className="space-y-1 text-slate-500 py-1">
+                                        <p className="font-medium text-slate-700">Not currently used by any relationships or questionnaires.</p>
                                         <p className="text-xs text-slate-400">This field can still be completed as part of the Master Record.</p>
                                     </div>
                                 )}
