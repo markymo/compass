@@ -20,17 +20,25 @@ vi.mock('@/lib/prisma', () => ({
     default: {
         question: { findMany: vi.fn() },
         fIEngagement: { findUnique: vi.fn() },
-        questionnaire: { findUnique: vi.fn() },
+        questionnaire: { findUnique: vi.fn(), findMany: vi.fn() },
         fieldClaim: { findMany: vi.fn() },
         masterFieldGroupItem: { findMany: vi.fn() },
         clientLEOwner: { findFirst: vi.fn() },
         sourceFieldMapping: { findMany: vi.fn() },
-        clientLE: { findUnique: vi.fn() },
+        clientLE: { findUnique: vi.fn(), findMany: vi.fn() },
     },
 }));
 
 import prisma from '@/lib/prisma';
-import { calculateEngagementMetrics, calculateQuestionnaireMetrics } from '@/lib/metrics-calc';
+import {
+    calculateEngagementMetrics,
+    calculateEngagementOwnMetrics,
+    calculateEffectiveEngagementMetrics,
+    calculateCommonQuestionnaireMetrics,
+    calculateQuestionnaireMetrics,
+    rollupMetrics,
+    emptyMetrics
+} from '@/lib/metrics-calc';
 
 const mock = prisma as any;
 
@@ -83,7 +91,8 @@ beforeEach(() => {
     // Stable defaults — no group items needed for single-field tests
     mock.masterFieldGroupItem.findMany.mockResolvedValue([]);
     mock.sourceFieldMapping.findMany.mockResolvedValue([]);
-    mock.clientLE.findUnique.mockResolvedValue({ gleifFetchedAt: null, registryReferences: [] });
+    mock.questionnaire.findMany.mockResolvedValue([]);
+    mock.clientLE.findUnique.mockResolvedValue({ gleifFetchedAt: null, registryReferences: [], commonQuestionnaires: [] });
 });
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -263,5 +272,175 @@ describe('getActiveClaimsContext — claim status semantics', () => {
         expect(m.total).toBe(1);
         expect(m.answered).toBe(0);
         expect(mock.fieldClaim.findMany).not.toHaveBeenCalled();
+    });
+});
+
+describe('Common Questionnaires & Effective Engagement Metrics', () => {
+
+    it('Scenario 1: LE with Common Questionnaire and no supplier engagements returns non-zero CQ metrics', async () => {
+        mock.clientLE.findUnique.mockResolvedValue({ id: CLIENT_LE_ID, legalEntityId: LE_ID, customData: null, registryReferences: [] });
+        mock.questionnaire.findUnique.mockResolvedValue({ id: 'cq-001', extractedContent: null });
+        mock.question.findMany.mockResolvedValue([
+            { id: 'cq-q1', status: 'RELEASED', answer: 'Yes', masterFieldNo: 1 },
+            { id: 'cq-q2', status: 'APPROVED', answer: 'No', masterFieldNo: 2 }
+        ]);
+
+        const cqMetrics = await calculateCommonQuestionnaireMetrics('cq-001', CLIENT_LE_ID);
+        expect(cqMetrics.total).toBe(2);
+        expect(cqMetrics.answered).toBe(2);
+        expect(cqMetrics.approved).toBe(1);
+        expect(cqMetrics.released).toBe(1);
+    });
+
+    it('Scenario 2 & 3: Supplier effective metrics include relationship questions + applicable Common Questionnaire', async () => {
+        mock.question.findMany.mockImplementation(async (args: any) => {
+            if (args.where?.questionnaire?.fiEngagementId === ENGAGEMENT_ID) {
+                return [{ id: 'eng-q1', status: 'DRAFT', answer: 'Eng Answer', masterFieldNo: 10 }];
+            }
+            if (args.where?.questionnaireId === 'cq-001') {
+                return [
+                    { id: 'cq-q1', status: 'DRAFT', answer: 'CQ Answer 1', masterFieldNo: 11 },
+                    { id: 'cq-q2', status: 'DRAFT', answer: 'CQ Answer 2', masterFieldNo: 12 }
+                ];
+            }
+            return [];
+        });
+
+        mock.fIEngagement.findUnique.mockResolvedValue({
+            id: ENGAGEMENT_ID,
+            clientLEId: CLIENT_LE_ID,
+            clientLE: { id: CLIENT_LE_ID, legalEntityId: LE_ID, customData: null }
+        });
+
+        mock.clientLE.findUnique.mockResolvedValue({
+            id: CLIENT_LE_ID,
+            legalEntityId: LE_ID,
+            customData: null,
+            registryReferences: [],
+            commonQuestionnaires: [{ id: 'cq-001' }]
+        });
+
+        const effectiveMetrics = await calculateEffectiveEngagementMetrics(ENGAGEMENT_ID, CLIENT_LE_ID);
+
+        expect(effectiveMetrics.total).toBe(3);
+        expect(effectiveMetrics.answered).toBe(3);
+    });
+
+    it('Scenario 4 & 5: Multiple suppliers sharing one CQ each get CQ metrics without mutating high-level rollup', async () => {
+        mock.question.findMany.mockImplementation(async (args: any) => {
+            if (args.where?.questionnaireId === 'cq-shared') {
+                return [{ id: 'cq-q1', status: 'DRAFT', answer: 'CQ Answer', masterFieldNo: 50 }];
+            }
+            return [];
+        });
+
+        mock.fIEngagement.findUnique.mockImplementation(async (args: any) => ({
+            id: args.where.id,
+            clientLEId: CLIENT_LE_ID,
+            clientLE: { id: CLIENT_LE_ID, legalEntityId: LE_ID, customData: null }
+        }));
+
+        mock.clientLE.findUnique.mockResolvedValue({
+            id: CLIENT_LE_ID,
+            legalEntityId: LE_ID,
+            customData: null,
+            registryReferences: [],
+            commonQuestionnaires: [{ id: 'cq-shared' }]
+        });
+
+        const cache = new Map();
+        const metricsSuppA = await calculateEffectiveEngagementMetrics('eng-A', CLIENT_LE_ID, cache);
+        const metricsSuppB = await calculateEffectiveEngagementMetrics('eng-B', CLIENT_LE_ID, cache);
+
+        expect(metricsSuppA.total).toBe(1);
+        expect(metricsSuppB.total).toBe(1);
+
+        const leMetrics = emptyMetrics();
+        const cqMetrics = await calculateCommonQuestionnaireMetrics('cq-shared', CLIENT_LE_ID);
+        rollupMetrics(leMetrics, cqMetrics);
+
+        const ownA = await calculateEngagementOwnMetrics('eng-A');
+        const ownB = await calculateEngagementOwnMetrics('eng-B');
+        rollupMetrics(leMetrics, ownA);
+        rollupMetrics(leMetrics, ownB);
+
+        expect(leMetrics.total).toBe(1);
+    });
+
+    it('Scenario 6: Excludes deleted or template Common Questionnaires', async () => {
+        mock.clientLE.findUnique.mockResolvedValue({
+            id: CLIENT_LE_ID,
+            legalEntityId: LE_ID,
+            customData: null,
+            registryReferences: [],
+            commonQuestionnaires: []
+        });
+
+        mock.fIEngagement.findUnique.mockResolvedValue({
+            id: ENGAGEMENT_ID,
+            clientLEId: CLIENT_LE_ID,
+            clientLE: { id: CLIENT_LE_ID, legalEntityId: LE_ID, customData: null }
+        });
+
+        mock.question.findMany.mockResolvedValue([]);
+
+        const effectiveMetrics = await calculateEffectiveEngagementMetrics(ENGAGEMENT_ID, CLIENT_LE_ID);
+        expect(effectiveMetrics.total).toBe(0);
+    });
+
+    it('Scenario 7: Cross-client isolation ensures CQ for LE A is not applied to LE B', async () => {
+        mock.clientLE.findUnique.mockImplementation(async (args: any) => {
+            if (args.where.id === 'cle-A') {
+                return { id: 'cle-A', legalEntityId: 'le-A', registryReferences: [], commonQuestionnaires: [{ id: 'cq-A' }] };
+            }
+            if (args.where.id === 'cle-B') {
+                return { id: 'cle-B', legalEntityId: 'le-B', registryReferences: [], commonQuestionnaires: [] };
+            }
+            return null;
+        });
+
+        mock.fIEngagement.findUnique.mockResolvedValue({
+            id: 'eng-B',
+            clientLEId: 'cle-B',
+            clientLE: { id: 'cle-B', legalEntityId: 'le-B', customData: null }
+        });
+
+        mock.question.findMany.mockResolvedValue([]);
+
+        const effectiveMetricsB = await calculateEffectiveEngagementMetrics('eng-B', 'cle-B');
+        expect(effectiveMetricsB.total).toBe(0);
+    });
+
+    it('Scenario 8: calculateEngagementMetrics(id) without explicit clientLeId resolves ClientLE internally', async () => {
+        mock.fIEngagement.findUnique.mockImplementation(async (args: any) => {
+            if (args.where.id === ENGAGEMENT_ID) {
+                return {
+                    id: ENGAGEMENT_ID,
+                    clientLEId: CLIENT_LE_ID,
+                    clientLE: { id: CLIENT_LE_ID, legalEntityId: LE_ID, customData: null }
+                };
+            }
+            return null;
+        });
+
+        mock.clientLE.findUnique.mockResolvedValue({
+            id: CLIENT_LE_ID,
+            legalEntityId: LE_ID,
+            customData: null,
+            registryReferences: [],
+            commonQuestionnaires: [{ id: 'cq-001' }]
+        });
+
+        mock.question.findMany.mockImplementation(async (args: any) => {
+            if (args.where?.questionnaireId === 'cq-001') {
+                return [{ id: 'q-auto', status: 'DRAFT', answer: 'Auto Answer', masterFieldNo: 99 }];
+            }
+            return [];
+        });
+
+        // Call without passing clientLeId argument
+        const m = await calculateEngagementMetrics(ENGAGEMENT_ID);
+        expect(m.total).toBe(1);
+        expect(m.answered).toBe(1);
     });
 });

@@ -24,6 +24,8 @@ interface BreadcrumbContextType {
     setSecondaryNav: (nav: React.ReactNode | undefined) => void;
     isWide?: boolean;
     setIsWide: (wide: boolean) => void;
+    footerAccentClass?: string;
+    setFooterAccentClass: (cls: string | undefined) => void;
 }
 
 const BreadcrumbContext = createContext<BreadcrumbContextType | undefined>(undefined);
@@ -35,6 +37,7 @@ export function BreadcrumbProvider({ children }: { children: React.ReactNode }) 
     const [pageTypeLabel, setPageTypeLabel] = useState<string | undefined>(undefined);
     const [secondaryNav, setSecondaryNav] = useState<React.ReactNode | undefined>(undefined);
     const [isWide, setIsWide] = useState(false);
+    const [footerAccentClass, setFooterAccentClass] = useState<string | undefined>(undefined);
 
     const setExtraBreadcrumbs = React.useCallback((items: BreadcrumbItemData[]) => {
         setExtraBreadcrumbsState(items);
@@ -58,6 +61,10 @@ export function BreadcrumbProvider({ children }: { children: React.ReactNode }) 
 
     const setIsWideStable = React.useCallback((wide: boolean) => {
         setIsWide(wide);
+    }, []);
+
+    const setFooterAccentClassStable = React.useCallback((cls: string | undefined) => {
+        setFooterAccentClass(cls);
     }, []);
 
     const currentBreadcrumbs = useMemo(() => {
@@ -91,7 +98,9 @@ export function BreadcrumbProvider({ children }: { children: React.ReactNode }) 
         secondaryNav,
         setSecondaryNav: setSecondaryNavStable,
         isWide,
-        setIsWide: setIsWideStable
+        setIsWide: setIsWideStable,
+        footerAccentClass,
+        setFooterAccentClass: setFooterAccentClassStable
     }), [
         extraBreadcrumbs, 
         setExtraBreadcrumbs, 
@@ -104,7 +113,9 @@ export function BreadcrumbProvider({ children }: { children: React.ReactNode }) 
         secondaryNav,
         setSecondaryNavStable,
         isWide,
-        setIsWideStable
+        setIsWideStable,
+        footerAccentClass,
+        setFooterAccentClassStable
     ]);
 
     return (
@@ -132,7 +143,9 @@ export function useBreadcrumbs() {
             secondaryNav: undefined,
             setSecondaryNav: () => {},
             isWide: false,
-            setIsWide: () => {}
+            setIsWide: () => {},
+            footerAccentClass: undefined,
+            setFooterAccentClass: () => {}
         };
     }
     return context;
@@ -144,10 +157,11 @@ interface SetPageBreadcrumbsProps {
     typeLabel?: string;
     secondaryNav?: React.ReactNode;
     isWide?: boolean;
+    footerAccentClass?: string;
 }
 
-export function SetPageBreadcrumbs({ items, title, typeLabel, secondaryNav, isWide }: SetPageBreadcrumbsProps) {
-    const { setExtraBreadcrumbs, clearExtraBreadcrumbs, setPageTitle, setPageTypeLabel, setSecondaryNav, setIsWide } = useBreadcrumbs();
+export function SetPageBreadcrumbs({ items, title, typeLabel, secondaryNav, isWide, footerAccentClass }: SetPageBreadcrumbsProps) {
+    const { setExtraBreadcrumbs, clearExtraBreadcrumbs, setPageTitle, setPageTypeLabel, setSecondaryNav, setIsWide, setFooterAccentClass } = useBreadcrumbs();
 
     useEffect(() => {
         setExtraBreadcrumbs(items);
@@ -155,13 +169,13 @@ export function SetPageBreadcrumbs({ items, title, typeLabel, secondaryNav, isWi
         setPageTypeLabel(typeLabel);
         setSecondaryNav(secondaryNav);
         if (isWide !== undefined) setIsWide(isWide);
+        setFooterAccentClass(footerAccentClass);
         
         return () => {
-            // Only clear breadcrumbs, let the next page's SetPageBreadcrumbs take over title/nav
-            // to avoid race conditions during page transitions.
             clearExtraBreadcrumbs();
+            setFooterAccentClass(undefined);
         };
-    }, [JSON.stringify(items), title, typeLabel, secondaryNav, isWide, setExtraBreadcrumbs, clearExtraBreadcrumbs, setPageTitle, setPageTypeLabel, setSecondaryNav, setIsWide]);
+    }, [JSON.stringify(items), title, typeLabel, secondaryNav, isWide, footerAccentClass, setExtraBreadcrumbs, clearExtraBreadcrumbs, setPageTitle, setPageTypeLabel, setSecondaryNav, setIsWide, setFooterAccentClass]);
 
     return null;
 }

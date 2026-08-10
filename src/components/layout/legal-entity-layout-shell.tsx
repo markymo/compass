@@ -140,7 +140,7 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
             />
             <main className={cn(
                 "flex-1 mx-auto w-full p-8 space-y-8",
-                isWide ? "max-w-screen-2xl" : "max-w-6xl"
+                isWide ? "max-w-[1600px]" : "max-w-6xl"
             )}>
                 {/* Content moved to Header */}
 
