@@ -171,7 +171,7 @@ export function HistoricalSubmissionDialog({ submissionId, onClose }: Historical
                                             </div>
 
                                             <div className="bg-slate-50/70 p-3 rounded-md border border-slate-100">
-                                                <FieldValueRenderer model={displayModel} />
+                                                <FieldValueRenderer field={displayModel} />
                                             </div>
 
                                             {ans.attachments && ans.attachments.length > 0 && (

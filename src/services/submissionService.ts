@@ -49,7 +49,7 @@ export async function computeDefinitionFingerprint(questionnaireId: string): Pro
     const parts = [
         questionnaire?.name || "",
         questionnaire?.description || "",
-        ...questions.map(q => [
+        ...questions.map((q: any) => [
             q.text,
             q.compactText || "",
             q.order,
@@ -180,7 +180,7 @@ export async function createQuestionnaireSubmission(
             let valueJson: any = null;
             let explicitNone = false;
             let provenanceJson: any = null;
-            const documentIds: string[] = q.documents.map(d => d.id);
+            const documentIds: string[] = q.documents.map((d: any) => d.id);
 
             if (q.masterFieldNo) {
                 const derived = await KycStateService.getAuthoritativeValue(

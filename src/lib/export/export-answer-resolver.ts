@@ -117,7 +117,7 @@ export async function resolveExportAnswer(
         });
 
         if (subAnswer) {
-            const attachmentFilenames = subAnswer.attachments.map(a => a.document.name);
+            const attachmentFilenames = subAnswer.attachments.map((a: any) => a.document.name);
 
             if (subAnswer.explicitNone) {
                 return {
