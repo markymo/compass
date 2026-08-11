@@ -12,7 +12,7 @@ import { resolveExportAnswer } from "@/lib/export/export-answer-resolver";
 import { getFIWorkbenchData } from "@/actions/fi";
 
 vi.mock("@/lib/auth", () => ({
-    getIdentity: vi.fn().mockResolvedValue({ userId: "test-user-id" })
+    getIdentity: vi.fn().mockResolvedValue({ userId: "submission-service-user-id" })
 }));
 
 describe("Immutable Questionnaire Submissions Architecture Integration Tests", () => {
@@ -32,19 +32,19 @@ describe("Immutable Questionnaire Submissions Architecture Integration Tests", (
         await prisma.questionDefinitionSnapshot.deleteMany({ where: { definitionVersion: { questionnaire: { name: { startsWith: "Test Sub Questionnaire" } } } } });
         await prisma.questionnaireDefinitionVersion.deleteMany({ where: { questionnaire: { name: { startsWith: "Test Sub Questionnaire" } } } });
         await prisma.question.deleteMany({ where: { questionnaire: { name: { startsWith: "Test Sub Questionnaire" } } } });
-        await prisma.membership.deleteMany({ where: { OR: [{ userId: "test-user-id" }, { user: { email: { startsWith: "sub_test_" } } }] } });
+        await prisma.membership.deleteMany({ where: { OR: [{ userId: "submission-service-user-id" }, { user: { email: { startsWith: "sub_test_" } } }] } });
         await prisma.questionnaire.deleteMany({ where: { name: { startsWith: "Test Sub Questionnaire" } } });
         await prisma.fIEngagement.deleteMany({ where: { org: { name: { startsWith: "Test FI Org Sub" } } } });
         await prisma.legalEntity.deleteMany({ where: { reference: { startsWith: "REF-SUB-" } } });
         await prisma.organization.deleteMany({ where: { name: { startsWith: "Test FI Org Sub" } } });
-        await prisma.user.deleteMany({ where: { OR: [{ id: "test-user-id" }, { email: { startsWith: "sub_test_" } }] } });
+        await prisma.user.deleteMany({ where: { OR: [{ id: "submission-service-user-id" }, { email: { startsWith: "sub_test_" } }] } });
         await prisma.fieldClaim.deleteMany({ where: { sourceReference: "SUB_TEST_CLAIM" } });
 
         const rand = Math.floor(Math.random() * 1000000);
 
         // Setup test user, org, LE, engagements
         testUser = await prisma.user.create({
-            data: { id: "test-user-id", email: `sub_test_${rand}@example.com`, name: "Sub Test User" }
+            data: { id: "submission-service-user-id", email: `sub_test_${rand}@example.com`, name: "Sub Test User" }
         });
 
         testOrg = await prisma.organization.create({

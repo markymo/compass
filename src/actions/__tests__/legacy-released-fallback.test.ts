@@ -4,7 +4,7 @@ import { KycStateService } from "@/lib/kyc/KycStateService";
 import { getFIWorkbenchData } from "@/actions/fi";
 
 vi.mock("@/lib/auth", () => ({
-    getIdentity: vi.fn().mockResolvedValue({ userId: "test-user-id" })
+    getIdentity: vi.fn().mockResolvedValue({ userId: "legacy-fallback-user-id" })
 }));
 
 describe("Legacy RELEASED Fallback Integration & Regression Tests", () => {
@@ -23,18 +23,18 @@ describe("Legacy RELEASED Fallback Integration & Regression Tests", () => {
         await prisma.questionDefinitionSnapshot.deleteMany({ where: { definitionVersion: { questionnaire: { name: { startsWith: "Legacy Fallback QN" } } } } });
         await prisma.questionnaireDefinitionVersion.deleteMany({ where: { questionnaire: { name: { startsWith: "Legacy Fallback QN" } } } });
         await prisma.question.deleteMany({ where: { questionnaire: { name: { startsWith: "Legacy Fallback QN" } } } });
-        await prisma.membership.deleteMany({ where: { OR: [{ userId: "test-user-id" }, { user: { email: { startsWith: "legacy_user_" } } }] } });
+        await prisma.membership.deleteMany({ where: { OR: [{ userId: "legacy-fallback-user-id" }, { user: { email: { startsWith: "legacy_user_" } } }] } });
         await prisma.questionnaire.deleteMany({ where: { name: { startsWith: "Legacy Fallback QN" } } });
         await prisma.fIEngagement.deleteMany({ where: { org: { name: { startsWith: "Legacy Org" } } } });
         await prisma.legalEntity.deleteMany({ where: { reference: { startsWith: "REF-LEGACY-" } } });
         await prisma.organization.deleteMany({ where: { name: { startsWith: "Legacy Org" } } });
-        await prisma.user.deleteMany({ where: { OR: [{ id: "test-user-id" }, { email: { startsWith: "legacy_user_" } }] } });
+        await prisma.user.deleteMany({ where: { OR: [{ id: "legacy-fallback-user-id" }, { email: { startsWith: "legacy_user_" } }] } });
         await prisma.fieldClaim.deleteMany({ where: { sourceReference: "LEGACY_TEST_CLAIM" } });
 
         const rand = Math.floor(Math.random() * 1000000);
 
         testUser = await prisma.user.create({
-            data: { id: "test-user-id", email: `legacy_user_${rand}@example.com`, name: "Legacy Test User" }
+            data: { id: "legacy-fallback-user-id", email: `legacy_user_${rand}@example.com`, name: "Legacy Test User" }
         });
 
         testOrg = await prisma.organization.create({
