@@ -23,6 +23,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const user = identity?.userId ? await prisma.user.findUnique({ where: { id: identity.userId } }) : null;
 
         const explicitEngagementId = req.nextUrl.searchParams.get('engagementId') || undefined;
+        const submissionId = req.nextUrl.searchParams.get('submissionId') || undefined;
 
         const ctx = await resolveQuestionnaireContext(questionnaireId, explicitEngagementId);
         if (!ctx || !ctx.questionnaire || ctx.questionnaire.isDeleted) {
@@ -41,7 +42,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         });
 
         const exportData = await Promise.all(questions.map(async (question: any) => {
-            const resolvedAnswer = await resolveExportAnswer(question, subjectLeId, ownerScopeId || undefined, entityId);
+            const resolvedAnswer = await resolveExportAnswer(question, subjectLeId, ownerScopeId || undefined, entityId, submissionId);
 
             // For standalone PDF, we just list the document names
             const evidencePaths = question.documents.map((doc: any) => doc.name);

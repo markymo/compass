@@ -402,7 +402,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     return (
         <div className="space-y-6">
             {/* Toolbar */}
-            <div className="flex flex-wrap items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+            <div className="flex flex-wrap items-center gap-4 bg-white p-4 rounded-md border border-slate-200 shadow-sm">
                 <div className="relative flex-1 min-w-[300px]">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                     <Input
@@ -665,7 +665,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
             )}
 
                 {filteredQuestions.length === 0 && (
-                    <div className="py-20 text-center bg-white rounded-xl border border-dashed border-slate-300">
+                    <div className="py-20 text-center bg-white rounded-md border border-dashed border-slate-300">
                         <AlertCircle className="h-10 w-10 text-slate-300 mx-auto mb-3" />
                         <h3 className="text-lg font-medium text-slate-900">No questions found</h3>
                         <p className="text-slate-500 mt-1">Try adjusting your filters or search terms.</p>

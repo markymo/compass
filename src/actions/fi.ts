@@ -1,6 +1,9 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { KycStateService } from "@/lib/kyc/KycStateService";
+import { enrichPartyReferences, enrichAddressReferences } from "@/actions/kyc-query";
+import { getSourceDisplayName } from "@/lib/source-display";
 import { getIdentity } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -346,7 +349,10 @@ export interface SupplierVisibleDocument {
 
 export interface SupplierVisibleProvenance {
     source: string | null;
+    sourceType?: string | null;
+    sourceReference?: string | null;
     timestamp: Date | string | null;
+    lastValidatedAt?: Date | string | null;
     releaseProvenance?: any | null;
 }
 
@@ -479,7 +485,48 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
         orderBy: { order: 'asc' }
     });
 
-    // 3. Resolve Master Data Categories
+    // 3. Fetch latest QuestionnaireSubmission per relationship
+    const activeEngagements = (await prisma.fIEngagement?.findMany?.({
+        where: engagementFilter,
+        select: { id: true }
+    })) || [];
+    const uniqueEngagementIds = activeEngagements.map((e: any) => e.id);
+    const latestSubmissions = uniqueEngagementIds.length > 0
+        ? ((await prisma.questionnaireSubmission?.findMany?.({
+            where: { relationshipId: { in: uniqueEngagementIds } },
+            orderBy: [
+                { relationshipId: 'asc' },
+                { questionnaireId: 'asc' },
+                { submittedAt: 'desc' }
+            ],
+            include: {
+                answers: {
+                    include: {
+                        attachments: { include: { document: true } }
+                    }
+                }
+            }
+        })) || [])
+        : [];
+
+    const submissionAnswerMap = new Map<string, any>();
+    const submissionMetadataMap = new Map<string, { submittedAt: Date; versionNumber: number; submissionNumber: number }>();
+
+    for (const sub of latestSubmissions) {
+        const keyPrefix = `${sub.questionnaireId}:${sub.relationshipId}`;
+        if (!submissionMetadataMap.has(keyPrefix)) {
+            submissionMetadataMap.set(keyPrefix, {
+                submittedAt: sub.submittedAt,
+                versionNumber: sub.versionNumber,
+                submissionNumber: sub.submissionNumber
+            });
+            for (const ans of sub.answers) {
+                const answerKey = `${keyPrefix}:${ans.sourceQuestionId}`;
+                submissionAnswerMap.set(answerKey, ans);
+            }
+        }
+    }
+
     const [allFields, allGroups] = await Promise.all([
         listAllMasterFields(),
         listAllMasterGroups()
@@ -488,12 +535,8 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
     const fieldCategoryMap = new Map(allFields.map((f: any) => [f.fieldNo, f.category]));
     const groupCategoryMap = new Map(allGroups.map((g: any) => [g.key, g.category]));
 
-    let notSharedCount = 0;
-    let sharedCount = 0;
-    let releasedCount = 0;
-
     // 4. Transform & Strictly Redact Server-Side
-    const questions: SupplierQuestionView[] = questionsRaw.map((q: any) => {
+    const questions: SupplierQuestionView[] = await Promise.all(questionsRaw.map(async (q: any) => {
         let category = "Uncategorized";
         if (q.masterFieldNo) category = fieldCategoryMap.get(q.masterFieldNo) || "Uncategorized";
         else if (q.masterQuestionGroupId) category = groupCategoryMap.get(q.masterQuestionGroupId) || "Uncategorized";
@@ -510,16 +553,95 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
         let sharedAt: Date | string | null = null;
         let releasedAt: Date | string | null = null;
 
-        if (q.status === "RELEASED") {
+        const engagementId = engagement?.id || "";
+        const keyPrefix = `${q.questionnaireId}:${engagementId}`;
+        const subMetadata = submissionMetadataMap.get(keyPrefix);
+        const subAnswer = engagementId ? submissionAnswerMap.get(`${keyPrefix}:${q.id}`) : null;
+
+        if (subAnswer) {
             answerVisibility = "RELEASED";
-            releasedCount++;
-            answer = q.answer ?? null;
+            answer = subAnswer.explicitNone ? { explicitNone: true } : (subAnswer.valueJson ?? null);
+            releasedAt = subMetadata?.submittedAt || q.releasedAt || null;
+            
+            const subProv = subAnswer.provenanceJson || {};
+            const subSourceType = subProv.sourceType || "USER_INPUT";
+            const subSourceRef = subProv.sourceReference || null;
+            const isSubUserInput = subSourceType === "USER_INPUT";
+
+            const lastValidatedAt = isSubUserInput
+                ? (subMetadata?.submittedAt || q.releasedAt || null)
+                : (subProv.lastValidatedAt || subProv.sourceCheckedAt || subProv.assertedAt || null);
+
+            provenance = {
+                source: subProv.sourceLabel || getSourceDisplayName(subSourceType, subSourceRef) || "Formal Submission",
+                sourceType: subSourceType,
+                sourceReference: subSourceRef,
+                timestamp: subMetadata?.submittedAt || q.releasedAt || null,
+                lastValidatedAt,
+                releaseProvenance: subProv
+            };
+            documents = (subAnswer.attachments || []).map((att: any) => ({
+                id: att.document.id,
+                fileName: att.document.name,
+                fileType: att.document.mimeType || null,
+                fileSize: att.document.sizeBytes ? Number(att.document.sizeBytes) : null,
+                uploadedAt: att.document.createdAt
+            }));
+        } else if (q.status === "RELEASED") {
+            answerVisibility = "RELEASED";
             sharedAt = q.sharedAt ?? null;
             releasedAt = q.releasedAt ?? null;
+            let derivedVal: any = null;
+
+            if (q.answer !== null && q.answer !== undefined) {
+                // Legacy manual answer or legacy stored explicit none
+                answer = q.answer;
+            } else if (q.masterFieldNo && clientLE) {
+                // Legacy RELEASED fallback: Resolve historical FieldClaim at snapshotDate (q.releasedAt)
+                const subjectLeId = clientLE.legalEntityId || clientLE.id;
+                const ownerScopeId = clientLE.id;
+                const snapshotDate = q.releasedAt ? new Date(q.releasedAt) : undefined;
+
+                try {
+                    derivedVal = await KycStateService.getAuthoritativeValue(
+                        { subjectLeId },
+                        q.masterFieldNo,
+                        ownerScopeId,
+                        snapshotDate
+                    );
+
+                    if (derivedVal) {
+                        if (derivedVal.value && typeof derivedVal.value === 'object' && derivedVal.value.explicitNone) {
+                            answer = { explicitNone: true };
+                        } else {
+                            const vals = Array.isArray(derivedVal.value) ? derivedVal.value : [derivedVal.value];
+                            await enrichPartyReferences(vals);
+                            await enrichAddressReferences(vals);
+                            answer = derivedVal.value;
+                        }
+                    }
+                } catch (err) {
+                    console.error(`[fi.ts] Legacy RELEASED fallback resolution failed for question ${q.id}:`, err);
+                }
+            }
+
+            const relProv = q.releaseProvenance || {};
+            const relSourceType = derivedVal?.sourceType || relProv.sourceType || "USER_INPUT";
+            const relSourceRef = derivedVal?.sourceReference || relProv.sourceReference || null;
+            const relSourceLabel = q.releaseProvenance?.provenanceDisplay?.source || q.releaseProvenance?.sourceLabel || getSourceDisplayName(relSourceType, relSourceRef);
+            const isRelUserInput = relSourceType === "USER_INPUT";
+
+            const lastValidatedAt = isRelUserInput
+                ? (q.releasedAt || null)
+                : (derivedVal?.sourceCheckedAt || derivedVal?.assertedAt || relProv.lastValidatedAt || relProv.sourceCheckedAt || null);
+
             provenance = {
-                source: q.releaseProvenance?.provenanceDisplay?.source || q.releaseProvenance?.sourceLabel || "Formal Release",
-                timestamp: q.releasedAt || q.updatedAt,
-                releaseProvenance: q.releaseProvenance || null
+                source: relSourceLabel || "Formal Release",
+                sourceType: relSourceType,
+                sourceReference: relSourceRef,
+                timestamp: q.releasedAt || null,
+                lastValidatedAt,
+                releaseProvenance: relProv
             };
             documents = (q.documents || []).map((d: any) => ({
                 id: d.id,
@@ -530,12 +652,56 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
             }));
         } else if (q.status === "SHARED") {
             answerVisibility = "SHARED";
-            sharedCount++;
-            answer = q.answer ?? null;
             sharedAt = q.sharedAt ?? null;
+            let derivedVal: any = null;
+
+            if (q.answer !== null && q.answer !== undefined) {
+                // Manual answer or stored explicit none overrides live canonical resolution
+                answer = q.answer;
+            } else if (q.masterFieldNo && clientLE) {
+                // SHARED pre-release live resolution: Resolve current live FieldClaim (snapshotDate = undefined)
+                const subjectLeId = clientLE.legalEntityId || clientLE.id;
+                const ownerScopeId = clientLE.id;
+
+                try {
+                    derivedVal = await KycStateService.getAuthoritativeValue(
+                        { subjectLeId },
+                        q.masterFieldNo,
+                        ownerScopeId,
+                        undefined // Live current value
+                    );
+
+                    if (derivedVal) {
+                        if (derivedVal.value && typeof derivedVal.value === 'object' && derivedVal.value.explicitNone) {
+                            answer = { explicitNone: true };
+                        } else {
+                            const vals = Array.isArray(derivedVal.value) ? derivedVal.value : [derivedVal.value];
+                            await enrichPartyReferences(vals);
+                            await enrichAddressReferences(vals);
+                            answer = derivedVal.value;
+                        }
+                    }
+                } catch (err) {
+                    console.error(`[fi.ts] SHARED live resolution failed for question ${q.id}:`, err);
+                }
+            }
+
+            const sharedSourceType = derivedVal?.sourceType || "USER_INPUT";
+            const sharedSourceRef = derivedVal?.sourceReference || null;
+            const sharedSourceLabel = derivedVal ? getSourceDisplayName(sharedSourceType, sharedSourceRef) : "Provisional Shared";
+            const isSharedUserInput = sharedSourceType === "USER_INPUT";
+
+            const lastValidatedAt = isSharedUserInput
+                ? (q.sharedAt || null)
+                : (derivedVal?.sourceCheckedAt || derivedVal?.assertedAt || null);
+
             provenance = {
-                source: "Provisional Shared",
-                timestamp: q.sharedAt || q.updatedAt
+                source: sharedSourceLabel || "Provisional Shared",
+                sourceType: sharedSourceType,
+                sourceReference: sharedSourceRef,
+                timestamp: q.sharedAt || null,
+                lastValidatedAt,
+                releaseProvenance: null
             };
             documents = (q.documents || []).map((d: any) => ({
                 id: d.id,
@@ -547,7 +713,6 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
         } else {
             // DRAFT and APPROVED questions are strictly REDACTED server-side.
             answerVisibility = "NOT_SHARED";
-            notSharedCount++;
             // answer, provenance, and documents remain null / []
             // Client's internal status ('DRAFT' vs 'APPROVED') is NOT exposed anywhere.
         }
@@ -587,7 +752,11 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
             text: q.text,
             leName: clientLE?.name || "Unknown"
         };
-    });
+    }));
+
+    const notSharedCount = questions.filter(q => q.answerVisibility === "NOT_SHARED").length;
+    const sharedCount = questions.filter(q => q.answerVisibility === "SHARED").length;
+    const releasedCount = questions.filter(q => q.answerVisibility === "RELEASED").length;
 
     const parsedQuestions = JSON.parse(JSON.stringify(questions));
 

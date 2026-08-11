@@ -2,6 +2,21 @@ import * as Sentry from "@sentry/nextjs";
 
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    // Guard Node.js built-in performance.measure against Next.js Turbopack negative time stamp errors
+    if (typeof performance !== "undefined" && typeof performance.measure === "function") {
+      const originalMeasure = performance.measure.bind(performance);
+      performance.measure = function (name?: string, startMarkOrOptions?: any, endMark?: string) {
+        try {
+          return originalMeasure(name as any, startMarkOrOptions, endMark);
+        } catch (err: any) {
+          if (err && typeof err.message === "string" && (err.message.includes("negative time stamp") || err.message.includes("negative duration"))) {
+            return {} as PerformanceMeasure;
+          }
+          throw err;
+        }
+      };
+    }
+
     await import("../sentry.server.config");
 
     // Initialize Prisma OpenTelemetry instrumentation strictly in Node.js runtime

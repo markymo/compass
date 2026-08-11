@@ -13,6 +13,9 @@ import { Switch } from "@/components/ui/switch";
 import { saveQuestionnaireChanges } from "@/actions/questionnaire";
 
 import { VersionHistory } from "@/components/client/version-history";
+import { QuestionnaireSubmissionHistory } from "@/components/client/questionnaire-submission-history";
+import { SubmitQuestionnaireDialog } from "@/components/client/submit-questionnaire-dialog";
+import { Send, History } from "lucide-react";
 
 interface QuestionnaireFillerProps {
     leId: string;
@@ -27,6 +30,8 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
     const [isGenerating, setIsGenerating] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isLearning, setIsLearning] = useState(true);
+    const [showSubmitModal, setShowSubmitModal] = useState(false);
+    const [activeTab, setActiveTab] = useState<"questions" | "submissions">("questions");
 
     // Vertical Navigation State
     const [activeCategory, setActiveCategory] = useState<string>("Uncategorized");
@@ -192,11 +197,64 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
                         {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                         Save
                     </Button>
+
+                    <Button
+                        onClick={() => setShowSubmitModal(true)}
+                        size="sm"
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 font-semibold shadow-sm ml-2"
+                    >
+                        <Send className="h-3.5 w-3.5" />
+                        Submit Questionnaire
+                    </Button>
                 </div>
             </div>
 
-            {/* Main Content Area: Sidebar + Scrollable Questions */}
-            <div className="flex-1 flex overflow-hidden">
+            <SubmitQuestionnaireDialog
+                open={showSubmitModal}
+                onOpenChange={setShowSubmitModal}
+                questionnaireId={questionnaireId}
+                clientLEId={leId}
+                questionnaireName={questionnaireName}
+            />
+
+            {/* View Mode Tabs */}
+            <div className="bg-slate-100/70 border-b px-6 py-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <Button
+                        variant={activeTab === "questions" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setActiveTab("questions")}
+                        className="h-8 text-xs font-semibold"
+                    >
+                        Questions & Answers
+                    </Button>
+                    <Button
+                        variant={activeTab === "submissions" ? "default" : "ghost"}
+                        size="sm"
+                        onClick={() => setActiveTab("submissions")}
+                        className="h-8 text-xs font-semibold flex items-center gap-1.5"
+                    >
+                        <History className="h-3.5 w-3.5" />
+                        Submission History
+                    </Button>
+                </div>
+            </div>
+
+            {/* Tab 2: Submission History View */}
+            {activeTab === "submissions" && (
+                <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
+                    <div className="max-w-4xl mx-auto">
+                        <QuestionnaireSubmissionHistory
+                            questionnaireId={questionnaireId}
+                            showRelationshipName={true}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* Tab 1: Main Content Area (Sidebar + Scrollable Questions) */}
+            {activeTab === "questions" && (
+                <div className="flex-1 flex overflow-hidden">
                 {/* Left Sidebar: Categories */}
                 <div className="w-64 flex-none border-r bg-slate-50 overflow-y-auto py-4">
                     <div className="px-4 mb-2 text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -354,6 +412,7 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
                     </div>
                 </div>
             </div>
+            )}
         </div>
     );
 }

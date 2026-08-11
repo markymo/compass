@@ -253,4 +253,41 @@ describe("Supplier-Safe Question Visibility & Server-Side Redaction", () => {
         expect(result.counts.total).toBe(4);
         expect(result.counts.total).toBe(result.counts.notShared + result.counts.shared + result.counts.released);
     });
+
+    it("12. Provenance metadata propagation: sourceType, sourceReference, and lastValidatedAt populated", async () => {
+        const releasedAt = new Date("2026-07-22T13:34:00Z");
+        prismaMock.question.findMany.mockResolvedValue([
+            {
+                id: "q-released-prov-1",
+                text: "What is your registered legal name?",
+                status: "RELEASED",
+                answer: "ZZOOMM PLC",
+                releasedAt,
+                releaseProvenance: {
+                    sourceType: "REGISTRATION_AUTHORITY",
+                    sourceReference: "COMPANIES_HOUSE",
+                    sourceLabel: "Companies House",
+                    lastValidatedAt: "2026-07-22T13:34:00.000Z"
+                },
+                questionnaire: {
+                    id: "qnaire-1",
+                    name: "Master Profile",
+                    fiEngagement: {
+                        id: "eng-1",
+                        clientLE: { id: "cle-1", name: "ZZOOMM PLC", owners: [] }
+                    }
+                }
+            }
+        ]);
+
+        const result = await getFIWorkbenchData(fiOrgId);
+        const q = result.questions[0];
+
+        expect(q.answerVisibility).toBe("RELEASED");
+        expect(q.answer).toBe("ZZOOMM PLC");
+        expect(q.provenance).toBeDefined();
+        expect(q.provenance?.sourceType).toBe("REGISTRATION_AUTHORITY");
+        expect(q.provenance?.sourceReference).toBe("COMPANIES_HOUSE");
+        expect(q.provenance?.lastValidatedAt).toBeDefined();
+    });
 });
