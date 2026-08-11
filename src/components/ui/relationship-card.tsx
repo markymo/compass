@@ -77,7 +77,7 @@ export function RelationshipCard({
             {/* Actions Footer */}
             <div className="mt-auto p-4 pt-0 flex gap-2">
                 {userIsClient && (
-                    <Link href={`/app/le/${clientLEId}/engagement-new/${id}`} className="flex-1">
+                    <Link href={`/app/le/${clientLEId}/relationships?engagementId=${id}`} className="flex-1">
                         <div className="w-full bg-emerald-50 text-emerald-700 hover:bg-emerald-100 h-9 rounded-md flex items-center justify-center text-xs font-medium transition-colors border border-emerald-200">
                             Enter as Client
                         </div>

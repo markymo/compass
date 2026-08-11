@@ -19,14 +19,41 @@ export type SectionAccentKey =
     | "assignments"
     | "supplier"
     | "admin"
+    | "home"
     | "default";
+
+export interface FooterAccentSegment {
+    label: string;
+    colorClass: string;
+    widthPercent: number;
+}
 
 export interface SectionAccentConfig {
     key: SectionAccentKey;
     label: string;
     navBorderClass: string;
-    footerAccentClass: string;
+    footerAccentClass?: string;
+    footerComposition?: FooterAccentSegment[];
 }
+
+/**
+ * Prototype E2: Home Multi-Colour Accent Composition
+ * Editorial asymmetric distribution of established OnPro section character accents:
+ * - Sources (Sky / Blue): 24%
+ * - Master Record (Orange): 20%
+ * - Relationships (Purple): 22%
+ * - Question Bank (Indigo): 18%
+ * - Assignments (Rose): 8%
+ * - Supplier Portal (Emerald): 8%
+ */
+export const HOME_FOOTER_ACCENT_COMPOSITION: FooterAccentSegment[] = [
+    { label: "Sources", colorClass: "bg-sky-500", widthPercent: 24 },
+    { label: "Master Record", colorClass: "bg-orange-500", widthPercent: 20 },
+    { label: "Relationships", colorClass: "bg-purple-600", widthPercent: 22 },
+    { label: "Question Bank", colorClass: "bg-indigo-600", widthPercent: 18 },
+    { label: "Assignments", colorClass: "bg-rose-600", widthPercent: 8 },
+    { label: "Supplier Portal", colorClass: "bg-emerald-600", widthPercent: 8 },
+];
 
 export const SECTION_ACCENTS: Record<SectionAccentKey, SectionAccentConfig> = {
     sources: {
@@ -71,6 +98,12 @@ export const SECTION_ACCENTS: Record<SectionAccentKey, SectionAccentConfig> = {
         navBorderClass: "border-slate-900 dark:border-slate-100",
         footerAccentClass: "bg-slate-900 dark:bg-slate-100",
     },
+    home: {
+        key: "home",
+        label: "Home",
+        navBorderClass: "border-slate-900 dark:border-slate-100",
+        footerComposition: HOME_FOOTER_ACCENT_COMPOSITION,
+    },
     default: {
         key: "default",
         label: "Default Anchor",
@@ -90,6 +123,11 @@ export function resolveSectionAccent(pathname: string, explicitKey?: SectionAcce
 
     const cleanPath = (pathname || "").split("?")[0].toLowerCase();
 
+    // Home Overview Surfaces (/app & /app/dashboard-v2)
+    if (cleanPath === "/app" || cleanPath === "/app/" || cleanPath === "/app/dashboard-v2" || cleanPath === "/app/dashboard-v2/") {
+        return SECTION_ACCENTS.home;
+    }
+
     // LE & Nested Route Inheritance
     if (cleanPath.includes("/sources")) return SECTION_ACCENTS.sources;
     if (cleanPath.includes("/master")) return SECTION_ACCENTS.master;
@@ -103,3 +141,4 @@ export function resolveSectionAccent(pathname: string, explicitKey?: SectionAcce
 
     return SECTION_ACCENTS.default;
 }
+

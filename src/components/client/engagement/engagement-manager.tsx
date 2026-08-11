@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Plus, Search, Loader2, X, FileText, ChevronRight, Folder, Download, Users, MoreVertical, Trash2, ArrowUpRight, Check } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { createFIEngagement } from "@/actions/client-le";
@@ -60,6 +60,9 @@ interface EngagementManagerProps {
 
 export function EngagementManager({ leId, initialEngagements, leDueDate, commonQuestionnaires = [] }: EngagementManagerProps) {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const targetEngagementId = searchParams?.get("engagementId");
+
     const [engagements, setEngagements] = useState(initialEngagements);
 
     useEffect(() => {
@@ -75,14 +78,32 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
 
     useEffect(() => {
         if (!isLoading && !isExpandedInit) {
-            setExpandedEngagements(preferences.relationshipsExpandedEngagements || []);
+            let initialExpanded = preferences.relationshipsExpandedEngagements || [];
+            if (targetEngagementId && !initialExpanded.includes(targetEngagementId)) {
+                initialExpanded = [...initialExpanded, targetEngagementId];
+            }
+            setExpandedEngagements(initialExpanded);
             setIsExpandedInit(true);
+        } else if (targetEngagementId && isExpandedInit) {
+            setExpandedEngagements(prev => prev.includes(targetEngagementId) ? prev : [...prev, targetEngagementId]);
         }
         if (!isLoading && !isSectionsInit) {
             setExpandedSections(preferences.relationshipsExpandedSections || {});
             setIsSectionsInit(true);
         }
-    }, [isLoading, isExpandedInit, isSectionsInit, preferences.relationshipsExpandedEngagements, preferences.relationshipsExpandedSections]);
+    }, [isLoading, isExpandedInit, isSectionsInit, preferences.relationshipsExpandedEngagements, preferences.relationshipsExpandedSections, targetEngagementId]);
+
+    useEffect(() => {
+        if (targetEngagementId) {
+            const timer = setTimeout(() => {
+                const el = document.getElementById(`engagement-${targetEngagementId}`);
+                if (el) {
+                    el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+            }, 200);
+            return () => clearTimeout(timer);
+        }
+    }, [targetEngagementId]);
 
     const handleAccordionChange = (val: string[]) => {
         setExpandedEngagements(val);
@@ -370,7 +391,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                         const qCount = questionnaires.length || 0;
 
                         return (
-                            <AccordionItem key={eng.id} value={eng.id} className="border border-slate-200 rounded-lg bg-white shadow-sm overflow-hidden data-[state=open]:border-indigo-200 transition-colors">
+                            <AccordionItem key={eng.id} id={`engagement-${eng.id}`} value={eng.id} className="border border-slate-200 rounded-lg bg-white shadow-sm overflow-hidden data-[state=open]:border-indigo-200 transition-colors">
                                 <div className="flex items-start justify-between pr-3 hover:bg-slate-50 transition-colors">
                                     <AccordionTrigger className="hover:no-underline px-4 py-3 flex-1">
                                         <div className={cn("hidden md:grid items-center w-full text-left", DASHBOARD_GRID_V2)}>

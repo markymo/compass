@@ -73,7 +73,7 @@ function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
                         id: r.id,
                         name: r.supplierName,
                         status: r.status,
-                        href: `/app/le/${r.clientLEId}/engagement-new/${r.id}`,
+                        href: `/app/le/${r.clientLEId}/relationships?engagementId=${r.id}`,
                         metrics: r.metrics
                     }));
 
@@ -293,7 +293,7 @@ function OrgCard({ org }: { org: OrgNode }) {
     const engagements = org.children.filter((c: any) => c.type === "engagement");
 
     return (
-        <Card className={`${meta.borderColor} shadow-sm transition-all border`}>
+        <Card variant="structural" className={`${meta.borderColor} shadow-sm transition-all border`}>
             <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
                 <CardHeader className="pb-3 bg-white">
                     <div className="flex items-center justify-between">
@@ -327,7 +327,7 @@ function OrgCard({ org }: { org: OrgNode }) {
                 </CardHeader>
 
                 <CollapsibleContent>
-                    <CardContent className="pt-0 pb-4 bg-white rounded-b-xl">
+                    <CardContent className="pt-0 pb-4 bg-white rounded-b-md">
                         {org.children.length === 0 ? (
                             <div className="text-sm text-muted-foreground italic py-4 text-center border-t border-dashed border-slate-200 mt-1">
                                 No items yet
@@ -403,7 +403,7 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
     const meta = orgMeta[org.orgType];
 
     return (
-        <Card className={cn("shadow-sm overflow-hidden", meta.borderColor)}>
+        <Card variant="structural" className={cn("shadow-sm overflow-hidden", meta.borderColor)}>
             <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
                 {/* 2-Tier Header Row */}
                 <div className={cn(
