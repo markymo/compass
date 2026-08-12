@@ -28,13 +28,14 @@ describe("Legacy RELEASED Fallback Integration & Regression Tests", () => {
         await prisma.fIEngagement.deleteMany({ where: { org: { name: { startsWith: "Legacy Org" } } } });
         await prisma.legalEntity.deleteMany({ where: { reference: { startsWith: "REF-LEGACY-" } } });
         await prisma.organization.deleteMany({ where: { name: { startsWith: "Legacy Org" } } });
-        await prisma.user.deleteMany({ where: { OR: [{ id: "legacy-fallback-user-id" }, { email: { startsWith: "legacy_user_" } }] } });
         await prisma.fieldClaim.deleteMany({ where: { sourceReference: "LEGACY_TEST_CLAIM" } });
 
         const rand = Math.floor(Math.random() * 1000000);
 
-        testUser = await prisma.user.create({
-            data: { id: "legacy-fallback-user-id", email: `legacy_user_${rand}@example.com`, name: "Legacy Test User" }
+        testUser = await prisma.user.upsert({
+            where: { id: "legacy-fallback-user-id" },
+            create: { id: "legacy-fallback-user-id", email: `legacy_user_${rand}@example.com`, name: "Legacy Test User" },
+            update: { email: `legacy_user_${rand}@example.com` }
         });
 
         testOrg = await prisma.organization.create({

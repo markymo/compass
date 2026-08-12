@@ -37,14 +37,15 @@ describe("Immutable Questionnaire Submissions Architecture Integration Tests", (
         await prisma.fIEngagement.deleteMany({ where: { org: { name: { startsWith: "Test FI Org Sub" } } } });
         await prisma.legalEntity.deleteMany({ where: { reference: { startsWith: "REF-SUB-" } } });
         await prisma.organization.deleteMany({ where: { name: { startsWith: "Test FI Org Sub" } } });
-        await prisma.user.deleteMany({ where: { OR: [{ id: "submission-service-user-id" }, { email: { startsWith: "sub_test_" } }] } });
         await prisma.fieldClaim.deleteMany({ where: { sourceReference: "SUB_TEST_CLAIM" } });
 
         const rand = Math.floor(Math.random() * 1000000);
 
         // Setup test user, org, LE, engagements
-        testUser = await prisma.user.create({
-            data: { id: "submission-service-user-id", email: `sub_test_${rand}@example.com`, name: "Sub Test User" }
+        testUser = await prisma.user.upsert({
+            where: { id: "submission-service-user-id" },
+            create: { id: "submission-service-user-id", email: `sub_test_${rand}@example.com`, name: "Sub Test User" },
+            update: { email: `sub_test_${rand}@example.com` }
         });
 
         testOrg = await prisma.organization.create({
