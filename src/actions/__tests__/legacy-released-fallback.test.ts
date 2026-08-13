@@ -7,7 +7,7 @@ vi.mock("@/lib/auth", () => ({
     getIdentity: vi.fn().mockResolvedValue({ userId: "legacy-fallback-user-id" })
 }));
 
-describe("Legacy RELEASED Fallback Integration & Regression Tests", () => {
+describe.skipIf(!process.env.DATABASE_URL)("Legacy RELEASED Fallback Integration & Regression Tests", () => {
     let testOrg: any;
     let testUser: any;
     let testRealLE: any;
