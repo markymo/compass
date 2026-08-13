@@ -44,8 +44,9 @@ import { format } from "date-fns";
 import Link from "next/link";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { SupplierQuestionView, FIWorkbenchData } from "@/actions/fi";
-import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
+import { resolveFieldForDisplay, RawFieldSource } from "@/lib/master-data/field-interpreter";
 import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
+import { FieldSourceBadge } from "@/components/client/fields/FieldSourceBadge";
 import { usePreferences } from "@/components/providers/user-preferences-provider";
 
 interface SupplierQuestionsWorkbenchProps {
@@ -57,14 +58,17 @@ type ViewMode = "classic" | "flow" | "compact";
 
 function getQuestionDisplayModel(q: SupplierQuestionView) {
     if (q.answerVisibility === "NOT_SHARED") return null;
+
+    const rawSource: RawFieldSource | null = q.provenance ? {
+        type: q.provenance.sourceType || (q.provenance.source === "Provisional Shared" ? "USER_INPUT" : q.provenance.source) || "USER_INPUT",
+        reference: q.provenance.sourceReference || (q.provenance.releaseProvenance as any)?.sourceReference || null,
+        timestamp: q.provenance.timestamp ? new Date(q.provenance.timestamp) : undefined,
+        sourceCheckedAt: q.provenance.lastValidatedAt ? new Date(q.provenance.lastValidatedAt) : (q.provenance.timestamp ? new Date(q.provenance.timestamp) : undefined)
+    } : null;
+
     return resolveFieldForDisplay(
         q.answer,
-        q.provenance
-            ? {
-                  type: q.provenance.source || "USER_INPUT",
-                  timestamp: q.provenance.timestamp
-              }
-            : null,
+        rawSource,
         {
             fieldNo: q.questionNumber ? parseInt(q.questionNumber, 10) || 0 : 0,
             label: q.questionText || (q as any).text,
@@ -348,14 +352,14 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                     <button
                         onClick={() => handleFilterChange("status", "ALL", setStatusFilter)}
                         className={cn(
-                            "flex items-center gap-3 p-3 rounded-xl border text-left transition-all hover:border-slate-300",
+                            "flex items-center gap-3 p-3 rounded-md border text-left transition-all hover:border-slate-300",
                             statusFilter === "ALL"
                                 ? "bg-slate-900 text-white border-slate-900 shadow-xs"
                                 : "bg-slate-50/60 border-slate-200/80 hover:bg-slate-100/60 text-slate-800"
                         )}
                     >
                         <div className={cn(
-                            "h-9 w-9 rounded-lg flex items-center justify-center shrink-0",
+                            "h-9 w-9 rounded-md flex items-center justify-center shrink-0",
                             statusFilter === "ALL" ? "bg-slate-800 text-slate-200" : "bg-white border border-slate-200 text-slate-600"
                         )}>
                             <HelpCircle className="h-4.5 w-4.5" />
@@ -372,14 +376,14 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                     <button
                         onClick={() => handleFilterChange("status", statusFilter === "NOT_SHARED" ? "ALL" : "NOT_SHARED", setStatusFilter)}
                         className={cn(
-                            "flex items-center gap-3 p-3 rounded-xl border text-left transition-all hover:border-amber-300",
+                            "flex items-center gap-3 p-3 rounded-md border text-left transition-all hover:border-amber-300",
                             statusFilter === "NOT_SHARED"
                                 ? "bg-amber-600 text-white border-amber-600 shadow-xs"
                                 : "bg-amber-50/50 border-amber-200/60 hover:bg-amber-50 text-slate-800"
                         )}
                     >
                         <div className={cn(
-                            "h-9 w-9 rounded-lg flex items-center justify-center shrink-0",
+                            "h-9 w-9 rounded-md flex items-center justify-center shrink-0",
                             statusFilter === "NOT_SHARED" ? "bg-amber-700 text-amber-100" : "bg-white border border-amber-200 text-amber-600"
                         )}>
                             <Lock className="h-4.5 w-4.5" />
@@ -396,14 +400,14 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                     <button
                         onClick={() => handleFilterChange("status", statusFilter === "SHARED" ? "ALL" : "SHARED", setStatusFilter)}
                         className={cn(
-                            "flex items-center gap-3 p-3 rounded-xl border text-left transition-all hover:border-blue-300",
+                            "flex items-center gap-3 p-3 rounded-md border text-left transition-all hover:border-blue-300",
                             statusFilter === "SHARED"
                                 ? "bg-blue-600 text-white border-blue-600 shadow-xs"
                                 : "bg-blue-50/50 border-blue-200/60 hover:bg-blue-50 text-slate-800"
                         )}
                     >
                         <div className={cn(
-                            "h-9 w-9 rounded-lg flex items-center justify-center shrink-0",
+                            "h-9 w-9 rounded-md flex items-center justify-center shrink-0",
                             statusFilter === "SHARED" ? "bg-blue-700 text-blue-100" : "bg-white border border-blue-200 text-blue-600"
                         )}>
                             <Clock className="h-4.5 w-4.5" />
@@ -420,14 +424,14 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                     <button
                         onClick={() => handleFilterChange("status", statusFilter === "RELEASED" ? "ALL" : "RELEASED", setStatusFilter)}
                         className={cn(
-                            "flex items-center gap-3 p-3 rounded-xl border text-left transition-all hover:border-emerald-300",
+                            "flex items-center gap-3 p-3 rounded-md border text-left transition-all hover:border-emerald-300",
                             statusFilter === "RELEASED"
                                 ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
                                 : "bg-emerald-50/50 border-emerald-200/60 hover:bg-emerald-50 text-slate-800"
                         )}
                     >
                         <div className={cn(
-                            "h-9 w-9 rounded-lg flex items-center justify-center shrink-0",
+                            "h-9 w-9 rounded-md flex items-center justify-center shrink-0",
                             statusFilter === "RELEASED" ? "bg-emerald-700 text-emerald-100" : "bg-white border border-emerald-200 text-emerald-600"
                         )}>
                             <ShieldCheck className="h-4.5 w-4.5" />
@@ -443,21 +447,21 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
             </div>
 
             {/* 3. Results Bar & View Selector */}
-            <div className="flex items-center justify-between gap-4 flex-wrap bg-white px-5 py-3.5 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between gap-4 flex-wrap bg-white px-5 py-3.5 rounded-md border border-slate-200 shadow-sm">
                 <div className="text-xs font-bold text-slate-700">
                     Showing <span className="text-teal-700">{filteredQuestions.length}</span> {filteredQuestions.length === 1 ? "question" : "questions"}
                     {hasActiveFilters && <span className="text-slate-400 font-normal ml-1">(filtered from {data.questions.length})</span>}
                 </div>
 
                 {/* View Mode Selector: Classic, Flow, Compact */}
-                <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl border border-slate-200/60">
+                <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-md border border-slate-200/60">
                     <Button
                         variant={currentViewMode === "classic" ? "secondary" : "ghost"}
                         size="sm"
                         aria-label="Classic view mode"
                         onClick={() => handleViewChange("classic")}
                         className={cn(
-                            "h-7 text-xs font-semibold px-2.5 rounded-lg gap-1.5 transition-all",
+                            "h-7 text-xs font-semibold px-2.5 rounded-md gap-1.5 transition-all",
                             currentViewMode === "classic" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
                         )}
                     >
@@ -469,7 +473,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                         aria-label="Flow view mode"
                         onClick={() => handleViewChange("flow")}
                         className={cn(
-                            "h-7 text-xs font-semibold px-2.5 rounded-lg gap-1.5 transition-all",
+                            "h-7 text-xs font-semibold px-2.5 rounded-md gap-1.5 transition-all",
                             currentViewMode === "flow" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
                         )}
                     >
@@ -481,7 +485,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                         aria-label="Compact view mode"
                         onClick={() => handleViewChange("compact")}
                         className={cn(
-                            "h-7 text-xs font-semibold px-2.5 rounded-lg gap-1.5 transition-all",
+                            "h-7 text-xs font-semibold px-2.5 rounded-md gap-1.5 transition-all",
                             currentViewMode === "compact" ? "bg-white text-slate-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
                         )}
                     >
@@ -492,7 +496,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
 
             {/* 4. Question Results Renderers */}
             {filteredQuestions.length === 0 ? (
-                <div className="py-20 text-center bg-white rounded-2xl border border-dashed border-slate-300 p-8 space-y-2">
+                <div className="py-20 text-center bg-white rounded-md border border-dashed border-slate-300 p-8 space-y-2">
                     <HelpCircle className="h-10 w-10 text-slate-300 mx-auto mb-2" />
                     <h3 className="text-base font-bold text-slate-800">No questions found</h3>
                     <p className="text-slate-500 text-xs">
@@ -509,7 +513,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                         const isReleased = q.answerVisibility === "RELEASED";
 
                         return (
-                            <Card key={q.id} className="border-slate-200 shadow-sm bg-white overflow-hidden rounded-2xl space-y-0">
+                            <Card key={q.id} className="border-slate-200 shadow-sm bg-white overflow-hidden rounded-md space-y-0">
                                 {/* Header / Context Row */}
                                 <div className="p-5 border-b border-slate-100 bg-slate-50/40 flex items-center justify-between gap-4 flex-wrap">
                                     <div className="flex items-center gap-2 flex-wrap min-w-0">
@@ -564,7 +568,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                                             </h3>
                                         </div>
                                         {q.guidance && (
-                                            <div className="ml-8 p-3 rounded-xl bg-blue-50/40 border border-blue-100 text-xs text-blue-900 leading-relaxed">
+                                            <div className="ml-8 p-3 rounded-md bg-blue-50/40 border border-blue-100 text-xs text-blue-900 leading-relaxed">
                                                 <span className="font-bold text-blue-600 uppercase text-[10px] tracking-wider mr-2">Guidance:</span>
                                                 {q.guidance}
                                             </div>
@@ -581,7 +585,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                                         </div>
 
                                         {isNotShared && (
-                                            <div className="ml-8 p-4 rounded-xl border border-amber-200 bg-amber-50/30 text-xs text-amber-900 flex items-center gap-2.5 font-medium">
+                                            <div className="ml-8 p-4 rounded-md border border-amber-200 bg-amber-50/30 text-xs text-amber-900 flex items-center gap-2.5 font-medium">
                                                 <Lock className="h-4 w-4 text-amber-600 shrink-0" />
                                                 <span>Answer not yet shared by the Client.</span>
                                             </div>
@@ -589,7 +593,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
 
                                         {(isShared || isReleased) && (
                                             <div className="ml-8 space-y-4">
-                                                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                                                <div className="p-4 rounded-md bg-slate-50 border border-slate-200 space-y-2">
                                                     <div className="flex items-center justify-between text-[11px] text-slate-500 pb-2 border-b border-slate-200/60">
                                                         <span>
                                                             {isReleased ? "Formally issued and locked" : "Provisional answer"}
@@ -603,7 +607,14 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                                                         </span>
                                                     </div>
                                                     {displayModel && (
-                                                        <FieldValueRenderer field={displayModel} className="text-sm font-medium text-slate-800 pt-1" />
+                                                        <div className="pt-1 space-y-2">
+                                                            <FieldValueRenderer field={displayModel} className="text-sm font-medium text-slate-800" />
+                                                            {displayModel.source && (
+                                                                <div className="pt-1.5 border-t border-slate-200/60">
+                                                                    <FieldSourceBadge source={displayModel.source} showLastValidated={true} variant="span" />
+                                                                </div>
+                                                            )}
+                                                        </div>
                                                     )}
                                                 </div>
 
@@ -616,7 +627,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                                                         </div>
                                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                                             {q.documents.map((doc) => (
-                                                                <div key={doc.id} className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3">
+                                                                <div key={doc.id} className="p-3 rounded-md border border-slate-200 bg-white flex items-center justify-between gap-3">
                                                                     <div className="flex items-center gap-2.5 min-w-0">
                                                                         <FileText className="h-4 w-4 text-blue-500 shrink-0" />
                                                                         <span className="text-xs font-medium text-slate-800 truncate" title={doc.fileName}>
@@ -651,7 +662,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                         const isReleased = q.answerVisibility === "RELEASED";
 
                         return (
-                            <Card key={q.id} className="border-slate-200 shadow-sm bg-white overflow-hidden rounded-2xl">
+                            <Card key={q.id} className="border-slate-200 shadow-sm bg-white overflow-hidden rounded-md">
                                 <CardContent className="p-6">
                                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                                         {/* Left Half: Context & Question */}
@@ -680,7 +691,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                                             </div>
 
                                             {q.guidance && (
-                                                <div className="p-3 rounded-xl bg-blue-50/40 border border-blue-100 text-xs text-blue-900 leading-relaxed">
+                                                <div className="p-3 rounded-md bg-blue-50/40 border border-blue-100 text-xs text-blue-900 leading-relaxed">
                                                     {q.guidance}
                                                 </div>
                                             )}
@@ -710,13 +721,13 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                                             </div>
 
                                             {isNotShared ? (
-                                                <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/30 text-xs text-amber-900 flex items-center gap-2 font-medium">
+                                                <div className="p-4 rounded-md border border-amber-200 bg-amber-50/30 text-xs text-amber-900 flex items-center gap-2 font-medium">
                                                     <Lock className="h-4 w-4 text-amber-600 shrink-0" />
                                                     <span>Answer not yet shared by the Client.</span>
                                                 </div>
                                             ) : (
                                                 <div className="space-y-3">
-                                                    <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 space-y-1">
+                                                    <div className="p-4 rounded-md bg-slate-50 border border-slate-200 text-xs text-slate-800 space-y-1">
                                                         <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                                                             {isReleased && q.releasedAt
                                                                 ? `Released ${format(new Date(q.releasedAt), "dd MMM yyyy")}`
@@ -724,13 +735,22 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                                                                 ? `Shared ${format(new Date(q.sharedAt), "dd MMM yyyy")}`
                                                                 : "Answer"}
                                                         </div>
-                                                        {displayModel && <FieldValueRenderer field={displayModel} className="text-sm font-medium text-slate-800 pt-1" />}
+                                                        {displayModel && (
+                                                            <div className="pt-1 space-y-2">
+                                                                <FieldValueRenderer field={displayModel} className="text-sm font-medium text-slate-800" />
+                                                                {displayModel.source && (
+                                                                    <div className="pt-1.5 border-t border-slate-200/60">
+                                                                        <FieldSourceBadge source={displayModel.source} showLastValidated={true} variant="span" />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                     </div>
 
                                                     {q.documents && q.documents.length > 0 && (
                                                         <div className="space-y-1.5">
                                                             {q.documents.map((doc) => (
-                                                                <div key={doc.id} className="p-2.5 rounded-lg border border-slate-200 bg-white flex items-center justify-between text-xs">
+                                                                <div key={doc.id} className="p-2.5 rounded-md border border-slate-200 bg-white flex items-center justify-between text-xs">
                                                                     <span className="truncate font-medium text-slate-800 max-w-[200px]" title={doc.fileName}>
                                                                         {doc.fileName}
                                                                     </span>
@@ -754,7 +774,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                 </div>
             ) : (
                 /* COMPACT VIEW: Clean Table Layout */
-                <Card className="border-slate-200 shadow-sm bg-white overflow-hidden rounded-2xl">
+                <Card className="border-slate-200 shadow-sm bg-white overflow-hidden rounded-md">
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
                             <Table className="w-full text-left">
@@ -832,7 +852,14 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                                                     ) : (
                                                         <div className="space-y-1.5 min-w-0">
                                                             {displayModel && (
-                                                                <FieldValueRenderer field={displayModel} className="text-xs font-medium text-slate-800" />
+                                                                <div className="space-y-1">
+                                                                    <FieldValueRenderer field={displayModel} className="text-xs font-medium text-slate-800" />
+                                                                    {displayModel.source && (
+                                                                        <div className="pt-0.5">
+                                                                            <FieldSourceBadge source={displayModel.source} showLastValidated={true} variant="span" />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             )}
                                                             {q.documents && q.documents.length > 0 && (
                                                                 <div className="flex items-center gap-1 text-[11px] text-slate-500">

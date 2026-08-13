@@ -10,7 +10,7 @@ vi.mock('@/actions/security', () => ({
 }));
 
 vi.mock('@/lib/auth', () => ({
-    getIdentity: vi.fn().mockResolvedValue({ userId: 'test-user-id' }),
+    getIdentity: vi.fn().mockResolvedValue({ userId: 'ref-codes-user-id' }),
 }));
 
 // Mock permissions
@@ -71,14 +71,14 @@ describe.skipIf(!process.env.DATABASE_URL)('Reference Codes Integration', () => 
         testEngagements.push(eng.id);
 
         await prisma.user.upsert({
-            where: { id: 'test-user-id' },
-            create: { id: 'test-user-id', email: 'test@example.com', name: 'Test User' },
+            where: { id: 'ref-codes-user-id' },
+            create: { id: 'ref-codes-user-id', email: 'test-refcodes@example.com', name: 'Test User' },
             update: {}
         });
 
         await prisma.membership.create({
             data: {
-                userId: 'test-user-id',
+                userId: 'ref-codes-user-id',
                 fiEngagementId: eng.id,
                 role: 'ADMIN',
             }

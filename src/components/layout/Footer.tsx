@@ -13,12 +13,23 @@ export function Footer() {
 
     const accentConfig = resolveSectionAccent(pathname);
     const resolvedFooterClass = explicitFooterAccentClass || accentConfig.footerAccentClass;
+    const footerComposition = !explicitFooterAccentClass && accentConfig.footerComposition;
 
     return (
         <footer className="relative border-t border-slate-800 bg-slate-900 py-16 text-slate-400">
-            {resolvedFooterClass && (
+            {footerComposition ? (
+                <div className="absolute -top-[1px] left-0 right-0 h-[3px] z-10 flex w-full overflow-hidden">
+                    {footerComposition.map((seg) => (
+                        <div
+                            key={seg.label}
+                            className={cn("h-full shrink-0", seg.colorClass)}
+                            style={{ width: `${seg.widthPercent}%` }}
+                        />
+                    ))}
+                </div>
+            ) : resolvedFooterClass ? (
                 <div className={cn("absolute -top-[1px] left-0 right-0 h-[3px] z-10", resolvedFooterClass)} />
-            )}
+            ) : null}
             <div className="container mx-auto grid gap-12 px-4 md:grid-cols-4 md:px-6">
                 <div className="col-span-1 md:col-span-2">
                     <Link href="/" className="mb-6 flex items-center gap-1">

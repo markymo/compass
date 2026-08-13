@@ -13,5 +13,5 @@ const prisma = (globalThis as any).prismaGlobal5 || prismaClientSingleton()
 
 export default prisma
 
-if (process.env.NODE_ENV !== 'production') (globalThis as any).prismaGlobal5 = prisma
+if (process.env.NODE_ENV !== 'production' || process.env.VITEST) (globalThis as any).prismaGlobal5 = prisma
 

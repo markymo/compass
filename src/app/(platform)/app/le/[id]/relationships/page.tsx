@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getClientLEData } from "@/actions/client";
 import { notFound } from "next/navigation";
 import { EngagementManager } from "@/components/client/engagement/engagement-manager";
@@ -24,12 +25,14 @@ export default async function RelationshipsPage({ params }: { params: Promise<{ 
                 initialQuestionnaires={(le as any).commonQuestionnaires || []}
             />
 
-            <EngagementManager
-                leId={le.id}
-                initialEngagements={(le as any).fiEngagements || []}
-                commonQuestionnaires={(le as any).commonQuestionnaires || []}
-                leDueDate={(le as any).dueDate}
-            />
+            <Suspense fallback={null}>
+                <EngagementManager
+                    leId={le.id}
+                    initialEngagements={(le as any).fiEngagements || []}
+                    commonQuestionnaires={(le as any).commonQuestionnaires || []}
+                    leDueDate={(le as any).dueDate}
+                />
+            </Suspense>
         </div>
     );
 }

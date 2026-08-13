@@ -142,7 +142,7 @@ export function LEPortalContainer({ le, schema, requirements, standingData, prog
                                                     <ArrowRight className="h-5 w-5" />
                                                 </div>
                                             </Link>
-                                            <Link href={`/app/le/${le.id}/engagement-new/${eng.id}`}>
+                                            <Link href={`/app/le/${le.id}/relationships?engagementId=${eng.id}`}>
                                                 <Button size="sm" variant="default" className="gap-2">
                                                     Open Workbench
                                                     <ArrowRight className="h-4 w-4" />

@@ -107,8 +107,73 @@ export async function resolveExportAnswer(
     question: any, 
     subjectLeId?: string, 
     ownerScopeId?: string,
-    entityId?: string
+    entityId?: string,
+    submissionId?: string
 ): Promise<ExportAnswerResult> {
+    if (submissionId) {
+        const subAnswer = await prisma.submissionAnswer.findFirst({
+            where: { submissionId, sourceQuestionId: question.id },
+            include: { attachments: { include: { document: true } } }
+        });
+
+        if (subAnswer) {
+            const attachmentFilenames = subAnswer.attachments.map((a: any) => a.document.name);
+
+            if (subAnswer.explicitNone) {
+                return {
+                    displayValue: "None",
+                    rawValue: null,
+                    answerState: "EMPTY_CHECKED",
+                    sourceLabel: subAnswer.provenanceJson?.sourceLabel || subAnswer.provenanceJson?.sourceType || "Submitted Value",
+                    sourceTimestamp: subAnswer.provenanceJson?.assertedAt || subAnswer.provenanceJson?.submittedAt || null,
+                    sourceCategory: 'USER',
+                    attachmentFilenames: attachmentFilenames.length > 0 ? attachmentFilenames : undefined
+                };
+            }
+
+            if (subAnswer.valueJson !== null && subAnswer.valueJson !== undefined) {
+                const meta: FieldInterpreterMetadata = {
+                    fieldNo: question.masterFieldNo || -1,
+                    label: question.text,
+                    displayState: "HAS_VALUE",
+                    isMultiValue: Array.isArray(subAnswer.valueJson)
+                };
+
+                const primarySource: RawFieldSource | null = subAnswer.provenanceJson ? {
+                    type: subAnswer.provenanceJson.sourceType || 'USER_INPUT',
+                    reference: subAnswer.provenanceJson.sourceReference || null,
+                    timestamp: subAnswer.provenanceJson.assertedAt || subAnswer.provenanceJson.submittedAt || null,
+                    sourceCheckedAt: subAnswer.provenanceJson.sourceCheckedAt || null,
+                    userName: subAnswer.provenanceJson.sourceLabel || null
+                } : null;
+
+                const { displayModel, displayValue } = await resolveCanonicalFieldDisplay({
+                    derivedValue: subAnswer.valueJson,
+                    primarySource,
+                    meta
+                });
+
+                return {
+                    displayValue,
+                    rawValue: subAnswer.valueJson,
+                    answerState: "HAS_VALUE",
+                    sourceLabel: displayModel.source?.label || subAnswer.provenanceJson?.sourceLabel || "Submitted Value",
+                    sourceTimestamp: displayModel.source?.timestamp || subAnswer.provenanceJson?.assertedAt || null,
+                    sourceCategory: 'USER',
+                    attachmentFilenames: attachmentFilenames.length > 0 ? attachmentFilenames : undefined,
+                    displayContext: displayModel.displayContext
+                };
+            }
+
+            return {
+                displayValue: "No response recorded",
+                rawValue: null,
+                answerState: "NO_RESPONSE",
+                sourceCategory: 'NO_RESPONSE'
+            };
+        }
+    }
+
     const isReleased = question.status === 'RELEASED';
     const snapshotDate = isReleased ? question.releasedAt : undefined;
     const releasedByName = question.releasedByUser?.name || question.releasedByUser?.email || null;

@@ -83,6 +83,7 @@ model User {
   masterFieldNotes              MasterFieldNote[]
   privateDocumentUploadIntents  PrivateDocumentUploadIntent[]
   ccPartyDocumentsAsserted      CCPartyDocument[]
+  submittedSubmissions          QuestionnaireSubmission[]     @relation("SubmittedSubmissions")
 }
 
 model Organization {
@@ -211,6 +212,7 @@ model ClientLE {
   ccAddresses                  CCAddress[]
   commonQuestionnaires         Questionnaire[]               @relation("ClientCommonQuestionnaires")
   privateDocumentUploadIntents PrivateDocumentUploadIntent[]
+  submissions                  QuestionnaireSubmission[]
 
   @@index([legalEntityId])
 }
@@ -257,6 +259,7 @@ model FIEngagement {
   questionnaireInstances Questionnaire[]      @relation("QuestionnaireInstance")
   questionnaires         Questionnaire[]      @relation("FIEngagementToQuestionnaire")
   sharedDocuments        Document[]           @relation("SharedDocuments")
+  submissions            QuestionnaireSubmission[]
 
   @@unique([fiOrgId, clientLEId])
 }
@@ -300,6 +303,7 @@ model Document {
   privateDocumentUploadIntent PrivateDocumentUploadIntent?
   questionnairesAsSource      Questionnaire[]              @relation("QuestionnaireSourceDocument")
   ccPartyDocuments            CCPartyDocument[]
+  submissionAttachments       SubmissionAnswerAttachment[] @relation("SubmissionAnswerDocumentAttachments")
 }
 
 model Query {
@@ -352,6 +356,8 @@ model Questionnaire {
   fiOrg            Organization                   @relation(fields: [fiOrgId], references: [id])
   ownerOrg         Organization?                  @relation("OwnedQuestionnaires", fields: [ownerOrgId], references: [id])
   source           Questionnaire?                 @relation("QuestionnaireLineage", fields: [sourceId], references: [id], onDelete: SetNull)
+  definitionVersions QuestionnaireDefinitionVersion[]
+  submissions        QuestionnaireSubmission[]
   derivedVersions  Questionnaire[]                @relation("QuestionnaireLineage")
   versions         QuestionnaireVersion[]
   engagements      FIEngagement[]                 @relation("FIEngagementToQuestionnaire")
@@ -359,6 +365,111 @@ model Questionnaire {
   commonForClients ClientLE[]                     @relation("ClientCommonQuestionnaires")
 
   @@index([referenceCode])
+}
+
+/// Immutable snapshot of a questionnaire's structural definition at a point in time.
+/// Created lazily at first submission when the definition fingerprint changes.
+model QuestionnaireDefinitionVersion {
+  id                    String   @id @default(uuid())
+  questionnaireId       String
+  versionNumber         Int
+  definitionFingerprint String
+  titleSnapshot         String
+  descriptionSnapshot   String?
+  questionCount         Int
+  createdAt             DateTime @default(now())
+
+  questionnaire     Questionnaire                @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  questionSnapshots QuestionDefinitionSnapshot[]
+  submissions       QuestionnaireSubmission[]
+
+  @@unique([questionnaireId, versionNumber])
+  @@index([questionnaireId])
+  @@map("questionnaire_definition_versions")
+}
+
+/// Immutable snapshot of a single question's definition within a QuestionnaireDefinitionVersion.
+model QuestionDefinitionSnapshot {
+  id                        String   @id @default(uuid())
+  definitionVersionId       String
+  sourceQuestionId          String
+  questionText              String
+  compactText               String?
+  order                     Int
+  sourceSectionId           String?
+  masterFieldNo             Int?
+  masterQuestionGroupId     String?
+  masterFieldProjectionPath String?
+  expectedDataType          String   @default("TEXT")
+  allowAttachments          Boolean  @default(true)
+
+  definitionVersion QuestionnaireDefinitionVersion @relation(fields: [definitionVersionId], references: [id], onDelete: Cascade)
+  submissionAnswers SubmissionAnswer[]
+
+  @@index([definitionVersionId])
+  @@map("question_definition_snapshots")
+}
+
+/// Immutable record of a questionnaire submission to a specific relationship.
+model QuestionnaireSubmission {
+  id                  String   @id @default(uuid())
+  questionnaireId     String
+  definitionVersionId String
+  relationshipId      String   // FIEngagement ID — always required
+  clientLEId          String
+  submissionNumber    Int      // Scoped to (definitionVersionId, relationshipId)
+  submittedAt         DateTime @default(now())
+  submittedById       String
+
+  questionnaire     Questionnaire                  @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
+  definitionVersion QuestionnaireDefinitionVersion @relation(fields: [definitionVersionId], references: [id], onDelete: Cascade)
+  relationship      FIEngagement                   @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+  clientLE          ClientLE                       @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
+  submittedBy       User                           @relation("SubmittedSubmissions", fields: [submittedById], references: [id])
+  answers           SubmissionAnswer[]
+
+  @@unique([definitionVersionId, relationshipId, submissionNumber])
+  @@index([questionnaireId, relationshipId])
+  @@index([relationshipId, submittedAt])
+  @@index([clientLEId])
+  @@map("questionnaire_submissions")
+}
+
+/// Immutable snapshot of a single answer within a submission.
+model SubmissionAnswer {
+  id                    String   @id @default(uuid())
+  submissionId          String
+  questionSnapshotId    String
+  sourceQuestionId      String
+
+  masterFieldNo         Int?
+  masterQuestionGroupId String?
+  questionTextSnapshot  String
+
+  valueJson             Json?    // Raw canonical value (enriched, self-contained)
+  explicitNone          Boolean  @default(false)
+  provenanceJson        Json?
+
+  submission       QuestionnaireSubmission      @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  questionSnapshot QuestionDefinitionSnapshot   @relation(fields: [questionSnapshotId], references: [id], onDelete: Cascade)
+  attachments      SubmissionAnswerAttachment[]
+
+  @@index([submissionId])
+  @@index([sourceQuestionId])
+  @@map("submission_answers")
+}
+
+/// Join table linking a submission answer to immutable Document records.
+model SubmissionAnswerAttachment {
+  submissionAnswerId String
+  documentId         String
+
+  submissionAnswer SubmissionAnswer @relation(fields: [submissionAnswerId], references: [id], onDelete: Cascade)
+  document         Document         @relation("SubmissionAnswerDocumentAttachments", fields: [documentId], references: [id], onDelete: Restrict)
+
+  @@id([submissionAnswerId, documentId])
+  @@index([documentId])
+  @@map("submission_answer_attachments")
 }
 
 model Question {

@@ -105,7 +105,8 @@ describe('Export API Route', () => {
             mockQuestions[0],
             'le-456', // subjectLeId successfully passed
             'scope-789', // ownerScopeId successfully passed
-            'client-123' // entityId successfully passed
+            'client-123', // entityId successfully passed
+            undefined
         );
 
         // Verify that Supplier Name is correctly resolved by inspecting the arguments passed to renderToStream
@@ -167,7 +168,8 @@ describe('Export API Route', () => {
             mockQuestions[0],
             'le-common-456',
             'scope-common-123',
-            'client-123'
+            'client-123',
+            undefined
         );
 
         // Verify that Supplier Name is correctly resolved
