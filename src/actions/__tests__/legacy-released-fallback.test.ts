@@ -26,6 +26,7 @@ describe("Legacy RELEASED Fallback Integration & Regression Tests", () => {
         await prisma.membership.deleteMany({ where: { OR: [{ userId: "legacy-fallback-user-id" }, { user: { email: { startsWith: "legacy_user_" } } }] } });
         await prisma.questionnaire.deleteMany({ where: { name: { startsWith: "Legacy Fallback QN" } } });
         await prisma.fIEngagement.deleteMany({ where: { org: { name: { startsWith: "Legacy Org" } } } });
+        await prisma.clientLE.deleteMany({ where: { name: { startsWith: "Legacy Client LE" } } });
         await prisma.legalEntity.deleteMany({ where: { reference: { startsWith: "REF-LEGACY-" } } });
         await prisma.organization.deleteMany({ where: { name: { startsWith: "Legacy Org" } } });
         await prisma.fieldClaim.deleteMany({ where: { sourceReference: "LEGACY_TEST_CLAIM" } });

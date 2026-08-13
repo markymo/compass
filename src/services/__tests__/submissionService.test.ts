@@ -35,6 +35,7 @@ describe("Immutable Questionnaire Submissions Architecture Integration Tests", (
         await prisma.membership.deleteMany({ where: { OR: [{ userId: "submission-service-user-id" }, { user: { email: { startsWith: "sub_test_" } } }] } });
         await prisma.questionnaire.deleteMany({ where: { name: { startsWith: "Test Sub Questionnaire" } } });
         await prisma.fIEngagement.deleteMany({ where: { org: { name: { startsWith: "Test FI Org Sub" } } } });
+        await prisma.clientLE.deleteMany({ where: { name: { startsWith: "Test Client LE Sub" } } });
         await prisma.legalEntity.deleteMany({ where: { reference: { startsWith: "REF-SUB-" } } });
         await prisma.organization.deleteMany({ where: { name: { startsWith: "Test FI Org Sub" } } });
         await prisma.fieldClaim.deleteMany({ where: { sourceReference: "SUB_TEST_CLAIM" } });
