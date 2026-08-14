@@ -9,7 +9,7 @@ import { Loader2 } from "lucide-react";
 
 // --- Inline Document Manager ---
 export function InlineDocumentManager({ engagementId }: { engagementId: string }) {
-    const [data, setData] = useState<{ sharedDocuments: any[], evidenceDocuments: any[] } | null>(null);
+    const [data, setData] = useState<{ sharedDocuments: any[], evidenceDocuments: any[], clientLEId?: string } | null>(null);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
@@ -19,7 +19,8 @@ export function InlineDocumentManager({ engagementId }: { engagementId: string }
             if (res.success) {
                 setData({
                     sharedDocuments: res.sharedDocuments || [],
-                    evidenceDocuments: res.evidenceDocuments || []
+                    evidenceDocuments: res.evidenceDocuments || [],
+                    clientLEId: res.clientLEId
                 });
             } else {
                 setError(res.error || "Failed to load documents");
@@ -46,6 +47,7 @@ export function InlineDocumentManager({ engagementId }: { engagementId: string }
                 engagementId={engagementId} 
                 documents={data.sharedDocuments} 
                 evidenceDocuments={data.evidenceDocuments} 
+                clientLEId={data.clientLEId}
             />
         </div>
     );

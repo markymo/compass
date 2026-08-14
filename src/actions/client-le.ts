@@ -1314,6 +1314,7 @@ export async function getEngagementDocuments(engagementId: string) {
 
         return { 
             success: true, 
+            clientLEId: engagement.clientLEId,
             sharedDocuments: engagement.sharedDocuments,
             evidenceDocuments: evidenceResult.documents || []
         };

@@ -300,6 +300,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                             engagementId={engagement.id}
                             documents={sharedDocuments || []}
                             evidenceDocuments={evidenceDocuments}
+                            clientLEId={le.id}
                         />
                     </TabsContent>
 

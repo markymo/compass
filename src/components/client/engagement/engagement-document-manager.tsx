@@ -10,7 +10,9 @@ import {
     Paperclip, MessageSquare, Download, ChevronRight,
     FolderOpen
 } from "lucide-react";
-import { revokeDocumentAccess } from "@/actions/documents";
+import { revokeDocumentAccess, shareDocument } from "@/actions/documents";
+import { listLibraryDocumentsAction, DocumentPickerItem } from "@/actions/document-library-actions";
+import { DocumentPicker } from "@/components/client/documents/DocumentPicker";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -25,7 +27,7 @@ interface SharedDocument {
     createdAt: Date;
 }
 
-interface EvidenceDocument {
+interface AttachedDocument {
     id: string;
     name: string;
     fileType: string;
@@ -33,19 +35,20 @@ interface EvidenceDocument {
     createdAt: Date;
 }
 
-interface EvidenceQuestion {
+interface QuestionWithAttachments {
     id: string;
     text: string;
     compactText: string | null;
     answer: string | null;
     status: string;
-    documents: EvidenceDocument[];
+    documents: AttachedDocument[];
 }
 
 interface EngagementDocumentManagerProps {
     engagementId: string;
     documents: SharedDocument[];
-    evidenceDocuments?: EvidenceQuestion[];
+    evidenceDocuments?: QuestionWithAttachments[];
+    clientLEId?: string;
 }
 
 
@@ -57,13 +60,41 @@ const statusColors: Record<string, string> = {
     RELEASED: "bg-green-50 text-green-700 border-green-200",
 };
 
-export function EngagementDocumentManager({ engagementId, documents, evidenceDocuments = [] }: EngagementDocumentManagerProps) {
+export function EngagementDocumentManager({ engagementId, documents, evidenceDocuments = [], clientLEId }: EngagementDocumentManagerProps) {
     const [isPickerOpen, setIsPickerOpen] = useState(false);
+    const [libraryDocs, setLibraryDocs] = useState<DocumentPickerItem[] | null>(null);
+    const [isFetchingDocs, setIsFetchingDocs] = useState(false);
     const [revokeDoc, setRevokeDoc] = useState<{ id: string; name: string } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
 
-    const totalEvidenceDocs = evidenceDocuments.reduce((acc: any, q: any) => acc + q.documents.length, 0);
+    const totalAttachedDocs = evidenceDocuments.reduce((acc: any, q: any) => acc + q.documents.length, 0);
+
+    const handleOpenPicker = async () => {
+        setIsPickerOpen(true);
+        if (clientLEId && !libraryDocs) {
+            setIsFetchingDocs(true);
+            try {
+                const docs = await listLibraryDocumentsAction(clientLEId);
+                setLibraryDocs(docs);
+            } catch (err) {
+                console.error("Failed to load documents", err);
+            }
+            setIsFetchingDocs(false);
+        }
+    };
+
+    const handleSelectDocument = async (doc: DocumentPickerItem) => {
+        setIsPickerOpen(false);
+        toast.promise(shareDocument(doc.id, engagementId), {
+            loading: `Sharing ${doc.fileName}...`,
+            success: () => {
+                router.refresh();
+                return `Shared ${doc.fileName}`;
+            },
+            error: "Failed to share document"
+        });
+    };
 
     const handleRevokeConfirm = async () => {
         if (!revokeDoc) return;
@@ -90,20 +121,20 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                 onConfirm={handleRevokeConfirm}
                 isLoading={isLoading}
             />
-            <Tabs defaultValue="evidence" className="w-full">
+            <Tabs defaultValue="attachments" className="w-full">
                 <div className="flex items-center justify-between mb-4">
                     <div>
                         <h2 className="text-lg font-semibold text-slate-900">Documents</h2>
-                        <p className="text-sm text-slate-500">Evidence attached to questions and files shared with this partner.</p>
+                        <p className="text-sm text-slate-500">Files attached to questions and shared with this partner.</p>
                     </div>
                     <div className="flex items-center gap-2">
                         <TabsList className="bg-slate-100 border border-slate-200">
-                            <TabsTrigger value="evidence" className="data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs gap-1.5">
+                            <TabsTrigger value="attachments" className="data-[state=active]:bg-white data-[state=active]:shadow-sm text-xs gap-1.5">
                                 <Paperclip className="h-3.5 w-3.5" />
-                                Evidence
-                                {totalEvidenceDocs > 0 && (
+                                Attachments
+                                {totalAttachedDocs > 0 && (
                                     <span className="ml-1 bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.5 rounded-full font-medium">
-                                        {totalEvidenceDocs}
+                                        {totalAttachedDocs}
                                     </span>
                                 )}
                             </TabsTrigger>
@@ -117,15 +148,20 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                                 )}
                             </TabsTrigger>
                         </TabsList>
-                        <Button size="sm" onClick={() => setIsPickerOpen(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white h-8 text-xs">
-                            <Plus className="h-3.5 w-3.5" />
-                            Select Documents
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleOpenPicker}
+                            className="h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                        >
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add
                         </Button>
                     </div>
                 </div>
 
-                {/* ─── Evidence Documents Tab ─── */}
-                <TabsContent value="evidence" className="mt-0">
+                {/* ─── Question Attachments Tab ─── */}
+                <TabsContent value="attachments" className="mt-0">
                     {evidenceDocuments.length === 0 ? (
                         <Card>
                             <CardContent>
@@ -133,7 +169,7 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                                     <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
                                         <Paperclip className="h-6 w-6 text-slate-300" />
                                     </div>
-                                    <h3 className="font-medium text-slate-900 mb-1">No evidence documents yet</h3>
+                                    <h3 className="font-medium text-slate-900 mb-1">No attached files yet</h3>
                                     <p className="text-slate-500 text-sm max-w-sm mx-auto">
                                         When you attach files to questions during review, they will appear here, grouped by question.
                                     </p>
@@ -209,10 +245,16 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                                     <ShieldCheck className="h-10 w-10 mx-auto text-indigo-200 mb-3" />
                                     <h3 className="font-medium text-slate-900">Document Sharing Secure</h3>
                                     <p className="text-slate-500 text-sm mb-4 max-w-sm mx-auto">
-                                        No documents have been shared yet. Use the "Select Documents" button to grant access to certified documents.
+                                        No documents have been shared yet. Use the "Add" button to grant access to certified documents.
                                     </p>
-                                    <Button variant="outline" onClick={() => setIsPickerOpen(true)}>
-                                        Select Documents
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleOpenPicker}
+                                        className="h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                                    >
+                                        <Plus className="h-3 w-3 mr-1" />
+                                        Add
                                     </Button>
                                 </div>
                             ) : (
@@ -256,7 +298,17 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                 </TabsContent>
             </Tabs>
 
-            
+            {isPickerOpen && (
+                <DocumentPicker
+                    isOpen={isPickerOpen}
+                    onClose={() => setIsPickerOpen(false)}
+                    documents={libraryDocs || []}
+                    onSelect={handleSelectDocument}
+                    disabledDocumentIds={documents.map(d => d.id)}
+                    mode={{ type: "ADD" }}
+                />
+            )}
         </div>
     );
 }
+

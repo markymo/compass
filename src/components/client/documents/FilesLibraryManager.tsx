@@ -52,7 +52,7 @@ export function FilesLibraryManager({ clientLEId, initialFiles }: FilesLibraryMa
                     <FileText className="h-5 w-5 text-slate-500" />
                     <h2 className="text-lg font-semibold tracking-tight text-slate-900">Files</h2>
                 </div>
-                <LibraryUploader clientLEId={clientLEId} iconOnly />
+                <LibraryUploader clientLEId={clientLEId} />
             </div>
 
             <Card className="border-slate-200/80 shadow-xs rounded-xl bg-white">

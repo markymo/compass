@@ -144,47 +144,32 @@ export function LibraryUploader({ clientLEId, iconOnly = false }: LibraryUploade
                 disabled={isBusy}
                 accept={ALLOWED_MIME_TYPES.join(',')}
             />
-            {iconOnly ? (
-                <StandardTooltip content="Upload Document">
-                    <Button
-                        variant="default"
-                        size="icon"
-                        disabled={isBusy}
-                        onClick={() => fileInputRef.current?.click()}
-                        className="bg-indigo-600 text-white hover:bg-indigo-700 font-semibold shadow-xs rounded-lg h-9 w-9"
-                        aria-label="Upload Document"
-                    >
-                        {opState === 'IDLE' && <Plus className="h-4 w-4" />}
-                        {opState === 'UPLOADING' && <Loader2 className="h-4 w-4 animate-spin" />}
-                        {opState === 'PROCESSING' && <Loader2 className="h-4 w-4 animate-spin" />}
-                    </Button>
-                </StandardTooltip>
-            ) : (
-                <Button
-                    variant="default"
-                    disabled={isBusy}
-                    onClick={() => fileInputRef.current?.click()}
-                >
-                    {opState === 'IDLE' && (
-                        <>
-                            <Upload className="w-4 h-4 mr-2" />
-                            Upload Document
-                        </>
-                    )}
-                    {opState === 'UPLOADING' && (
-                        <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Uploading {Math.round(progress)}%…
-                        </>
-                    )}
-                    {opState === 'PROCESSING' && (
-                        <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Processing…
-                        </>
-                    )}
-                </Button>
-            )}
+            <Button
+                variant="outline"
+                size="sm"
+                disabled={isBusy}
+                onClick={() => fileInputRef.current?.click()}
+                className="h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+            >
+                {opState === 'IDLE' && (
+                    <>
+                        <Plus className="h-3 w-3 mr-1" />
+                        Add
+                    </>
+                )}
+                {opState === 'UPLOADING' && (
+                    <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Uploading {Math.round(progress)}%…
+                    </>
+                )}
+                {opState === 'PROCESSING' && (
+                    <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Processing…
+                    </>
+                )}
+            </Button>
         </>
     );
 }
