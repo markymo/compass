@@ -156,10 +156,10 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
             {linked.length > 0 ? (
                 <div className="flex flex-col gap-3">
                     {/* --- 2-Tier Header Row --- */}
-                    <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-slate-200 bg-slate-50/80 rounded-t-xl border-x border-t", DASHBOARD_GRID_V2)}>
+                    <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-slate-200 bg-slate-50/80 rounded-t-md border-x border-t", DASHBOARD_GRID_V2)}>
                         {/* 1. Entity */}
                         <div className="flex items-center gap-2 pr-4 pl-1">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-[32px]">Questionnaire</span>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-7">Questionnaire</span>
                         </div>
 
                         {/* 2. Anchor (Total) */}
@@ -169,7 +169,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
 
                         {/* 3. Sourcing Group */}
                         <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Data Sourcing</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Data Sourcing</span>
                             <div className="flex justify-between pr-4 items-end">
                                 <span className="text-[10px] font-bold text-sky-600 uppercase">Mapped</span>
                             </div>
@@ -177,7 +177,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
 
                         {/* 4. Completion Group */}
                         <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Completion</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Completion</span>
                             <div className="flex justify-between pr-4 items-end">
                                 <span className="text-[10px] font-bold text-amber-600 uppercase">Answered</span>
                             </div>
@@ -185,8 +185,8 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
 
                         {/* 5. Workflow Group */}
                         <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Sign-Off</span>
-                            <div className="flex justify-between pr-[80px] items-end">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sign-Off</span>
+                            <div className="flex justify-between pr-20 items-end">
                                 <span className="text-[10px] font-bold text-indigo-600 uppercase">Approved</span>
                                 <span className="text-[10px] font-bold text-emerald-600 uppercase">Released</span>
                             </div>
@@ -195,7 +195,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
 
                     <div className="grid gap-3">
                         {linked.map((q: any) => (
-                            <div key={q.id} className="p-3 rounded-lg border border-slate-200 bg-white shadow-sm hover:border-indigo-300 transition-colors group/card">
+                            <div key={q.id} className="p-3 rounded-md border border-slate-200 bg-white shadow-sm hover:border-indigo-300 transition-colors group/card">
                                 <div className={cn("hidden md:grid items-center gap-2", DASHBOARD_GRID_V2)}>
                                     {/* Col 1: Name and Badges */}
                                     <div className="flex items-center gap-3 overflow-hidden pr-4 pl-4">
@@ -296,7 +296,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                     </div>
                 </div>
             ) : (
-                 <div className="text-center py-10 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+                 <div className="text-center py-10 bg-slate-50 rounded-md border-2 border-dashed border-slate-200">
                      <p className="text-slate-500">No Common Questionnaires added yet.</p>
                      <p className="text-sm text-slate-400 mt-1">Search above to add standard questionnaires.</p>
                  </div>

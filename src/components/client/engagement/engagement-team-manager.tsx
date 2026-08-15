@@ -54,7 +54,7 @@ export function EngagementTeamManager({ engagementId, orgName, members, invitati
                 confirmLabel="Revoke"
             />
             {/* Active Members Card */}
-            <Card>
+            <Card variant="structural">
                 <CardHeader className="pb-3 border-b border-slate-100 mb-4">
                     <CardTitle className="text-lg text-slate-800">Active Team Members</CardTitle>
                     <CardDescription>Users who have access to this engagement.</CardDescription>
@@ -84,7 +84,7 @@ export function EngagementTeamManager({ engagementId, orgName, members, invitati
             </Card>
 
             {/* Pending Invitations Card */}
-            <Card>
+            <Card variant="structural">
                 <CardHeader className="pb-3 border-b border-slate-100 mb-4">
                     <div className="flex items-center justify-between">
                         <div>

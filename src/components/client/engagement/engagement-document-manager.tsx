@@ -163,7 +163,7 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                 {/* ─── Question Attachments Tab ─── */}
                 <TabsContent value="attachments" className="mt-0">
                     {evidenceDocuments.length === 0 ? (
-                        <Card>
+                        <Card variant="structural">
                             <CardContent>
                                 <div className="text-center py-14">
                                     <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
@@ -179,7 +179,7 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                     ) : (
                         <div className="space-y-4">
                             {evidenceDocuments.map((question: any) => (
-                                <Card key={question.id} className="overflow-hidden border-slate-200 shadow-sm">
+                                <Card variant="structural" key={question.id} className="overflow-hidden border-slate-200 shadow-sm">
                                     {/* Question Header */}
                                     <div className="bg-slate-50 border-b border-slate-100 px-5 py-3 flex items-start gap-3">
                                         <div className="h-7 w-7 rounded-md bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 mt-0.5">
@@ -238,7 +238,7 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
 
                 {/* ─── Shared Documents Tab ─── */}
                 <TabsContent value="shared" className="mt-0">
-                    <Card>
+                    <Card variant="structural">
                         <CardContent className="p-0">
                             {documents.length === 0 ? (
                                 <div className="text-center py-12">

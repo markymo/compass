@@ -274,7 +274,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
 
             {isAdding && (
                 <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                    <Card className="border-2 border-indigo-100 shadow-md bg-white overflow-hidden">
+                    <Card variant="structural" className="border-2 border-indigo-100 shadow-md bg-white overflow-hidden">
                         <div className="[&_[cmdk-item][data-selected='true']]:bg-slate-100 [&_[cmdk-item][data-selected='true']]:text-slate-900">
                             <Command className="rounded-none border-0" shouldFilter={false}>
                                 <div className="flex items-center border-b border-slate-100 px-3 overflow-hidden">
@@ -338,10 +338,10 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
             {engagements.length > 0 ? (
                 <div className="flex flex-col gap-3">
                     {/* --- 2-Tier Header Row --- */}
-                    <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-slate-200 bg-slate-50/80 rounded-t-xl border-x border-t", DASHBOARD_GRID_V2)}>
+                    <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-slate-200 bg-slate-50/80 rounded-t-md border-x border-t", DASHBOARD_GRID_V2)}>
                         {/* 1. Entity */}
                         <div className="flex items-center gap-2 pr-4 pl-1">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-[44px]">Supplier Relationships</span>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-11">Supplier Relationships</span>
                         </div>
 
                         {/* 2. Anchor (Total) */}
@@ -351,7 +351,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
 
                         {/* 3. Sourcing Group */}
                         <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Data Sourcing</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Data Sourcing</span>
                             <div className="flex justify-between pr-4 items-end">
                                 <span className="text-[10px] font-bold text-sky-600 uppercase">Mapped</span>
                             </div>
@@ -359,7 +359,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
 
                         {/* 4. Completion Group */}
                         <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Completion</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Completion</span>
                             <div className="flex justify-between pr-4 items-end">
                                 <span className="text-[10px] font-bold text-amber-600 uppercase">Answered</span>
                             </div>
@@ -367,8 +367,8 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
 
                         {/* 5. Workflow Group */}
                         <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Sign-Off</span>
-                            <div className="flex justify-between pr-[80px] items-end">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sign-Off</span>
+                            <div className="flex justify-between pr-20 items-end">
                                 <span className="text-[10px] font-bold text-indigo-600 uppercase">Approved</span>
                                 <span className="text-[10px] font-bold text-emerald-600 uppercase">Released</span>
                             </div>
@@ -391,7 +391,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                         const qCount = questionnaires.length || 0;
 
                         return (
-                            <AccordionItem key={eng.id} id={`engagement-${eng.id}`} value={eng.id} className="border border-slate-200 rounded-lg bg-white shadow-sm overflow-hidden data-[state=open]:border-indigo-200 transition-colors">
+                            <AccordionItem key={eng.id} id={`engagement-${eng.id}`} value={eng.id} className="border border-slate-200 rounded-md bg-white shadow-sm overflow-hidden data-[state=open]:border-indigo-200 transition-colors">
                                 <div className="flex items-start justify-between pr-3 hover:bg-slate-50 transition-colors">
                                     <AccordionTrigger className="hover:no-underline px-4 py-3 flex-1">
                                         <div className={cn("hidden md:grid items-center w-full text-left", DASHBOARD_GRID_V2)}>
@@ -765,7 +765,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                 </div>
             ) : (
                 !isAdding && (
-                    <div className="text-center py-20 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+                    <div className="text-center py-20 bg-slate-50 rounded-md border-2 border-dashed border-slate-200">
                         <p className="text-slate-500">No active relationships found.</p>
                         <Button 
                             onClick={() => setIsAdding(true)} 

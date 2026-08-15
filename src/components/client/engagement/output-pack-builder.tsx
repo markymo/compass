@@ -311,6 +311,7 @@ export function OutputPackBuilder({
 
                         return (
                             <Card
+                                variant="structural"
                                 key={`${q.id}-${q.isCommon ? 'common' : 'rel'}`}
                                 className={cn(
                                     "transition-all overflow-hidden",
@@ -440,7 +441,7 @@ export function OutputPackBuilder({
                     </button>
                 </div>
 
-                <Card className="border-slate-200">
+                <Card variant="structural" className="border-slate-200">
                     <CardContent className="p-0 divide-y divide-slate-50">
                         {outputDocs.map((doc) => (
                             <div
@@ -466,7 +467,7 @@ export function OutputPackBuilder({
 
             {/* ─── Generate Bar ────────────────────────────── */}
             <div className="sticky bottom-0 z-10">
-                <Card className={cn(
+                <Card variant="structural" className={cn(
                     "border transition-all",
                     hasAnythingSelected
                         ? "border-indigo-200 bg-gradient-to-r from-indigo-50/80 via-white to-indigo-50/80 shadow-lg"
