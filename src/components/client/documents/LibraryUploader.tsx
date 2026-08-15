@@ -10,14 +10,17 @@ import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { StandardTooltip } from '@/components/ui/standard-tooltip';
 
+import { cn } from '@/lib/utils';
+
 export interface LibraryUploaderProps {
     clientLEId: string;
-    iconOnly?: boolean;
+    label?: string;
+    className?: string;
 }
 
 type UploadState = 'IDLE' | 'UPLOADING' | 'PROCESSING';
 
-export function LibraryUploader({ clientLEId, iconOnly = false }: LibraryUploaderProps) {
+export function LibraryUploader({ clientLEId, label = "Add", className }: LibraryUploaderProps) {
     const [opState, setOpState] = useState<UploadState>('IDLE');
     const [progress, setProgress] = useState(0);
     const [activeIntentId, setActiveIntentId] = useState<string | null>(null);
@@ -149,12 +152,12 @@ export function LibraryUploader({ clientLEId, iconOnly = false }: LibraryUploade
                 size="sm"
                 disabled={isBusy}
                 onClick={() => fileInputRef.current?.click()}
-                className="h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                className={cn("h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700", className)}
             >
                 {opState === 'IDLE' && (
                     <>
                         <Plus className="h-3 w-3 mr-1" />
-                        Add
+                        {label}
                     </>
                 )}
                 {opState === 'UPLOADING' && (

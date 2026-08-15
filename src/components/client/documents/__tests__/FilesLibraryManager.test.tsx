@@ -121,13 +121,13 @@ describe('FilesLibraryManager', () => {
 
     it('displays distinct empty states for empty library vs no search results', () => {
         const { rerender } = render(<FilesLibraryManager clientLEId="le-1" initialFiles={[]} />);
-        expect(screen.getByText('No documents have been added.')).toBeInTheDocument();
+        expect(screen.getByText('No files uploaded yet.')).toBeInTheDocument();
 
         rerender(<FilesLibraryManager clientLEId="le-1" initialFiles={mockFiles} />);
         const searchInput = screen.getByPlaceholderText('Search files by name...');
         fireEvent.change(searchInput, { target: { value: 'doesnotexist' } });
         
-        expect(screen.queryByText('No documents have been added.')).not.toBeInTheDocument();
+        expect(screen.queryByText('No files uploaded yet.')).not.toBeInTheDocument();
         expect(screen.getByText('No documents match your search.')).toBeInTheDocument();
     });
 
