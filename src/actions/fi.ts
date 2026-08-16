@@ -9,6 +9,8 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 
 import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
+import { getActorContext } from "@/lib/auth/actor-context";
+import { getRelationshipSummary, RelationshipSummary } from "@/services/relationshipService";
 
 // Helper for Auth
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
@@ -1099,6 +1101,19 @@ export async function getFIEngagementById(id: string): Promise<ApplicationEngage
         ...engagement,
         questionnaires: engagement.questionnaireInstances
     };
+}
+
+export async function getRelationshipSummaryAction(relationshipId: string): Promise<{ success: boolean; data?: RelationshipSummary; error?: string }> {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        const actor = await getActorContext(identity.userId, "WEB");
+        const summary = await getRelationshipSummary(actor, relationshipId);
+        return { success: true, data: summary };
+    } catch (e: any) {
+        return { success: false, error: e.message || "Failed to retrieve relationship summary" };
+    }
 }
 
 // 5. Assign Questionnaire to Engagement (Deep Clone / Snapshot)
