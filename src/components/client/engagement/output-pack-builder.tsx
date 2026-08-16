@@ -55,6 +55,7 @@ interface OutputPackBuilderProps {
     commonQuestionnaires?: any[];
     evidenceDocuments: any[];
     sharedDocuments: any[];
+    variant?: "default" | "inline";
 }
 
 export function OutputPackBuilder({
@@ -63,6 +64,7 @@ export function OutputPackBuilder({
     commonQuestionnaires = [],
     evidenceDocuments,
     sharedDocuments,
+    variant = "default",
 }: OutputPackBuilderProps) {
     // Build derived data
     const docsByQuestionnaireId = new Map<string, OutputQuestionnaire["files"]>();

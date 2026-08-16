@@ -49,6 +49,7 @@ interface EngagementDocumentManagerProps {
     documents: SharedDocument[];
     evidenceDocuments?: QuestionWithAttachments[];
     clientLEId?: string;
+    variant?: "default" | "inline";
 }
 
 
@@ -60,7 +61,7 @@ const statusColors: Record<string, string> = {
     RELEASED: "bg-green-50 text-green-700 border-green-200",
 };
 
-export function EngagementDocumentManager({ engagementId, documents, evidenceDocuments = [], clientLEId }: EngagementDocumentManagerProps) {
+export function EngagementDocumentManager({ engagementId, documents, evidenceDocuments = [], clientLEId, variant = "default" }: EngagementDocumentManagerProps) {
     const [isPickerOpen, setIsPickerOpen] = useState(false);
     const [libraryDocs, setLibraryDocs] = useState<DocumentPickerItem[] | null>(null);
     const [isFetchingDocs, setIsFetchingDocs] = useState(false);
@@ -163,23 +164,29 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                 {/* ─── Question Attachments Tab ─── */}
                 <TabsContent value="attachments" className="mt-0">
                     {evidenceDocuments.length === 0 ? (
-                        <Card variant="structural">
-                            <CardContent>
-                                <div className="text-center py-14">
-                                    <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
-                                        <Paperclip className="h-6 w-6 text-slate-300" />
+                        variant === "inline" ? (
+                            <div className="py-4 text-slate-500 text-sm">
+                                No attached files yet. Files attached during question reviews appear here.
+                            </div>
+                        ) : (
+                            <Card variant="structural">
+                                <CardContent>
+                                    <div className="text-center py-14">
+                                        <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3">
+                                            <Paperclip className="h-6 w-6 text-slate-300" />
+                                        </div>
+                                        <h3 className="font-medium text-slate-900 mb-1">No attached files yet</h3>
+                                        <p className="text-slate-500 text-sm max-w-sm mx-auto">
+                                            When you attach files to questions during review, they will appear here, grouped by question.
+                                        </p>
                                     </div>
-                                    <h3 className="font-medium text-slate-900 mb-1">No attached files yet</h3>
-                                    <p className="text-slate-500 text-sm max-w-sm mx-auto">
-                                        When you attach files to questions during review, they will appear here, grouped by question.
-                                    </p>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+                        )
                     ) : (
                         <div className="space-y-4">
                             {evidenceDocuments.map((question: any) => (
-                                <Card variant="structural" key={question.id} className="overflow-hidden border-slate-200 shadow-sm">
+                                <div key={question.id} className={cn("overflow-hidden border-slate-200 shadow-sm", variant === "inline" ? "border-b pb-3" : "border rounded-md")}>
                                     {/* Question Header */}
                                     <div className="bg-slate-50 border-b border-slate-100 px-5 py-3 flex items-start gap-3">
                                         <div className="h-7 w-7 rounded-md bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 mt-0.5">
@@ -203,7 +210,7 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                                     </div>
 
                                     {/* Documents for this Question */}
-                                    <CardContent className="p-0">
+                                    <div className="p-0">
                                         <div className="divide-y divide-slate-100">
                                             {question.documents.map((doc: any) => (
                                                 <div key={doc.id} className="flex items-center gap-4 px-5 py-3 hover:bg-slate-50/70 group transition-colors">
@@ -229,8 +236,8 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                                                 </div>
                                             ))}
                                         </div>
-                                    </CardContent>
-                                </Card>
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     )}
@@ -238,63 +245,106 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
 
                 {/* ─── Shared Documents Tab ─── */}
                 <TabsContent value="shared" className="mt-0">
-                    <Card variant="structural">
-                        <CardContent className="p-0">
-                            {documents.length === 0 ? (
-                                <div className="text-center py-12">
-                                    <ShieldCheck className="h-10 w-10 mx-auto text-indigo-200 mb-3" />
-                                    <h3 className="font-medium text-slate-900">Document Sharing Secure</h3>
-                                    <p className="text-slate-500 text-sm mb-4 max-w-sm mx-auto">
-                                        No documents have been shared yet. Use the "Add" button to grant access to certified documents.
-                                    </p>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={handleOpenPicker}
-                                        className="h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-                                    >
-                                        <Plus className="h-3 w-3 mr-1" />
-                                        Add
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="divide-y divide-slate-100">
-                                    {documents.map((doc: any) => (
-                                        <div key={doc.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50 group transition-colors">
-                                            <div className="flex items-center gap-4">
-                                                <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center">
-                                                    <FileText className="h-5 w-5" />
-                                                </div>
-                                                <div>
-                                                    <h4 className="font-medium text-slate-900 flex items-center gap-2">
-                                                        {doc.name}
-                                                        {doc.isVerified && (
-                                                            <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-0 h-5 px-1.5 gap-1">
-                                                                <ShieldCheck className="w-3 h-3" /> Verified
-                                                            </Badge>
-                                                        )}
-                                                    </h4>
-                                                    <p className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-                                                        <span>{doc.docType || "Document"}</span>
-                                                        <span>•</span>
-                                                        <span className="uppercase">{doc.fileType?.split('/')[1] || 'FILE'}</span>
-                                                        <span>•</span>
-                                                        <span>Added {new Date(doc.createdAt).toLocaleDateString()}</span>
-                                                    </p>
-                                                </div>
+                    {variant === "inline" ? (
+                        documents.length === 0 ? (
+                            <div className="py-4 text-slate-500 text-sm">
+                                No documents have been shared yet. Use the "Add" button to grant access to certified documents.
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-slate-100">
+                                {documents.map((doc: any) => (
+                                    <div key={doc.id} className="py-3 flex items-center justify-between hover:bg-slate-50/50 group transition-colors">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center">
+                                                <FileText className="h-5 w-5" />
                                             </div>
-                                            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <Button variant="ghost" size="sm" className="gap-2 text-red-500 hover:text-red-700 hover:bg-red-50"
-                                                    onClick={() => setRevokeDoc({ id: doc.id, name: doc.name })}>
-                                                    <Trash2 className="h-4 w-4" /> Revoke
-                                                </Button>
+                                            <div>
+                                                <h4 className="font-medium text-slate-900 flex items-center gap-2">
+                                                    {doc.name}
+                                                    {doc.isVerified && (
+                                                        <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-0 h-5 px-1.5 gap-1">
+                                                            <ShieldCheck className="w-3 h-3" /> Verified
+                                                        </Badge>
+                                                    )}
+                                                </h4>
+                                                <p className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+                                                    <span>{doc.docType || "Document"}</span>
+                                                    <span>•</span>
+                                                    <span className="uppercase">{doc.fileType?.split('/')[1] || 'FILE'}</span>
+                                                    <span>•</span>
+                                                    <span>Added {new Date(doc.createdAt).toLocaleDateString()}</span>
+                                                </p>
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
+                                        <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                                            <Button variant="ghost" size="sm" className="gap-2 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                onClick={() => setRevokeDoc({ id: doc.id, name: doc.name })}>
+                                                <Trash2 className="h-4 w-4" /> Revoke
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )
+                    ) : (
+                        <Card variant="structural">
+                            <CardContent className="p-0">
+                                {documents.length === 0 ? (
+                                    <div className="text-center py-12">
+                                        <ShieldCheck className="h-10 w-10 mx-auto text-indigo-200 mb-3" />
+                                        <h3 className="font-medium text-slate-900">Document Sharing Secure</h3>
+                                        <p className="text-slate-500 text-sm mb-4 max-w-sm mx-auto">
+                                            No documents have been shared yet. Use the "Add" button to grant access to certified documents.
+                                        </p>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={handleOpenPicker}
+                                            className="h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+                                        >
+                                            <Plus className="h-3 w-3 mr-1" />
+                                            Add
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="divide-y divide-slate-100">
+                                        {documents.map((doc: any) => (
+                                            <div key={doc.id} className="p-4 flex items-center justify-between hover:bg-slate-50/50 group transition-colors">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="h-10 w-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center">
+                                                        <FileText className="h-5 w-5" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="font-medium text-slate-900 flex items-center gap-2">
+                                                            {doc.name}
+                                                            {doc.isVerified && (
+                                                                <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-0 h-5 px-1.5 gap-1">
+                                                                    <ShieldCheck className="w-3 h-3" /> Verified
+                                                                </Badge>
+                                                            )}
+                                                        </h4>
+                                                        <p className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+                                                            <span>{doc.docType || "Document"}</span>
+                                                            <span>•</span>
+                                                            <span className="uppercase">{doc.fileType?.split('/')[1] || 'FILE'}</span>
+                                                            <span>•</span>
+                                                            <span>Added {new Date(doc.createdAt).toLocaleDateString()}</span>
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Button variant="ghost" size="sm" className="gap-2 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                        onClick={() => setRevokeDoc({ id: doc.id, name: doc.name })}>
+                                                        <Trash2 className="h-4 w-4" /> Revoke
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
                 </TabsContent>
             </Tabs>
 

@@ -296,9 +296,51 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                     </div>
                 </div>
             ) : (
-                 <div className="text-center py-10 bg-slate-50 rounded-md border-2 border-dashed border-slate-200">
-                     <p className="text-slate-500">No Common Questionnaires added yet.</p>
-                     <p className="text-sm text-slate-400 mt-1">Search above to add standard questionnaires.</p>
+                 <div className="text-center py-10 bg-slate-50 rounded-md border border-dashed border-slate-200">
+                     <p className="font-medium text-slate-700">No Common Questionnaires added yet.</p>
+                     <p className="text-sm text-slate-500 mt-1 mb-4">Use the + Add button to search and add standard questionnaires.</p>
+                     <Popover open={open} onOpenChange={(val) => { setOpen(val); if (val) fetchAvailable(); }}>
+                         <PopoverTrigger asChild>
+                             <Button variant="outline" size="sm" className="h-8 text-xs px-3 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                                 <Plus className="h-3.5 w-3.5 mr-1.5" />
+                                 Add Questionnaire
+                             </Button>
+                         </PopoverTrigger>
+                         <PopoverContent className="w-full md:w-[400px] p-0" align="center">
+                             <Command>
+                                 <CommandInput placeholder="Search global questionnaires..." />
+                                 <CommandList>
+                                     <CommandEmpty>
+                                         {isLoading ? "Loading..." : "No questionnaires found."}
+                                     </CommandEmpty>
+                                     <CommandGroup>
+                                         {available.map((snapshot) => (
+                                             <CommandItem
+                                                 key={snapshot.id}
+                                                 value={`${snapshot.id} ${snapshot.name} ${snapshot.referenceCode || ""} ${snapshot.functionalCode || ""} ${snapshot.description || ""}`}
+                                                 onSelect={() => handleAdd(snapshot)}
+                                                 className="flex flex-col items-start py-3 cursor-pointer"
+                                             >
+                                                 <div className="flex items-center w-full">
+                                                     <FileText className="mr-2 h-4 w-4 text-indigo-500 shrink-0" />
+                                                     <span className="font-medium truncate flex-1">{snapshot.name}</span>
+                                                     {linked.find((q: any) => q.id === snapshot.id) && (
+                                                         <Check className="ml-2 h-4 w-4 text-indigo-600 shrink-0" />
+                                                     )}
+                                                 </div>
+                                                 {snapshot.referenceCode && (
+                                                     <span className="text-xs text-slate-400 mt-1 ml-6">{snapshot.referenceCode}</span>
+                                                 )}
+                                                 {snapshot.description && (
+                                                     <span className="text-xs text-slate-500 mt-0.5 ml-6 line-clamp-1">{snapshot.description}</span>
+                                                 )}
+                                             </CommandItem>
+                                         ))}
+                                     </CommandGroup>
+                                 </CommandList>
+                             </Command>
+                         </PopoverContent>
+                     </Popover>
                  </div>
             )}
 

@@ -42,12 +42,13 @@ export function InlineDocumentManager({ engagementId }: { engagementId: string }
     }
 
     return (
-        <div className="px-4 py-4 bg-white/50 border-t border-slate-100">
+        <div className="py-1 bg-white">
             <EngagementDocumentManager 
                 engagementId={engagementId} 
                 documents={data.sharedDocuments} 
                 evidenceDocuments={data.evidenceDocuments} 
                 clientLEId={data.clientLEId}
+                variant="inline"
             />
         </div>
     );
@@ -88,20 +89,21 @@ export function InlineOutputBuilder({
 
     if (!data) {
         return (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-amber-500" />
             </div>
         );
     }
 
     return (
-        <div className="px-4 py-4 bg-white/50 border-t border-slate-100">
+        <div className="py-1 bg-white">
             <OutputPackBuilder
-                    engagementId={engagementId}
-                    questionnaires={questionnaires}
-                    commonQuestionnaires={commonQuestionnaires}
+                engagementId={engagementId}
+                questionnaires={questionnaires}
+                commonQuestionnaires={commonQuestionnaires}
                 evidenceDocuments={data.evidenceDocuments}
                 sharedDocuments={data.sharedDocuments}
+                variant="inline"
             />
         </div>
     );
@@ -134,19 +136,20 @@ export function InlineTeamManager({ engagementId, orgName }: { engagementId: str
 
     if (!data) {
         return (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
             </div>
         );
     }
 
     return (
-        <div className="px-4 py-4 bg-white/50 border-t border-slate-100">
+        <div className="py-1 bg-white">
             <EngagementTeamManager 
                 engagementId={engagementId} 
                 orgName={orgName}
                 members={data.members} 
                 invitations={data.invitations} 
+                variant="inline"
             />
         </div>
     );

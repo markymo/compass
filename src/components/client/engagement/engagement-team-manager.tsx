@@ -16,9 +16,10 @@ export interface EngagementTeamManagerProps {
     orgName: string;
     members: any[];
     invitations: any[];
+    variant?: "default" | "inline";
 }
 
-export function EngagementTeamManager({ engagementId, orgName, members, invitations }: EngagementTeamManagerProps) {
+export function EngagementTeamManager({ engagementId, orgName, members, invitations, variant = "default" }: EngagementTeamManagerProps) {
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
     const [revokeId, setRevokeId] = useState<string | null>(null);
     const [isRevoking, setIsRevoking] = useState(false);
@@ -41,6 +42,79 @@ export function EngagementTeamManager({ engagementId, orgName, members, invitati
             }
         });
     };
+
+    if (variant === "inline") {
+        return (
+            <div className="space-y-4 py-2">
+                <ConfirmDeleteDialog
+                    open={!!revokeId}
+                    onOpenChange={(open) => { if (!open) setRevokeId(null); }}
+                    title="Revoke Invitation?"
+                    description="Are you sure you want to revoke this invitation?"
+                    onConfirm={confirmRevoke}
+                    isLoading={isRevoking}
+                    confirmLabel="Revoke"
+                />
+
+                {/* Active Members Sub-list */}
+                <div>
+                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Active Team Members</h4>
+                    {members.length === 0 ? (
+                        <div className="py-2 text-slate-500 text-sm italic">No active members found.</div>
+                    ) : (
+                        <div className="divide-y divide-slate-100">
+                            {members.map((member: any) => (
+                                <div key={member.id} className="py-2.5 flex items-center justify-between hover:bg-slate-50/50">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-medium text-xs">
+                                            {member.user.name ? member.user.name.charAt(0).toUpperCase() : member.user.email.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-sm text-slate-900">{member.user.name || 'Unknown User'}</p>
+                                            <p className="text-xs text-slate-500">{member.user.email}</p>
+                                        </div>
+                                    </div>
+                                    <Badge variant="secondary" className="text-[10px] px-2 py-0.5">{member.role}</Badge>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Pending Invitations Sub-list */}
+                {invitations.length > 0 && (
+                    <div className="pt-3 border-t border-slate-100">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Pending Invitations</h4>
+                        <div className="divide-y divide-slate-100">
+                            {invitations.map((invite: any) => (
+                                <div key={invite.id} className="py-2.5 flex items-center justify-between hover:bg-slate-50/50">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-8 w-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 text-xs">
+                                            <Users className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-sm text-slate-900">{invite.email}</p>
+                                            <p className="text-xs text-slate-400">Invited by {invite.invitedBy?.name || 'Admin'}</p>
+                                        </div>
+                                    </div>
+                                    <Button variant="ghost" size="sm" onClick={() => setRevokeId(invite.id)} className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2">
+                                        Revoke
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                <InviteSupplierDialog
+                    open={isInviteDialogOpen}
+                    onOpenChange={setIsInviteDialogOpen}
+                    engagementId={engagementId}
+                    orgName={orgName}
+                />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
