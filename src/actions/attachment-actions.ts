@@ -1,6 +1,8 @@
 'use server';
 
 import { getIdentity } from '@/lib/auth';
+import { getActorContext } from '@/lib/auth/actor-context';
+import { can, Action } from '@/lib/auth/permissions';
 import { FieldClaimService } from '@/lib/kyc/FieldClaimService';
 import { SourceType } from '@prisma/client';
 import prisma from '@/lib/prisma';
@@ -23,7 +25,11 @@ export async function addFieldAttachment(
     params: AttachmentActionParams & { attachmentDocumentId: string }
 ) {
     const identity = await getIdentity();
-    if (!identity) throw new Error('Unauthenticated');
+    if (!identity?.userId) throw new Error('Unauthenticated');
+
+    const actor = await getActorContext(identity.userId);
+    const hasAccess = await can(actor, Action.LE_EDIT_MASTER_DATA, { clientLEId: params.clientLEId }, prisma);
+    if (!hasAccess) throw new Error('Unauthorized');
 
     const subject = await resolveSubject(params.clientLEId);
 
@@ -44,7 +50,11 @@ export async function replaceFieldAttachment(
     params: AttachmentActionParams & { instanceId: string; attachmentDocumentId: string }
 ) {
     const identity = await getIdentity();
-    if (!identity) throw new Error('Unauthenticated');
+    if (!identity?.userId) throw new Error('Unauthenticated');
+
+    const actor = await getActorContext(identity.userId);
+    const hasAccess = await can(actor, Action.LE_EDIT_MASTER_DATA, { clientLEId: params.clientLEId }, prisma);
+    if (!hasAccess) throw new Error('Unauthorized');
 
     const subject = await resolveSubject(params.clientLEId);
 
@@ -66,7 +76,11 @@ export async function removeFieldAttachment(
     params: AttachmentActionParams & { instanceId: string }
 ) {
     const identity = await getIdentity();
-    if (!identity) throw new Error('Unauthenticated');
+    if (!identity?.userId) throw new Error('Unauthenticated');
+
+    const actor = await getActorContext(identity.userId);
+    const hasAccess = await can(actor, Action.LE_EDIT_MASTER_DATA, { clientLEId: params.clientLEId }, prisma);
+    if (!hasAccess) throw new Error('Unauthorized');
 
     const subject = await resolveSubject(params.clientLEId);
 

@@ -223,18 +223,32 @@ export async function getFIDashboardStats(fiOrgId?: string) {
     if (!identity?.userId) return null;
     const { userId } = identity;
 
+    const userMemberships = await prisma.membership.findMany({
+        where: { userId },
+        select: { organizationId: true, fiEngagementId: true }
+    });
+
     let targetFiOrgIds: string[] = [];
 
     if (fiOrgId) {
-        // Verify access to specific FI
-        const membership = await prisma.membership.findFirst({
-            where: { userId, organizationId: fiOrgId, organization: { types: { has: "FI" } } }
-        });
-        if (!membership) return null;
+        const hasOrgAccess = userMemberships.some((m: any) => m.organizationId === fiOrgId);
+        const userEngIds = userMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
+
+        if (!hasOrgAccess && userEngIds.length === 0) {
+            return null;
+        }
+
+        if (!hasOrgAccess) {
+            const engInOrg = await prisma.fIEngagement.findFirst({
+                where: { id: { in: userEngIds }, fiOrgId },
+                select: { id: true }
+            });
+            if (!engInOrg) return null;
+        }
+
         targetFiOrgIds = [fiOrgId];
     } else {
-        // Get all FI memberships
-        const memberships = await prisma.membership.findMany({
+        const orgMemberships = await prisma.membership.findMany({
             where: {
                 userId,
                 organization: { types: { has: "FI" } },
@@ -242,24 +256,46 @@ export async function getFIDashboardStats(fiOrgId?: string) {
             },
             select: { organizationId: true }
         });
-        targetFiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
+        targetFiOrgIds = orgMemberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
+
+        const userEngIds = userMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
+        if (userEngIds.length > 0) {
+            const engOrgs = await prisma.fIEngagement.findMany({
+                where: { id: { in: userEngIds } },
+                select: { fiOrgId: true }
+            });
+            const engOrgIds = engOrgs.map((e: any) => e.fiOrgId).filter(Boolean);
+            targetFiOrgIds = Array.from(new Set([...targetFiOrgIds, ...engOrgIds]));
+        }
     }
 
     if (targetFiOrgIds.length === 0) return null;
 
-    
-    const explicitMemberships = await prisma.membership.findMany({
-        where: { userId, fiEngagementId: { not: null } },
-        select: { fiEngagementId: true }
-    });
-    const explicitEngagementIds = explicitMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
+    const hasOrgAccessForTarget = userMemberships.some((m: any) => m.organizationId && targetFiOrgIds.includes(m.organizationId));
+    const explicitEngagementIds = userMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
 
     const [questionnaires, engagements, queries] = await Promise.all([
-        prisma.questionnaire.count({ where: { fiOrgId: { in: targetFiOrgIds }, isDeleted: false } }),
-        prisma.fIEngagement.count({ where: { id: { in: explicitEngagementIds }, isDeleted: false, status: { not: "ARCHIVED" } } }),
+        prisma.questionnaire.count({
+            where: {
+                fiOrgId: { in: targetFiOrgIds },
+                isDeleted: false,
+                ...(!hasOrgAccessForTarget ? { fiEngagementId: { in: explicitEngagementIds } } : {})
+            }
+        }),
+        prisma.fIEngagement.count({
+            where: {
+                fiOrgId: { in: targetFiOrgIds },
+                isDeleted: false,
+                status: { not: "ARCHIVED" },
+                ...(!hasOrgAccessForTarget ? { id: { in: explicitEngagementIds } } : {})
+            }
+        }),
         prisma.query.count({
             where: {
-                engagement: { fiOrgId: { in: targetFiOrgIds } },
+                engagement: {
+                    fiOrgId: { in: targetFiOrgIds },
+                    ...(!hasOrgAccessForTarget ? { id: { in: explicitEngagementIds } } : {})
+                },
                 status: "OPEN"
             }
         })
