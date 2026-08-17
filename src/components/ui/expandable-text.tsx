@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 export interface ExpandableTextProps {
     /** The raw text content. Paragraph breaks will be preserved. */
     text: string | null | undefined;
-    /** Number of lines to show before clamping. Default: 4. Supported: 1-6 */
-    maxLines?: number;
+    /** Target character count when truncated. Default: 300 */
+    targetChars?: number;
+    /** Minimum total character count required before triggering truncation. Default: 400 */
+    overflowThreshold?: number;
     /** Optional wrapper classes for layout constraints */
     className?: string;
     /** Optional classes for the text itself */
@@ -18,80 +20,84 @@ export interface ExpandableTextProps {
     showLessLabel?: string;
 }
 
-const CLAMP_CLASSES: Record<number, string> = {
-    1: "line-clamp-1",
-    2: "line-clamp-2",
-    3: "line-clamp-3",
-    4: "line-clamp-4",
-    5: "line-clamp-5",
-    6: "line-clamp-6",
-};
+export function truncateToNearestWord(str: string, targetChars: number = 300): string {
+    if (!str || str.length <= targetChars) return str;
+    const sliced = str.slice(0, targetChars);
+    const lastSpace = Math.max(sliced.lastIndexOf(' '), sliced.lastIndexOf('\n'));
+    if (lastSpace > Math.floor(targetChars * 0.7)) {
+        return sliced.slice(0, lastSpace).trimEnd();
+    }
+    return sliced.trimEnd();
+}
 
 export function ExpandableText({
     text,
-    maxLines = 4,
+    targetChars = 300,
+    overflowThreshold = 400,
     className,
     textClassName,
     showMoreLabel = "Show more",
     showLessLabel = "Show less"
 }: ExpandableTextProps) {
     const [isExpanded, setIsExpanded] = useState(false);
-    const [canExpand, setCanExpand] = useState(false);
-    const textRef = useRef<HTMLDivElement>(null);
 
-    // Fallback to 4 if outside supported range
-    const safeMaxLines = CLAMP_CLASSES[maxLines] ? maxLines : 4;
-    const clampClass = CLAMP_CLASSES[safeMaxLines];
-
-    useEffect(() => {
-        const el = textRef.current;
-        if (!el) return;
-
-        const checkOverflow = () => {
-            if (!isExpanded) {
-                // When clamped, if scrollHeight > clientHeight, it overflows
-                setCanExpand(el.scrollHeight > el.clientHeight);
-            }
-        };
-
-        checkOverflow();
-
-        const ro = new ResizeObserver(checkOverflow);
-        ro.observe(el);
-        return () => ro.disconnect();
-    }, [text, isExpanded, safeMaxLines]);
-
-    if (!text) {
+    if (!text || text.trim() === '') {
         return null;
     }
 
-    return (
-        <div className={cn("flex flex-col items-start w-full", className)}>
-            <div
-                ref={textRef}
-                className={cn(
-                    "whitespace-pre-wrap w-full",
-                    !isExpanded && clampClass,
-                    textClassName
-                )}
-                style={{ wordBreak: "break-word" }}
-            >
-                {text}
+    // Only trigger truncation if text exceeds overflowThreshold (default 400 chars).
+    // If text is between 300 and 400 chars, render it in full so "Show more" is never shown for just a few characters.
+    const needsTruncation = text.length > overflowThreshold;
+
+    if (!needsTruncation) {
+        return (
+            <div className={cn("w-full text-left", className)}>
+                <span className={cn("whitespace-pre-wrap break-words", textClassName)}>
+                    {text}
+                </span>
             </div>
-            {canExpand && (
-                <button
-                    type="button"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setIsExpanded(!isExpanded);
-                    }}
-                    className="mt-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors focus:outline-none focus:underline"
-                    aria-expanded={isExpanded}
-                >
-                    {isExpanded ? showLessLabel : showMoreLabel}
-                </button>
-            )}
+        );
+    }
+
+    const truncated = truncateToNearestWord(text, targetChars);
+
+    return (
+        <div className={cn("w-full text-left", className)}>
+            <span className={cn("whitespace-pre-wrap break-words", textClassName)}>
+                {!isExpanded ? (
+                    <>
+                        {truncated}…{" "}
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setIsExpanded(true);
+                            }}
+                            className="inline font-medium text-slate-500 hover:text-slate-800 hover:underline bg-transparent border-0 p-0 m-0 cursor-pointer text-inherit leading-inherit align-baseline"
+                            aria-expanded={false}
+                        >
+                            {showMoreLabel}
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        {text}{" "}
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setIsExpanded(false);
+                            }}
+                            className="inline ml-1 font-medium text-slate-500 hover:text-slate-800 hover:underline bg-transparent border-0 p-0 m-0 cursor-pointer text-inherit leading-inherit align-baseline"
+                            aria-expanded={true}
+                        >
+                            {showLessLabel}
+                        </button>
+                    </>
+                )}
+            </span>
         </div>
     );
 }

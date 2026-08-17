@@ -484,7 +484,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                 <span className="text-sm font-semibold text-indigo-900">{cfg.label}</span>
                                                 <Badge className="bg-indigo-100 text-indigo-700 border-indigo-200 text-[10px] font-medium">Graph relationship collection</Badge>
                                             </div>
-                                            <ExpandableText text={cfg.description} maxLines={4} textClassName="text-xs text-indigo-700 mt-1 leading-relaxed max-w-[480px]" />
+                                            <ExpandableText text={cfg.description} textClassName="text-xs text-indigo-700 mt-1 leading-relaxed max-w-[480px]" />
                                         </div>
                                     </div>
                                     {/* Technical detail strip */}
@@ -524,7 +524,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                 <span className="text-sm font-semibold text-teal-900">{cfg.label}</span>
                                                 <Badge className="bg-teal-100 text-teal-700 border-teal-200 text-[10px] font-medium">Structured temporal collection</Badge>
                                             </div>
-                                            <ExpandableText text={cfg.description} maxLines={4} textClassName="text-xs text-teal-700 mt-1 leading-relaxed max-w-[480px]" />
+                                            <ExpandableText text={cfg.description} textClassName="text-xs text-teal-700 mt-1 leading-relaxed max-w-[480px]" />
                                         </div>
                                     </div>
                                     {/* Field schema strip */}

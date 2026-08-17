@@ -1101,7 +1101,6 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                     {description && (
                         <ExpandableText
                             text={description}
-                            maxLines={3}
                             textClassName="text-[10px] text-slate-400 italic font-normal"
                         />
                     )}
