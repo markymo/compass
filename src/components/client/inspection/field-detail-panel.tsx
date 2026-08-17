@@ -273,10 +273,17 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     />
                 );
             }
-            if (isPersonOrContactValue(parsedVal)) {
+            if (isPersonOrContactValue(parsedVal) || (parsedVal && typeof parsedVal === 'object' && 'ccPartyId' in parsedVal)) {
+                const rowCanonical = (rowData as any)?.canonicalDisplayModel || (val as any)?.canonicalDisplayModel;
+                const partyLabel = rowCanonical?.value?.partyLabel;
+                const resolvedVal = (rowCanonical?.value?.kind === 'partyRef') 
+                    ? rowCanonical.value.resolved 
+                    : (rowCanonical?.value?.kind === 'party' ? rowCanonical.value.data : (parsedVal?.ccParty?.data || parsedVal?._resolvedData?.ccParty?.data || parsedVal));
+
                 return (
                     <PersonOrContactValueViewer
-                        value={parsedVal}
+                        value={resolvedVal || parsedVal}
+                        partyLabel={partyLabel}
                         layout="compact"
                         displayMask={data?.profileConfig?.displayMask}
                         claimId={rowData?.id || data?.current?.claimId}
@@ -1492,9 +1499,15 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                             </div>
                                                         );
 
-                                                        const partyValForExpandable = (parsedRowValue && typeof parsedRowValue === 'object' && (isPersonOrContactValue(parsedRowValue) || 'ccPartyId' in parsedRowValue)) 
+                                                        const rowCanonicalModel = (row as any)?.canonicalDisplayModel;
+                                                        const rowPartyLabel = rowCanonicalModel?.value?.partyLabel;
+                                                        const resolvedRowPartyVal = (rowCanonicalModel?.value?.kind === 'partyRef')
+                                                            ? rowCanonicalModel.value.resolved
+                                                            : (rowCanonicalModel?.value?.kind === 'party' ? rowCanonicalModel.value.data : null);
+
+                                                        const partyValForExpandable = resolvedRowPartyVal || ((parsedRowValue && typeof parsedRowValue === 'object' && (isPersonOrContactValue(parsedRowValue) || 'ccPartyId' in parsedRowValue)) 
                                                             ? (parsedRowValue.ccParty?.data || parsedRowValue._resolvedData?.ccParty?.data || row?.data?.ccParty?.data || parsedRowValue)
-                                                            : null;
+                                                            : null);
 
                                                         const addressValForExpandable = (parsedRowValue && typeof parsedRowValue === 'object' && (isAddressValue(parsedRowValue) || 'ccAddressId' in parsedRowValue))
                                                             ? (parsedRowValue.ccAddress?.data || parsedRowValue._resolvedData?.ccAddress?.data || row?.data?.ccAddress?.data || parsedRowValue)
@@ -1510,6 +1523,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         collapsedContent={
                                                                             <PersonOrContactValueViewer
                                                                                 value={partyValForExpandable}
+                                                                                partyLabel={rowPartyLabel}
                                                                                 layout="row"
                                                                                 displayMask={data?.profileConfig?.displayMask}
                                                                                 claimId={row.id}
@@ -1521,6 +1535,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         expandedContent={
                                                                             <PersonOrContactValueViewer
                                                                                 value={partyValForExpandable}
+                                                                                partyLabel={rowPartyLabel}
                                                                                 layout="detailed"
                                                                                 displayMask={data?.profileConfig?.displayMask}
                                                                                 claimId={row.id}
@@ -1744,7 +1759,8 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                          />
                                                                      ) : (isPersonOrContactValue(data.current.value) || (data.current.value && typeof data.current.value === 'object' && 'ccPartyId' in data.current.value)) ? (
                                                                             <PersonOrContactValueViewer
-                                                                                value={data.current.value?.ccParty?.data || data.current.value?._resolvedData?.ccParty?.data || data.current.value}
+                                                                                value={(data?.canonicalDisplayModel?.value?.kind === 'partyRef' ? data.canonicalDisplayModel.value.resolved : (data?.canonicalDisplayModel?.value?.kind === 'party' ? data.canonicalDisplayModel.value.data : null)) || data.current.value?.ccParty?.data || data.current.value?._resolvedData?.ccParty?.data || data.current.value}
+                                                                                partyLabel={(data?.canonicalDisplayModel?.value as any)?.partyLabel}
                                                                                 layout="detailed"
                                                                                 displayMask={data?.profileConfig?.displayMask}
                                                                                 claimId={data.current?.claimId}
@@ -1758,7 +1774,13 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                 let parsed = v;
                                                                                 if (typeof v === 'string' && (v.startsWith('{') || v.startsWith('['))) { try { parsed = JSON.parse(v); } catch {} }
                                                                                 if (isPersonOrContactValue(parsed) || (parsed && typeof parsed === 'object' && 'ccPartyId' in parsed)) {
-                                                                                    const partyVal = parsed?.ccParty?.data || parsed?._resolvedData?.ccParty?.data || parsed;
+                                                                                    const itemCanonical = data?.canonicalDisplayModel?.value?.kind === 'collection' ? data.canonicalDisplayModel.value.items[idx] : null;
+                                                                                    const partyLabel = itemCanonical?.value ? (itemCanonical.value as any).partyLabel : undefined;
+                                                                                    const resolvedVal = itemCanonical?.value?.kind === 'partyRef' 
+                                                                                        ? itemCanonical.value.resolved 
+                                                                                        : (itemCanonical?.value?.kind === 'party' ? itemCanonical.value.data : (parsed?.ccParty?.data || parsed?._resolvedData?.ccParty?.data || parsed));
+
+                                                                                    const partyVal = resolvedVal || parsed?.ccParty?.data || parsed?._resolvedData?.ccParty?.data || parsed;
                                                                                     const rowId = `current_auth_${idx}`;
                                                                                     return (
                                                                                         <ExpandableRowItem
@@ -1768,6 +1790,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                             collapsedContent={
                                                                                                 <PersonOrContactValueViewer
                                                                                                     value={partyVal}
+                                                                                                    partyLabel={partyLabel}
                                                                                                     layout="row"
                                                                                                     displayMask={data?.profileConfig?.displayMask}
                                                                                                     claimId={data.current?.claimId}
@@ -1779,6 +1802,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                             expandedContent={
                                                                                                 <PersonOrContactValueViewer
                                                                                                     value={partyVal}
+                                                                                                    partyLabel={partyLabel}
                                                                                                     layout="detailed"
                                                                                                     displayMask={data?.profileConfig?.displayMask}
                                                                                                     claimId={data.current?.claimId}
@@ -2424,10 +2448,15 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                             let parsed = candidate.value;
                                                             if (typeof parsed === 'string' && (parsed.startsWith('{') || parsed.startsWith('['))) { try { parsed = JSON.parse(parsed); } catch {} }
                                                             if (isPersonOrContactValue(parsed) || (parsed && typeof parsed === 'object' && 'ccPartyId' in parsed)) {
-                                                                const partyVal = parsed?.ccParty?.data || parsed?._resolvedData?.ccParty?.data || parsed;
-                                                                return <PersonOrContactValueViewer value={partyVal} layout="detailed" displayMask={data?.profileConfig?.displayMask} />;
+                                                                const candCanonical = (candidate as any)?.canonicalDisplayModel;
+                                                                const partyLabel = candCanonical?.value ? (candCanonical.value as any).partyLabel : undefined;
+                                                                const partyVal = candCanonical?.value?.kind === 'partyRef' 
+                                                                    ? candCanonical.value.resolved 
+                                                                    : (candCanonical?.value?.kind === 'party' ? candCanonical.value.data : (parsed?.ccParty?.data || parsed?._resolvedData?.ccParty?.data || parsed));
+
+                                                                return <PersonOrContactValueViewer value={partyVal} partyLabel={partyLabel} layout="detailed" displayMask={data?.profileConfig?.displayMask} />;
                                                             }
-                                                            return renderRowValue(candidate.value);
+                                                            return renderRowValue(candidate.value, candidate);
                                                         })()}
                                                     </div>
                                                     <div className="flex items-center gap-3 text-[10px] text-slate-400">

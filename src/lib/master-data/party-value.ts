@@ -17,6 +17,8 @@
 import { getAddressSummary } from './address-value';
 import type { CCPartyData } from './party-v2/CCPartyData';
 import { formatDate } from './structured-value-formatters';
+import { normaliseCCPartyData as normalisePartyReadModel } from './party-v2/normaliser';
+import { getPartyLabel } from './party-v2/label-helper';
 
 export interface PartyRefValue {
     ccPartyId: string;
@@ -495,20 +497,34 @@ export function getPartyDisplayProjection(value: any, displayMask?: string[], fa
     const showField = (key: string) => isFieldPermittedByMask(key, displayMask);
 
     let primaryText = "";
-    if (showField('displayName') && poc.displayName) {
-        primaryText = poc.displayName;
-    } else if ((showField('organisationName') || showField('legalName')) && (poc.organisationName || (poc as any).legalName)) {
-        primaryText = poc.organisationName || (poc as any).legalName;
+
+    // 1. Authoritative canonical partyLabel from canonicalDisplayModel (passed via fallbackPartyLabel)
+    if (fallbackPartyLabel && fallbackPartyLabel.trim().length > 0) {
+        primaryText = fallbackPartyLabel.trim();
     } else {
-        const titleParts = [];
-        if (showField('title') && poc.title) titleParts.push(poc.title);
-        if (showField('forenames') && poc.forenames) titleParts.push(poc.forenames);
-        if (showField('surname') && poc.surname) titleParts.push(poc.surname);
-        primaryText = titleParts.join(' ');
-    }
-    
-    if (!primaryText && fallbackPartyLabel) {
-        primaryText = fallbackPartyLabel;
+        // 2. Canonical Party normalization (normalisePartyReadModel → getPartyLabel)
+        const norm = normalisePartyReadModel(poc);
+        if (norm) {
+            const canonicalLabel = getPartyLabel(norm);
+            if (canonicalLabel && canonicalLabel !== "Unnamed party" && canonicalLabel !== "Unnamed individual" && canonicalLabel !== "Unnamed organisation" && canonicalLabel !== "Unnamed team") {
+                primaryText = canonicalLabel;
+            }
+        }
+        
+        // 3. Defensive legacy/raw-property fallbacks if genuinely required for unsupported historic shapes
+        if (!primaryText) {
+            if (showField('displayName') && poc.displayName) {
+                primaryText = poc.displayName;
+            } else if ((showField('organisationName') || showField('legalName')) && (poc.organisationName || (poc as any).legalName || (poc as any).companyName || (poc as any).name)) {
+                primaryText = poc.organisationName || (poc as any).legalName || (poc as any).companyName || (poc as any).name;
+            } else {
+                const titleParts = [];
+                if (showField('title') && poc.title) titleParts.push(poc.title);
+                if (showField('forenames') && poc.forenames) titleParts.push(poc.forenames);
+                if (showField('surname') && poc.surname) titleParts.push(poc.surname);
+                primaryText = titleParts.join(' ');
+            }
+        }
     }
 
     const secondaryParts: string[] = [];
