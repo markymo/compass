@@ -10,6 +10,8 @@ export interface ExpandableTextProps {
     targetChars?: number;
     /** Minimum total character count required before triggering truncation. Default: 400 */
     overflowThreshold?: number;
+    /** Legacy maxLines prop preserved for backwards compatibility. */
+    maxLines?: number;
     /** Optional wrapper classes for layout constraints */
     className?: string;
     /** Optional classes for the text itself */
