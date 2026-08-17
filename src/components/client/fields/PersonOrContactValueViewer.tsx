@@ -94,13 +94,48 @@ function RoleRow({ role, displayMask, index = 0 }: { role: PersonOrContactRole, 
                 <div className="ml-3.5 mt-0.5 flex flex-wrap gap-1">
                     {role.natureOfControl.map((noc, i) => (
                         <span key={i} className="text-[10px] bg-purple-50 text-purple-600 border border-purple-100 rounded px-1.5 py-0.5">
-                            {noc}
+                            {formatNatureOfControl(noc)}
                         </span>
                     ))}
                 </div>
             )}
         </div>
     );
+}
+
+const NOC_LABELS: Record<string, string> = {
+    'ownership-of-shares-25-to-50-percent': 'Ownership of shares — 25% to 50%',
+    'ownership-of-shares-50-to-75-percent': 'Ownership of shares — 50% to 75%',
+    'ownership-of-shares-75-to-100-percent': 'Ownership of shares — 75% or more',
+    'voting-rights-25-to-50-percent': 'Ownership of voting rights — 25% to 50%',
+    'voting-rights-50-to-75-percent': 'Ownership of voting rights — 50% to 75%',
+    'voting-rights-75-to-100-percent': 'Ownership of voting rights — 75% or more',
+    'right-to-appoint-and-remove-directors': 'Right to appoint or remove directors',
+    'right-to-appoint-and-remove-personnel': 'Right to appoint or remove personnel',
+    'significant-influence-or-control': 'Significant influence or control',
+    'ownership-of-shares-75-to-100-percent-as-trust': 'Ownership of shares — 75% or more (as trust)',
+    'ownership-of-shares-75-to-100-percent-as-firm': 'Ownership of shares — 75% or more (as firm)',
+    'voting-rights-75-to-100-percent-as-trust': 'Ownership of voting rights — 75% or more (as trust)',
+    'voting-rights-75-to-100-percent-as-firm': 'Ownership of voting rights — 75% or more (as firm)',
+    'right-to-appoint-and-remove-directors-as-trust': 'Right to appoint or remove directors (as trust)',
+    'right-to-appoint-and-remove-directors-as-firm': 'Right to appoint or remove directors (as firm)',
+    'significant-influence-or-control-as-trust': 'Significant influence or control (as trust)',
+    'significant-influence-or-control-as-firm': 'Significant influence or control (as firm)',
+};
+
+export function formatNatureOfControl(noc: string): string {
+    if (!noc) return '';
+    const clean = noc.trim();
+    if (NOC_LABELS[clean]) return NOC_LABELS[clean];
+
+    let label = clean
+        .replace(/-as-(trust|firm)/, ' (as $1)')
+        .replace(/ownership-of-shares-75-to-100-percent/, 'Ownership of shares — 75% or more')
+        .replace(/voting-rights-75-to-100-percent/, 'Ownership of voting rights — 75% or more')
+        .replace(/right-to-appoint-and-remove-directors/, 'Right to appoint or remove directors')
+        .replace(/-/g, ' ');
+
+    return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 function PartyAttachmentIndicator({ attachments, partyName }: { attachments: import("@/lib/master-data/field-display-model").ResolvedAttachment[]; partyName: string }) {

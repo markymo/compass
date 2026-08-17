@@ -71,11 +71,6 @@ async function seedUKMappings() {
         },
 
         // PREVIOUS LEGAL NAMES (Field 5 — isMultiValue: true)
-        // Companies House API returns previous_names as an array of objects:
-        // [{ name: "Old Name Ltd", ceased_on: "2020-01-01" }]
-        // The DIRECT transform's smart extraction pulls `.name` from each object,
-        // returning an array of strings. KycWriteService handles array iteration for
-        // repeating fields and auto-generates rowIds.
         {
             sourcePath: 'previous_names',
             targetFieldNo: 5, // Previous Legal Names
@@ -84,13 +79,47 @@ async function seedUKMappings() {
             transformType: 'DIRECT',
             notes: 'UK Previous Legal Names (array of objects; DIRECT extracts .name from each)'
         },
+
+        // PERSONS WITH SIGNIFICANT CONTROL (Field 64 — isMultiValue: true)
+        {
+            sourcePath: '$',
+            targetFieldNo: 64, // Persons with Significant Control
+            mappingScope: 'RAW_PAYLOAD',
+            payloadSubtype: 'PSC',
+            transformType: 'TO_PARTY_VALUE_LIST',
+            transformConfig: {
+                fullNamePath: 'name',
+                roleTitlePath: 'kind',
+                appointedOnPath: 'notified_on',
+                resignedOnPath: 'ceased_on',
+                natureOfControlPath: 'natures_of_control',
+                nationalityPath: 'nationality',
+                countryOfResidencePath: 'country_of_residence',
+                dobYearPath: 'date_of_birth.year',
+                dobMonthPath: 'date_of_birth.month',
+                sourceIdentifiers: [
+                    {
+                        scheme: 'COMPANIES_HOUSE_PERSON_NUMBER',
+                        valuePath: 'person_number'
+                    }
+                ]
+            },
+            filterConfig: {
+                includeRoles: [
+                    { isActiveRole: true }
+                ]
+            },
+            notes: 'UK Persons with Significant Control (active filter + natures_of_control)'
+        }
     ];
+
+    const ALL_RA_IDS = ['COMPANIES_HOUSE', 'RA000585', 'RA000586', 'RA000587'];
 
     let created = 0;
     let updated = 0;
     let alreadyExisting = 0;
 
-    for (const RA_ID of RA_IDS) {
+    for (const RA_ID of ALL_RA_IDS) {
         for (const m of mappings) {
             const whereKey = {
                 sourceType_sourceReference_mappingScope_payloadSubtype_sourcePath_targetFieldNo: {
@@ -111,6 +140,8 @@ async function seedUKMappings() {
                 update: {
                     isActive: true,
                     transformType: (m as any).transformType || 'DIRECT',
+                    transformConfig: (m as any).transformConfig || undefined,
+                    filterConfig: (m as any).filterConfig || undefined,
                     notes: m.notes
                 },
                 create: {
@@ -122,6 +153,8 @@ async function seedUKMappings() {
                     targetFieldNo: m.targetFieldNo,
                     isActive: true,
                     transformType: (m as any).transformType || 'DIRECT',
+                    transformConfig: (m as any).transformConfig || undefined,
+                    filterConfig: (m as any).filterConfig || undefined,
                     notes: m.notes,
                     priority: 10
                 }

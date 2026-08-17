@@ -649,7 +649,13 @@ export function applyTransform(
 
             // ── Contact type ──────────────────────────────────────────────────
             let contactType: 'PERSON' | 'CONTACT' = cfg.defaultContactType || 'PERSON';
-            if (cfg.contactTypePath) {
+            const isCorporateKind = typeof value === 'object' && value !== null && (
+                (typeof value.kind === 'string' && (value.kind.includes('corporate') || value.kind.includes('legal-person') || value.kind.includes('entity'))) ||
+                value.identification != null
+            );
+            if (isCorporateKind) {
+                contactType = 'CONTACT';
+            } else if (cfg.contactTypePath) {
                 const raw = resolveP(cfg.contactTypePath);
                 if (raw && cfg.contactTypeMap && cfg.contactTypeMap[raw]) {
                     contactType = cfg.contactTypeMap[raw];
@@ -660,6 +666,7 @@ export function applyTransform(
             let forenames: string | null = null;
             let surname:   string | null = null;
             let title: string | null = null;
+            let organisationName: string | null = null;
 
             if (cfg.titlePath) {
                 const raw = resolveP(cfg.titlePath);
@@ -671,7 +678,10 @@ export function applyTransform(
                 const raw = resolveP(cfg.fullNamePath);
                 const rawStr = raw ? String(raw).trim() : '';
                 if (rawStr) {
-                    if (rawStr.includes(',')) {
+                    if (contactType === 'CONTACT') {
+                        organisationName = rawStr;
+                        forenames = rawStr; // Legacy fallback for contactType CONTACT
+                    } else if (rawStr.includes(',')) {
                         const commaIdx = rawStr.indexOf(',');
                         const rawSurname   = rawStr.slice(0, commaIdx).trim();
                         const rawForenames = rawStr.slice(commaIdx + 1).trim();
@@ -682,7 +692,8 @@ export function applyTransform(
                     } else if (rawStr.includes(' ')) {
                         // No comma — last token = surname, rest = forenames
                         const tokens = rawStr.split(/\s+/);
-                        surname   = tokens.pop() || null;
+                        const rawLast = tokens.pop() || null;
+                        surname   = rawLast ? (rawLast.charAt(0).toUpperCase() + rawLast.slice(1).toLowerCase()) : null;
                         forenames = tokens.join(' ') || null;
                     } else {
                         // Single token — treat as surname
@@ -707,7 +718,12 @@ export function applyTransform(
             // we map it into forenames if forenames is not already set.
             if (cfg.displayNamePath) {
                 const raw = resolveP(cfg.displayNamePath);
-                if (raw) forenames = String(raw).trim() || forenames;
+                if (raw) {
+                    if (contactType === 'CONTACT') {
+                        organisationName = String(raw).trim() || organisationName;
+                    }
+                    forenames = String(raw).trim() || forenames;
+                }
             }
 
             // ── Contact ───────────────────────────────────────────────────────
@@ -758,8 +774,8 @@ export function applyTransform(
 
             // ── Role ─────────────────────────────────────────────────────────
             const roles: any[] = [];
-            const roleTitleRaw = cfg.roleTitlePath ? resolveP(cfg.roleTitlePath) : null;
-            const roleTypeRaw  = cfg.roleTypePath  ? resolveP(cfg.roleTypePath)  : null;
+            const roleTitleRaw = cfg.roleTitlePath ? resolveP(cfg.roleTitlePath) : (value?.kind ?? null);
+            const roleTypeRaw  = cfg.roleTypePath  ? resolveP(cfg.roleTypePath)  : (value?.kind ?? null);
 
             const mapRoleType = (raw: string | null): any => {
                 if (!raw) return null;
@@ -767,26 +783,25 @@ export function applyTransform(
                 return (cfg.roleTypeMap && cfg.roleTypeMap[raw]) ? cfg.roleTypeMap[raw] : raw;
             };
 
-            const appointedOnRaw = cfg.appointedOnPath ? resolveP(cfg.appointedOnPath) : null;
-            const resignedOnRaw  = cfg.resignedOnPath  ? resolveP(cfg.resignedOnPath)  : null;
+            const appointedOnRaw = cfg.appointedOnPath ? (resolveP(cfg.appointedOnPath) ?? value?.notified_on ?? value?.appointed_on ?? null) : null;
+            const resignedOnRaw  = cfg.resignedOnPath  ? (resolveP(cfg.resignedOnPath)  ?? value?.ceased_on   ?? value?.resigned_on  ?? null) : null;
 
-            // INVARIANT: isActiveRole is derived from role dates only.
+            // INVARIANT: isActiveRole is derived from role dates only when appointedOn is present in config.
             // NEVER copied into isActivePersonOrContact.
+            const isCeased = resignedOnRaw != null || value?.ceased === true;
             const isActiveRole = (appointedOnRaw !== undefined && appointedOnRaw !== null)
-                ? (resignedOnRaw == null)
+                ? !isCeased
                 : null;
 
             let natureOfControl: string[] = [];
-            if (cfg.natureOfControlPath) {
-                const raw = resolveP(cfg.natureOfControlPath);
-                if (Array.isArray(raw)) {
-                    natureOfControl = raw.map((n: any) => String(n).trim()).filter(Boolean);
-                } else if (raw) {
-                    natureOfControl = [String(raw).trim()].filter(Boolean);
-                }
+            const rawNoc = (cfg.natureOfControlPath ? resolveP(cfg.natureOfControlPath) : null) ?? value?.natures_of_control ?? value?.nature_of_control;
+            if (Array.isArray(rawNoc)) {
+                natureOfControl = rawNoc.map((n: any) => String(n).trim()).filter(Boolean);
+            } else if (rawNoc) {
+                natureOfControl = [String(rawNoc).trim()].filter(Boolean);
             }
 
-            if (roleTitleRaw || roleTypeRaw || appointedOnRaw || natureOfControl.length > 0) {
+            if (roleTitleRaw || roleTypeRaw || appointedOnRaw || natureOfControl.length > 0 || value?.kind) {
                 roles.push({
                     roleTitle: roleTitleRaw ? String(roleTitleRaw).trim() : null,
                     roleType:  mapRoleType(roleTitleRaw ? String(roleTitleRaw) : null) ??
@@ -841,6 +856,9 @@ export function applyTransform(
             // Only USER_INPUT may set true/false.
             const poc = {
                 contactType,
+                partyType:               contactType === 'CONTACT' ? ('ORGANISATION' as const) : ('INDIVIDUAL' as const),
+                organisationName:        contactType === 'CONTACT' ? (organisationName || null) : null,
+                displayName:             contactType === 'CONTACT' ? (organisationName || null) : null,
                 title:                   title || null,
                 forenames:               forenames || null,
                 surname:                 surname || null,
