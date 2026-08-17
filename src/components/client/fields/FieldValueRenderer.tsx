@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { FieldDisplayModel } from "@/lib/master-data/field-display-model";
+import { FieldDisplayModel, SaveForReuseHandler } from "@/lib/master-data/field-display-model";
 import { PartyRenderer } from "./PartyRenderer";
 import { AddressRenderer } from "./AddressRenderer";
 import { CollectionRenderer } from "./CollectionRenderer";
@@ -12,9 +12,23 @@ export interface FieldValueRendererProps {
     itemLimit?: number;
     className?: string;
     clientLEId?: string;
+    claimId?: string;
+    isPromotedToCCC?: boolean;
+    isPromoting?: boolean;
+    onSaveForReuse?: SaveForReuseHandler;
 }
 
-export function FieldValueRenderer({ field, layout, itemLimit, className, clientLEId }: FieldValueRendererProps) {
+export function FieldValueRenderer({
+    field,
+    layout,
+    itemLimit,
+    className,
+    clientLEId,
+    claimId,
+    isPromotedToCCC,
+    isPromoting,
+    onSaveForReuse
+}: FieldValueRendererProps) {
     const renderContent = () => {
         switch (field.state) {
             case 'POPULATED':
@@ -22,10 +36,31 @@ export function FieldValueRenderer({ field, layout, itemLimit, className, client
                     return <span className={className}>{field.value.display}</span>;
                 }
                 if (field.value.kind === 'party' || field.value.kind === 'partyRef') {
-                    return <PartyRenderer value={field.value} layout={layout} className={className} attachments={field.attachments} />;
+                    return (
+                        <PartyRenderer
+                            value={field.value}
+                            layout={layout}
+                            className={className}
+                            attachments={field.attachments}
+                            claimId={claimId}
+                            isPromotedToCCC={isPromotedToCCC}
+                            isPromoting={isPromoting}
+                            onSaveForReuse={onSaveForReuse}
+                        />
+                    );
                 }
                 if (field.value.kind === 'address' || field.value.kind === 'addressRef') {
-                    return <AddressRenderer value={field.value} layout={layout} className={className} />;
+                    return (
+                        <AddressRenderer
+                            value={field.value}
+                            layout={layout}
+                            className={className}
+                            claimId={claimId}
+                            isPromotedToCCC={isPromotedToCCC}
+                            isPromoting={isPromoting}
+                            onSaveForReuse={onSaveForReuse}
+                        />
+                    );
                 }
                 if (field.value.kind === 'collection') {
                     const isComplex = field.value.items.some(i => i.value.kind !== 'scalar' && i.value.kind !== 'empty');
@@ -37,6 +72,8 @@ export function FieldValueRenderer({ field, layout, itemLimit, className, client
                             collectionLayout={collectionLayout} 
                             itemLimit={itemLimit}
                             className={className} 
+                            onSaveForReuse={onSaveForReuse}
+                            isPromoting={isPromoting}
                         />
                     );
                 }

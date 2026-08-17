@@ -1,6 +1,8 @@
 "use server";
 
 import { getIdentity } from "@/lib/auth";
+import { ensureApiAuthorization } from "@/lib/auth/api-auth";
+import { Action } from "@/lib/auth/permissions";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { CCPartyService } from "@/services/masterData/cc-party-service";
@@ -393,10 +395,7 @@ export async function deleteCCParty(id: string, clientLEId: string) {
  * Promote a claim to a CCParty
  */
 export async function promoteClaimToCCParty(claimId: string, clientLEId: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
-    }
+    const { userId } = await ensureApiAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId });
 
     try {
         // 1. Fetch the claim
@@ -447,7 +446,7 @@ export async function promoteClaimToCCParty(claimId: string, clientLEId: string)
         const party = await CCPartyService.create({
             clientLEId,
             data: v2Data,
-            createdByUserId: identity.userId,
+            createdByUserId: userId,
             createdFromClaimId: claimId
         });
 

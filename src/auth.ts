@@ -7,6 +7,7 @@ import Credentials from "next-auth/providers/credentials"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
 import jwt from "jsonwebtoken"
+import { resolveSystemTimezone } from "@/lib/date-utils"
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
     adapter: PrismaAdapter(prisma),
@@ -69,8 +70,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                     // @ts-ignore
                     session.user.isSystemAdmin = !!sysAdmin;
                     
-                    // @ts-ignore - inject dynamically fetched timezone
-                    const { resolveSystemTimezone } = require("@/lib/date-utils");
                     (session.user as any).timezone = resolveSystemTimezone(dbUser?.preferences);
                         
                 } catch (e: any) {

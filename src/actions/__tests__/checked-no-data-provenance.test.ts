@@ -71,6 +71,7 @@ describe('CHECKED_NO_DATA Provenance Integration & Regression Suite', () => {
 
         it('returns hasApplicableEvaluationAttempt = false when sync has never succeeded or failed', () => {
             const clientLE = {
+                lei: '5493001KJTIIGC8Y1R12',
                 gleifFetchedAt: null,
                 registryReferences: []
             };
@@ -264,7 +265,7 @@ describe('CHECKED_NO_DATA Provenance Integration & Regression Suite', () => {
         });
 
         it('8. mapped but never checked field (MAPPED_NOT_CHECKED) has no lastValidatedAt timestamp', () => {
-            const clientLE = { gleifFetchedAt: null, registryReferences: [] };
+            const clientLE = { lei: '5493001KJTIIGC8Y1R12', gleifFetchedAt: null, registryReferences: [] };
             const mappings = [{ sourceType: 'GLEIF', sourceReference: null }];
             const evalResult = KycStateService.evaluateSyncAttempt(clientLE, mappings);
 

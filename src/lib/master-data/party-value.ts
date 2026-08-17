@@ -16,6 +16,7 @@
 // ── Core value object ──────────────────────────────────────────────────────────
 import { getAddressSummary } from './address-value';
 import type { CCPartyData } from './party-v2/CCPartyData';
+import { formatDate } from './structured-value-formatters';
 
 export interface PartyRefValue {
     ccPartyId: string;
@@ -198,6 +199,76 @@ export interface PartyRole {
 
     /** PSC natures_of_control from Companies House. Empty for non-PSC roles. */
     natureOfControl: string[];
+
+    /** Companies House Officer Identity Verification details (if present from source API). */
+    identityVerification?: PartyRoleIdentityVerification | null;
+}
+
+export interface PartyRoleIdentityVerification {
+    appointmentVerificationStartOn?: string | null;
+    appointmentVerificationEndOn?: string | null;
+    appointmentVerificationStatementDueOn?: string | null;
+    identityVerifiedOn?: string | null;
+    authorisedCorporateServiceProviderName?: string | null;
+    antiMoneyLaunderingSupervisoryBodies?: string[] | null;
+    preferredName?: string | null;
+}
+
+/**
+ * Returns a restrained presentation label for officer identity verification status.
+ *
+ * Rules (Amendment 2):
+ * 1. identityVerifiedOn present -> "Identity verified"
+ * 2. appointmentVerificationStartOn present:
+ *    - no end date (null/undefined) -> "Identity verified"
+ *    - end is "9999-12-31" -> "Identity verified"
+ *    - end is in future (>= today) -> "Identity verified"
+ *    - end is in past -> expired (do NOT report as verified unless identityVerifiedOn is set)
+ * 3. appointmentVerificationStatementDueOn with no active statement -> "Identity verification due [formatted date]"
+ * 4. no verification info -> null
+ */
+export function getIdentityVerificationLabel(iv?: PartyRoleIdentityVerification | null): string | null {
+    if (!iv) return null;
+
+    // 1. Explicit identityVerifiedOn
+    if (iv.identityVerifiedOn) {
+        return 'Identity verified';
+    }
+
+    // 2. Active appointment verification period
+    const startOn = iv.appointmentVerificationStartOn;
+    const endOn = iv.appointmentVerificationEndOn;
+
+    if (startOn) {
+        let isCurrent = false;
+
+        if (!endOn || endOn === '9999-12-31') {
+            isCurrent = true;
+        } else {
+            try {
+                const endDate = new Date(endOn);
+                if (!isNaN(endDate.getTime())) {
+                    const now = new Date();
+                    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                    isCurrent = endDate.getTime() >= todayStart;
+                }
+            } catch {
+                isCurrent = false;
+            }
+        }
+
+        if (isCurrent) {
+            return 'Identity verified';
+        }
+    }
+
+    // 3. Statement due date with no active statement
+    if (iv.appointmentVerificationStatementDueOn) {
+        const dueFormatted = formatDate(iv.appointmentVerificationStatementDueOn) || iv.appointmentVerificationStatementDueOn;
+        return `Identity verification due ${dueFormatted}`;
+    }
+
+    return null;
 }
 
 export interface PartyIdentifier {
@@ -449,6 +520,9 @@ export function getPartyDisplayProjection(value: any, displayMask?: string[], fa
         if (r.resignedOn) dates.push(`Resigned ${r.resignedOn}`);
         if (dates.length > 0) roleStr += ` (${dates.join(' · ')})`;
         if (roleStr) secondaryParts.push(roleStr);
+
+        const ivLabel = getIdentityVerificationLabel(r.identityVerification);
+        if (ivLabel) secondaryParts.push(ivLabel);
     }
 
     // Organisation secondary parts (only when displayMask is explicitly provided)

@@ -664,3 +664,95 @@ describe('TO_COMPANIES_HOUSE_ACTIVE_DIRECTOR_PARTY_VALUE_LIST', () => {
         expect(res.rowKeys[0]).toBe(expectedRowKey);
     });
 });
+
+describe('Companies House Officer Identity Verification Normalization', () => {
+    it('normalizes Chirmorie Anna/Ilesh shape (start_on + 9999-12-31 end_on)', () => {
+        const payload = {
+            ...CH_DIRECTOR_ACTIVE,
+            identity_verification_details: {
+                appointment_verification_start_on: '2026-02-18',
+                appointment_verification_end_on: '9999-12-31'
+            }
+        };
+
+        const res = applyTransform(payload, 'TO_PARTY_VALUE', BASE_CONFIG);
+        expect(res.value.roles[0].identityVerification).toEqual({
+            appointmentVerificationStartOn: '2026-02-18',
+            appointmentVerificationEndOn: '9999-12-31',
+            appointmentVerificationStatementDueOn: null,
+            identityVerifiedOn: null,
+            authorisedCorporateServiceProviderName: null,
+            antiMoneyLaunderingSupervisoryBodies: null,
+            preferredName: null
+        });
+    });
+
+    it('normalizes statement_due_on shape', () => {
+        const payload = {
+            ...CH_DIRECTOR_ACTIVE,
+            identity_verification_details: {
+                appointment_verification_statement_due_on: '2026-08-26'
+            }
+        };
+
+        const res = applyTransform(payload, 'TO_PARTY_VALUE', BASE_CONFIG);
+        expect(res.value.roles[0].identityVerification).toEqual({
+            appointmentVerificationStartOn: null,
+            appointmentVerificationEndOn: null,
+            appointmentVerificationStatementDueOn: '2026-08-26',
+            identityVerifiedOn: null,
+            authorisedCorporateServiceProviderName: null,
+            antiMoneyLaunderingSupervisoryBodies: null,
+            preferredName: null
+        });
+    });
+
+    it('normalizes explicit identity_verified_on if supplied', () => {
+        const payload = {
+            ...CH_DIRECTOR_ACTIVE,
+            identity_verification_details: {
+                identity_verified_on: '2026-01-15'
+            }
+        };
+
+        const res = applyTransform(payload, 'TO_PARTY_VALUE', BASE_CONFIG);
+        expect(res.value.roles[0].identityVerification).toEqual({
+            appointmentVerificationStartOn: null,
+            appointmentVerificationEndOn: null,
+            appointmentVerificationStatementDueOn: null,
+            identityVerifiedOn: '2026-01-15',
+            authorisedCorporateServiceProviderName: null,
+            antiMoneyLaunderingSupervisoryBodies: null,
+            preferredName: null
+        });
+    });
+
+    it('preserves ACSP name, AML supervisory bodies, and preferred name in identityVerification', () => {
+        const payload = {
+            ...CH_DIRECTOR_ACTIVE,
+            identity_verification_details: {
+                appointment_verification_start_on: '2026-02-18',
+                appointment_verification_end_on: '9999-12-31',
+                authorised_corporate_service_provider_name: 'Corporate Services Ltd',
+                anti_money_laundering_supervisory_bodies: ['SRA', 'FCA'],
+                preferred_name: 'Annie Smith'
+            }
+        };
+
+        const res = applyTransform(payload, 'TO_PARTY_VALUE', BASE_CONFIG);
+        expect(res.value.roles[0].identityVerification).toEqual({
+            appointmentVerificationStartOn: '2026-02-18',
+            appointmentVerificationEndOn: '9999-12-31',
+            appointmentVerificationStatementDueOn: null,
+            identityVerifiedOn: null,
+            authorisedCorporateServiceProviderName: 'Corporate Services Ltd',
+            antiMoneyLaunderingSupervisoryBodies: ['SRA', 'FCA'],
+            preferredName: 'Annie Smith'
+        });
+    });
+
+    it('returns null identityVerification when no identity_verification_details provided', () => {
+        const res = applyTransform(CH_DIRECTOR_ACTIVE, 'TO_PARTY_VALUE', BASE_CONFIG);
+        expect(res.value.roles[0].identityVerification).toBeNull();
+    });
+});

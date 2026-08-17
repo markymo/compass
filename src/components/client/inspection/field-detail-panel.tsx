@@ -41,6 +41,7 @@ import { CollectionRowDisplay } from "@/lib/master-data/structured-collection-re
 import { CodeListField } from "@/components/client/fields/CodeListField";
 import { FieldSourceBadge } from "../fields/FieldSourceBadge";
 import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
+import { SaveForReuseTarget } from "@/lib/master-data/field-display-model";
 import { FieldAttachments } from "@/components/client/fields/FieldAttachments";
 import { AddressValueViewer } from "../fields/AddressValueViewer";
 import { isAddressValue } from "@/lib/master-data/address-value";
@@ -261,10 +262,29 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
 
         if (typeof parsedVal === 'object') {
             if (isAddressValue(parsedVal)) {
-                return <AddressValueViewer value={parsedVal} layout="compact" />;
+                return (
+                    <AddressValueViewer
+                        value={parsedVal}
+                        layout="compact"
+                        claimId={rowData?.id || data?.current?.claimId}
+                        isPromotedToCCC={rowData?.isPromotedToCCC || data?.current?.isPromotedToCCC}
+                        isPromoting={isPromoting === (rowData?.id || data?.current?.claimId)}
+                        onSaveForReuse={handleSaveForReuse}
+                    />
+                );
             }
             if (isPersonOrContactValue(parsedVal)) {
-                return <PersonOrContactValueViewer value={parsedVal} layout="compact" displayMask={data?.profileConfig?.displayMask} />;
+                return (
+                    <PersonOrContactValueViewer
+                        value={parsedVal}
+                        layout="compact"
+                        displayMask={data?.profileConfig?.displayMask}
+                        claimId={rowData?.id || data?.current?.claimId}
+                        isPromotedToCCC={rowData?.isPromotedToCCC || data?.current?.isPromotedToCCC}
+                        isPromoting={isPromoting === (rowData?.id || data?.current?.claimId)}
+                        onSaveForReuse={handleSaveForReuse}
+                    />
+                );
             }
             if (parsedVal.firstName || parsedVal.lastName) return `${parsedVal.firstName || ''} ${parsedVal.lastName || ''}`.trim() + (parsedVal.metadata_type === 'LEGAL_ENTITY' ? ' (Company)' : '');
             if (parsedVal.name) return parsedVal.name;
@@ -553,19 +573,19 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
         }
     };
 
-    const handleSaveForReuse = async (claimId: string, kind: string) => {
-        setIsPromoting(claimId);
+    const handleSaveForReuse = async (target: SaveForReuseTarget) => {
+        setIsPromoting(target.claimId);
         try {
-            if (kind === 'EMBEDDED_PARTY') {
-                const res = await promoteClaimToCCParty(claimId, clientLEId);
+            if (target.kind === 'EMBEDDED_PARTY') {
+                const res = await promoteClaimToCCParty(target.claimId, clientLEId);
                 if (res.success) {
                     toast.success("Saved for reuse");
                     loadData(); // Reload rows to update isPromotedToCCC flag
                 } else {
                     toast.error((res as any).message || "Failed to save for reuse");
                 }
-            } else if (kind === 'ADDRESS') {
-                const res = await saveAddressForReuse(claimId, clientLEId);
+            } else if (target.kind === 'ADDRESS') {
+                const res = await saveAddressForReuse(target.claimId, clientLEId);
                 if (res.success) {
                     toast.success("Saved for reuse");
                     loadData(); // Reload rows to update isPromotedToCCC flag
@@ -579,7 +599,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
         } finally {
             setIsPromoting(null);
         }
-      };
+    };
 
     // Pre-populate related values when a row is selected
     useEffect(() => {
@@ -1476,6 +1496,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                             ? (parsedRowValue.ccParty?.data || parsedRowValue._resolvedData?.ccParty?.data || row?.data?.ccParty?.data || parsedRowValue)
                                                             : null;
 
+                                                        const addressValForExpandable = (parsedRowValue && typeof parsedRowValue === 'object' && (isAddressValue(parsedRowValue) || 'ccAddressId' in parsedRowValue))
+                                                            ? (parsedRowValue.ccAddress?.data || parsedRowValue._resolvedData?.ccAddress?.data || row?.data?.ccAddress?.data || parsedRowValue)
+                                                            : null;
+
                                                         return (
                                                         <div key={row.id} className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 hover:border-slate-300 transition-all">
                                                             <div className="flex-1 min-w-0">
@@ -1483,8 +1507,53 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                     <ExpandableRowItem
                                                                         isExpanded={expandedRowId === row.id}
                                                                         onToggle={() => setExpandedRowId(expandedRowId === row.id ? null : row.id)}
-                                                                        collapsedContent={<PersonOrContactValueViewer value={partyValForExpandable} layout="row" displayMask={data?.profileConfig?.displayMask} />}
-                                                                        expandedContent={<PersonOrContactValueViewer value={partyValForExpandable} layout="detailed" displayMask={data?.profileConfig?.displayMask} />}
+                                                                        collapsedContent={
+                                                                            <PersonOrContactValueViewer
+                                                                                value={partyValForExpandable}
+                                                                                layout="row"
+                                                                                displayMask={data?.profileConfig?.displayMask}
+                                                                                claimId={row.id}
+                                                                                isPromotedToCCC={row.isPromotedToCCC}
+                                                                                isPromoting={isPromoting === row.id}
+                                                                                onSaveForReuse={handleSaveForReuse}
+                                                                            />
+                                                                        }
+                                                                        expandedContent={
+                                                                            <PersonOrContactValueViewer
+                                                                                value={partyValForExpandable}
+                                                                                layout="detailed"
+                                                                                displayMask={data?.profileConfig?.displayMask}
+                                                                                claimId={row.id}
+                                                                                isPromotedToCCC={row.isPromotedToCCC}
+                                                                                isPromoting={isPromoting === row.id}
+                                                                                onSaveForReuse={handleSaveForReuse}
+                                                                            />
+                                                                        }
+                                                                    />
+                                                                ) : addressValForExpandable ? (
+                                                                    <ExpandableRowItem
+                                                                        isExpanded={expandedRowId === row.id}
+                                                                        onToggle={() => setExpandedRowId(expandedRowId === row.id ? null : row.id)}
+                                                                        collapsedContent={
+                                                                            <AddressValueViewer
+                                                                                value={addressValForExpandable}
+                                                                                layout="compact"
+                                                                                claimId={row.id}
+                                                                                isPromotedToCCC={row.isPromotedToCCC}
+                                                                                isPromoting={isPromoting === row.id}
+                                                                                onSaveForReuse={handleSaveForReuse}
+                                                                            />
+                                                                        }
+                                                                        expandedContent={
+                                                                            <AddressValueViewer
+                                                                                value={addressValForExpandable}
+                                                                                layout="detailed"
+                                                                                claimId={row.id}
+                                                                                isPromotedToCCC={row.isPromotedToCCC}
+                                                                                isPromoting={isPromoting === row.id}
+                                                                                onSaveForReuse={handleSaveForReuse}
+                                                                            />
+                                                                        }
                                                                     />
                                                                 ) : (
                                                                     <div className="text-sm font-medium text-slate-800 truncate">
@@ -1656,12 +1725,33 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                 <div className="text-base font-medium text-slate-900 break-all leading-relaxed">
                                                                     {data?.canonicalDisplayModel && !data.isRepeating ? (
                                                                         <div>
-                                                                            <FieldValueRenderer field={data.canonicalDisplayModel!} />
+                                                                            <FieldValueRenderer
+                                                                                field={data.canonicalDisplayModel!}
+                                                                                claimId={data.current?.claimId}
+                                                                                isPromotedToCCC={data.current?.isPromotedToCCC}
+                                                                                isPromoting={isPromoting === data.current?.claimId}
+                                                                                onSaveForReuse={handleSaveForReuse}
+                                                                            />
                                                                         </div>
                                                                     ) : isAddressValue(data.current.value) || (data.current.value && typeof data.current.value === 'object' && 'ccAddressId' in data.current.value) ? (
-                                                                         <AddressValueViewer value={data.current.value?._resolvedData?.ccAddress?.data || data.current.value} layout="detailed" />
+                                                                         <AddressValueViewer
+                                                                             value={data.current.value?._resolvedData?.ccAddress?.data || data.current.value}
+                                                                             layout="detailed"
+                                                                             claimId={data.current?.claimId}
+                                                                             isPromotedToCCC={data.current?.isPromotedToCCC}
+                                                                             isPromoting={isPromoting === data.current?.claimId}
+                                                                             onSaveForReuse={handleSaveForReuse}
+                                                                         />
                                                                      ) : (isPersonOrContactValue(data.current.value) || (data.current.value && typeof data.current.value === 'object' && 'ccPartyId' in data.current.value)) ? (
-                                                                            <PersonOrContactValueViewer value={data.current.value?.ccParty?.data || data.current.value?._resolvedData?.ccParty?.data || data.current.value} layout="detailed" displayMask={data?.profileConfig?.displayMask} />
+                                                                            <PersonOrContactValueViewer
+                                                                                value={data.current.value?.ccParty?.data || data.current.value?._resolvedData?.ccParty?.data || data.current.value}
+                                                                                layout="detailed"
+                                                                                displayMask={data?.profileConfig?.displayMask}
+                                                                                claimId={data.current?.claimId}
+                                                                                isPromotedToCCC={data.current?.isPromotedToCCC}
+                                                                                isPromoting={isPromoting === data.current?.claimId}
+                                                                                onSaveForReuse={handleSaveForReuse}
+                                                                            />
                                                                         ) : Array.isArray(data.current.value) ? (
                                                                         <div className="flex flex-col gap-2 mt-1">
                                                                             {data.current.value.map((v: any, idx: number) => {
@@ -1675,8 +1765,28 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                             key={rowId}
                                                                                             isExpanded={expandedRowId === rowId}
                                                                                             onToggle={() => setExpandedRowId(expandedRowId === rowId ? null : rowId)}
-                                                                                            collapsedContent={<PersonOrContactValueViewer value={partyVal} layout="row" displayMask={data?.profileConfig?.displayMask} />}
-                                                                                            expandedContent={<PersonOrContactValueViewer value={partyVal} layout="detailed" displayMask={data?.profileConfig?.displayMask} />}
+                                                                                            collapsedContent={
+                                                                                                <PersonOrContactValueViewer
+                                                                                                    value={partyVal}
+                                                                                                    layout="row"
+                                                                                                    displayMask={data?.profileConfig?.displayMask}
+                                                                                                    claimId={data.current?.claimId}
+                                                                                                    isPromotedToCCC={data.current?.isPromotedToCCC}
+                                                                                                    isPromoting={isPromoting === data.current?.claimId}
+                                                                                                    onSaveForReuse={handleSaveForReuse}
+                                                                                                />
+                                                                                            }
+                                                                                            expandedContent={
+                                                                                                <PersonOrContactValueViewer
+                                                                                                    value={partyVal}
+                                                                                                    layout="detailed"
+                                                                                                    displayMask={data?.profileConfig?.displayMask}
+                                                                                                    claimId={data.current?.claimId}
+                                                                                                    isPromotedToCCC={data.current?.isPromotedToCCC}
+                                                                                                    isPromoting={isPromoting === data.current?.claimId}
+                                                                                                    onSaveForReuse={handleSaveForReuse}
+                                                                                                />
+                                                                                            }
                                                                                         />
                                                                                     );
                                                                                 }

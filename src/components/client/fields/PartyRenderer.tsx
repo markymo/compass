@@ -1,5 +1,5 @@
 import React from "react";
-import { ResolvedFieldValue } from "@/lib/master-data/field-display-model";
+import { ResolvedFieldValue, SaveForReuseHandler } from "@/lib/master-data/field-display-model";
 import { PersonOrContactValueViewer } from "./PersonOrContactValueViewer";
 
 export interface PartyRendererProps {
@@ -7,9 +7,22 @@ export interface PartyRendererProps {
     layout?: "compact" | "row" | "detailed";
     className?: string;
     attachments?: import("@/lib/master-data/field-display-model").ResolvedAttachment[];
+    claimId?: string;
+    isPromotedToCCC?: boolean;
+    isPromoting?: boolean;
+    onSaveForReuse?: SaveForReuseHandler;
 }
 
-export function PartyRenderer({ value, layout = "compact", className, attachments }: PartyRendererProps) {
+export function PartyRenderer({
+    value,
+    layout = "compact",
+    className,
+    attachments,
+    claimId,
+    isPromotedToCCC,
+    isPromoting,
+    onSaveForReuse
+}: PartyRendererProps) {
     if (value.kind === 'party') {
         return (
             <div className={className}>
@@ -19,6 +32,10 @@ export function PartyRenderer({ value, layout = "compact", className, attachment
                     displayMask={value.displayMask} 
                     partyLabel={value.partyLabel}
                     attachments={attachments}
+                    claimId={claimId}
+                    isPromotedToCCC={isPromotedToCCC}
+                    isPromoting={isPromoting}
+                    onSaveForReuse={onSaveForReuse}
                 />
             </div>
         );
@@ -34,6 +51,8 @@ export function PartyRenderer({ value, layout = "compact", className, attachment
                     displayMask={value.displayMask} 
                     partyLabel={value.partyLabel}
                     attachments={attachments}
+                    isPromotedToCCC={true}
+                    claimId={claimId}
                 />
             </div>
         );

@@ -47,11 +47,19 @@ export interface ResolvedAttachment {
     provenance: AttachmentProvenance[];
 }
 
+export type SaveForReuseTarget =
+    | { kind: 'EMBEDDED_PARTY'; claimId: string; party: import('./party-value').PartyValue }
+    | { kind: 'ADDRESS'; claimId: string; address: import('./address-value').AddressValue };
+
+export type SaveForReuseHandler = (target: SaveForReuseTarget) => Promise<void> | void;
+
 export interface FieldDisplayItem {
     stableKey?: string;
     value: ResolvedFieldValue;
     source?: FieldSource;
     attachments?: ResolvedAttachment[];
+    claimId?: string;
+    isPromotedToCCC?: boolean;
 }
 
 // Discriminated Union for exhaustive type checking on the UI side

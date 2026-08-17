@@ -6,6 +6,8 @@
  * canonical field-interpreter and backend export pipelines.
  */
 
+import { getIdentityVerificationLabel } from './party-value';
+
 export interface StructuredValueFormatResult {
     handled: boolean;
     primary?: string;
@@ -59,6 +61,11 @@ export function formatPersonOrContactRow(row: any): StructuredValueFormatResult 
     if (from || to) {
         const datesStr = from && to ? `${from} → ${to}` : from ? `Appointed ${from}` : `Resigned ${to}`;
         secondary = secondary ? `${secondary} (${datesStr})` : datesStr;
+    }
+
+    const ivLabel = getIdentityVerificationLabel(firstRole?.identityVerification);
+    if (ivLabel) {
+        secondary = secondary ? `${secondary} · ${ivLabel}` : ivLabel;
     }
 
     return { handled: true, primary, secondary };
