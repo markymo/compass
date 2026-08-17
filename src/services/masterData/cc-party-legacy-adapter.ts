@@ -4,29 +4,32 @@ import { CCPartyData, IndividualPartyData, TeamPartyData, OrganisationPartyData,
  * Converts a legacy PartyValue manually emitted by the UI into a canonical v2 CCPartyData.
  * Intentionally omits passively round-tripped legacy embedded addresses (natural upgrade behaviour).
  */
-export function convertLegacyManualPartyToV2(legacyVal: any): CCPartyData {
+export function convertLegacyManualPartyToV2(
+    legacyVal: any,
+    context?: { clientLEId?: string; clientLEName?: string }
+): CCPartyData {
     const base = {
         schemaVersion: 2 as const,
         isActiveParty: legacyVal.isActivePersonOrContact ?? true,
         knownAs: legacyVal.displayName || null,
-        emails: legacyVal.email ? [legacyVal.email] : [],
+        emails: legacyVal.email ? [legacyVal.email] : (Array.isArray(legacyVal.emails) ? legacyVal.emails : []),
         phones: convertPhones(legacyVal.phones),
-        roles: convertRoles(legacyVal.roles),
+        roles: convertRoles(legacyVal.roles, context),
         sourceIdentifiers: convertSourceIdentifiers(legacyVal.sourceIdentifiers)
     };
 
-    const type = legacyVal.partyType || "INDIVIDUAL";
+    const type = legacyVal.partyType || (legacyVal.contactType === 'CONTACT' ? "ORGANISATION" : "INDIVIDUAL");
 
     if (type === "ORGANISATION") {
         const org: OrganisationPartyData = {
             ...base,
             partyType: "ORGANISATION",
-            legalName: legacyVal.organisationName || legacyVal.displayName || "Unknown Organisation",
+            legalName: legacyVal.organisationName || legacyVal.displayName || legacyVal.legalName || legacyVal.name || "Unknown Organisation",
             registeredAddressRef: extractStringRef(legacyVal.registeredAddressRef),
-            incorporatedIn: null,
-            registrationNumber: null,
-            governingLaw: null,
-            legalForm: null
+            incorporatedIn: legacyVal.incorporatedIn || legacyVal.identification?.country_registered || legacyVal.countryOfIncorporation || null,
+            registrationNumber: legacyVal.registrationNumber || legacyVal.identification?.registration_number || legacyVal.company_number || null,
+            governingLaw: legacyVal.governingLaw || null,
+            legalForm: legacyVal.legalForm || legacyVal.identification?.legal_form || null
         };
         return org;
     }
@@ -65,23 +68,30 @@ function convertPhones(phones: any[] | null | undefined): PartyPhone[] {
     }));
 }
 
-function convertRoles(roles: any[] | null | undefined): PartyRole[] {
+function convertRoles(roles: any[] | null | undefined, context?: { clientLEId?: string; clientLEName?: string }): PartyRole[] {
     if (!Array.isArray(roles)) return [];
-    return roles.map(r => ({
-        roleType: r.roleType || null,
-        roleTitle: r.roleTitle || null,
-        company: r.company ? {
-            onProCompanyId: r.company.onProCompanyId || null,
-            externalId: r.company.externalId || null,
-            externalIdScheme: r.company.externalIdScheme || null,
-            name: r.company.name || null
-        } : null,
-        isActiveRole: r.isActiveRole ?? true,
-        appointedOn: r.appointedOn || null,
-        resignedOn: r.resignedOn || null,
-        natureOfControl: r.natureOfControl || [],
-        correspondenceAddressRef: extractStringRef(r.correspondenceAddressRef)
-    }));
+    return roles.map(r => {
+        const onProCompanyId = r.company?.onProCompanyId || context?.clientLEId || null;
+        const companyName = r.company?.name || context?.clientLEName || null;
+        const roleType = r.roleType || (Array.isArray(r.natureOfControl) && r.natureOfControl.length > 0 ? "PSC" : (Array.isArray(r.natures_of_control) && r.natures_of_control.length > 0 ? "PSC" : null));
+        const noc = Array.isArray(r.natureOfControl) ? r.natureOfControl : (Array.isArray(r.natures_of_control) ? r.natures_of_control : []);
+
+        return {
+            roleType,
+            roleTitle: r.roleTitle || null,
+            company: (onProCompanyId || companyName || r.company) ? {
+                onProCompanyId,
+                externalId: r.company?.externalId || null,
+                externalIdScheme: r.company?.externalIdScheme || null,
+                name: companyName
+            } : null,
+            isActiveRole: r.isActiveRole ?? true,
+            appointedOn: r.appointedOn || r.notified_on || null,
+            resignedOn: r.resignedOn || r.ceased_on || null,
+            natureOfControl: noc,
+            correspondenceAddressRef: extractStringRef(r.correspondenceAddressRef)
+        };
+    });
 }
 
 function convertSourceIdentifiers(identifiers: any[] | null | undefined): PartyIdentifier[] {

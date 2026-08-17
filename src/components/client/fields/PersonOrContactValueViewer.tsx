@@ -76,9 +76,17 @@ function Field({ label, value: v }: { label: string; value: React.ReactNode }) {
 function RoleRow({ role, displayMask, index = 0 }: { role: PersonOrContactRole, displayMask?: string[], index?: number }) {
     const showRoleField = (key: string) => isFieldPermittedByMask(`roles[${index}].${key}`, displayMask);
 
+    const isPscRole = role.roleType === 'PSC' ||
+        String(role.roleTitle || '').toLowerCase().includes('person-with-significant-control') ||
+        String(role.roleTitle || '').toLowerCase().includes('person with significant control') ||
+        (Array.isArray(role.natureOfControl) && role.natureOfControl.length > 0);
+
+    const appointedLabel = isPscRole ? 'Notified' : 'Appointed';
+    const resignedLabel  = isPscRole ? 'Ceased'   : 'Resigned';
+
     const dateRange = [
-        showRoleField('appointedOn') && role.appointedOn ? `Appointed ${role.appointedOn}` : null,
-        showRoleField('resignedOn') && role.resignedOn  ? `Resigned ${role.resignedOn}`   : null,
+        showRoleField('appointedOn') && role.appointedOn ? `${appointedLabel} ${role.appointedOn}` : null,
+        showRoleField('resignedOn') && role.resignedOn  ? `${resignedLabel} ${role.resignedOn}`   : null,
     ].filter(Boolean).join(' · ');
 
     const ivLabel = getIdentityVerificationLabel(role.identityVerification);

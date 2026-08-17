@@ -479,6 +479,41 @@ export interface PartyDisplayProjection {
     addressText: string;
 }
 
+const NOC_LABELS: Record<string, string> = {
+    'ownership-of-shares-25-to-50-percent': 'Ownership of shares — 25% to 50%',
+    'ownership-of-shares-50-to-75-percent': 'Ownership of shares — 50% to 75%',
+    'ownership-of-shares-75-to-100-percent': 'Ownership of shares — 75% or more',
+    'voting-rights-25-to-50-percent': 'Ownership of voting rights — 25% to 50%',
+    'voting-rights-50-to-75-percent': 'Ownership of voting rights — 50% to 75%',
+    'voting-rights-75-to-100-percent': 'Ownership of voting rights — 75% or more',
+    'right-to-appoint-and-remove-directors': 'Right to appoint or remove directors',
+    'right-to-appoint-and-remove-personnel': 'Right to appoint or remove personnel',
+    'significant-influence-or-control': 'Significant influence or control',
+    'ownership-of-shares-75-to-100-percent-as-trust': 'Ownership of shares — 75% or more (as trust)',
+    'ownership-of-shares-75-to-100-percent-as-firm': 'Ownership of shares — 75% or more (as firm)',
+    'voting-rights-75-to-100-percent-as-trust': 'Ownership of voting rights — 75% or more (as trust)',
+    'voting-rights-75-to-100-percent-as-firm': 'Ownership of voting rights — 75% or more (as firm)',
+    'right-to-appoint-and-remove-directors-as-trust': 'Right to appoint or remove directors (as trust)',
+    'right-to-appoint-and-remove-directors-as-firm': 'Right to appoint or remove directors (as firm)',
+    'significant-influence-or-control-as-trust': 'Significant influence or control (as trust)',
+    'significant-influence-or-control-as-firm': 'Significant influence or control (as firm)',
+};
+
+export function formatNatureOfControl(noc: string): string {
+    if (!noc) return '';
+    const clean = noc.trim();
+    if (NOC_LABELS[clean]) return NOC_LABELS[clean];
+
+    let label = clean
+        .replace(/-as-(trust|firm)/, ' (as $1)')
+        .replace(/ownership-of-shares-75-to-100-percent/, 'Ownership of shares — 75% or more')
+        .replace(/voting-rights-75-to-100-percent/, 'Ownership of voting rights — 75% or more')
+        .replace(/right-to-appoint-and-remove-directors/, 'Right to appoint or remove directors')
+        .replace(/-/g, ' ');
+
+    return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 /**
  * Returns a full presentation-neutral projection of the Party value, preserving 
  * canonical /master UI formatting (name, role, DOB, email, address) while 
@@ -530,12 +565,31 @@ export function getPartyDisplayProjection(value: any, displayMask?: string[], fa
     const secondaryParts: string[] = [];
     if (showField('roles') && Array.isArray(poc.roles) && poc.roles.length > 0) {
         const r = poc.roles[0];
+
+        const isPsc = r.roleType === 'PSC' ||
+            String(r.roleTitle || '').toLowerCase().includes('person-with-significant-control') ||
+            String(r.roleTitle || '').toLowerCase().includes('person with significant control') ||
+            (Array.isArray(r.natureOfControl) && r.natureOfControl.length > 0);
+
+        const appointedLabel = isPsc ? 'Notified' : 'Appointed';
+        const resignedLabel  = isPsc ? 'Ceased'   : 'Resigned';
+
         let roleStr = r.roleTitle || r.roleType || "";
         const dates = [];
-        if (r.appointedOn) dates.push(`Appointed ${r.appointedOn}`);
-        if (r.resignedOn) dates.push(`Resigned ${r.resignedOn}`);
+        if (r.appointedOn) dates.push(`${appointedLabel} ${r.appointedOn}`);
+        if (r.resignedOn) dates.push(`${resignedLabel} ${r.resignedOn}`);
         if (dates.length > 0) roleStr += ` (${dates.join(' · ')})`;
         if (roleStr) secondaryParts.push(roleStr);
+
+        const showNoc = showField('roles[0].natureOfControl') || showField('role.natureOfControl') || showField('natureOfControl') || showField('roles');
+        if (showNoc && Array.isArray(r.natureOfControl) && r.natureOfControl.length > 0) {
+            for (const noc of r.natureOfControl) {
+                const formattedNoc = formatNatureOfControl(noc);
+                if (formattedNoc && !secondaryParts.includes(formattedNoc)) {
+                    secondaryParts.push(formattedNoc);
+                }
+            }
+        }
 
         const ivLabel = getIdentityVerificationLabel(r.identityVerification);
         if (ivLabel) secondaryParts.push(ivLabel);
