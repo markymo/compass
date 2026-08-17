@@ -300,6 +300,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                             engagementId={engagement.id}
                             documents={sharedDocuments || []}
                             evidenceDocuments={evidenceDocuments}
+                            clientLEId={le.id}
                         />
                     </TabsContent>
 
@@ -316,7 +317,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
 
                     <TabsContent value="team" className="mt-0 space-y-6">
                         {/* Active Members Card */}
-                        <Card>
+                        <Card variant="structural">
                             <CardHeader className="pb-3 border-b border-slate-100 mb-4">
                                 <CardTitle className="text-lg text-slate-800">Active Team Members</CardTitle>
                                 <CardDescription>Users who have access to this engagement.</CardDescription>
@@ -346,7 +347,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                         </Card>
 
                         {/* Pending Invitations Card */}
-                        <Card>
+                        <Card variant="structural">
                             <CardHeader className="pb-3 border-b border-slate-100 mb-4">
                                 <div className="flex items-center justify-between">
                                     <div>

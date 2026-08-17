@@ -91,10 +91,15 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
         });
         clientLEId = le.id;
         subjectLeId = realLe.id;
+
+        await prisma.membership.create({
+            data: { userId: 'test-user-id', clientLEId, role: 'LE_ADMIN' }
+        });
     });
 
     afterAll(async () => {
         // Cleanup
+        await prisma.membership.deleteMany({ where: { clientLEId } });
         await prisma.fieldClaim.deleteMany({ where: { clientLeScopeId: clientLEId } }); // delete all test claims safely
         await prisma.fieldClaim.deleteMany({ where: { subjectLeId: subjectLeId } });
         await prisma.fieldClaim.deleteMany({ where: { id: { in: testClaims } } });

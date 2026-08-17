@@ -41,7 +41,7 @@ describe('LibraryUploader', () => {
     });
 
     it('invalid size rejected before upload', async () => {
-        render(<LibraryUploader clientLEId="le-1" />);
+        render(<LibraryUploader clientLEId="le-1" label="Upload Document" />);
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         
         // Mock a 25MB file
@@ -55,7 +55,7 @@ describe('LibraryUploader', () => {
     });
 
     it('invalid type rejected before upload', async () => {
-        render(<LibraryUploader clientLEId="le-1" />);
+        render(<LibraryUploader clientLEId="le-1" label="Upload Document" />);
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         
         const file = new File([''], 'script.exe', { type: 'application/x-msdownload' });
@@ -66,7 +66,7 @@ describe('LibraryUploader', () => {
     });
 
     it('idle -> uploading percentage -> processing', async () => {
-        render(<LibraryUploader clientLEId="le-1" />);
+        render(<LibraryUploader clientLEId="le-1" label="Upload Document" />);
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         
         let progressCallback: any;
@@ -94,7 +94,7 @@ describe('LibraryUploader', () => {
     });
 
     it('completed intent triggers one router.refresh()', async () => {
-        render(<LibraryUploader clientLEId="le-1" />);
+        render(<LibraryUploader clientLEId="le-1" label="Upload Document" />);
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         
         vi.mocked(upload).mockResolvedValue({ clientPayload: JSON.stringify({ intentId: 'intent-1' }) } as any);
@@ -112,7 +112,7 @@ describe('LibraryUploader', () => {
     });
 
     it('failed upload resets the control and shows an error', async () => {
-        render(<LibraryUploader clientLEId="le-1" />);
+        render(<LibraryUploader clientLEId="le-1" label="Upload Document" />);
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         
         vi.mocked(upload).mockRejectedValue(new Error('Network Error'));
@@ -128,7 +128,7 @@ describe('LibraryUploader', () => {
     });
 
     it('failed processing intent resets the control and shows an error', async () => {
-        render(<LibraryUploader clientLEId="le-1" />);
+        render(<LibraryUploader clientLEId="le-1" label="Upload Document" />);
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         
         vi.mocked(upload).mockResolvedValue({ clientPayload: JSON.stringify({ intentId: 'intent-1' }) } as any);
@@ -145,7 +145,7 @@ describe('LibraryUploader', () => {
     });
 
     it('polling timeout or repeated polling failure', async () => {
-        render(<LibraryUploader clientLEId="le-1" />);
+        render(<LibraryUploader clientLEId="le-1" label="Upload Document" />);
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         
         vi.mocked(upload).mockResolvedValue({ clientPayload: JSON.stringify({ intentId: 'intent-1' }) } as any);
@@ -174,7 +174,7 @@ describe('LibraryUploader', () => {
     });
 
     it('no concurrent second upload while one is active', async () => {
-        render(<LibraryUploader clientLEId="le-1" />);
+        render(<LibraryUploader clientLEId="le-1" label="Upload Document" />);
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         
         // Mock upload to hang

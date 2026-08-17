@@ -156,10 +156,10 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
             {linked.length > 0 ? (
                 <div className="flex flex-col gap-3">
                     {/* --- 2-Tier Header Row --- */}
-                    <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-slate-200 bg-slate-50/80 rounded-t-xl border-x border-t", DASHBOARD_GRID_V2)}>
+                    <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-slate-200 bg-slate-50/80 rounded-t-md border-x border-t", DASHBOARD_GRID_V2)}>
                         {/* 1. Entity */}
                         <div className="flex items-center gap-2 pr-4 pl-1">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-[32px]">Questionnaire</span>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-7">Questionnaire</span>
                         </div>
 
                         {/* 2. Anchor (Total) */}
@@ -169,7 +169,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
 
                         {/* 3. Sourcing Group */}
                         <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Data Sourcing</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Data Sourcing</span>
                             <div className="flex justify-between pr-4 items-end">
                                 <span className="text-[10px] font-bold text-sky-600 uppercase">Mapped</span>
                             </div>
@@ -177,7 +177,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
 
                         {/* 4. Completion Group */}
                         <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Completion</span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Completion</span>
                             <div className="flex justify-between pr-4 items-end">
                                 <span className="text-[10px] font-bold text-amber-600 uppercase">Answered</span>
                             </div>
@@ -185,8 +185,8 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
 
                         {/* 5. Workflow Group */}
                         <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Sign-Off</span>
-                            <div className="flex justify-between pr-[80px] items-end">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sign-Off</span>
+                            <div className="flex justify-between pr-20 items-end">
                                 <span className="text-[10px] font-bold text-indigo-600 uppercase">Approved</span>
                                 <span className="text-[10px] font-bold text-emerald-600 uppercase">Released</span>
                             </div>
@@ -195,7 +195,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
 
                     <div className="grid gap-3">
                         {linked.map((q: any) => (
-                            <div key={q.id} className="p-3 rounded-lg border border-slate-200 bg-white shadow-sm hover:border-indigo-300 transition-colors group/card">
+                            <div key={q.id} className="p-3 rounded-md border border-slate-200 bg-white shadow-sm hover:border-indigo-300 transition-colors group/card">
                                 <div className={cn("hidden md:grid items-center gap-2", DASHBOARD_GRID_V2)}>
                                     {/* Col 1: Name and Badges */}
                                     <div className="flex items-center gap-3 overflow-hidden pr-4 pl-4">
@@ -296,9 +296,51 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                     </div>
                 </div>
             ) : (
-                 <div className="text-center py-10 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
-                     <p className="text-slate-500">No Common Questionnaires added yet.</p>
-                     <p className="text-sm text-slate-400 mt-1">Search above to add standard questionnaires.</p>
+                 <div className="text-center py-10 bg-slate-50 rounded-md border border-dashed border-slate-200">
+                     <p className="font-medium text-slate-700">No Common Questionnaires added yet.</p>
+                     <p className="text-sm text-slate-500 mt-1 mb-4">Use the + Add button to search and add standard questionnaires.</p>
+                     <Popover open={open} onOpenChange={(val) => { setOpen(val); if (val) fetchAvailable(); }}>
+                         <PopoverTrigger asChild>
+                             <Button variant="outline" size="sm" className="h-8 text-xs px-3 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                                 <Plus className="h-3.5 w-3.5 mr-1.5" />
+                                 Add Questionnaire
+                             </Button>
+                         </PopoverTrigger>
+                         <PopoverContent className="w-full md:w-[400px] p-0" align="center">
+                             <Command>
+                                 <CommandInput placeholder="Search global questionnaires..." />
+                                 <CommandList>
+                                     <CommandEmpty>
+                                         {isLoading ? "Loading..." : "No questionnaires found."}
+                                     </CommandEmpty>
+                                     <CommandGroup>
+                                         {available.map((snapshot) => (
+                                             <CommandItem
+                                                 key={snapshot.id}
+                                                 value={`${snapshot.id} ${snapshot.name} ${snapshot.referenceCode || ""} ${snapshot.functionalCode || ""} ${snapshot.description || ""}`}
+                                                 onSelect={() => handleAdd(snapshot)}
+                                                 className="flex flex-col items-start py-3 cursor-pointer"
+                                             >
+                                                 <div className="flex items-center w-full">
+                                                     <FileText className="mr-2 h-4 w-4 text-indigo-500 shrink-0" />
+                                                     <span className="font-medium truncate flex-1">{snapshot.name}</span>
+                                                     {linked.find((q: any) => q.id === snapshot.id) && (
+                                                         <Check className="ml-2 h-4 w-4 text-indigo-600 shrink-0" />
+                                                     )}
+                                                 </div>
+                                                 {snapshot.referenceCode && (
+                                                     <span className="text-xs text-slate-400 mt-1 ml-6">{snapshot.referenceCode}</span>
+                                                 )}
+                                                 {snapshot.description && (
+                                                     <span className="text-xs text-slate-500 mt-0.5 ml-6 line-clamp-1">{snapshot.description}</span>
+                                                 )}
+                                             </CommandItem>
+                                         ))}
+                                     </CommandGroup>
+                                 </CommandList>
+                             </Command>
+                         </PopoverContent>
+                     </Popover>
                  </div>
             )}
 

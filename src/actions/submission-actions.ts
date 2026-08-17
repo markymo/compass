@@ -1,6 +1,9 @@
 "use server";
 
 import { getIdentity } from "@/lib/auth";
+import { getActorContext } from "@/lib/auth/actor-context";
+import { can, Action } from "@/lib/auth/permissions";
+import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import {
     createQuestionnaireSubmission,
@@ -17,6 +20,12 @@ export async function submitQuestionnaireAction(params: {
 }) {
     const identity = await getIdentity();
     if (!identity?.userId) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    const actor = await getActorContext(identity.userId);
+    const hasAccess = await can(actor, Action.ENG_SIGNOFF_RESPONSES, { engagementId: params.relationshipId }, prisma);
+    if (!hasAccess) {
         return { success: false, error: "Unauthorized" };
     }
 
@@ -46,6 +55,16 @@ export async function getSubmissionHistoryAction(params: {
         return { success: false, error: "Unauthorized" };
     }
 
+    if (!params.relationshipId) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    const actor = await getActorContext(identity.userId);
+    const hasAccess = await can(actor, Action.ENG_VIEW_RELEASED_DATA, { engagementId: params.relationshipId }, prisma);
+    if (!hasAccess) {
+        return { success: false, error: "Unauthorized" };
+    }
+
     try {
         const history = await getSubmissionHistoryForRelationship(
             params.questionnaireId,
@@ -64,9 +83,23 @@ export async function getSubmissionDetailAction(submissionId: string) {
     }
 
     try {
+        const subMeta = await prisma.questionnaireSubmission.findUnique({
+            where: { id: submissionId },
+            select: { relationshipId: true }
+        });
+        if (!subMeta) {
+            return { success: false, error: "Unauthorized" };
+        }
+
+        const actor = await getActorContext(identity.userId);
+        const hasAccess = await can(actor, Action.ENG_VIEW_RELEASED_DATA, { engagementId: subMeta.relationshipId }, prisma);
+        if (!hasAccess) {
+            return { success: false, error: "Unauthorized" };
+        }
+
         const submission = await getSubmissionById(submissionId);
         if (!submission) {
-            return { success: false, error: "Submission not found." };
+            return { success: false, error: "Unauthorized" };
         }
         return { success: true, data: JSON.parse(JSON.stringify(submission)) };
     } catch (e: any) {
@@ -80,8 +113,13 @@ export async function getRelationshipsForLEAction(clientLEId: string) {
         return { success: false, error: "Unauthorized" };
     }
 
+    const actor = await getActorContext(identity.userId);
+    const hasAccess = await can(actor, Action.LE_VIEW_MASTER_DATA, { clientLEId }, prisma);
+    if (!hasAccess) {
+        return { success: false, error: "Unauthorized" };
+    }
+
     try {
-        const prisma = (await import("@/lib/prisma")).default;
         const engagements = await prisma.fIEngagement.findMany({
             where: { clientLEId, isDeleted: false },
             include: { org: { select: { id: true, name: true } } },

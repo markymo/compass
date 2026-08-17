@@ -52,7 +52,7 @@ export function FilesLibraryManager({ clientLEId, initialFiles }: FilesLibraryMa
                     <FileText className="h-5 w-5 text-slate-500" />
                     <h2 className="text-lg font-semibold tracking-tight text-slate-900">Files</h2>
                 </div>
-                <LibraryUploader clientLEId={clientLEId} iconOnly />
+                <LibraryUploader clientLEId={clientLEId} />
             </div>
 
             <Card className="border-slate-200/80 shadow-xs rounded-xl bg-white">
@@ -72,8 +72,8 @@ export function FilesLibraryManager({ clientLEId, initialFiles }: FilesLibraryMa
                     {initialFiles.length === 0 ? (
                         <div className="text-center py-12 bg-gray-50 rounded-md border border-dashed border-gray-200">
                             <Info className="mx-auto h-8 w-8 text-gray-400 mb-3" />
-                            <p className="text-gray-500 font-medium">No documents have been added.</p>
-                            <p className="text-gray-400 text-sm mt-1">Files uploaded to this organization will appear here.</p>
+                            <p className="text-gray-500 font-medium mb-4">No files uploaded yet.</p>
+                            <LibraryUploader clientLEId={clientLEId} label="Add your first file" />
                         </div>
                     ) : filteredFiles.length === 0 ? (
                         <div className="text-center py-12 bg-gray-50 rounded-md border border-dashed border-gray-200">
