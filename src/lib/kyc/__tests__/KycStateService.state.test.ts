@@ -14,17 +14,25 @@ describe('KycStateService Canonical State Resolver', () => {
             expect(state).toBe('HAS_VALUE');
         });
 
-        it('returns CHECKED_NO_DATA when source evaluated, no value, default configured', () => {
-            const state = KycStateService.calculateDisplayState({
+        it('returns CHECKED_NO_DATA when source evaluated, no value, even if empty or genuine default configured', () => {
+            const stateWithDefault = KycStateService.calculateDisplayState({
                 hasValue: false,
                 hasApplicableMapping: true,
                 hasApplicableEvaluationAttempt: true,
                 defaultText: 'Default'
             });
-            expect(state).toBe('CHECKED_NO_DATA');
+            expect(stateWithDefault).toBe('CHECKED_NO_DATA');
+
+            const stateWithEmptyDefault = KycStateService.calculateDisplayState({
+                hasValue: false,
+                hasApplicableMapping: true,
+                hasApplicableEvaluationAttempt: true,
+                defaultText: ''
+            });
+            expect(stateWithEmptyDefault).toBe('CHECKED_NO_DATA');
         });
 
-        it('returns DEFAULT_RESPONSE when no applicable evaluation, default configured', () => {
+        it('returns DEFAULT_RESPONSE when no applicable evaluation and a genuine default is configured', () => {
             const state = KycStateService.calculateDisplayState({
                 hasValue: false,
                 hasApplicableMapping: true,
@@ -34,44 +42,74 @@ describe('KycStateService Canonical State Resolver', () => {
             expect(state).toBe('DEFAULT_RESPONSE');
         });
 
-        it('returns DEFAULT_RESPONSE even if not mapped', () => {
+        it('returns DEFAULT_RESPONSE even if not mapped when a genuine default is configured', () => {
             const state = KycStateService.calculateDisplayState({
                 hasValue: false,
                 hasApplicableMapping: false,
                 hasApplicableEvaluationAttempt: false,
-                defaultText: 'Default'
+                defaultText: 'Fallback Value'
             });
             expect(state).toBe('DEFAULT_RESPONSE');
         });
 
-        it('returns MAPPED_NOT_CHECKED when applicable mapping exists, not evaluated, no default', () => {
-            const state = KycStateService.calculateDisplayState({
+        it('returns MAPPED_NOT_CHECKED when applicable mapping exists, not evaluated, no genuine default', () => {
+            const stateUndefined = KycStateService.calculateDisplayState({
                 hasValue: false,
                 hasApplicableMapping: true,
                 hasApplicableEvaluationAttempt: false,
                 defaultText: undefined
             });
-            expect(state).toBe('MAPPED_NOT_CHECKED');
+            expect(stateUndefined).toBe('MAPPED_NOT_CHECKED');
+
+            const stateEmpty = KycStateService.calculateDisplayState({
+                hasValue: false,
+                hasApplicableMapping: true,
+                hasApplicableEvaluationAttempt: false,
+                defaultText: ''
+            });
+            expect(stateEmpty).toBe('MAPPED_NOT_CHECKED');
+
+            const stateWhitespace = KycStateService.calculateDisplayState({
+                hasValue: false,
+                hasApplicableMapping: true,
+                hasApplicableEvaluationAttempt: false,
+                defaultText: '   '
+            });
+            expect(stateWhitespace).toBe('MAPPED_NOT_CHECKED');
         });
 
-        it('returns UNMAPPED_NO_RESPONSE when no mapping, no evaluation, no default', () => {
-            const state = KycStateService.calculateDisplayState({
+        it('returns UNMAPPED_NO_RESPONSE when no mapping, no evaluation, and no genuine default', () => {
+            const stateUndefined = KycStateService.calculateDisplayState({
                 hasValue: false,
                 hasApplicableMapping: false,
                 hasApplicableEvaluationAttempt: false,
                 defaultText: undefined
             });
-            expect(state).toBe('UNMAPPED_NO_RESPONSE');
-        });
+            expect(stateUndefined).toBe('UNMAPPED_NO_RESPONSE');
 
-        it('does not reject falsy valid defaults (e.g., empty string or "0" if configured)', () => {
-            const state = KycStateService.calculateDisplayState({
+            const stateNull = KycStateService.calculateDisplayState({
                 hasValue: false,
                 hasApplicableMapping: false,
                 hasApplicableEvaluationAttempt: false,
-                defaultText: '' // configured empty string
+                defaultText: null
             });
-            expect(state).toBe('DEFAULT_RESPONSE');
+            expect(stateNull).toBe('UNMAPPED_NO_RESPONSE');
+
+            const stateEmpty = KycStateService.calculateDisplayState({
+                hasValue: false,
+                hasApplicableMapping: false,
+                hasApplicableEvaluationAttempt: false,
+                defaultText: ''
+            });
+            expect(stateEmpty).toBe('UNMAPPED_NO_RESPONSE');
+
+            const stateWhitespace = KycStateService.calculateDisplayState({
+                hasValue: false,
+                hasApplicableMapping: false,
+                hasApplicableEvaluationAttempt: false,
+                defaultText: '   \t  '
+            });
+            expect(stateWhitespace).toBe('UNMAPPED_NO_RESPONSE');
         });
     });
 
@@ -125,7 +163,7 @@ describe('KycStateService Canonical State Resolver', () => {
             };
             const result = KycStateService.evaluateSyncAttempt(clientLE, mappings);
             expect(result.hasApplicableMapping).toBe(true);
-            expect(result.hasApplicableEvaluationAttempt).toBe(false); // Should be false because FR_RNCS does not match GB_CH
+            expect(result.hasApplicableEvaluationAttempt).toBe(false);
         });
     });
 });

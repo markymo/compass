@@ -75,11 +75,12 @@ export class KycStateService {
         hasValue: boolean;
         hasApplicableMapping: boolean;
         hasApplicableEvaluationAttempt: boolean;
-        defaultText?: string;
+        defaultText?: string | null;
     }): "HAS_VALUE" | "CHECKED_NO_DATA" | "DEFAULT_RESPONSE" | "MAPPED_NOT_CHECKED" | "UNMAPPED_NO_RESPONSE" {
         if (args.hasValue) return "HAS_VALUE";
         if (args.hasApplicableMapping && args.hasApplicableEvaluationAttempt) return "CHECKED_NO_DATA";
-        if (args.defaultText !== undefined && args.defaultText !== null) return "DEFAULT_RESPONSE";
+        const hasGenuineDefault = typeof args.defaultText === 'string' && args.defaultText.trim().length > 0;
+        if (hasGenuineDefault) return "DEFAULT_RESPONSE";
         if (args.hasApplicableMapping && !args.hasApplicableEvaluationAttempt) return "MAPPED_NOT_CHECKED";
         return "UNMAPPED_NO_RESPONSE";
     }

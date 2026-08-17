@@ -41,7 +41,7 @@ describe('field-interpreter', () => {
         expect(result.state).toBe('NO_DATA');
     });
 
-    it('resolves DEFAULT state with scalar display value', () => {
+    it('resolves DEFAULT state with scalar display value for genuine non-empty defaultText', () => {
         const meta = { ...defaultMeta, displayState: 'DEFAULT_RESPONSE' as const, defaultText: 'Not Applicable' };
         // Value is typically null when falling back to default
         const result = resolveFieldForDisplay(null, null, meta);
@@ -50,6 +50,24 @@ describe('field-interpreter', () => {
         expect(result.value).toEqual({ kind: 'scalar', display: 'Not Applicable', rawValue: 'Not Applicable' });
         expect(result.textSummary).toBe('Not Applicable');
         expect(result.source?.type).toBe('DEFAULT');
+    });
+
+    it('degrades empty or whitespace defaultText to NO_DATA state with no DEFAULT source provenance', () => {
+        const emptyMeta = { ...defaultMeta, displayState: 'DEFAULT_RESPONSE' as const, defaultText: '' };
+        const resultEmpty = resolveFieldForDisplay(null, null, emptyMeta);
+
+        expect(resultEmpty.state).toBe('NO_DATA');
+        expect(resultEmpty.value).toEqual({ kind: 'empty' });
+        expect(resultEmpty.source).toBeNull();
+        expect(resultEmpty.defaultText).toBeUndefined();
+
+        const wsMeta = { ...defaultMeta, displayState: 'DEFAULT_RESPONSE' as const, defaultText: '   ' };
+        const resultWs = resolveFieldForDisplay(null, null, wsMeta);
+
+        expect(resultWs.state).toBe('NO_DATA');
+        expect(resultWs.value).toEqual({ kind: 'empty' });
+        expect(resultWs.source).toBeNull();
+        expect(resultWs.defaultText).toBeUndefined();
     });
 
     it('formats DATE appDataType correctly with valid date string', () => {

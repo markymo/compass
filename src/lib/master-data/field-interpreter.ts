@@ -158,8 +158,12 @@ export function resolveFieldForDisplay(
         }
     }
 
-    const state = resolveState(metadata.displayState, parsedValue);
-    const resolvedValue = resolveValue(parsedValue, state, metadata.defaultText, metadata.profileConfig?.displayMask, metadata.codeSystem, metadata.appDataType, metadata.fieldNo);
+    const normalizedDefaultText = typeof metadata.defaultText === 'string' && metadata.defaultText.trim().length > 0
+        ? metadata.defaultText.trim()
+        : undefined;
+
+    const state = resolveState(metadata.displayState, parsedValue, normalizedDefaultText);
+    const resolvedValue = resolveValue(parsedValue, state, normalizedDefaultText, metadata.profileConfig?.displayMask, metadata.codeSystem, metadata.appDataType, metadata.fieldNo);
     const source = resolveSource(rawSource, state);
 
     return {
@@ -170,8 +174,8 @@ export function resolveFieldForDisplay(
         state,
         value: resolvedValue,
         source,
-        textSummary: generateTextSummary(resolvedValue, metadata.defaultText),
-        defaultText: metadata.defaultText,
+        textSummary: generateTextSummary(resolvedValue, normalizedDefaultText),
+        defaultText: normalizedDefaultText,
         isEditable: metadata.isEditable ?? false,
         isMultiValue: metadata.isMultiValue ?? false,
         attachments: metadata.attachments || [],
@@ -183,11 +187,16 @@ export function resolveFieldForDisplay(
 
 function resolveState(
     displayState: FieldInterpreterMetadata['displayState'],
-    parsedValue: any
+    parsedValue: any,
+    defaultText?: string
 ): FieldDisplayModel['state'] {
     if (displayState === 'UNMAPPED_NO_RESPONSE') return 'UNMAPPED';
     if (displayState === 'CHECKED_NO_DATA') return 'NO_DATA';
-    if (displayState === 'DEFAULT_RESPONSE') return 'DEFAULT';
+    if (displayState === 'DEFAULT_RESPONSE') {
+        const hasGenuineDefault = typeof defaultText === 'string' && defaultText.trim().length > 0;
+        if (hasGenuineDefault) return 'DEFAULT';
+        return 'NO_DATA';
+    }
 
     if (parsedValue && typeof parsedValue === 'object' && !Array.isArray(parsedValue) && parsedValue.explicitNone === true) {
         return 'EXPLICIT_NONE';
