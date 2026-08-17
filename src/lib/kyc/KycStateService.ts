@@ -86,47 +86,153 @@ export class KycStateService {
     }
 
     /**
+    /**
+     * Central helper: Determines whether a specific SourceFieldMapping applies
+     * to a Client LE based on the LE's actual registry references and source capabilities.
+     */
+    /**
+     * Central helper: Determines whether a specific SourceFieldMapping applies
+     * to a Client LE based on the LE's actual registry references and source capabilities.
+     */
+    static isMappingApplicableToLE(
+        mapping: { sourceType: string; sourceReference: string | null },
+        clientLE: { lei?: string | null; gleifFetchedAt?: Date | null; registryReferences?: Array<any> | null } | null | undefined
+    ): boolean {
+        if (!clientLE) return false;
+
+        const st = mapping.sourceType;
+
+        // USER_INPUT and SYSTEM_DERIVED are universal
+        if (st === "USER_INPUT" || st === "SYSTEM_DERIVED") {
+            return true;
+        }
+
+        // AI_EXTRACTION is legacy/non-active functionality — preserve existing universal behavior
+        if (st === "AI_EXTRACTION") {
+            return true;
+        }
+
+        // GLEIF is NOT universal. Applicable ONLY when there is actual domain evidence:
+        // - A genuine non-empty LEI string; OR
+        // - A valid historical/successful GLEIF fetch timestamp (gleifFetchedAt is non-null)
+        if (st === "GLEIF") {
+            const hasValidLei = typeof clientLE.lei === 'string' && clientLE.lei.trim().length > 0;
+            const hasFetchedAt = clientLE.gleifFetchedAt !== null && clientLE.gleifFetchedAt !== undefined && Boolean(clientLE.gleifFetchedAt);
+            return hasValidLei || hasFetchedAt;
+        }
+
+        // Registry-dependent sources: REGISTRATION_AUTHORITY, COMPANIES_HOUSE, NATIONAL_REGISTRY
+        if (st === "REGISTRATION_AUTHORITY" || st === "COMPANIES_HOUSE" || st === "NATIONAL_REGISTRY") {
+            if (!clientLE.registryReferences || clientLE.registryReferences.length === 0) {
+                return false;
+            }
+
+            return clientLE.registryReferences.some((r: any) => {
+                // "ALL" matches any ClientLE that has at least one RegistryReference
+                if (mapping.sourceReference === "ALL") return true;
+
+                // Exact scoped matches against mappingSourceKey, registryKey, or registryAuthorityId
+                if (mapping.sourceReference && mapping.sourceReference === r.authority?.mappingSourceKey) return true;
+                if (mapping.sourceReference && mapping.sourceReference === r.authority?.registryKey) return true;
+                if (mapping.sourceReference && mapping.sourceReference === r.registryAuthorityId) return true;
+
+                // Legacy COMPANIES_HOUSE / GB_COMPANIES_HOUSE matching
+                if (st === "COMPANIES_HOUSE" || mapping.sourceReference === "COMPANIES_HOUSE") {
+                    if (r.authority?.registryKey === "COMPANIES_HOUSE" || 
+                        r.authority?.mappingSourceKey === "COMPANIES_HOUSE" ||
+                        r.authority?.registryKey === "GB_COMPANIES_HOUSE" ||
+                        r.registryAuthorityId === "RA000585" ||
+                        r.registryAuthorityId === "RA000586" ||
+                        r.registryAuthorityId === "RA000587") {
+                        return true;
+                    }
+                }
+
+                // Legacy NATIONAL_REGISTRY matching (historical generic category for specific national registries)
+                if (st === "NATIONAL_REGISTRY") {
+                    if (r.authority?.registryKey || r.authority?.mappingSourceKey || r.registryAuthorityId) {
+                        if (!mapping.sourceReference) return true;
+                    }
+                }
+
+                // Conservative handling for legacy null / unscoped sourceReference:
+                // An unscoped registry mapping (sourceReference === null) must NOT assert applicability
+                // to a specifically identified unrelated registry (e.g. French RNCS, German HRB, etc.).
+                // It only matches if the reference authority itself is unscoped/unidentified
+                // (e.g. r.authority is missing registryKey and mappingSourceKey).
+                if (!mapping.sourceReference) {
+                    if (!r.authority?.registryKey && !r.authority?.mappingSourceKey) {
+                        return true;
+                    }
+                }
+
+                return false;
+            });
+        }
+
+        return false;
+    }
+
+    /**
      * Shared mapping-evaluation helper.
      * Distinguishes:
-     * - mapping exists globally
-     * - applicable mapping was actually evaluated
+     * - mapping is genuinely applicable to this Client LE
+     * - applicable mapping was actually evaluated successfully
      */
     static evaluateSyncAttempt(
-        clientLE: { gleifFetchedAt?: Date | null; registryReferences?: Array<any> | null } | null | undefined,
+        clientLE: { lei?: string | null; gleifFetchedAt?: Date | null; registryReferences?: Array<any> | null } | null | undefined,
         mappings: Array<{ sourceType: string; sourceReference: string | null }>
     ): { hasApplicableMapping: boolean; hasApplicableEvaluationAttempt: boolean; evaluatedSourceBadge: string | null; evaluatedSourceTimestamp: Date | null } {
-        if (!mappings || mappings.length === 0) {
+        if (!mappings || mappings.length === 0 || !clientLE) {
             return { hasApplicableMapping: false, hasApplicableEvaluationAttempt: false, evaluatedSourceBadge: null, evaluatedSourceTimestamp: null };
         }
 
-        const hasApplicableMapping = true; 
+        const applicableMappings = mappings.filter(m => KycStateService.isMappingApplicableToLE(m, clientLE));
+        const hasApplicableMapping = applicableMappings.length > 0;
         
         let hasApplicableEvaluationAttempt = false;
         let evaluatedSourceBadge: string | null = null;
         let evaluatedSourceTimestamp: Date | null = null;
 
-        if (clientLE) {
-            for (const mapping of mappings) {
-                if (mapping.sourceType === "GLEIF" && clientLE.gleifFetchedAt) {
+        for (const mapping of applicableMappings) {
+            if (mapping.sourceType === "GLEIF") {
+                if (clientLE.gleifFetchedAt !== null && clientLE.gleifFetchedAt !== undefined && Boolean(clientLE.gleifFetchedAt)) {
                     hasApplicableEvaluationAttempt = true;
                     evaluatedSourceBadge = "GLEIF";
-                    evaluatedSourceTimestamp = clientLE.gleifFetchedAt;
+                    evaluatedSourceTimestamp = clientLE.gleifFetchedAt instanceof Date ? clientLE.gleifFetchedAt : new Date(clientLE.gleifFetchedAt);
                     break;
                 }
-                if (mapping.sourceType === "REGISTRATION_AUTHORITY" || mapping.sourceType === "COMPANIES_HOUSE") {
-                    if (clientLE.registryReferences && clientLE.registryReferences.length > 0) {
-                        const matchingRef = clientLE.registryReferences.find((r: any) => {
-                            if (mapping.sourceReference === "ALL") return true;
-                            if (!mapping.sourceReference && r.authority?.registryKey) return false;
-                            if (mapping.sourceReference === r.authority?.registryKey) return true;
-                            return false;
-                        });
-                        if (matchingRef) {
-                            hasApplicableEvaluationAttempt = true;
-                            evaluatedSourceBadge = mapping.sourceReference || mapping.sourceType;
-                            evaluatedSourceTimestamp = matchingRef.lastSyncSucceededAt || matchingRef.createdAt;
-                            break;
+            }
+            if (mapping.sourceType === "REGISTRATION_AUTHORITY" || mapping.sourceType === "COMPANIES_HOUSE" || mapping.sourceType === "NATIONAL_REGISTRY") {
+                if (clientLE.registryReferences && clientLE.registryReferences.length > 0) {
+                    const matchingRef = clientLE.registryReferences.find((r: any) => {
+                        if (mapping.sourceReference === "ALL") return true;
+                        if (mapping.sourceReference && mapping.sourceReference === r.authority?.mappingSourceKey) return true;
+                        if (mapping.sourceReference && mapping.sourceReference === r.authority?.registryKey) return true;
+                        if (mapping.sourceReference && mapping.sourceReference === r.registryAuthorityId) return true;
+                        if ((mapping.sourceType === "COMPANIES_HOUSE" || mapping.sourceReference === "COMPANIES_HOUSE") && 
+                            (r.authority?.registryKey === "COMPANIES_HOUSE" || r.authority?.mappingSourceKey === "COMPANIES_HOUSE" || r.authority?.registryKey === "GB_COMPANIES_HOUSE" || r.registryAuthorityId === "RA000585" || r.registryAuthorityId === "RA000586" || r.registryAuthorityId === "RA000587")) {
+                            return true;
                         }
+                        if (mapping.sourceType === "NATIONAL_REGISTRY" && (r.authority?.registryKey || r.authority?.mappingSourceKey || r.registryAuthorityId)) {
+                            if (!mapping.sourceReference) return true;
+                        }
+                        if (!mapping.sourceReference && !r.authority?.registryKey && !r.authority?.mappingSourceKey) {
+                            return true;
+                        }
+                        return false;
+                    });
+                    
+                    // Evaluation Evidence Fix:
+                    // MUST require matchingRef.lastSyncSucceededAt != null (or lastSyncStatus === 'SUCCESS').
+                    // createdAt alone or lastSyncAttemptAt (without lastSyncSucceededAt) MUST NOT count as a successful check!
+                    const hasSuccessfulSync = matchingRef && matchingRef.lastSyncSucceededAt !== null && matchingRef.lastSyncSucceededAt !== undefined;
+
+                    if (hasSuccessfulSync) {
+                        hasApplicableEvaluationAttempt = true;
+                        evaluatedSourceBadge = mapping.sourceReference || matchingRef.authority?.name || matchingRef.authority?.mappingSourceKey || matchingRef.authority?.registryKey || mapping.sourceType;
+                        evaluatedSourceTimestamp = matchingRef.lastSyncSucceededAt instanceof Date ? matchingRef.lastSyncSucceededAt : new Date(matchingRef.lastSyncSucceededAt);
+                        break;
                     }
                 }
             }
@@ -134,6 +240,7 @@ export class KycStateService {
 
         return { hasApplicableMapping, hasApplicableEvaluationAttempt, evaluatedSourceBadge, evaluatedSourceTimestamp };
     }
+
 
     /**
      * Pre-loads SourceFieldMapping priority values for all unique

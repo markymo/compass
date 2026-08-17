@@ -443,6 +443,20 @@ describe('field-interpreter', () => {
             expect(model.state).toBe('UNMAPPED');
             expect(model.source).toBeNull();
         });
+
+        it('resolves MAPPED_NOT_CHECKED to state UNMAPPED (empty/unset representation)', () => {
+            const meta: FieldInterpreterMetadata = {
+                fieldNo: 20,
+                label: 'Mapped Not Checked Field',
+                displayState: 'MAPPED_NOT_CHECKED',
+                isMultiValue: false,
+                rawSource: null
+            };
+
+            const model = resolveFieldForDisplay(null, null, meta);
+            expect(model.state).toBe('UNMAPPED');
+            expect(model.value).toEqual({ kind: 'empty' });
+        });
     });
 });
 

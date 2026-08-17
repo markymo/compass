@@ -1417,13 +1417,13 @@ export async function getFieldDetail(
     let sourceSyncDerivedLastValidatedAt: Date | null = null;
     const mappedSources = await prisma.sourceFieldMapping.findMany({
         where: { targetFieldNo: fieldNo, isActive: true },
-        select: { sourceType: true }
+        select: { sourceType: true, sourceReference: true }
     });
     
     if (mappedSources.length > 0 && entityType === 'CLIENT_LE') {
         const fullClientLE = await prisma.clientLE.findUnique({
             where: { id: entityId },
-            include: { registryReferences: true }
+            include: { registryReferences: { include: { authority: true } } }
         });
         if (fullClientLE) {
             const sources = mappedSources.map((m: any) => m.sourceType);

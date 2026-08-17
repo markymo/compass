@@ -99,7 +99,7 @@ describe("Master Record Empty States & Releases", () => {
 
     it("4. Mapping exists but no connected source + no default -> MAPPED_NOT_CHECKED", async () => {
         (prisma.sourceFieldMapping.findMany as any).mockResolvedValue([{ sourceType: "GLEIF" }]);
-        (prisma.clientLE.findUnique as any).mockResolvedValue({ legalEntityId: "subj-1", gleifFetchedAt: null, registryReferences: [] });
+        (prisma.clientLE.findUnique as any).mockResolvedValue({ legalEntityId: "subj-1", lei: "5493001KJTIIGC8Y1R12", gleifFetchedAt: null, registryReferences: [] });
         
         const res = await getFieldDetail("le-1", 100, "CLIENT_LE");
         expect(res?.displayState).toBe("MAPPED_NOT_CHECKED");
@@ -132,6 +132,7 @@ describe("Master Record Empty States & Releases", () => {
         (prisma.sourceFieldMapping.findMany as any).mockResolvedValue([{ sourceType: "GLEIF" }]);
         (prisma.clientLE.findUnique as any).mockResolvedValue({
             legalEntityId: "subj-1",
+            lei: "5493001KJTIIGC8Y1R12",
             gleifFetchedAt: null,
             registryReferences: [{ lastSyncSucceededAt: new Date(), authority: { name: "Companies House" } }]
         });

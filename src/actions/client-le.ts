@@ -557,8 +557,7 @@ export async function getFullMasterData(clientLEId: string) {
             legalEntity: true,
             registryReferences: {
                 include: { authority: true },
-                orderBy: { updatedAt: 'desc' },
-                take: 1
+                orderBy: { updatedAt: 'desc' }
             }
         }
     });
@@ -588,7 +587,7 @@ export async function getFullMasterData(clientLEId: string) {
 
     const allMappings = await prisma.sourceFieldMapping.findMany({
         where: { isActive: true },
-        select: { targetFieldNo: true, sourceType: true }
+        select: { targetFieldNo: true, sourceType: true, sourceReference: true }
     });
     const mappingsByField = new Map<number, string[]>();
     for (const m of allMappings) {

@@ -39,7 +39,7 @@ vi.mock('@/lib/prisma', () => ({
         cCParty: { findMany: vi.fn().mockResolvedValue([]) },
         masterFieldAssignment: { findUnique: vi.fn().mockResolvedValue(null) },
         $queryRaw: vi.fn().mockResolvedValue([]),
-        sourceFieldMapping: { findMany: vi.fn().mockResolvedValue([{ sourceType: 'COMPANIES_HOUSE', sourceReference: 'CH_123', priority: 1 }]) },
+        sourceFieldMapping: { findMany: vi.fn().mockResolvedValue([{ sourceType: 'COMPANIES_HOUSE', sourceReference: 'COMPANIES_HOUSE', priority: 1 }]) },
         clientLE: { 
             findUnique: vi.fn().mockResolvedValue({ 
                 legalEntityId: 'le-1', 
@@ -47,7 +47,7 @@ vi.mock('@/lib/prisma', () => ({
                 registryReferences: [
                     {
                         lastSyncSucceededAt: new Date('2026-07-06T00:00:00Z'),
-                        authority: { id: 'auth-1', registryKey: 'GB_COMPANIES_HOUSE', name: 'Companies House' }
+                        authority: { id: 'auth-1', registryKey: 'GB_COMPANIES_HOUSE', mappingSourceKey: 'COMPANIES_HOUSE', name: 'Companies House' }
                     }
                 ]
             })
