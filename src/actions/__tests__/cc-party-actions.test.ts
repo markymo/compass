@@ -5,6 +5,11 @@ vi.mock("@/lib/auth", () => ({
     getIdentity: vi.fn().mockResolvedValue({ userId: "user-123" }),
 }));
 
+// Mock ensureApiAuthorization
+vi.mock("@/lib/auth/api-auth", () => ({
+    ensureApiAuthorization: vi.fn().mockResolvedValue({ userId: "user-123" }),
+}));
+
 // Mock next/cache
 vi.mock("next/cache", () => ({
     revalidatePath: vi.fn(),
@@ -86,8 +91,10 @@ const validParty: PartyValue = {
 };
 
 describe("cc-party-actions", () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.clearAllMocks();
+        const { ensureApiAuthorization } = await import("@/lib/auth/api-auth");
+        vi.mocked(ensureApiAuthorization).mockResolvedValue({ userId: "user-123" });
     });
 
     describe("getCCParties", () => {
@@ -277,6 +284,13 @@ describe("cc-party-actions", () => {
 
             // Prove it does NOT call the raw prisma create anymore
             expect(mockCCPartyCreate).not.toHaveBeenCalled();
+        });
+
+        it("7. throws authorization error when user lacks LE_EDIT_MASTER_DATA permission", async () => {
+            const { ensureApiAuthorization } = await import("@/lib/auth/api-auth");
+            vi.mocked(ensureApiAuthorization).mockRejectedValueOnce(new Error("Unauthorized: Cannot perform LE_EDIT_MASTER_DATA"));
+
+            await expect(promoteClaimToCCParty('claim-unauth-1', 'le-123')).rejects.toThrow("Unauthorized: Cannot perform LE_EDIT_MASTER_DATA");
         });
     });
 

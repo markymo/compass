@@ -1,17 +1,19 @@
 import React from "react";
 import { ArrowRight } from "lucide-react";
-import { FieldDisplayModel, FieldSource, ResolvedFieldValue } from "@/lib/master-data/field-display-model";
+import { FieldDisplayModel, FieldDisplayItem, FieldSource, ResolvedFieldValue, SaveForReuseHandler } from "@/lib/master-data/field-display-model";
 import { FieldSourceBadge } from "./FieldSourceBadge";
 import { FieldValueRenderer } from "./FieldValueRenderer";
 
 export const COLLECTION_PREVIEW_LIMIT = 18;
 
 export interface CollectionRendererProps {
-    items: Array<{ value: ResolvedFieldValue; source?: FieldSource; attachments?: import("@/lib/master-data/field-display-model").ResolvedAttachment[] }>;
+    items: Array<FieldDisplayItem>;
     fieldSource: FieldSource | null;
     collectionLayout?: "inline" | "block";
     itemLimit?: number;
     className?: string;
+    onSaveForReuse?: SaveForReuseHandler;
+    isPromoting?: boolean;
 }
 
 export function CollectionRenderer({
@@ -19,7 +21,9 @@ export function CollectionRenderer({
     fieldSource,
     collectionLayout = "inline",
     itemLimit = COLLECTION_PREVIEW_LIMIT,
-    className
+    className,
+    onSaveForReuse,
+    isPromoting
 }: CollectionRendererProps) {
     if (!items || items.length === 0) {
         return null;
@@ -29,7 +33,7 @@ export function CollectionRenderer({
     const hiddenCount = items.length - itemLimit;
 
     // Helper to render an individual item using the FieldValueRenderer
-    const renderItem = (item: { value: ResolvedFieldValue; source?: FieldSource; attachments?: import("@/lib/master-data/field-display-model").ResolvedAttachment[] }, idx: number, layoutHint: "row" | "compact") => {
+    const renderItem = (item: FieldDisplayItem, idx: number, layoutHint: "row" | "compact") => {
         const syntheticField: FieldDisplayModel = {
             state: 'POPULATED',
             value: item.value,
@@ -45,7 +49,14 @@ export function CollectionRenderer({
 
         return (
             <React.Fragment key={idx}>
-                <FieldValueRenderer field={syntheticField} layout={layoutHint} />
+                <FieldValueRenderer
+                    field={syntheticField}
+                    layout={layoutHint}
+                    claimId={item.claimId}
+                    isPromotedToCCC={item.isPromotedToCCC}
+                    isPromoting={isPromoting}
+                    onSaveForReuse={onSaveForReuse}
+                />
                 {/* Per-item sources are intentionally suppressed for this phase to preserve legacy 1:1 parity */}
             </React.Fragment>
         );

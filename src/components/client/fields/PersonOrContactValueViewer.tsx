@@ -1,8 +1,11 @@
 "use client";
 
 import React from "react";
-import { Paperclip, FileText } from "lucide-react";
+import { Paperclip, FileText, Loader2, CheckCircle2, Database } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import { SaveForReuseHandler } from "@/lib/master-data/field-display-model";
 import {
     isPersonOrContactValue,
     getPersonOrContactSummary,
@@ -20,6 +23,10 @@ interface PersonOrContactValueViewerProps {
     displayMask?: string[];
     partyLabel?: string;
     attachments?: import("@/lib/master-data/field-display-model").ResolvedAttachment[];
+    claimId?: string;
+    isPromotedToCCC?: boolean;
+    isPromoting?: boolean;
+    onSaveForReuse?: SaveForReuseHandler;
 }
 
 // ── Role type badge colour ────────────────────────────────────────────────────
@@ -171,7 +178,17 @@ function PartyAttachmentIndicator({ attachments, partyName }: { attachments: imp
     );
 }
 
-export function PersonOrContactValueViewer({ value, layout = "compact", displayMask, partyLabel, attachments }: PersonOrContactValueViewerProps) {
+export function PersonOrContactValueViewer({
+    value,
+    layout = "compact",
+    displayMask,
+    partyLabel,
+    attachments,
+    claimId,
+    isPromotedToCCC,
+    isPromoting,
+    onSaveForReuse
+}: PersonOrContactValueViewerProps) {
     if (!isPersonOrContactValue(value)) {
         if (value && typeof value === 'object' && 'ccPartyId' in value) {
             return <span className="text-slate-400 italic">Unresolved Party</span>;
@@ -181,6 +198,36 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
 
     const poc = value as PersonOrContactValue;
 
+    const renderActionButton = () => {
+        if (isPromotedToCCC) {
+            return (
+                <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 ml-2 hover:bg-emerald-50 font-medium h-6 shrink-0" title="A reusable copy already exists for this item.">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Saved for reuse
+                </Badge>
+            );
+        }
+        if (onSaveForReuse && claimId) {
+            return (
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-6 text-[10px] px-2 text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 hover:text-indigo-800 border-indigo-200 shrink-0 ml-2"
+                    disabled={isPromoting}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onSaveForReuse({ kind: 'EMBEDDED_PARTY', claimId, party: poc });
+                    }}
+                    title="Save this party to your dossier library for reuse across other fields and questionnaires."
+                >
+                    {isPromoting ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Database className="w-3 h-3 mr-1" />}
+                    Save for reuse
+                </Button>
+            );
+        }
+        return null;
+    };
+
     if (layout === "compact") {
         const summary = partyLabel || getPersonOrContactSummary(poc);
         return (
@@ -189,6 +236,7 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
                 {attachments && attachments.length > 0 && (
                     <PartyAttachmentIndicator attachments={attachments} partyName={summary || 'Party'} />
                 )}
+                {renderActionButton()}
             </span>
         );
     }
@@ -200,25 +248,28 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
 
     if (layout === "row") {
         return (
-            <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-sm font-medium text-slate-900 truncate">
-                        {proj.primaryText}
-                    </span>
-                    {attachments && attachments.length > 0 && (
-                        <PartyAttachmentIndicator attachments={attachments} partyName={proj.primaryText || 'Party'} />
+            <div className="flex items-center justify-between min-w-0 w-full">
+                <div className="flex flex-col min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-sm font-medium text-slate-900 truncate">
+                            {proj.primaryText}
+                        </span>
+                        {attachments && attachments.length > 0 && (
+                            <PartyAttachmentIndicator attachments={attachments} partyName={proj.primaryText || 'Party'} />
+                        )}
+                    </div>
+                    {proj.secondaryParts.length > 0 && (
+                        <span className="text-xs text-slate-500 truncate mt-0.5">
+                            {proj.secondaryParts.join(' · ')}
+                        </span>
+                    )}
+                    {proj.addressText && (
+                        <span className="text-[11px] text-slate-400 truncate mt-0.5">
+                            {proj.addressText}
+                        </span>
                     )}
                 </div>
-                {proj.secondaryParts.length > 0 && (
-                    <span className="text-xs text-slate-500 truncate mt-0.5">
-                        {proj.secondaryParts.join(' · ')}
-                    </span>
-                )}
-                {proj.addressText && (
-                    <span className="text-[11px] text-slate-400 truncate mt-0.5">
-                        {proj.addressText}
-                    </span>
-                )}
+                {renderActionButton()}
             </div>
         );
     }
@@ -245,11 +296,14 @@ export function PersonOrContactValueViewer({ value, layout = "compact", displayM
                         );
                     })()}
                 </div>
-                {poc.isActivePersonOrContact !== null && (
-                    <span className={`text-[10px] font-semibold rounded-full px-2 py-1 border ${poc.isActivePersonOrContact ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                        {poc.isActivePersonOrContact ? 'Active' : 'Inactive'}
-                    </span>
-                )}
+                <div className="flex items-center gap-2">
+                    {renderActionButton()}
+                    {poc.isActivePersonOrContact !== null && (
+                        <span className={`text-[10px] font-semibold rounded-full px-2 py-1 border ${poc.isActivePersonOrContact ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                            {poc.isActivePersonOrContact ? 'Active' : 'Inactive'}
+                        </span>
+                    )}
+                </div>
             </div>
 
             {/* Name breakdown */}

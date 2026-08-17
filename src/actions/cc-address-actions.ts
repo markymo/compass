@@ -1,6 +1,8 @@
 "use server";
 
 import { getIdentity } from "@/lib/auth";
+import { ensureApiAuthorization } from "@/lib/auth/api-auth";
+import { Action } from "@/lib/auth/permissions";
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { AddressValue, isAddressValue } from "@/lib/master-data/address-value";
@@ -286,10 +288,7 @@ export async function searchCCAddresses(clientLEId: string, query: string) {
  * Mirrors the CCParty workflow.
  */
 export async function saveAddressForReuse(claimId: string, clientLEId: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        return { success: false, message: "Unauthorized" };
-    }
+    const { userId } = await ensureApiAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId });
 
     try {
         const claim = await prisma.fieldClaim.findUnique({
@@ -339,8 +338,8 @@ export async function saveAddressForReuse(claimId: string, clientLEId: string) {
                 visibility: "CLIENT_LE",
                 data: valueObj as any,
                 createdFromClaimId: claimId,
-                createdByUserId: claim.verifiedByUserId || identity.userId,
-                updatedByUserId: claim.verifiedByUserId || identity.userId
+                createdByUserId: claim.verifiedByUserId || userId,
+                updatedByUserId: claim.verifiedByUserId || userId
             }
         });
 
