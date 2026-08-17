@@ -1094,7 +1094,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                             {data?.description && (
                                 <ExpandableText
                                     text={data.description}
-                                    maxLines={4}
                                     className="mt-1.5 pr-2"
                                     textClassName="text-sm text-slate-600 leading-relaxed"
                                 />
