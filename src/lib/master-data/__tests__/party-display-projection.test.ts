@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { getPartyDisplayProjection, PartyValue } from '../party-value';
+import { getPartyDisplayProjection, PartyValue, getIdentityVerificationLabel } from '../party-value';
+import { formatPersonOrContactRow } from '../structured-value-formatters';
 
 describe('getPartyDisplayProjection', () => {
     it('handles absent mask (treats as all permitted like UI)', () => {
@@ -151,5 +152,132 @@ describe('getPartyDisplayProjection', () => {
         const proj = getPartyDisplayProjection(orgPartyData, mask);
 
         expect(proj.secondaryParts).toContain('Form: B6ES');
+    });
+});
+
+describe('getIdentityVerificationLabel central semantics', () => {
+    it('returns "Identity verified" for explicit identityVerifiedOn', () => {
+        const label = getIdentityVerificationLabel({ identityVerifiedOn: '2026-01-15' });
+        expect(label).toBe('Identity verified');
+    });
+
+    it('returns "Identity verified" for Chirmorie shape (start_on + 9999-12-31 end_on)', () => {
+        const label = getIdentityVerificationLabel({
+            appointmentVerificationStartOn: '2026-02-18',
+            appointmentVerificationEndOn: '9999-12-31'
+        });
+        expect(label).toBe('Identity verified');
+    });
+
+    it('returns "Identity verified" for active start date without end date', () => {
+        const label = getIdentityVerificationLabel({
+            appointmentVerificationStartOn: '2026-02-18'
+        });
+        expect(label).toBe('Identity verified');
+    });
+
+    it('returns "Identity verified" for active start date with future end date', () => {
+        const label = getIdentityVerificationLabel({
+            appointmentVerificationStartOn: '2026-02-18',
+            appointmentVerificationEndOn: '2099-12-31'
+        });
+        expect(label).toBe('Identity verified');
+    });
+
+    it('does NOT report verified for expired verification period', () => {
+        const label = getIdentityVerificationLabel({
+            appointmentVerificationStartOn: '2020-01-01',
+            appointmentVerificationEndOn: '2021-01-01'
+        });
+        expect(label).toBeNull();
+    });
+
+    it('returns "Identity verification due [date]" for statement_due_on with no active statement', () => {
+        const label = getIdentityVerificationLabel({
+            appointmentVerificationStatementDueOn: '2026-08-26'
+        });
+        expect(label).toBe('Identity verification due 26 Aug 2026');
+    });
+
+    it('returns null for null, undefined, or empty verification details', () => {
+        expect(getIdentityVerificationLabel(null)).toBeNull();
+        expect(getIdentityVerificationLabel(undefined)).toBeNull();
+        expect(getIdentityVerificationLabel({})).toBeNull();
+    });
+});
+
+describe('Integration: identity verification display in projections & formatters', () => {
+    it('includes identity verification label in getPartyDisplayProjection', () => {
+        const party: PartyValue = {
+            contactType: 'PERSON',
+            partyType: 'INDIVIDUAL',
+            forenames: 'Anna Louise',
+            surname: 'Abraham',
+            title: null,
+            email: null,
+            phones: [],
+            nationality: ['British'],
+            countryOfResidence: 'United Kingdom',
+            dateOfBirth: null,
+            placeOfBirth: null,
+            roles: [{
+                roleTitle: 'director',
+                roleType: 'director',
+                company: { onProCompanyId: null, externalId: null, externalIdScheme: null, name: null },
+                isActiveRole: true,
+                appointedOn: '2026-02-16',
+                resignedOn: null,
+                natureOfControl: [],
+                identityVerification: {
+                    appointmentVerificationStartOn: '2026-02-18',
+                    appointmentVerificationEndOn: '9999-12-31'
+                }
+            }],
+            sourceIdentifiers: [],
+            isActiveParty: null,
+            isActivePersonOrContact: null,
+            visibility: { scope: 'CLIENT_LE' }
+        };
+
+        const proj = getPartyDisplayProjection(party);
+        expect(proj.primaryText).toBe('Anna Louise Abraham');
+        expect(proj.secondaryParts).toContain('Identity verified');
+    });
+
+    it('includes identity verification label in formatPersonOrContactRow', () => {
+        const party: PartyValue = {
+            contactType: 'PERSON',
+            partyType: 'INDIVIDUAL',
+            forenames: 'David Charles',
+            surname: 'Murray',
+            title: null,
+            email: null,
+            phones: [],
+            nationality: ['British'],
+            countryOfResidence: 'United Kingdom',
+            dateOfBirth: null,
+            placeOfBirth: null,
+            roles: [{
+                roleTitle: 'director',
+                roleType: 'director',
+                company: { onProCompanyId: null, externalId: null, externalIdScheme: null, name: null },
+                isActiveRole: false,
+                appointedOn: '2014-08-12',
+                resignedOn: '2026-02-16',
+                natureOfControl: [],
+                identityVerification: {
+                    appointmentVerificationStatementDueOn: '2026-08-26'
+                }
+            }],
+            sourceIdentifiers: [],
+            isActiveParty: null,
+            isActivePersonOrContact: null,
+            visibility: { scope: 'CLIENT_LE' }
+        };
+
+        const res = formatPersonOrContactRow(party);
+        expect(res.handled).toBe(true);
+        expect(res.primary).toBe('David Charles Murray');
+        expect(res.secondary).toBe('director (12 Aug 2014 → 16 Feb 2026) · Identity verification due 26 Aug 2026');
     });
 });

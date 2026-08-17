@@ -13,7 +13,8 @@ import {
     type PersonOrContactValue,
     type PersonOrContactRole,
     getPartyDisplayProjection,
-    formatPartialDob
+    formatPartialDob,
+    getIdentityVerificationLabel
 } from "@/lib/master-data/person-or-contact-value";
 import { getAddressSummary } from "@/lib/master-data/address-value";
 
@@ -80,6 +81,8 @@ function RoleRow({ role, displayMask, index = 0 }: { role: PersonOrContactRole, 
         showRoleField('resignedOn') && role.resignedOn  ? `Resigned ${role.resignedOn}`   : null,
     ].filter(Boolean).join(' · ');
 
+    const ivLabel = getIdentityVerificationLabel(role.identityVerification);
+
     return (
         <div className="flex flex-col gap-1 py-2 border-b border-slate-100 last:border-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -96,6 +99,9 @@ function RoleRow({ role, displayMask, index = 0 }: { role: PersonOrContactRole, 
             </div>
             {dateRange && (
                 <span className="text-[11px] text-slate-400 ml-3.5">{dateRange}</span>
+            )}
+            {ivLabel && (
+                <span className="text-[11px] text-slate-500 font-medium ml-3.5">{ivLabel}</span>
             )}
             {showRoleField('natureOfControl') && role.natureOfControl?.length > 0 && (
                 <div className="ml-3.5 mt-0.5 flex flex-wrap gap-1">

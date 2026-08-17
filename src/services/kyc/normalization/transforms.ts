@@ -801,7 +801,34 @@ export function applyTransform(
                 natureOfControl = [String(rawNoc).trim()].filter(Boolean);
             }
 
-            if (roleTitleRaw || roleTypeRaw || appointedOnRaw || natureOfControl.length > 0 || value?.kind) {
+            // ── Identity Verification Details ────────────────────────────────
+            const rawIv = value?.identity_verification_details || value?.identityVerificationDetails || cfg.identityVerification;
+            let identityVerification: any = null;
+
+            if (rawIv && typeof rawIv === 'object') {
+                const startOn = rawIv.appointment_verification_start_on ?? rawIv.appointmentVerificationStartOn ?? null;
+                const endOn = rawIv.appointment_verification_end_on ?? rawIv.appointmentVerificationEndOn ?? null;
+                const dueOn = rawIv.appointment_verification_statement_due_on ?? rawIv.appointmentVerificationStatementDueOn ?? null;
+                const verifiedOn = rawIv.identity_verified_on ?? rawIv.identityVerifiedOn ?? null;
+                const acspName = rawIv.authorised_corporate_service_provider_name ?? rawIv.authorisedCorporateServiceProviderName ?? null;
+                const amlBodiesRaw = rawIv.anti_money_laundering_supervisory_bodies ?? rawIv.antiMoneyLaunderingSupervisoryBodies ?? null;
+                const amlBodies = Array.isArray(amlBodiesRaw) ? amlBodiesRaw.map((b: any) => String(b).trim()).filter(Boolean) : null;
+                const prefName = rawIv.preferred_name ?? rawIv.preferredName ?? null;
+
+                if (startOn != null || endOn != null || dueOn != null || verifiedOn != null || acspName != null || (amlBodies != null && amlBodies.length > 0) || prefName != null) {
+                    identityVerification = {
+                        appointmentVerificationStartOn: startOn ? String(startOn) : null,
+                        appointmentVerificationEndOn: endOn ? String(endOn) : null,
+                        appointmentVerificationStatementDueOn: dueOn ? String(dueOn) : null,
+                        identityVerifiedOn: verifiedOn ? String(verifiedOn) : null,
+                        authorisedCorporateServiceProviderName: acspName ? String(acspName) : null,
+                        antiMoneyLaunderingSupervisoryBodies: amlBodies && amlBodies.length > 0 ? amlBodies : null,
+                        preferredName: prefName ? String(prefName) : null,
+                    };
+                }
+            }
+
+            if (roleTitleRaw || roleTypeRaw || appointedOnRaw || natureOfControl.length > 0 || value?.kind || identityVerification) {
                 roles.push({
                     roleTitle: roleTitleRaw ? String(roleTitleRaw).trim() : null,
                     roleType:  mapRoleType(roleTitleRaw ? String(roleTitleRaw) : null) ??
@@ -816,6 +843,7 @@ export function applyTransform(
                     appointedOn: appointedOnRaw ? String(appointedOnRaw) : null,
                     resignedOn:  resignedOnRaw  ? String(resignedOnRaw)  : null,
                     natureOfControl,
+                    identityVerification,
                 });
             }
 
