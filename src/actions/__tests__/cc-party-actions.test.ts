@@ -38,6 +38,9 @@ vi.mock("@/lib/prisma", () => ({
         },
         masterFieldDefinition: {
             findMany: (...args: any[]) => mockMasterFieldDefinitionFindMany(...args),
+        },
+        clientLE: {
+            findUnique: vi.fn().mockResolvedValue({ id: 'le-123', name: 'Test Client LE' })
         }
     },
 }));
@@ -284,6 +287,30 @@ describe("cc-party-actions", () => {
 
             // Prove it does NOT call the raw prisma create anymore
             expect(mockCCPartyCreate).not.toHaveBeenCalled();
+        });
+
+        it("returns existing CCParty idempotently when claim is already saved for reuse", async () => {
+            mockFieldClaimFindUnique.mockResolvedValue({
+                id: 'claim-1',
+                claimRole: 'VALUE',
+                clientLeScopeId: 'le-123',
+                fieldNo: 64,
+                valueJson: validParty
+            });
+
+            const mockPrisma = (await import("@/lib/prisma")).default;
+            vi.mocked(mockPrisma.cCParty.findFirst).mockResolvedValueOnce({
+                id: 'existing-ccparty-id',
+                createdFromClaimId: 'claim-1',
+                clientLEId: 'le-123',
+                data: validParty
+            } as any);
+
+            const result = await promoteClaimToCCParty('claim-1', 'le-123');
+
+            expect(result.success).toBe(true);
+            expect((result as any).alreadySaved).toBe(true);
+            expect((result as any).party.id).toBe('existing-ccparty-id');
         });
 
         it("7. throws authorization error when user lacks LE_EDIT_MASTER_DATA permission", async () => {

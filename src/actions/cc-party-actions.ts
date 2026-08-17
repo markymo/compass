@@ -428,20 +428,28 @@ export async function promoteClaimToCCParty(claimId: string, clientLEId: string)
             throw new Error("Claim value is not a valid Party structure");
         }
 
-        // 2. Prevent duplicate promotion
+        // 2. Prevent duplicate promotion (Idempotent return if already promoted)
         const existing = await prisma.cCParty.findFirst({
             where: { createdFromClaimId: claimId }
         });
 
         if (existing) {
-            throw new Error("Claim is already saved for reuse");
+            return { success: true, party: existing, alreadySaved: true };
         }
 
         // 3. Create CCParty via CCPartyService
         const { CCPartyService } = await import("@/services/masterData/cc-party-service");
         const { convertLegacyManualPartyToV2 } = await import("@/services/masterData/cc-party-legacy-adapter");
         
-        const v2Data = convertLegacyManualPartyToV2(claim.valueJson);
+        const clientLE = await prisma.clientLE?.findUnique({
+            where: { id: clientLEId },
+            select: { id: true, name: true }
+        });
+
+        const v2Data = convertLegacyManualPartyToV2(claim.valueJson, {
+            clientLEId,
+            clientLEName: clientLE?.name || undefined
+        });
 
         const party = await CCPartyService.create({
             clientLEId,
@@ -453,9 +461,9 @@ export async function promoteClaimToCCParty(claimId: string, clientLEId: string)
         revalidatePath(`/app/le/${clientLEId}/sources/user-parties`);
         revalidatePath(`/app/le/${clientLEId}/sources/user`);
         return { success: true, party };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Failed to promote claim:", error);
-        throw new Error("Failed to save for reuse");
+        throw new Error(error.message || "Failed to save for reuse");
     }
 }
 

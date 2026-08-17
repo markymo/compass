@@ -677,10 +677,15 @@ export function applyTransform(
                 // Comma-split parser — handles CH format "SMITH, John Robert"
                 const raw = resolveP(cfg.fullNamePath);
                 const rawStr = raw ? String(raw).trim() : '';
+                const isSuperSecure = typeof value?.kind === 'string' && value.kind.includes('super-secure');
+
                 if (rawStr) {
                     if (contactType === 'CONTACT') {
                         organisationName = rawStr;
                         forenames = rawStr; // Legacy fallback for contactType CONTACT
+                    } else if (isSuperSecure) {
+                        surname = rawStr;
+                        forenames = null;
                     } else if (rawStr.includes(',')) {
                         const commaIdx = rawStr.indexOf(',');
                         const rawSurname   = rawStr.slice(0, commaIdx).trim();
@@ -701,6 +706,9 @@ export function applyTransform(
                         forenames = null;
                     }
                     confidencePenalty = Math.max(confidencePenalty, 0.05); // heuristic parse
+                } else if (isSuperSecure) {
+                    surname = 'Person with Significant Control (Protected)';
+                    forenames = null;
                 }
             } else {
                 // Pre-split name paths
