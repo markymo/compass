@@ -27,13 +27,13 @@ const NOISE = new Set([
     'SYSTEM', 'SYSTEMS',
 ]);
 
-// Basic blocklist — exact 5-char matches that should never appear
+// Basic blocklist — exact matches that should never appear
 const PROFANITY = new Set([
     'BITCH', 'CUNTS', 'DICKS', 'FUCKS', 'PRICK', 'PUSSY', 'SHITS',
     'WANKS', 'PENIS', 'ARSED', 'COCKS', 'TWATS',
 ]);
 
-// 4-letter substrings that must not appear anywhere in the code
+// Substrings that must not appear anywhere in the code
 const PROFANITY_SUB = ['FUCK', 'SHIT', 'CUNT', 'COCK', 'DICK', 'ARSE', 'WANK'];
 
 function normalize(name: string): string {
@@ -58,14 +58,16 @@ function isProfane(code: string): boolean {
 }
 
 function sanitize(code: string): string {
-    return isProfane(code) ? code.slice(0, 4) + '9' : code;
+    return isProfane(code) ? code.slice(0, TARGET - 1) + '9' : code;
 }
 
 export function generateShortCode(name: string): string {
+    if (!name || !name.trim()) return '00000';
+
     // Special case: CoParity always → COPAR
     if (name.toLowerCase().includes('coparity')) return 'COPAR';
 
-    // Bracketed all-caps acronyms: (MUFG) → MUFG0, (CIBC) → CIBC0
+    // Bracketed all-caps acronyms: (MUFG) → MUFG00, (CIBC) → CIBC00
     const bracketMatch = name.trim().match(/^\(([A-Z0-9]+)\)$/);
     if (bracketMatch) {
         return sanitize(bracketMatch[1].padEnd(TARGET, '0').slice(0, TARGET));
@@ -102,22 +104,38 @@ export function generateShortCode(name: string): string {
 
 /**
  * Given a desired code and a set of already-used codes, returns a unique variant.
- * Tries several strategies before falling back to numeric suffix.
+ * Strictly maintains target length (6 characters).
  */
-export function makeUnique(desired: string, used: Set<string>): string {
-    if (!used.has(desired)) return desired;
+export function makeUnique(desired: string, used: Set<string>, targetLen: number = TARGET): string {
+    const formattedDesired = desired.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').padEnd(targetLen, '0').slice(0, targetLen);
+    if (!used.has(formattedDesired)) return formattedDesired;
 
     // Strategy 1: replace last char with digits 1-9
     for (let i = 1; i <= 9; i++) {
-        const c = desired.slice(0, 4) + i;
+        const c = formattedDesired.slice(0, targetLen - 1) + i;
         if (!used.has(c)) return c;
     }
 
     // Strategy 2: replace last 2 chars with 10-99
     for (let i = 10; i <= 99; i++) {
-        const c = desired.slice(0, 3) + i;
+        const c = formattedDesired.slice(0, targetLen - 2) + i;
+        if (!used.has(c)) return c;
+    }
+
+    // Strategy 3: replace last 3 chars with 100-999
+    for (let i = 100; i <= 999; i++) {
+        const c = formattedDesired.slice(0, targetLen - 3) + i;
         if (!used.has(c)) return c;
     }
 
     throw new Error(`Cannot find unique code for base "${desired}"`);
 }
+
+export function normalizeDomain(domain?: string | null): string | null {
+    if (!domain) return null;
+    let clean = domain.trim().toLowerCase();
+    clean = clean.replace(/^https?:\/\//, '');
+    clean = clean.replace(/\/+$/, '');
+    return clean || null;
+}
+

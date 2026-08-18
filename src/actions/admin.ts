@@ -212,3 +212,64 @@ export async function uploadSourceDocument(formData: FormData) {
         return { success: false, error: error.message || "Upload save failed" };
     }
 }
+
+// 7. Get All Client Legal Entities (for Admin Directory)
+export async function getAllClientLEsForAdmin() {
+    const isAdmin = await isSystemAdmin();
+    if (!isAdmin) return [];
+
+    try {
+        const clientLEs = await prisma.clientLE.findMany({
+            where: {
+                isDeleted: false,
+            },
+            orderBy: {
+                name: "asc",
+            },
+            include: {
+                owners: {
+                    where: { endAt: null },
+                    include: {
+                        party: {
+                            select: {
+                                id: true,
+                                name: true,
+                                shortCode: true,
+                            },
+                        },
+                    },
+                },
+                fiEngagements: {
+                    where: { isDeleted: false },
+                    select: { id: true },
+                },
+                memberships: {
+                    select: { id: true },
+                },
+            },
+        });
+
+        return clientLEs.map((le: any) => {
+            const activeOwners = (le.owners || []).filter((o: any) => o && o.party);
+            return {
+                id: le.id,
+                name: le.name || "Unnamed LE",
+                shortCode: le.shortCode || null,
+                status: le.status || "ACTIVE",
+                createdAt: le.createdAt ? le.createdAt.toISOString() : new Date().toISOString(),
+                parentOrgs: activeOwners.map((o: any) => ({
+                    id: o.party.id,
+                    name: o.party.name,
+                    shortCode: o.party.shortCode || null,
+                })),
+                engagementCount: (le.fiEngagements || []).length,
+                memberCount: (le.memberships || []).length,
+            };
+        });
+    } catch (error) {
+        console.error("Failed to fetch client LEs for admin:", error);
+        return [];
+    }
+}
+
+

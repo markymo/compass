@@ -1,7 +1,7 @@
 
 import prisma from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Users, Building2, Database, Wand2, FileText, AlertCircle, ShieldCheck, BarChart3, UserCheck, MessageSquarePlus, Activity } from "lucide-react";
+import { Users, Building2, Database, Wand2, FileText, AlertCircle, ShieldCheck, BarChart3, UserCheck, MessageSquarePlus, Activity, FolderOpen } from "lucide-react";
 import Link from "next/link";
 
 export default async function AdminDashboardPage() {
@@ -48,10 +48,18 @@ export default async function AdminDashboardPage() {
             color: "text-amber-500",
         },
         {
-            title: "Questionnaires",
-            description: "Review and map uploaded FI forms",
+            title: "Questionnaires (Legacy)",
+            description: "Legacy questionnaire view",
             href: "/app/admin/questionnaires",
             icon: FileText,
+            color: "text-slate-400",
+            disabled: true,
+        },
+        {
+            title: "Questionnaires V2",
+            description: "Review and map reference library and working copies",
+            href: "/app/admin/questionnaires-v2",
+            icon: FolderOpen,
             color: "text-pink-500",
             stat: uniqueQCount
         },
@@ -100,28 +108,49 @@ export default async function AdminDashboardPage() {
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
 
                 {cards.map((card: any) => (
-                    <Link key={card.title} href={card.href} className="group">
-                        <Card className="h-full border-slate-200 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 dark:border-slate-800">
-                            <CardHeader className="flex flex-row items-center justify-between pb-2">
-                                <CardTitle className="text-base font-semibold text-slate-700 dark:text-slate-200">
-                                    {card.title}
-                                </CardTitle>
-                                <div className={`rounded-full p-2.5 ${card.color.replace('text-', 'bg-').replace('500', '100')} dark:bg-opacity-10`}>
-                                    <card.icon className={`h-5 w-5 ${card.color}`} />
-                                </div>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="flex items-center justify-between mb-1">
-                                    <div className="text-2xl font-bold text-slate-900 dark:text-white">
-                                        {card.stat !== undefined ? card.stat : "-"}
+                    card.disabled ? (
+                        <div key={card.title} className="opacity-40 cursor-not-allowed select-none">
+                            <Card className="h-full border-slate-200 shadow-sm dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
+                                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                    <CardTitle className="text-base font-semibold text-slate-400 dark:text-slate-500 flex items-center gap-2">
+                                        <span>{card.title}</span>
+                                        <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded bg-slate-200 text-slate-500 dark:bg-slate-800">Disabled</span>
+                                    </CardTitle>
+                                    <div className="rounded-full p-2.5 bg-slate-200 dark:bg-slate-800">
+                                        <card.icon className="h-5 w-5 text-slate-400" />
                                     </div>
-                                </div>
-                                <CardDescription className="text-xs font-medium text-slate-500 line-clamp-2">
-                                    {card.description}
-                                </CardDescription>
-                            </CardContent>
-                        </Card>
-                    </Link>
+                                </CardHeader>
+                                <CardContent>
+                                    <CardDescription className="text-xs font-medium text-slate-400 line-clamp-2">
+                                        {card.description}
+                                    </CardDescription>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    ) : (
+                        <Link key={card.title} href={card.href} className="group">
+                            <Card className="h-full border-slate-200 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 dark:border-slate-800">
+                                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                                    <CardTitle className="text-base font-semibold text-slate-700 dark:text-slate-200">
+                                        {card.title}
+                                    </CardTitle>
+                                    <div className={`rounded-full p-2.5 ${card.color.replace('text-', 'bg-').replace('500', '100')} dark:bg-opacity-10`}>
+                                        <card.icon className={`h-5 w-5 ${card.color}`} />
+                                    </div>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <div className="text-2xl font-bold text-slate-900 dark:text-white">
+                                            {card.stat !== undefined ? card.stat : "-"}
+                                        </div>
+                                    </div>
+                                    <CardDescription className="text-xs font-medium text-slate-500 line-clamp-2">
+                                        {card.description}
+                                    </CardDescription>
+                                </CardContent>
+                            </Card>
+                        </Link>
+                    )
                 ))}
             </div>
 

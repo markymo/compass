@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { 
-    ChevronRight, ArrowRight, ShieldCheck, Building2, Users, Wand2, FileText, 
+    ChevronRight, ArrowRight, ShieldCheck, Building2, Building, Users, Wand2, FileText, 
     UserCheck, MessageSquarePlus, Database, Activity, ListTree, LayoutGrid, 
     Settings2, ArrowUpDown, GitBranch, ShieldPlus
 } from "lucide-react";
@@ -19,6 +19,7 @@ const configMap: Record<string, { label: string; icon: any }> = {
     "source-mappings-v2": { label: "Source Field Mappings",   icon: GitBranch },
     super: { label: "Super Admin", icon: ShieldPlus },
     organizations: { label: "Organizations", icon: Building2 },
+    "client-les": { label: "Client Legal Entities", icon: Building },
     users: { label: "Users", icon: Users },
     mapper: { label: "AI Mapper", icon: Wand2 },
     questionnaires: { label: "Questionnaires", icon: FileText },

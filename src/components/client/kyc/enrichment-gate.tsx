@@ -123,11 +123,9 @@ export function EnrichmentGate({ leId, status, lei, raId, children }: Enrichment
                             {lei && <span className="font-mono">LEI: {lei}</span>}
                             {raId && <span className="ml-4 font-mono">RA: {raId}</span>}
                         </div>
-                        {isError && (
-                            <Button variant="outline" onClick={() => setCurrentStatus("MANUAL")}>
-                                Proceed Manually
-                            </Button>
-                        )}
+                        <Button variant="outline" size="sm" onClick={() => setCurrentStatus("MANUAL")}>
+                            Proceed Manually
+                        </Button>
                     </div>
                 </CardContent>
             </Card>

@@ -10,12 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Loader2, Plus, Building2, Users, Search, Trash2, AlertTriangle, Ban } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 
-import { useSearchParams } from "next/navigation";
+import { generateShortCode } from "@/lib/org-short-code";
 
 // ── Inline-editable cell ─────────────────────────────────────────────────────
 
@@ -257,6 +258,9 @@ export default function OrganizationsPage() {
 
     // Form State
     const [name, setName] = useState("");
+    const [domain, setDomain] = useState("");
+    const [shortCode, setShortCode] = useState("");
+    const [isShortCodeEdited, setIsShortCodeEdited] = useState(false);
     const [types, setTypes] = useState<string[]>(filterType ? [filterType] : ["CLIENT"]);
     const [creating, setCreating] = useState(false);
 
@@ -275,6 +279,32 @@ export default function OrganizationsPage() {
         setLoading(false);
     }
 
+    function resetForm() {
+        setName("");
+        setDomain("");
+        setShortCode("");
+        setIsShortCodeEdited(false);
+    }
+
+    function handleOpenChange(newOpen: boolean) {
+        setOpen(newOpen);
+        if (!newOpen) {
+            resetForm();
+        }
+    }
+
+    function handleNameChange(newName: string) {
+        setName(newName);
+        if (!isShortCodeEdited) {
+            setShortCode(generateShortCode(newName));
+        }
+    }
+
+    function handleShortCodeChange(newCode: string) {
+        setIsShortCodeEdited(true);
+        setShortCode(newCode.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5));
+    }
+
     async function handleCreate() {
         if (!name || types.length === 0) return;
         setCreating(true);
@@ -282,15 +312,16 @@ export default function OrganizationsPage() {
         // SUPPLIER auto-tag is enforced server-side for FI / LAW_FIRM / OTHER;
         // pass the user's selection as-is.
         const validTypes = types as ("CLIENT" | "FI" | "SYSTEM" | "LAW_FIRM" | "SUPPLIER" | "OTHER")[];
-        const res = await createOrganization(name, validTypes);
+        const res = await createOrganization(name, validTypes, domain, shortCode);
 
         setCreating(false);
         if (res.success) {
+            toast.success("Organization created");
             setOpen(false);
-            setName("");
+            resetForm();
             loadData();
         } else {
-            alert("Error: " + res.error);
+            toast.error(res.error || "Failed to create organization");
         }
     }
 
@@ -320,7 +351,7 @@ export default function OrganizationsPage() {
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold tracking-tight">{pageTitle}</h1>
-                <Dialog open={open} onOpenChange={setOpen}>
+                <Dialog open={open} onOpenChange={handleOpenChange}>
                     <DialogTrigger asChild>
                         <Button>
                             <Plus className="w-4 h-4 mr-2" />
@@ -334,7 +365,30 @@ export default function OrganizationsPage() {
                         <div className="space-y-4 py-4">
                             <div className="space-y-2">
                                 <Label>Organization Name</Label>
-                                <Input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Acme Legal LLP" />
+                                <Input value={name} onChange={e => handleNameChange(e.target.value)} placeholder="e.g. Acme Legal LLP" />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>Short Code</Label>
+                                    <Input
+                                        value={shortCode}
+                                        onChange={e => handleShortCodeChange(e.target.value)}
+                                        placeholder="ACME0"
+                                        maxLength={5}
+                                        className="font-mono text-xs uppercase"
+                                    />
+                                    <p className="text-[10px] text-muted-foreground">Auto-suggested (5 chars). Editable before creation.</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>Domain</Label>
+                                    <Input
+                                        value={domain}
+                                        onChange={e => setDomain(e.target.value)}
+                                        placeholder="acme.com"
+                                        className="text-xs"
+                                    />
+                                    <p className="text-[10px] text-muted-foreground">Optional organization domain.</p>
+                                </div>
                             </div>
                             <div className="space-y-2">
                                 <Label>Roles (Multi-select)</Label>
