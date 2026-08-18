@@ -479,18 +479,32 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
     const engagementFilter: any = {
         fiOrgId: fiOrgId,
         isDeleted: false,
+        status: { not: "ARCHIVED" },
         clientLE: { isDeleted: false },
         ...(orgMembership ? {} : { id: { in: allowedEngagementIds } })
     };
 
-    // 2. Fetch all questions for questionnaires attached to active Supplier Relationships
+    // 2. Fetch questions for direct engagement questionnaires AND linked Common Questionnaires for active relationships
     const questionsRaw = await prisma.question.findMany({
         where: {
             questionnaire: {
-                fiOrgId: fiOrgId,
                 isDeleted: false,
-                fiEngagementId: { not: null },
-                fiEngagement: engagementFilter
+                OR: [
+                    {
+                        fiOrgId: fiOrgId,
+                        fiEngagementId: { not: null },
+                        fiEngagement: engagementFilter
+                    },
+                    {
+                        kind: "COMMON_QUESTIONNAIRE",
+                        commonForClients: {
+                            some: {
+                                isDeleted: false,
+                                fiEngagements: { some: engagementFilter }
+                            }
+                        }
+                    }
+                ]
             }
         },
         include: {
@@ -505,6 +519,23 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
             },
             questionnaire: {
                 include: {
+                    commonForClients: {
+                        include: {
+                            fiEngagements: {
+                                where: engagementFilter,
+                                include: {
+                                    clientLE: {
+                                        include: {
+                                            owners: {
+                                                where: { endAt: null },
+                                                include: { party: { select: { name: true } } }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
                     fiEngagement: {
                         include: {
                             clientLE: {
@@ -524,14 +555,21 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
     });
 
     // 3. Fetch latest QuestionnaireSubmission per relationship
-    const activeEngagements = (await prisma.fIEngagement?.findMany?.({
-        where: engagementFilter,
-        select: { id: true }
-    })) || [];
-    const uniqueEngagementIds = activeEngagements.map((e: any) => e.id);
-    const latestSubmissions = uniqueEngagementIds.length > 0
+    const uniqueEngagementIds = (questionsRaw
+        .map((q: any) => q.questionnaire?.fiEngagement?.id)
+        .filter(Boolean) as string[])
+        .concat(
+            questionsRaw.flatMap((q: any) =>
+                (q.questionnaire?.commonForClients || []).flatMap((c: any) =>
+                    (c.fiEngagements || []).map((e: any) => e.id)
+                )
+            )
+        );
+    const uniqueEngagementIdsSet = Array.from(new Set(uniqueEngagementIds));
+
+    const latestSubmissions = uniqueEngagementIdsSet.length > 0
         ? ((await prisma.questionnaireSubmission?.findMany?.({
-            where: { relationshipId: { in: uniqueEngagementIds } },
+            where: { relationshipId: { in: uniqueEngagementIdsSet } },
             orderBy: [
                 { relationshipId: 'asc' },
                 { questionnaireId: 'asc' },
@@ -574,223 +612,246 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
     const groupCategoryMap = new Map(allGroups.map((g: any) => [g.key, g.category]));
 
     // 4. Transform & Strictly Redact Server-Side
-    const questions: SupplierQuestionView[] = await Promise.all(questionsRaw.map(async (q: any) => {
-        let category = "Uncategorized";
-        if (q.masterFieldNo) category = fieldCategoryMap.get(q.masterFieldNo) || "Uncategorized";
-        else if (q.masterQuestionGroupId) category = groupCategoryMap.get(q.masterQuestionGroupId) || "Uncategorized";
-        else if (q.customFieldDefinitionId) category = "Custom";
+    const transformedQuestionsNested = await Promise.all(questionsRaw.map(async (q: any) => {
+        const isCommon = q.questionnaire?.kind === "COMMON_QUESTIONNAIRE";
+        let contexts: Array<{ engagement: any; clientLE: any }> = [];
 
-        const engagement = q.questionnaire.fiEngagement;
-        const clientLE = engagement?.clientLE;
-        const clientOrgName = clientLE?.owners?.[0]?.party?.name || null;
-
-        let answerVisibility: SupplierAnswerVisibility = "NOT_SHARED";
-        let answer: any | null = null;
-        let provenance: SupplierVisibleProvenance | null = null;
-        let documents: SupplierVisibleDocument[] = [];
-        let sharedAt: Date | string | null = null;
-        let releasedAt: Date | string | null = null;
-
-        const engagementId = engagement?.id || "";
-        const keyPrefix = `${q.questionnaireId}:${engagementId}`;
-        const subMetadata = submissionMetadataMap.get(keyPrefix);
-        const subAnswer = engagementId ? submissionAnswerMap.get(`${keyPrefix}:${q.id}`) : null;
-
-        if (subAnswer) {
-            answerVisibility = "RELEASED";
-            answer = subAnswer.explicitNone ? { explicitNone: true } : (subAnswer.valueJson ?? null);
-            releasedAt = subMetadata?.submittedAt || q.releasedAt || null;
-            
-            const subProv = subAnswer.provenanceJson || {};
-            const subSourceType = subProv.sourceType || "USER_INPUT";
-            const subSourceRef = subProv.sourceReference || null;
-            const isSubUserInput = subSourceType === "USER_INPUT";
-
-            const lastValidatedAt = isSubUserInput
-                ? (subMetadata?.submittedAt || q.releasedAt || null)
-                : (subProv.lastValidatedAt || subProv.sourceCheckedAt || subProv.assertedAt || null);
-
-            provenance = {
-                source: subProv.sourceLabel || getSourceDisplayName(subSourceType, subSourceRef) || "Formal Submission",
-                sourceType: subSourceType,
-                sourceReference: subSourceRef,
-                timestamp: subMetadata?.submittedAt || q.releasedAt || null,
-                lastValidatedAt,
-                releaseProvenance: subProv
-            };
-            documents = (subAnswer.attachments || []).map((att: any) => ({
-                id: att.document.id,
-                fileName: att.document.name,
-                fileType: att.document.mimeType || null,
-                fileSize: att.document.sizeBytes ? Number(att.document.sizeBytes) : null,
-                uploadedAt: att.document.createdAt
-            }));
-        } else if (q.status === "RELEASED") {
-            answerVisibility = "RELEASED";
-            sharedAt = q.sharedAt ?? null;
-            releasedAt = q.releasedAt ?? null;
-            let derivedVal: any = null;
-
-            if (q.answer !== null && q.answer !== undefined) {
-                // Legacy manual answer or legacy stored explicit none
-                answer = q.answer;
-            } else if (q.masterFieldNo && clientLE) {
-                // Legacy RELEASED fallback: Resolve historical FieldClaim at snapshotDate (q.releasedAt)
-                const subjectLeId = clientLE.legalEntityId || clientLE.id;
-                const ownerScopeId = clientLE.id;
-                const snapshotDate = q.releasedAt ? new Date(q.releasedAt) : undefined;
-
-                try {
-                    derivedVal = await KycStateService.getAuthoritativeValue(
-                        { subjectLeId },
-                        q.masterFieldNo,
-                        ownerScopeId,
-                        snapshotDate
-                    );
-
-                    if (derivedVal) {
-                        if (derivedVal.value && typeof derivedVal.value === 'object' && derivedVal.value.explicitNone) {
-                            answer = { explicitNone: true };
-                        } else {
-                            const vals = Array.isArray(derivedVal.value) ? derivedVal.value : [derivedVal.value];
-                            await enrichPartyReferences(vals);
-                            await enrichAddressReferences(vals);
-                            answer = derivedVal.value;
-                        }
-                    }
-                } catch (err) {
-                    console.error(`[fi.ts] Legacy RELEASED fallback resolution failed for question ${q.id}:`, err);
+        if (isCommon) {
+            for (const clientLE of (q.questionnaire.commonForClients || [])) {
+                for (const eng of (clientLE.fiEngagements || [])) {
+                    contexts.push({ engagement: eng, clientLE: eng.clientLE || clientLE });
                 }
             }
-
-            const relProv = q.releaseProvenance || {};
-            const relSourceType = derivedVal?.sourceType || relProv.sourceType || "USER_INPUT";
-            const relSourceRef = derivedVal?.sourceReference || relProv.sourceReference || null;
-            const relSourceLabel = q.releaseProvenance?.provenanceDisplay?.source || q.releaseProvenance?.sourceLabel || getSourceDisplayName(relSourceType, relSourceRef);
-            const isRelUserInput = relSourceType === "USER_INPUT";
-
-            const lastValidatedAt = isRelUserInput
-                ? (q.releasedAt || null)
-                : (derivedVal?.sourceCheckedAt || derivedVal?.assertedAt || relProv.lastValidatedAt || relProv.sourceCheckedAt || null);
-
-            provenance = {
-                source: relSourceLabel || "Formal Release",
-                sourceType: relSourceType,
-                sourceReference: relSourceRef,
-                timestamp: q.releasedAt || null,
-                lastValidatedAt,
-                releaseProvenance: relProv
-            };
-            documents = (q.documents || []).map((d: any) => ({
-                id: d.id,
-                fileName: d.name,
-                fileType: d.mimeType || null,
-                fileSize: d.sizeBytes ? Number(d.sizeBytes) : null,
-                uploadedAt: d.createdAt
-            }));
-        } else if (q.status === "SHARED") {
-            answerVisibility = "SHARED";
-            sharedAt = q.sharedAt ?? null;
-            let derivedVal: any = null;
-
-            if (q.answer !== null && q.answer !== undefined) {
-                // Manual answer or stored explicit none overrides live canonical resolution
-                answer = q.answer;
-            } else if (q.masterFieldNo && clientLE) {
-                // SHARED pre-release live resolution: Resolve current live FieldClaim (snapshotDate = undefined)
-                const subjectLeId = clientLE.legalEntityId || clientLE.id;
-                const ownerScopeId = clientLE.id;
-
-                try {
-                    derivedVal = await KycStateService.getAuthoritativeValue(
-                        { subjectLeId },
-                        q.masterFieldNo,
-                        ownerScopeId,
-                        undefined // Live current value
-                    );
-
-                    if (derivedVal) {
-                        if (derivedVal.value && typeof derivedVal.value === 'object' && derivedVal.value.explicitNone) {
-                            answer = { explicitNone: true };
-                        } else {
-                            const vals = Array.isArray(derivedVal.value) ? derivedVal.value : [derivedVal.value];
-                            await enrichPartyReferences(vals);
-                            await enrichAddressReferences(vals);
-                            answer = derivedVal.value;
-                        }
-                    }
-                } catch (err) {
-                    console.error(`[fi.ts] SHARED live resolution failed for question ${q.id}:`, err);
-                }
-            }
-
-            const sharedSourceType = derivedVal?.sourceType || "USER_INPUT";
-            const sharedSourceRef = derivedVal?.sourceReference || null;
-            const sharedSourceLabel = derivedVal ? getSourceDisplayName(sharedSourceType, sharedSourceRef) : "Provisional Shared";
-            const isSharedUserInput = sharedSourceType === "USER_INPUT";
-
-            const lastValidatedAt = isSharedUserInput
-                ? (q.sharedAt || null)
-                : (derivedVal?.sourceCheckedAt || derivedVal?.assertedAt || null);
-
-            provenance = {
-                source: sharedSourceLabel || "Provisional Shared",
-                sourceType: sharedSourceType,
-                sourceReference: sharedSourceRef,
-                timestamp: q.sharedAt || null,
-                lastValidatedAt,
-                releaseProvenance: null
-            };
-            documents = (q.documents || []).map((d: any) => ({
-                id: d.id,
-                fileName: d.name,
-                fileType: d.mimeType || null,
-                fileSize: d.sizeBytes ? Number(d.sizeBytes) : null,
-                uploadedAt: d.createdAt
-            }));
         } else {
-            // DRAFT and APPROVED questions are strictly REDACTED server-side.
-            answerVisibility = "NOT_SHARED";
-            // answer, provenance, and documents remain null / []
-            // Client's internal status ('DRAFT' vs 'APPROVED') is NOT exposed anywhere.
+            const engagement = q.questionnaire?.fiEngagement;
+            const clientLE = engagement?.clientLE;
+            if (engagement && clientLE) {
+                contexts = [{ engagement, clientLE }];
+            }
         }
 
-        return {
-            id: q.id,
-            supplierOrgId: fiOrgId,
-            relationshipId: engagement?.id || "",
-            clientLEId: clientLE?.id || "",
-            clientLEName: clientLE?.name || "Unknown",
-            clientOrganizationName: clientOrgName,
+        const items: SupplierQuestionView[] = [];
 
-            questionnaireId: q.questionnaire.id,
-            questionnaireName: q.questionnaire.name,
-            questionnaireVersion: (q.questionnaire as any).referenceCode || null,
+        for (const ctx of contexts) {
+            const { engagement, clientLE } = ctx;
+            const clientOrgName = clientLE?.owners?.[0]?.party?.name || null;
 
-            sectionId: q.sourceSectionId || null,
-            sectionName: null,
-            questionNumber: q.masterFieldNo ? String(q.masterFieldNo) : null,
-            order: q.order ?? null,
+            let category = "Uncategorized";
+            if (q.masterFieldNo) category = fieldCategoryMap.get(q.masterFieldNo) || "Uncategorized";
+            else if (q.masterQuestionGroupId) category = groupCategoryMap.get(q.masterQuestionGroupId) || "Uncategorized";
+            else if (q.customFieldDefinitionId) category = "Custom";
 
-            questionText: q.text,
-            guidance: null,
-            isRequired: null,
+            let answerVisibility: SupplierAnswerVisibility = "NOT_SHARED";
+            let answer: any | null = null;
+            let provenance: SupplierVisibleProvenance | null = null;
+            let documents: SupplierVisibleDocument[] = [];
+            let sharedAt: Date | string | null = null;
+            let releasedAt: Date | string | null = null;
 
-            category,
+            const engagementId = engagement?.id || "";
+            const keyPrefix = `${q.questionnaireId}:${engagementId}`;
+            const subMetadata = submissionMetadataMap.get(keyPrefix);
+            const subAnswer = engagementId ? submissionAnswerMap.get(`${keyPrefix}:${q.id}`) : null;
 
-            answerVisibility,
-            answer,
-            provenance,
-            documents,
+            if (subAnswer) {
+                answerVisibility = "RELEASED";
+                answer = subAnswer.explicitNone ? { explicitNone: true } : (subAnswer.valueJson ?? null);
+                releasedAt = subMetadata?.submittedAt || q.releasedAt || null;
+                
+                const subProv = subAnswer.provenanceJson || {};
+                const subSourceType = subProv.sourceType || "USER_INPUT";
+                const subSourceRef = subProv.sourceReference || null;
+                const isSubUserInput = subSourceType === "USER_INPUT";
 
-            sharedAt,
-            releasedAt,
+                const lastValidatedAt = isSubUserInput
+                    ? (subMetadata?.submittedAt || q.releasedAt || null)
+                    : (subProv.lastValidatedAt || subProv.sourceCheckedAt || subProv.assertedAt || null);
 
-            // Backwards compatibility fields
-            text: q.text,
-            leName: clientLE?.name || "Unknown"
-        };
+                provenance = {
+                    source: subProv.sourceLabel || getSourceDisplayName(subSourceType, subSourceRef) || "Formal Submission",
+                    sourceType: subSourceType,
+                    sourceReference: subSourceRef,
+                    timestamp: subMetadata?.submittedAt || q.releasedAt || null,
+                    lastValidatedAt,
+                    releaseProvenance: subProv
+                };
+                documents = (subAnswer.attachments || []).map((att: any) => ({
+                    id: att.document.id,
+                    fileName: att.document.name,
+                    fileType: att.document.mimeType || null,
+                    fileSize: att.document.sizeBytes ? Number(att.document.sizeBytes) : null,
+                    uploadedAt: att.document.createdAt
+                }));
+            } else if (q.status === "RELEASED") {
+                answerVisibility = "RELEASED";
+                sharedAt = q.sharedAt ?? null;
+                releasedAt = q.releasedAt ?? null;
+                let derivedVal: any = null;
+
+                if (q.answer !== null && q.answer !== undefined) {
+                    answer = q.answer;
+                } else if (q.masterFieldNo && clientLE) {
+                    const subjectLeId = clientLE.legalEntityId || clientLE.id;
+                    const ownerScopeId = clientLE.id;
+                    const snapshotDate = q.releasedAt ? new Date(q.releasedAt) : undefined;
+
+                    try {
+                        derivedVal = await KycStateService.getAuthoritativeValue(
+                            { subjectLeId },
+                            q.masterFieldNo,
+                            ownerScopeId,
+                            snapshotDate
+                        );
+
+                        if (derivedVal) {
+                            if (derivedVal.value && typeof derivedVal.value === 'object' && derivedVal.value.explicitNone) {
+                                answer = { explicitNone: true };
+                            } else {
+                                const vals = Array.isArray(derivedVal.value) ? derivedVal.value : [derivedVal.value];
+                                await enrichPartyReferences(vals);
+                                await enrichAddressReferences(vals);
+                                answer = derivedVal.value;
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`[fi.ts] Legacy RELEASED fallback resolution failed for question ${q.id}:`, err);
+                    }
+                }
+
+                const relProv = q.releaseProvenance || {};
+                const relSourceType = derivedVal?.sourceType || relProv.sourceType || "USER_INPUT";
+                const relSourceRef = derivedVal?.sourceReference || relProv.sourceReference || null;
+                const relSourceLabel = q.releaseProvenance?.provenanceDisplay?.source || q.releaseProvenance?.sourceLabel || getSourceDisplayName(relSourceType, relSourceRef);
+                const isRelUserInput = relSourceType === "USER_INPUT";
+
+                const lastValidatedAt = isRelUserInput
+                    ? (q.releasedAt || null)
+                    : (derivedVal?.sourceCheckedAt || derivedVal?.assertedAt || relProv.lastValidatedAt || relProv.sourceCheckedAt || null);
+
+                provenance = {
+                    source: relSourceLabel || "Formal Release",
+                    sourceType: relSourceType,
+                    sourceReference: relSourceRef,
+                    timestamp: q.releasedAt || null,
+                    lastValidatedAt,
+                    releaseProvenance: relProv
+                };
+                documents = (q.documents || []).map((d: any) => ({
+                    id: d.id,
+                    fileName: d.name,
+                    fileType: d.mimeType || null,
+                    fileSize: d.sizeBytes ? Number(d.sizeBytes) : null,
+                    uploadedAt: d.createdAt
+                }));
+            } else if (q.status === "SHARED") {
+                answerVisibility = "SHARED";
+                sharedAt = q.sharedAt ?? null;
+                let derivedVal: any = null;
+
+                if (q.answer !== null && q.answer !== undefined) {
+                    answer = q.answer;
+                } else if (q.masterFieldNo && clientLE) {
+                    const subjectLeId = clientLE.legalEntityId || clientLE.id;
+                    const ownerScopeId = clientLE.id;
+
+                    try {
+                        derivedVal = await KycStateService.getAuthoritativeValue(
+                            { subjectLeId },
+                            q.masterFieldNo,
+                            ownerScopeId,
+                            undefined
+                        );
+
+                        if (derivedVal) {
+                            if (derivedVal.value && typeof derivedVal.value === 'object' && derivedVal.value.explicitNone) {
+                                answer = { explicitNone: true };
+                            } else {
+                                const vals = Array.isArray(derivedVal.value) ? derivedVal.value : [derivedVal.value];
+                                await enrichPartyReferences(vals);
+                                await enrichAddressReferences(vals);
+                                answer = derivedVal.value;
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`[fi.ts] SHARED live resolution failed for question ${q.id}:`, err);
+                    }
+                }
+
+                const sharedSourceType = derivedVal?.sourceType || "USER_INPUT";
+                const sharedSourceRef = derivedVal?.sourceReference || null;
+                const sharedSourceLabel = derivedVal ? getSourceDisplayName(sharedSourceType, sharedSourceRef) : "Provisional Shared";
+                const isSharedUserInput = sharedSourceType === "USER_INPUT";
+
+                const lastValidatedAt = isSharedUserInput
+                    ? (q.sharedAt || null)
+                    : (derivedVal?.sourceCheckedAt || derivedVal?.assertedAt || null);
+
+                provenance = {
+                    source: sharedSourceLabel || "Provisional Shared",
+                    sourceType: sharedSourceType,
+                    sourceReference: sharedSourceRef,
+                    timestamp: q.sharedAt || null,
+                    lastValidatedAt,
+                    releaseProvenance: null
+                };
+                documents = (q.documents || []).map((d: any) => ({
+                    id: d.id,
+                    fileName: d.name,
+                    fileType: d.mimeType || null,
+                    fileSize: d.sizeBytes ? Number(d.sizeBytes) : null,
+                    uploadedAt: d.createdAt
+                }));
+            } else {
+                answerVisibility = "NOT_SHARED";
+            }
+
+            items.push({
+                id: q.id,
+                supplierOrgId: fiOrgId,
+                relationshipId: engagement?.id || "",
+                clientLEId: clientLE?.id || "",
+                clientLEName: clientLE?.name || "Unknown",
+                clientOrganizationName: clientOrgName,
+
+                questionnaireId: q.questionnaire.id,
+                questionnaireName: q.questionnaire.name,
+                questionnaireVersion: (q.questionnaire as any).referenceCode || null,
+
+                sectionId: q.sourceSectionId || null,
+                sectionName: null,
+                questionNumber: q.masterFieldNo ? String(q.masterFieldNo) : null,
+                order: q.order ?? null,
+
+                questionText: q.text,
+                guidance: null,
+                isRequired: null,
+
+                category,
+
+                answerVisibility,
+                answer,
+                provenance,
+                documents,
+
+                sharedAt,
+                releasedAt,
+
+                text: q.text,
+                answerType: q.expectedDataType || "TEXT",
+                isLocked: q.isLocked ?? false,
+                sourceSectionId: q.sourceSectionId || null,
+
+                masterFieldNo: q.masterFieldNo ?? null,
+                masterQuestionGroupId: q.masterQuestionGroupId ?? null,
+                customFieldDefinitionId: q.customFieldDefinitionId ?? null,
+                approvedMappingConfig: q.approvedMappingConfig ?? null
+            });
+        }
+
+        return items;
     }));
+
+    const questions: SupplierQuestionView[] = transformedQuestionsNested.flat();
 
     const notSharedCount = questions.filter(q => q.answerVisibility === "NOT_SHARED").length;
     const sharedCount = questions.filter(q => q.answerVisibility === "SHARED").length;

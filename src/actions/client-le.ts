@@ -1073,15 +1073,41 @@ export async function getAvailableCommonQuestionnaires(clientLEId: string) {
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
 
     try {
+        let partyId: string | undefined;
+
         const owner = await prisma.clientLEOwner.findFirst({
             where: { clientLEId, endAt: null },
             orderBy: { startAt: 'asc' }
         });
-        
-        if (!owner) return { success: false, error: "No owner found" };
+
+        if (owner) {
+            partyId = owner.partyId;
+        } else {
+            const anyOwner = await prisma.clientLEOwner.findFirst({
+                where: { clientLEId },
+                orderBy: { createdAt: 'desc' }
+            });
+            if (anyOwner) {
+                partyId = anyOwner.partyId;
+            } else {
+                const membership = await prisma.membership.findFirst({
+                    where: { clientLEId, organizationId: { not: null } }
+                });
+                if (membership?.organizationId) {
+                    partyId = membership.organizationId;
+                } else {
+                    const userMembership = await prisma.membership.findFirst({
+                        where: { userId: identity.userId, organizationId: { not: null } }
+                    });
+                    if (userMembership?.organizationId) {
+                        partyId = userMembership.organizationId;
+                    }
+                }
+            }
+        }
 
         const { getDiscoverableReferenceSnapshotsForOrg } = await import("@/actions/questionnaires-v2");
-        const snapshots = await getDiscoverableReferenceSnapshotsForOrg(owner.partyId);
+        const snapshots = await getDiscoverableReferenceSnapshotsForOrg(partyId);
         return { success: true, snapshots };
     } catch (error) {
          console.error("Error fetching available questionnaires:", error);
@@ -1179,6 +1205,9 @@ export async function addCommonQuestionnaire(clientLEId: string, questionnaireId
             instanceName = instanceReferenceCode || template.name;
         }
 
+        const now = new Date();
+        const userId = identity.userId;
+
         const newQuestionnaire = await prisma.questionnaire.create({
             data: {
                 name: instanceName,
@@ -1198,7 +1227,9 @@ export async function addCommonQuestionnaire(clientLEId: string, questionnaireId
                         text: q.text,
                         compactText: q.compactText,
                         order: q.order,
-                        status: "DRAFT",
+                        status: "SHARED",
+                        sharedAt: now,
+                        sharedByUserId: userId,
                         sourceSectionId: q.sourceSectionId,
                         masterFieldNo: q.masterFieldNo,
                         masterQuestionGroupId: q.masterQuestionGroupId,

@@ -80,6 +80,9 @@ export async function populateQuestionsFromExtraction(questionnaireId: string) {
         }
 
         // 3. Create Questions with Links
+        const isEngagementQ = questionnaire.kind === 'ENGAGEMENT_QUESTIONNAIRE' && questionnaire.fiEngagementId != null;
+        const now = new Date();
+
         const extract = (items: any[]) => {
             for (const item of items) {
                 const type = item.type?.toLowerCase();
@@ -95,7 +98,9 @@ export async function populateQuestionsFromExtraction(questionnaireId: string) {
                         text: item.text || item.question || item.originalText || "Untitled Question",
                         compactText: item.compactText || null,
                         order: item.order ?? orderCounter++,
-                        status: 'DRAFT' as QuestionStatus,
+                        status: isEngagementQ ? ('SHARED' as QuestionStatus) : ('DRAFT' as QuestionStatus),
+                        sharedAt: isEngagementQ ? now : null,
+                        sharedByUserId: isEngagementQ ? userId : null,
                         sourceSectionId: item.section || null,
 
                         // COORDINATOR WORKFLOW: Initially assign to the triggering LE Admin
