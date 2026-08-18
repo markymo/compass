@@ -17,6 +17,7 @@ interface NavItem {
     title: string;
     href: string;
     icon: any;
+    disabled?: boolean;
     children?: NavItem[];
 }
 
@@ -24,7 +25,7 @@ const adminNavItems: NavItem[] = [
     { title: "Pulse", href: "/app/admin/pulse", icon: Activity },
     { title: "Organizations", href: "/app/admin/organizations", icon: Building2 },
     { title: "Users", href: "/app/admin/users", icon: Users },
-    { title: "Questionnaires", href: "/app/admin/questionnaires", icon: FileText },
+    { title: "Questionnaires", href: "/app/admin/questionnaires", icon: FileText, disabled: true },
     { title: "Questionnaires V2", href: "/app/admin/questionnaires-v2", icon: FolderOpen },
     { title: "Demo Room", href: "/app/admin/demo", icon: UserCheck },
     { title: "Feedback", href: "/app/admin/feedback", icon: MessageSquarePlus },
@@ -68,6 +69,26 @@ function NavLink({ item, depth = 0, isCollapsed = false }: { item: NavItem; dept
     const [expanded, setExpanded] = useState(active || childActive);
 
     const Icon = item.icon;
+
+    if (item.disabled) {
+        return (
+            <div
+                className={cn(
+                    "flex items-center rounded-lg text-sm font-medium transition-colors select-none opacity-40 cursor-not-allowed text-slate-400 dark:text-slate-600",
+                    isCollapsed ? "justify-center py-2 px-0" : cn("px-3", depth > 0 ? "py-1.5 gap-2.5 text-xs" : "py-2 gap-3"),
+                )}
+                title={isCollapsed ? `${item.title} (Disabled)` : "Disabled (Use Questionnaires V2)"}
+            >
+                <Icon className={cn("shrink-0", (!isCollapsed && depth > 0) ? "h-3.5 w-3.5" : "h-4 w-4")} />
+                {!isCollapsed && (
+                    <div className="flex items-center justify-between flex-1 min-w-0">
+                        <span className="truncate">{item.title}</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-500">Disabled</span>
+                    </div>
+                )}
+            </div>
+        );
+    }
 
     if (hasChildren) {
         return (
