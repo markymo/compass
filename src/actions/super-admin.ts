@@ -95,7 +95,7 @@ export async function purgeClientLE(clientLEId: string) {
         const ownerScopeId = le.owners[0]?.partyId;
 
         // 2. Atomic Cleanup in Transaction
-        await prisma.$transaction(async (tx) => {
+        await prisma.$transaction(async (tx: any) => {
             // 1. Delete PrivateDocumentUploadIntents
             await tx.privateDocumentUploadIntent.deleteMany({
                 where: {
@@ -133,7 +133,7 @@ export async function purgeClientLE(clientLEId: string) {
 
             // 5. Delete Engagements & associated Questionnaires / Activities / Queries
             const engs = await tx.fIEngagement.findMany({ where: { clientLEId: clientLEId }, select: { id: true } });
-            const engIds = engs.map((e) => e.id);
+            const engIds = engs.map((e: any) => e.id);
             if (engIds.length > 0) {
                 await tx.questionnaire.deleteMany({ where: { fiEngagementId: { in: engIds } } });
                 await tx.engagementActivity.deleteMany({ where: { fiEngagementId: { in: engIds } } });
