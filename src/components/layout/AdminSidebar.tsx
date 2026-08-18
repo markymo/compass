@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
-    ShieldCheck, Building2, Users, Wand2, FileText,
+    ShieldCheck, Building2, Building, Users, Wand2, FileText,
     UserCheck, MessageSquarePlus, Database, Activity,
     ListTree, LayoutGrid, Settings2, ArrowUpDown, GitBranch,
     ChevronDown, Zap, ListOrdered, LayoutDashboard, GitMerge, Layers3, FolderOpen
@@ -24,7 +24,9 @@ interface NavItem {
 const adminNavItems: NavItem[] = [
     { title: "Pulse", href: "/app/admin/pulse", icon: Activity },
     { title: "Organizations", href: "/app/admin/organizations", icon: Building2 },
+    { title: "Client Legal Entities", href: "/app/admin/client-les", icon: Building },
     { title: "Users", href: "/app/admin/users", icon: Users },
+
     { title: "Questionnaires", href: "/app/admin/questionnaires", icon: FileText, disabled: true },
     { title: "Questionnaires V2", href: "/app/admin/questionnaires-v2", icon: FolderOpen },
     { title: "Demo Room", href: "/app/admin/demo", icon: UserCheck },

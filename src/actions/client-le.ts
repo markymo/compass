@@ -991,10 +991,8 @@ export async function getFullMasterData(clientLEId: string) {
         } else {
             computedEnrichmentStatus = 'PENDING_ENRICHMENT';
         }
-    } else if (clientLE.gleifFetchedAt || clientLE.legalEntity?.lei) {
-        // GLEIF has established identity and written authoritative claims.
-        // No RegistryReference exists yet, but GLEIF is a tier-1 authoritative source —
-        // its presence is sufficient to unlock the master record.
+    } else if (clientLE.gleifFetchedAt || clientLE.legalEntity?.lei || clientLE.status === 'ACTIVE') {
+        // GLEIF has established identity OR entity is active — unlock the master record.
         computedEnrichmentStatus = 'ENRICHED';
     }
 

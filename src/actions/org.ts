@@ -5,10 +5,21 @@ import { isSystemAdmin } from "./admin";
 import { revalidatePath } from "next/cache";
 import { v4 as uuidv4 } from 'uuid';
 
+import { generateShortCode, makeUnique, normalizeDomain } from "@/lib/org-short-code";
+
 // 1. Create Organization (Admin Only)
-export async function createOrganization(name: string, types: ("CLIENT" | "FI" | "SYSTEM" | "LAW_FIRM" | "SUPPLIER" | "OTHER")[]) {
+export async function createOrganization(
+    name: string,
+    types: ("CLIENT" | "FI" | "SYSTEM" | "LAW_FIRM" | "SUPPLIER" | "OTHER")[],
+    domain?: string | null,
+    shortCode?: string | null
+) {
     const isAdmin = await isSystemAdmin();
     if (!isAdmin) return { success: false, error: "Unauthorized" };
+
+    if (!name || !name.trim()) {
+        return { success: false, error: "Organization name is required" };
+    }
 
     // Enforce invariant: FI, LAW_FIRM, and OTHER are all subtypes of SUPPLIER.
     // Auto-add SUPPLIER if any of those are present so queries on `has: "SUPPLIER"` work correctly.
@@ -18,20 +29,62 @@ export async function createOrganization(name: string, types: ("CLIENT" | "FI" |
         finalTypes.push("SUPPLIER");
     }
 
+    const cleanDomain = normalizeDomain(domain);
+    let finalShortCode: string;
+
+    const trimmedShortCode = shortCode?.trim();
+    if (trimmedShortCode) {
+        const cleanManual = trimmedShortCode.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (cleanManual.length === 0) {
+            return { success: false, error: "Short code cannot be empty" };
+        }
+        if (cleanManual.length > 5) {
+            return { success: false, error: "Short code must be 5 characters or fewer" };
+        }
+        const existing = await prisma.organization.findUnique({
+            where: { shortCode: cleanManual }
+        });
+        if (existing) {
+            return { success: false, error: "Short code already in use." };
+        }
+        finalShortCode = cleanManual;
+    } else {
+        // Auto-generate short code and resolve collisions against all DB rows (active & archived)
+        const allExistingOrgs = await prisma.organization.findMany({
+            where: { shortCode: { not: null } },
+            select: { shortCode: true }
+        });
+        const usedCodes = new Set<string>(
+            allExistingOrgs.map((o: any) => o.shortCode!).filter(Boolean)
+        );
+        const baseCode = generateShortCode(name);
+        try {
+            finalShortCode = makeUnique(baseCode, usedCodes, 5);
+        } catch (e) {
+            return { success: false, error: "Failed to generate a unique short code" };
+        }
+    }
+
     try {
         const org = await prisma.organization.create({
             data: {
-                name,
+                name: name.trim(),
                 types: finalTypes as any,
+                domain: cleanDomain,
+                shortCode: finalShortCode,
             }
         });
         revalidatePath("/app/admin/organizations");
         return { success: true, data: org };
-    } catch (e) {
+    } catch (e: any) {
         console.error(e);
+        if (e.code === 'P2002' || e.message?.includes('shortCode')) {
+            return { success: false, error: "Short code already in use." };
+        }
         return { success: false, error: "Failed to create organization" };
     }
 }
+
 
 // 2. List All Organizations (Admin Only)
 export async function getOrganizations(filterType?: string) {
@@ -180,7 +233,7 @@ export async function updateOrganization(orgId: string, data: { name?: string, s
                 name: data.name,
                 status: data.status,
                 ...(data.shortCode !== undefined && { shortCode: data.shortCode }),
-                ...(data.domain !== undefined && { domain: data.domain }),
+                ...(data.domain !== undefined && { domain: normalizeDomain(data.domain) }),
             }
         });
         revalidatePath(`/app/admin/organizations/${orgId}`);
