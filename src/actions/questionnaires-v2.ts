@@ -188,10 +188,8 @@ export interface DiscoverableSnapshot {
 }
 
 export async function getDiscoverableReferenceSnapshotsForOrg(
-    callerOrgId: string,
+    callerOrgId?: string,
 ): Promise<DiscoverableSnapshot[]> {
-    if (!callerOrgId) return [];
-
     const rows = await prisma.questionnaire.findMany({
         where: {
             isDeleted: false,
@@ -204,11 +202,10 @@ export async function getDiscoverableReferenceSnapshotsForOrg(
             OR: [
                 // GLOBAL: visible to all
                 { visibility: "GLOBAL" },
-                // PRIVATE or RESTRICTED: visible only to owner
-                {
-                    visibility: { in: ["PRIVATE", "RESTRICTED"] },
+                ...(callerOrgId ? [{
+                    visibility: { in: ["PRIVATE", "RESTRICTED"] as QuestionnaireVisibility[] },
                     ownerOrgId: callerOrgId,
-                },
+                }] : []),
             ],
         },
         orderBy: { updatedAt: "desc" },

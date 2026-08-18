@@ -66,8 +66,8 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
     };
 
     const handleAdd = async (snapshot: any) => {
-        // Optimistic UI
-        if (linked.find((q: any) => q.id === snapshot.id)) {
+        // Optimistic UI check for existing linked instance or reference snapshot
+        if (linked.find((q: any) => q.id === snapshot.id || q.sourceId === snapshot.id)) {
              toast.error("Already added");
              return;
         }
@@ -134,7 +134,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                             <div className="flex items-center w-full">
                                                 <FileText className="mr-2 h-4 w-4 text-indigo-500 shrink-0" />
                                                 <span className="font-medium truncate flex-1">{snapshot.name}</span>
-                                                {linked.find((q: any) => q.id === snapshot.id) && (
+                                                {linked.find((q: any) => q.id === snapshot.id || q.sourceId === snapshot.id) && (
                                                     <Check className="ml-2 h-4 w-4 text-indigo-600 shrink-0" />
                                                 )}
                                             </div>
@@ -324,7 +324,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                                  <div className="flex items-center w-full">
                                                      <FileText className="mr-2 h-4 w-4 text-indigo-500 shrink-0" />
                                                      <span className="font-medium truncate flex-1">{snapshot.name}</span>
-                                                     {linked.find((q: any) => q.id === snapshot.id) && (
+                                                     {linked.find((q: any) => q.id === snapshot.id || q.sourceId === snapshot.id) && (
                                                          <Check className="ml-2 h-4 w-4 text-indigo-600 shrink-0" />
                                                      )}
                                                  </div>

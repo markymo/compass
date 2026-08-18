@@ -2115,7 +2115,50 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                     </Button>
                                                 </div>
                                             </div>
-                                        ) : null}
+                                        ) : isAddressField || isCuratedAddressRef ? (
+                                            <div className="space-y-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200">
+                                                {parsedAuthoritativeValue?.ccAddressId && (
+                                                    <SharedResourceUsageNotice
+                                                        resourceType="ADDRESS"
+                                                        resourceId={parsedAuthoritativeValue.ccAddressId}
+                                                        clientLEId={clientLEId}
+                                                        currentFieldNo={fieldNo}
+                                                    />
+                                                )}
+                                                <AddressValueEditor
+                                                    value={typeof manualValue === 'object' && manualValue ? manualValue : { addressLines: [] } as any}
+                                                    onChange={(val) => setManualValue(val as any)}
+                                                    disabled={isSaving}
+                                                />
+                                            </div>
+                                        ) : data?.options && data.options.length > 0 ? (
+                                            <Select value={manualValue} onValueChange={setManualValue}>
+                                                <SelectTrigger className="w-full bg-white border-slate-300">
+                                                    <SelectValue placeholder={`Select ${fieldName}...`} />
+                                                </SelectTrigger>
+                                                <SelectContent position="item-aligned">
+                                                    {data.options.map((opt: any) => {
+                                                        const v = typeof opt === 'object' ? opt.value : opt;
+                                                        const l = typeof opt === 'object' ? opt.label : opt;
+                                                        return <SelectItem key={v} value={v}>{l}</SelectItem>;
+                                                    })}
+                                                </SelectContent>
+                                            </Select>
+                                        ) : isDateType ? (
+                                            <Input
+                                                type="date"
+                                                value={formatDateForInput(manualValue)}
+                                                onChange={(e) => setManualValue(parseDateFromInput(e.target.value))}
+                                                className="bg-white border-slate-300"
+                                            />
+                                        ) : (
+                                            <Input
+                                                value={manualValue}
+                                                onChange={(e) => setManualValue(e.target.value)}
+                                                placeholder="Enter value..."
+                                                className="bg-white border-slate-300"
+                                            />
+                                        )}
                                     </div>
 
                                     {/* Related Fields */}

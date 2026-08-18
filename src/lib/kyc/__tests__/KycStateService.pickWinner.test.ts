@@ -299,6 +299,40 @@ describe('B — USER_INPUT always wins over automated sources within tier', () =
         expect(result!.isScoped).toBe(true);
     });
 
+    it('B3: F18 Registered Number — existing USER_INPUT override beats a later external registry refresh', async () => {
+        const fieldNo18 = 18; // F18: Registered number
+        const userOverride = makeClaim({
+            id: 'claim-user-override',
+            fieldNo: fieldNo18,
+            sourceType: 'USER_INPUT',
+            sourceReference: 'Manual correction by officer',
+            valueText: '12345678-OVERRIDE',
+            status: ClaimStatus.VERIFIED,
+            assertedAt: new Date('2026-07-01T10:00:00Z'),
+        });
+        const laterRegistryRefresh = makeClaim({
+            id: 'claim-ch-refresh',
+            fieldNo: fieldNo18,
+            sourceType: 'REGISTRATION_AUTHORITY',
+            sourceReference: 'RA000585',
+            valueText: '12345678-ORIGINAL',
+            status: ClaimStatus.VERIFIED,
+            assertedAt: new Date('2026-08-15T10:00:00Z'), // Later refresh date
+        });
+
+        (prismaMock.fieldClaim.findMany as any).mockResolvedValue([userOverride, laterRegistryRefresh]);
+        (prismaMock.sourceFieldMapping.findMany as any).mockResolvedValue([
+            makeMapping({ sourceType: 'REGISTRATION_AUTHORITY', sourceReference: 'RA000585', priority: 50 }),
+        ]);
+
+        const result = await KycStateService.getAuthoritativeValue(SUBJECT, fieldNo18);
+
+        expect(result).not.toBeNull();
+        expect(result!.sourceType).toBe('USER_INPUT');
+        expect(result!.value).toBe('12345678-OVERRIDE');
+        expect(result!.assertedAt).toEqual(new Date('2026-07-01T10:00:00Z'));
+    });
+
     it('B3: USER_INPUT has priority 0 — wins even when automated source has P1 mapping', async () => {
         const userClaim = makeClaim({
             id: 'user-1',

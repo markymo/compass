@@ -1155,7 +1155,11 @@ export async function getFieldDetail(
     }
 
     // 1. Get Current Value via KycStateService
-    const derived = await KycStateService.getAuthoritativeValue({ subjectLeId }, fieldNo, ownerScopeId);
+    const derived = await KycStateService.getAuthoritativeValue(
+        { subjectLeId, clientLEId: entityType === 'CLIENT_LE' ? entityId : undefined },
+        fieldNo,
+        ownerScopeId
+    );
 
     // 2. Load Rows if repeating
     let rows: { id: string; value: any; source: string; timestamp: Date; instanceId?: string; collectionId?: string; data?: any; label?: string; sourceReference?: string; isPromotedToCCC?: boolean; sourceCheckedAt?: Date | null; }[] | undefined = undefined;

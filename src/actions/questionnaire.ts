@@ -990,6 +990,15 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
         where: { questionnaireId: id }
     });
 
+    const qn = await prisma.questionnaire.findUnique({
+        where: { id },
+        select: { kind: true, fiEngagementId: true }
+    });
+    const isEngagementQ = qn?.kind === "ENGAGEMENT_QUESTIONNAIRE" && qn?.fiEngagementId != null;
+    const identity = await getIdentity().catch(() => null);
+    const userId = identity?.userId || null;
+    const now = new Date();
+
     // 2. Filter for Questions only (or map others if we expand model later)
     const questionsToCreate = items
         .filter((i: any) => (i.type || "").toLowerCase() === "question")
@@ -1004,7 +1013,9 @@ async function syncQuestionsToDatabase(id: string, items: any[]) {
                 text: item.text || item.originalText || "Untitled Question",
                 compactText: item.compactText || null,
                 order: item.order || index + 1,
-                status: "DRAFT" as any,
+                status: isEngagementQ ? ("SHARED" as any) : ("DRAFT" as any),
+                sharedAt: isEngagementQ ? now : null,
+                sharedByUserId: isEngagementQ ? userId : null,
                 // NEW: Persist Mapping
                 masterFieldNo: item.masterFieldNo || null,
                 masterQuestionGroupId: item.masterQuestionGroupId || null,
@@ -1270,8 +1281,13 @@ export async function assignQuestionnaireToEngagement(
 
         // Clone question rows including all mapping fields
         if (template.questions.length > 0) {
+            const now = new Date();
             await prisma.question.createMany({
-                data: template.questions.map((q: any) => cloneQuestionFields(q, instance.id)),
+                data: template.questions.map((q: any) => cloneQuestionFields(q, instance.id, {
+                    status: "SHARED",
+                    sharedAt: now,
+                    sharedByUserId: identity.userId
+                })),
             });
         }
 
@@ -1435,9 +1451,12 @@ export async function shareQuestionnaireLaterally(sourceQuestionnaireId: string,
             });
 
             if (source.questions.length > 0) {
+                const now = new Date();
                 const questionData = source.questions.map((q: any) => cloneQuestionFields(q, clone.id, {
                     answer: q.answer, // Natively copy the raw answer string
-                    status: (q.answer ? "ANSWERED" : "OPEN") as any, // Reset status
+                    status: "SHARED",
+                    sharedAt: now,
+                    sharedByUserId: userId,
                     // Notice we explicitly strip assignedToUserId, comments, supplierNote, approvedAt etc.
                 }));
 

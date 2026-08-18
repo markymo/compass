@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { FieldDetailPanel } from '../field-detail-panel';
 import * as kycQuery from '@/actions/kyc-query';
 
@@ -71,24 +71,59 @@ vi.mock('lucide-react', async (importOriginal) => {
 
 describe('FieldDetailPanel - Attachment Integration', () => {
     beforeEach(() => {
+        cleanup();
         vi.clearAllMocks();
+        vi.mocked(kycQuery.getFieldDetail).mockImplementation(async (arg0: any, arg1: any) => {
+            const fieldNo = typeof arg0 === 'number' ? arg0 : (typeof arg1 === 'number' ? arg1 : arg0?.fieldNo);
+            if (fieldNo === 18) {
+                return {
+                    fieldNo: 18,
+                    fieldName: 'Registered number',
+                    dataType: 'TEXT',
+                    isRepeating: false,
+                    current: { value: '12345678', source: 'REGISTRATION_AUTHORITY', timestamp: new Date('2026-06-11') },
+                    canonicalDisplayModel: {
+                        allowAttachments: false,
+                        attachments: [],
+                        isEditable: true,
+                        state: 'POPULATED',
+                        value: { kind: 'scalar', display: '12345678', rawValue: '12345678' },
+                        source: { type: 'REGISTRATION_AUTHORITY', label: 'Companies House', colorKey: 'REGISTRY', lastValidatedAt: '2026-06-11T10:00:00.000Z' }
+                    }
+                } as any;
+            }
+            if (fieldNo === 271) {
+                return {
+                    fieldNo: 271,
+                    fieldName: 'test mapped field',
+                    dataType: 'TEXT',
+                    isRepeating: false,
+                    current: { value: 'Original Value', source: 'GLEIF', timestamp: new Date('2026-05-01') },
+                    canonicalDisplayModel: {
+                        allowAttachments: false,
+                        attachments: [],
+                        isEditable: true,
+                        state: 'POPULATED',
+                        value: { kind: 'scalar', display: 'Original Value', rawValue: 'Original Value' },
+                        source: { type: 'GLEIF', label: 'GLEIF', colorKey: 'GLEIF', lastValidatedAt: '2026-05-01T10:00:00.000Z' }
+                    }
+                } as any;
+            }
+            return {
+                fieldNo: fieldNo || 123,
+                current: { value: 'Test Value', source: 'TEST' },
+                canonicalDisplayModel: {
+                    allowAttachments: true,
+                    attachments: [],
+                    isEditable: true,
+                    state: 'POPULATED',
+                    value: { kind: 'scalar', display: 'Test Value' }
+                }
+            } as any;
+        });
     });
 
     it('renders FieldAttachments mode="manage" when allowAttachments is true', async () => {
-        const mockData = {
-            fieldNo: 123,
-            current: { value: 'Test Value', source: 'TEST' },
-            canonicalDisplayModel: {
-                allowAttachments: true,
-                attachments: [],
-                isEditable: true,
-                state: 'POPULATED',
-                value: { kind: 'scalar', display: 'Test Value' }
-            }
-        };
-
-        vi.mocked(kycQuery.getFieldDetail).mockResolvedValue(mockData as any);
-
         render(
             <FieldDetailPanel 
                 open={true} 
@@ -110,20 +145,6 @@ describe('FieldDetailPanel - Attachment Integration', () => {
     });
 
     it('does not render legacy upload input for field attachments', async () => {
-        const mockData = {
-            fieldNo: 123,
-            current: { value: 'Test Value', source: 'TEST' },
-            canonicalDisplayModel: {
-                allowAttachments: true,
-                attachments: [],
-                isEditable: true,
-                state: 'POPULATED',
-                value: { kind: 'scalar', display: 'Test Value' }
-            }
-        };
-
-        vi.mocked(kycQuery.getFieldDetail).mockResolvedValue(mockData as any);
-
         render(
             <FieldDetailPanel 
                 open={true} 
@@ -148,20 +169,6 @@ describe('FieldDetailPanel - Attachment Integration', () => {
     });
 
     it('renders hierarchical Relationships & Usage tree with Question Bank links', async () => {
-        const mockData = {
-            fieldNo: 123,
-            current: { value: 'Test Value', source: 'TEST' },
-            canonicalDisplayModel: {
-                allowAttachments: false,
-                attachments: [],
-                isEditable: true,
-                state: 'POPULATED',
-                value: { kind: 'scalar', display: 'Test Value' }
-            }
-        };
-
-        vi.mocked(kycQuery.getFieldDetail).mockResolvedValue(mockData as any);
-
         render(
             <FieldDetailPanel 
                 open={true} 
@@ -189,5 +196,53 @@ describe('FieldDetailPanel - Attachment Integration', () => {
         expect(relHeader.closest('a')?.getAttribute('href')).toContain('/workbench4?rel=Barclays');
         expect(qnTitle.closest('a')?.getAttribute('href')).toContain('/workbench4?q=KYC%20Form');
         expect(questionText.closest('a')?.getAttribute('href')).toContain('/workbench4?s=What%20is%20your%20registered%20address%3F');
+    });
+
+    it('renders an editable text <Input> control when Edit Pencil is clicked for scalar field F18', async () => {
+        render(
+            <FieldDetailPanel 
+                open={true} 
+                onOpenChange={() => {}} 
+                clientLEId="le-123" 
+                fieldNo={18} 
+                fieldName="Registered number" 
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTitle('Edit value')).toBeTruthy();
+        });
+
+        const editBtn = screen.getByTitle('Edit value');
+        const { fireEvent } = await import('@testing-library/react');
+        fireEvent.click(editBtn);
+
+        const inputControl = await screen.findByPlaceholderText('Enter value...') as HTMLInputElement;
+        expect(inputControl).toBeTruthy();
+        expect(inputControl.value).toBe('12345678');
+    });
+
+    it('renders an editable text <Input> control for simple mapped scalar text field F271', async () => {
+        render(
+            <FieldDetailPanel 
+                open={true} 
+                onOpenChange={() => {}} 
+                clientLEId="le-123" 
+                fieldNo={271} 
+                fieldName="test mapped field" 
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTitle('Edit value')).toBeTruthy();
+        });
+
+        const editBtn = screen.getByTitle('Edit value');
+        const { fireEvent } = await import('@testing-library/react');
+        fireEvent.click(editBtn);
+
+        const inputControl = await screen.findByPlaceholderText('Enter value...') as HTMLInputElement;
+        expect(inputControl).toBeTruthy();
+        expect(inputControl.value).toBe('Original Value');
     });
 });

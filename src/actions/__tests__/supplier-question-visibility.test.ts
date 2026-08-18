@@ -200,14 +200,16 @@ describe("Supplier-Safe Question Visibility & Server-Side Redaction", () => {
 
         // Verify prisma query includes engagement id filter
         const queryArg = prismaMock.question.findMany.mock.calls[0][0];
-        expect(queryArg.where.questionnaire.fiEngagement.id).toEqual({ in: ["eng-allowed-only"] });
+        const engBranch = queryArg.where.questionnaire.OR.find((b: any) => b.fiEngagementId);
+        expect(engBranch.fiEngagement.id).toEqual({ in: ["eng-allowed-only"] });
     });
 
     it("7. Security: Questions from unassigned templates are not returned", async () => {
         await getFIWorkbenchData(fiOrgId);
 
         const queryArg = prismaMock.question.findMany.mock.calls[0][0];
-        expect(queryArg.where.questionnaire.fiEngagementId).toEqual({ not: null });
+        const engBranch = queryArg.where.questionnaire.OR.find((b: any) => b.fiEngagementId);
+        expect(engBranch.fiEngagementId).toEqual({ not: null });
     });
 
     it("8 & 9. Security: Hidden answers and draft documents are absent from serialized result", async () => {
