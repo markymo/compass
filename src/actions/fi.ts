@@ -429,6 +429,15 @@ export interface SupplierQuestionView {
     // Backwards compatibility for existing UI
     text: string;
     leName: string;
+
+    // Optional metadata properties
+    answerType?: string;
+    isLocked?: boolean;
+    sourceSectionId?: string | null;
+    masterFieldNo?: number | null;
+    masterQuestionGroupId?: string | null;
+    customFieldDefinitionId?: string | null;
+    approvedMappingConfig?: any | null;
 }
 
 export interface FIWorkbenchData {
@@ -837,6 +846,7 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                 releasedAt,
 
                 text: q.text,
+                leName: clientLE?.name || "Unknown",
                 answerType: q.expectedDataType || "TEXT",
                 isLocked: q.isLocked ?? false,
                 sourceSectionId: q.sourceSectionId || null,
