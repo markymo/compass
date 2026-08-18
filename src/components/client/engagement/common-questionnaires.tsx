@@ -129,6 +129,10 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                             key={snapshot.id}
                                             value={`${snapshot.id} ${snapshot.name} ${snapshot.referenceCode || ""} ${snapshot.functionalCode || ""} ${snapshot.description || ""}`}
                                             onSelect={() => handleAdd(snapshot)}
+                                            onPointerDown={(e) => {
+                                                e.preventDefault();
+                                                handleAdd(snapshot);
+                                            }}
                                             className="flex flex-col items-start py-3 cursor-pointer"
                                         >
                                             <div className="flex items-center w-full">
@@ -319,6 +323,10 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                                  key={snapshot.id}
                                                  value={`${snapshot.id} ${snapshot.name} ${snapshot.referenceCode || ""} ${snapshot.functionalCode || ""} ${snapshot.description || ""}`}
                                                  onSelect={() => handleAdd(snapshot)}
+                                                 onPointerDown={(e) => {
+                                                     e.preventDefault();
+                                                     handleAdd(snapshot);
+                                                 }}
                                                  className="flex flex-col items-start py-3 cursor-pointer"
                                              >
                                                  <div className="flex items-center w-full">

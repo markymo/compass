@@ -566,6 +566,10 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                                         key={snapshot.id}
                                                                                         value={`${snapshot.id} ${snapshot.name} ${snapshot.referenceCode || ""} ${snapshot.functionalCode || ""}`}
                                                                                         onSelect={() => handleAddQuestionnaire(eng.id, snapshot.id, snapshot.name)}
+                                                                                        onPointerDown={(e) => {
+                                                                                            e.preventDefault();
+                                                                                            handleAddQuestionnaire(eng.id, snapshot.id, snapshot.name);
+                                                                                        }}
                                                                                         className="flex flex-col items-start py-3 cursor-pointer"
                                                                                         disabled={isAddingQ === snapshot.id}
                                                                                     >
