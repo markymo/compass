@@ -1755,6 +1755,9 @@ export interface ConsoleQuestion {
     customFieldDefinitionId?: string | null;
     status: string;
     questionnaireName: string;
+    questionnaireId?: string;
+    fiEngagementId?: string;
+    isCommon?: boolean;
     answer?: string | null;
     engagementOrgName?: string;
     masterDataValue?: any;
@@ -1843,6 +1846,9 @@ export async function getConsoleQuestions(leId: string, includeLocked: boolean =
                     customFieldDefinitionId: q.customFieldDefinitionId,
                     status: q.status || (q.answer ? "ANSWERED" : "OPEN"),
                     questionnaireName: qnaire.name,
+                    questionnaireId: qnaire.id,
+                    fiEngagementId: eng.id,
+                    isCommon: false,
                     answer: q.answer,
                     engagementOrgName: eng.org.name,
                     isLocked: q.isLocked,
@@ -1869,6 +1875,9 @@ export async function getConsoleQuestions(leId: string, includeLocked: boolean =
                     customFieldDefinitionId: q.customFieldDefinitionId,
                     status: q.status || (q.answer ? "ANSWERED" : "OPEN"),
                     questionnaireName: qnaire.name,
+                    questionnaireId: qnaire.id,
+                    fiEngagementId: eng.id,
+                    isCommon: false,
                     answer: q.answer,
                     engagementOrgName: eng.org.name,
                     isLocked: q.isLocked,
@@ -1899,6 +1908,9 @@ export async function getConsoleQuestions(leId: string, includeLocked: boolean =
                     masterDataSource: undefined,
                     masterDataUpdatedAt: undefined,
                     questionnaireName: qnaire.name,
+                    questionnaireId: qnaire.id,
+                    fiEngagementId: undefined,
+                    isCommon: true,
                     engagementOrgName: "Common",
                     status: q.status,
                     isLocked: q.isLocked,

@@ -137,6 +137,9 @@ export function formatAnswerValue(value: unknown): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 
+import { classifyQuestionAnswerState } from "@/lib/metrics/question-state-types";
+import { isQuestionInPopulationScope } from "@/lib/metrics/question-scope";
+
 export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     const searchParams = useSearchParams();
     const pathname = usePathname();
@@ -146,10 +149,17 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     // Initialize from URL or defaults
     const [data, setData] = useState<Workbench4Data>(initialData);
     const [search, setSearch] = useState(searchParams.get("s") || "");
+    const [relationshipIdFilter, setRelationshipIdFilter] = useState<string>(
+        searchParams.get("relationshipId") || searchParams.get("relId") || "ALL"
+    );
     const [relFilter, setRelFilter] = useState<string>(searchParams.get("rel") || "ALL");
+    const [questionnaireIdFilter, setQuestionnaireIdFilter] = useState<string>(
+        searchParams.get("questionnaireId") || searchParams.get("qId") || "ALL"
+    );
     const [qFilter, setQFilter] = useState<string>(searchParams.get("q") || "ALL");
     const [mappingTypeFilter, setMappingTypeFilter] = useState<string>(searchParams.get("m") || "ALL"); // ALL, MAPPED, UNMAPPED
     const [catFilter, setCatFilter] = useState<string>(searchParams.get("cat") || "ALL");
+    const [answerStateFilter, setAnswerStateFilter] = useState<string>(searchParams.get("answerState") || "ALL");
     const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
 
     const urlView = searchParams.get("view");
@@ -163,7 +173,18 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     };
 
     const isAutoFiltered = useMemo(() => {
-        return searchParams.get("rel") || searchParams.get("q") || searchParams.get("s") || searchParams.get("cat") || searchParams.get("m");
+        return (
+            searchParams.get("rel") ||
+            searchParams.get("relationshipId") ||
+            searchParams.get("relId") ||
+            searchParams.get("q") ||
+            searchParams.get("questionnaireId") ||
+            searchParams.get("qId") ||
+            searchParams.get("s") ||
+            searchParams.get("cat") ||
+            searchParams.get("m") ||
+            searchParams.get("answerState")
+        );
     }, [searchParams]);
 
     // Update URL when filters change
@@ -207,22 +228,75 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     // 1. Filtering Logic
     const filteredQuestions = useMemo(() => {
         return data.questions.filter((q: any) => {
-            const matchesSearch = q.text.toLowerCase().includes(search.toLowerCase());
-            const matchesRel = relFilter === "ALL" || (q.engagementOrgName || "Unknown") === relFilter;
-            const matchesQ = qFilter === "ALL" || q.questionnaireName === qFilter;
+            // 1. Population Scope (LE / Relationship / Questionnaire)
+            const matchesScope = isQuestionInPopulationScope(
+                {
+                    fiEngagementId: q.fiEngagementId,
+                    questionnaireId: q.questionnaireId,
+                    engagementOrgName: q.engagementOrgName,
+                    questionnaireName: q.questionnaireName,
+                    isCommon: q.isCommon,
+                },
+                {
+                    relationshipId: relationshipIdFilter,
+                    rel: relFilter,
+                    questionnaireId: questionnaireIdFilter,
+                    q: qFilter,
+                }
+            );
+            if (!matchesScope) return false;
 
-            const isMapped = !!(q.masterFieldNo || q.masterQuestionGroupId || (q as any).customFieldDefinitionId);
-            const matchesMapping = mappingTypeFilter === "ALL" ||
-                (mappingTypeFilter === "MAPPED" && isMapped) ||
-                (mappingTypeFilter === "UNMAPPED" && !isMapped);
+            // 2. Search
+            const matchesSearch = !search || q.text.toLowerCase().includes(search.toLowerCase());
+            if (!matchesSearch) return false;
 
-            const isPinned = pinnedIds.has(q.id);
-
+            // 3. Category
             const matchesCat = catFilter === "ALL" || q.masterFieldCategory === catFilter;
+            if (!matchesCat) return false;
 
-            return matchesSearch && matchesRel && matchesQ && (matchesMapping || isPinned) && matchesCat;
+            // 4. Mapping Status (m)
+            const isMapped = !!(q.masterFieldNo || q.masterQuestionGroupId || (q as any).customFieldDefinitionId);
+            const isPinned = pinnedIds.has(q.id);
+            const matchesMapping =
+                mappingTypeFilter === "ALL" ||
+                (mappingTypeFilter === "MAPPED" && isMapped) ||
+                (mappingTypeFilter === "UNMAPPED" && !isMapped) ||
+                isPinned;
+            if (!matchesMapping) return false;
+
+            // 5. Answer State (answerState) - Separate filter dimension using shared V2 classifier
+            if (answerStateFilter !== "ALL") {
+                const hasAnswer = Boolean(
+                    q.canonicalDisplayModel?.state === "POPULATED" ||
+                    q.canonicalDisplayModel?.state === "EXPLICIT_NONE" ||
+                    (q.masterDataValue !== null && q.masterDataValue !== undefined && q.masterDataValue !== "") ||
+                    (q.answer && q.answer.trim().length > 0 && q.answer !== "null" && q.answer !== "{}")
+                );
+                const sourceType = q.canonicalDisplayModel?.source?.type || q.masterDataSource || null;
+                const isScoped = Boolean(q.canonicalDisplayModel?.isScoped);
+                const evidenceProvider = q.canonicalDisplayModel?.source?.reference || null;
+                const displayState = q.canonicalDisplayModel?.state || null;
+
+                const category = classifyQuestionAnswerState(hasAnswer, sourceType, isScoped, evidenceProvider, displayState);
+                if (category !== answerStateFilter.toUpperCase()) {
+                    return false;
+                }
+            }
+
+            return true;
         });
-    }, [data.questions, search, relFilter, qFilter, mappingTypeFilter, pinnedIds, catFilter]);
+    }, [
+        data.questions,
+        search,
+        relationshipIdFilter,
+        relFilter,
+        questionnaireIdFilter,
+        qFilter,
+        mappingTypeFilter,
+        pinnedIds,
+        catFilter,
+        answerStateFilter,
+    ]);
 
     // 2. Handlers
     const clearPinned = () => {
@@ -427,9 +501,12 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                                 onClick={() => {
                                     setSearch("");
                                     setRelFilter("ALL");
+                                    setRelationshipIdFilter("ALL");
                                     setQFilter("ALL");
+                                    setQuestionnaireIdFilter("ALL");
                                     setCatFilter("ALL");
                                     setMappingTypeFilter("ALL");
+                                    setAnswerStateFilter("ALL");
                                     router.replace(pathname, { scroll: false });
                                 }}
                                 className="ml-1 hover:text-indigo-800 transition-colors"
@@ -496,6 +573,22 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                             <SelectItem value="ALL">All Statuses</SelectItem>
                             <SelectItem value="MAPPED">Mapped</SelectItem>
                             <SelectItem value="UNMAPPED">Unmapped</SelectItem>
+                        </SelectContent>
+                    </Select>
+
+                    <Select value={answerStateFilter} onValueChange={(val) => {
+                        handleFilterChange(setAnswerStateFilter)(val);
+                        updateUrl({ answerState: val });
+                    }}>
+                        <SelectTrigger className="w-[170px] bg-slate-50/50">
+                            <SelectValue placeholder="Answer State" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="ALL">All Answer States</SelectItem>
+                            <SelectItem value="external">External Answers</SelectItem>
+                            <SelectItem value="user_input">User Input</SelectItem>
+                            <SelectItem value="default_response">Default Answers</SelectItem>
+                            <SelectItem value="unanswered">Unanswered</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>

@@ -5,10 +5,17 @@ import { getIdentity } from "@/lib/auth";
 import { getLEDisplayName } from "@/lib/le-display-name";
 
 import { DashboardMetric, emptyMetrics, calculateEngagementOwnMetrics, calculateCommonQuestionnaireMetrics, rollupMetrics } from "@/lib/metrics-calc";
+import {
+    QuestionStateMetrics,
+    emptyQuestionStateMetrics,
+    rollupQuestionStateMetrics,
+    calculateCQQuestionStateMetrics,
+    calculateEngagementQuestionStateMetrics,
+} from "@/lib/metrics/question-state-metrics";
 
 export type DashboardContexts = {
-    clients: Array<{ id: string; name: string; role: string; source: "DIRECT" | "DERIVED"; metrics: DashboardMetric }>;
-    financialInstitutions: Array<{ id: string; name: string; role: string; metrics: DashboardMetric }>;
+    clients: Array<{ id: string; name: string; role: string; source: "DIRECT" | "DERIVED"; metrics: DashboardMetric; v2Metrics?: QuestionStateMetrics }>;
+    financialInstitutions: Array<{ id: string; name: string; role: string; metrics: DashboardMetric; v2Metrics?: QuestionStateMetrics }>;
     lawFirms: Array<{ id: string; name: string; role: string }>;
     legalEntities: Array<{
         id: string;
@@ -16,7 +23,8 @@ export type DashboardContexts = {
         clientName: string;
         role: string;
         metrics: DashboardMetric;
-        commonQuestionnaires?: Array<{ id: string; name: string; status: string; updatedAt: Date; metrics: DashboardMetric }>;
+        v2Metrics?: QuestionStateMetrics;
+        commonQuestionnaires?: Array<{ id: string; name: string; status: string; updatedAt: Date; metrics: DashboardMetric; v2Metrics?: QuestionStateMetrics }>;
     }>;
     relationships: Array<{
         id: string;
@@ -30,6 +38,7 @@ export type DashboardContexts = {
         userIsClient: boolean;
         userIsSupplier: boolean;
         metrics: DashboardMetric;
+        v2Metrics?: QuestionStateMetrics;
         questionnaires?: Array<{ id: string; name: string; status: string; updatedAt: Date }>;
     }>;
 };
@@ -306,5 +315,81 @@ export async function getUserContexts(): Promise<DashboardContexts> {
         }
     });
 
+    await attachV2QuestionStateMetrics(context);
+
     return context;
+}
+
+async function attachV2QuestionStateMetrics(context: DashboardContexts): Promise<void> {
+    const cqV2MetricsMap = new Map<string, QuestionStateMetrics>();
+    await Promise.all(
+        context.legalEntities.flatMap((le) =>
+            (le.commonQuestionnaires || []).map(async (cq) => {
+                const cqV2 = await calculateCQQuestionStateMetrics(cq.id, le.id);
+                cq.v2Metrics = cqV2;
+                cqV2MetricsMap.set(`${cq.id}:${le.id}`, cqV2);
+            })
+        )
+    );
+
+    const relOwnV2MetricsMap = new Map<string, QuestionStateMetrics>();
+    await Promise.all(
+        context.relationships.map(async (rel) => {
+            const ownV2 = await calculateEngagementQuestionStateMetrics(rel.id);
+            relOwnV2MetricsMap.set(rel.id, ownV2);
+
+            const relEffectiveV2 = { ...ownV2 };
+            const leCQs = (context.legalEntities.find((l) => l.id === rel.clientLEId)?.commonQuestionnaires) || [];
+            leCQs.forEach((cq) => {
+                if (cq.v2Metrics) {
+                    rollupQuestionStateMetrics(relEffectiveV2, cq.v2Metrics);
+                }
+            });
+            rel.v2Metrics = relEffectiveV2;
+        })
+    );
+
+    context.legalEntities.forEach((le) => {
+        const leV2 = emptyQuestionStateMetrics();
+        (le.commonQuestionnaires || []).forEach((cq) => {
+            if (cq.v2Metrics) rollupQuestionStateMetrics(leV2, cq.v2Metrics);
+        });
+        context.relationships
+            .filter((r) => r.clientLEId === le.id)
+            .forEach((r) => {
+                const ownV2 = relOwnV2MetricsMap.get(r.id);
+                if (ownV2) rollupQuestionStateMetrics(leV2, ownV2);
+            });
+        le.v2Metrics = leV2;
+    });
+
+    context.clients.forEach((client) => {
+        const clientV2 = emptyQuestionStateMetrics();
+        context.legalEntities
+            .filter((le) => le.clientName === client.name)
+            .forEach((le) => {
+                if (le.v2Metrics) rollupQuestionStateMetrics(clientV2, le.v2Metrics);
+            });
+        client.v2Metrics = clientV2;
+    });
+
+    context.financialInstitutions.forEach((fi) => {
+        const fiV2 = emptyQuestionStateMetrics();
+        const fiRels = context.relationships.filter((r) => r.fiOrgId === fi.id);
+
+        fiRels.forEach((r) => {
+            const ownV2 = relOwnV2MetricsMap.get(r.id);
+            if (ownV2) rollupQuestionStateMetrics(fiV2, ownV2);
+        });
+
+        const uniqueLEIds = Array.from(new Set(fiRels.map((r) => r.clientLEId)));
+        uniqueLEIds.forEach((leId) => {
+            const leCQs = context.legalEntities.find((l) => l.id === leId)?.commonQuestionnaires || [];
+            leCQs.forEach((cq) => {
+                if (cq.v2Metrics) rollupQuestionStateMetrics(fiV2, cq.v2Metrics);
+            });
+        });
+
+        fi.v2Metrics = fiV2;
+    });
 }

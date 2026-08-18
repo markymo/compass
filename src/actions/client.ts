@@ -348,30 +348,7 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
             if (existingLE.isDeleted) {
                 console.log(`[createClientLE] Entity ${existingLE.id} is deleted. Resurrecting...`);
 
-                // 1. Un-delete the LE
-                await prisma.clientLE.update({
-                    where: { id: existingLE.id },
-                    data: { isDeleted: false, status: "ACTIVE" }
-                });
-
-                // 2. Un-delete Engagements & Questionnaires for this LE
-                await prisma.fIEngagement.updateMany({
-                    where: { clientLEId: existingLE.id },
-                    data: { isDeleted: false }
-                });
-
-                const restoredEngs = await prisma.fIEngagement.findMany({
-                    where: { clientLEId: existingLE.id },
-                    select: { id: true }
-                });
-                const restoredEngIds = restoredEngs.map((e: any) => e.id);
-
-                if (restoredEngIds.length > 0) {
-                    await prisma.questionnaire.updateMany({
-                        where: { fiEngagementId: { in: restoredEngIds } },
-                        data: { isDeleted: false }
-                    });
-                }
+                await restoreClientLECore(existingLE.id);
 
                 // 3. Ensure Ownership
                 const existingOwner = await prisma.clientLEOwner.findFirst({
@@ -845,7 +822,39 @@ export async function getDashboardMetrics(leId: string) {
         }))
     };
 }
-// 7. Archive / Delete Client LE
+/**
+ * Canonical core restore logic for ClientLE, its FIEngagements, and linked Questionnaires.
+ * Restores existing soft-deleted record without creating a new record or modifying master data/history.
+ */
+export async function restoreClientLECore(clientLEId: string) {
+    // 1. Un-delete the LE and ensure status ACTIVE
+    const updatedLE = await prisma.clientLE.update({
+        where: { id: clientLEId },
+        data: { isDeleted: false, status: "ACTIVE" }
+    });
+
+    // 2. Un-delete Engagements & Questionnaires for this LE
+    await prisma.fIEngagement.updateMany({
+        where: { clientLEId: clientLEId },
+        data: { isDeleted: false }
+    });
+
+    const restoredEngs = await prisma.fIEngagement.findMany({
+        where: { clientLEId: clientLEId },
+        select: { id: true }
+    });
+    const restoredEngIds = restoredEngs.map((e: any) => e.id);
+
+    if (restoredEngIds.length > 0) {
+        await prisma.questionnaire.updateMany({
+            where: { fiEngagementId: { in: restoredEngIds } },
+            data: { isDeleted: false }
+        });
+    }
+
+    return updatedLE;
+}
+
 // 7. Archive / Delete Client LE
 export async function deleteClientLE(leId: string) {
     const identity = await getIdentity();
