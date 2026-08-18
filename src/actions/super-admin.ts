@@ -95,31 +95,82 @@ export async function purgeClientLE(clientLEId: string) {
         const ownerScopeId = le.owners[0]?.partyId;
 
         // 2. Atomic Cleanup in Transaction
-        await prisma.$transaction([
-            // A. Delete FieldClaims (Master Data) asserted specifically by this client for this LE
-            ...(subjectLeId && ownerScopeId ? [
-                prisma.fieldClaim.deleteMany({
-                    where: {
-                        subjectLeId: subjectLeId,
-                        ownerScopeId: ownerScopeId
-                    }
-                })
-            ] : []),
+        await prisma.$transaction(async (tx: any) => {
+            // 1. Delete PrivateDocumentUploadIntents
+            await tx.privateDocumentUploadIntent.deleteMany({
+                where: {
+                    OR: [
+                        { clientLEId: clientLEId },
+                        { document: { clientLEId: clientLEId } }
+                    ]
+                }
+            });
 
-            // B. Delete the ClientLE itself. 
-            // Cascading deletes in schema.prisma will handle:
-            // - FIEngagement -> Questionnaire Instances -> Questions -> Comments/Activity
-            // - Document
-            // - Membership
-            // - ClientLERecord
-            // - ClientLEGraphNode / Edge
-            // - RegistryReference -> RegistryFetch
-            // - EnrichmentRun -> Payload/Baseline
-            // - ClientLEOwner
-            prisma.clientLE.delete({
-                where: { id: clientLEId }
-            })
-        ]);
+            // 2. Delete CCPartyDocument, CCParty, CCAddress
+            await tx.cCPartyDocument.deleteMany({
+                where: {
+                    OR: [
+                        { party: { clientLEId: clientLEId } },
+                        { document: { clientLEId: clientLEId } }
+                    ]
+                }
+            });
+            await tx.cCParty.deleteMany({ where: { clientLEId: clientLEId } });
+            await tx.cCAddress.deleteMany({ where: { clientLEId: clientLEId } });
+
+            // 3. Delete QuestionnaireSubmissions
+            await tx.questionnaireSubmission.deleteMany({ where: { clientLEId: clientLEId } });
+
+            // 4. Delete FieldClaims scoped to this ClientLE
+            await tx.fieldClaim.deleteMany({
+                where: {
+                    OR: [
+                        { clientLeScopeId: clientLEId },
+                        ...(subjectLeId && ownerScopeId ? [{ subjectLeId, ownerScopeId }] : [])
+                    ]
+                }
+            });
+
+            // 5. Delete Engagements & associated Questionnaires / Activities / Queries
+            const engs = await tx.fIEngagement.findMany({ where: { clientLEId: clientLEId }, select: { id: true } });
+            const engIds = engs.map((e: any) => e.id);
+            if (engIds.length > 0) {
+                await tx.questionnaire.deleteMany({ where: { fiEngagementId: { in: engIds } } });
+                await tx.engagementActivity.deleteMany({ where: { fiEngagementId: { in: engIds } } });
+                await tx.query.deleteMany({ where: { fiEngagementId: { in: engIds } } });
+            }
+
+            // 6. Delete Documents owned by ClientLE
+            await tx.document.deleteMany({ where: { clientLEId: clientLEId } });
+
+            // 7. Delete Invitations
+            await tx.invitation.deleteMany({
+                where: {
+                    OR: [
+                        { clientLEId: clientLEId },
+                        ...(engIds.length > 0 ? [{ fiEngagementId: { in: engIds } }] : [])
+                    ]
+                }
+            });
+
+            // 8. Delete FIEngagements
+            await tx.fIEngagement.deleteMany({ where: { clientLEId: clientLEId } });
+
+            // 9. Delete Graph Edges then Nodes
+            await tx.clientLEGraphEdge.deleteMany({ where: { clientLEId: clientLEId } });
+            await tx.clientLEGraphNode.deleteMany({ where: { clientLEId: clientLEId } });
+
+            // 10. Delete ClientLE Records, Data, Memberships, etc.
+            await tx.clientLERecord.deleteMany({ where: { clientLEId: clientLEId } });
+            await tx.standingDataSection.deleteMany({ where: { clientLEId: clientLEId } });
+            await tx.masterFieldAssignment.deleteMany({ where: { clientLEId: clientLEId } });
+            await tx.masterFieldNote.deleteMany({ where: { clientLEId: clientLEId } });
+            await tx.lEActivity.deleteMany({ where: { leId: clientLEId } });
+            await tx.membership.deleteMany({ where: { clientLEId: clientLEId } });
+
+            // 11. Delete the ClientLE itself
+            await tx.clientLE.delete({ where: { id: clientLEId } });
+        });
 
         console.log(`[SuperAdmin] Successfully purged ClientLE: ${le.name} (${clientLEId})`);
         revalidatePath("/app/admin/users"); // If called from users dashboard

@@ -132,7 +132,6 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
                         <ClientLEActions 
                             leId={leId} 
                             leName={leName} 
-                            isSystemAdmin={isSystemAdmin} 
                         />
                     </div>
                 }

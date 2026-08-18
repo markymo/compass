@@ -354,7 +354,26 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
                     data: { isDeleted: false, status: "ACTIVE" }
                 });
 
-                // 2. Ensure Ownership
+                // 2. Un-delete Engagements & Questionnaires for this LE
+                await prisma.fIEngagement.updateMany({
+                    where: { clientLEId: existingLE.id },
+                    data: { isDeleted: false }
+                });
+
+                const restoredEngs = await prisma.fIEngagement.findMany({
+                    where: { clientLEId: existingLE.id },
+                    select: { id: true }
+                });
+                const restoredEngIds = restoredEngs.map((e: any) => e.id);
+
+                if (restoredEngIds.length > 0) {
+                    await prisma.questionnaire.updateMany({
+                        where: { fiEngagementId: { in: restoredEngIds } },
+                        data: { isDeleted: false }
+                    });
+                }
+
+                // 3. Ensure Ownership
                 const existingOwner = await prisma.clientLEOwner.findFirst({
                     where: {
                         clientLEId: existingLE.id,
@@ -957,78 +976,6 @@ export async function archiveClientLE(leId: string) {
     }
 }
 
-// 9. Force Delete Client LE (System Admin Only)
-export async function forceDeleteClientLE(leId: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) return { success: false, error: "Unauthorized" };
-    const { userId } = identity;
-
-    // Strict System Admin Check
-    const isSys = await checkIsSystemAdmin(userId);
-    if (!isSys) {
-        return { success: false, error: "Unauthorized: Only System Administrators can perform Force Delete." };
-    }
-
-    try {
-        console.log(`[forceDeleteClientLE] Admin ${userId} invoking Force Delete on LE ${leId}`);
-
-        await prisma.$transaction(async (tx: any) => {
-            // 1. Delete all Engagements (and their sub-relations if not cascaded)
-            // Note: FIEngagement deletion needs to carefully matching relation names if using deleteMany
-            // But let's check schema again. FIEngagement doesn't have cascade on DB level for ClientLE?
-            // "clientLE ClientLE @relation(fields: [clientLEId], references: [id])" -> Default is restrict/no action.
-            // So we MUST delete them manually.
-
-            // 1.1 Delete Questionnaires linked to Engagements of this LE
-            // Find Engagements first
-            const engs = await tx.fIEngagement.findMany({ where: { clientLEId: leId }, select: { id: true } });
-            const engIds = engs.map((e: any) => e.id);
-
-            if (engIds.length > 0) {
-                // Delete Questionnaires (Instances)
-                await tx.questionnaire.deleteMany({ where: { fiEngagementId: { in: engIds } } });
-
-                // Delete EngagementActivities
-                await tx.engagementActivity.deleteMany({ where: { fiEngagementId: { in: engIds } } });
-
-                // Delete Queries
-                await tx.query.deleteMany({ where: { fiEngagementId: { in: engIds } } });
-
-                // Delete Invitations
-                await tx.invitation.deleteMany({ where: { fiEngagementId: { in: engIds } } });
-
-                // Delete FIEngagements
-                await tx.fIEngagement.deleteMany({ where: { clientLEId: leId } });
-            }
-
-            // 2. Delete Documents
-            await tx.document.deleteMany({ where: { clientLEId: leId } });
-
-            // 3. Delete ClientLERecords (Answers)
-            await tx.clientLERecord.deleteMany({ where: { clientLEId: leId } });
-
-            // 4. Delete StandingDataSections (Has Cascade, but explicit is safer for force)
-            await tx.standingDataSection.deleteMany({ where: { clientLEId: leId } });
-
-            // 5. Delete Invitations (Handled above in step 1.1)
-
-            // 6. Delete Memberships (Direct Workspace Access)
-            await tx.membership.deleteMany({ where: { clientLEId: leId } });
-
-            // 7. Delete Ownership Links (Has Cascade)
-            // await tx.clientLEOwner.deleteMany({ where: { clientLEId: leId } });
-
-            // 8. Delete the LE itself
-            await tx.clientLE.delete({ where: { id: leId } });
-        });
-
-        revalidatePath("/app");
-        return { success: true };
-    } catch (e) {
-        console.error("[forceDeleteClientLE] Failed:", e);
-        return { success: false, error: "Failed to force delete entity. Check server logs." };
-    }
-}
 
 
 // 9. Search Financial Institutions
