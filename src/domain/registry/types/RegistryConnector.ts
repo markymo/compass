@@ -21,6 +21,11 @@ export interface IRegistryConnector {
     readonly supportsOfficerFetch?: boolean;
 
     /**
+     * Optional method to check if a specific registry authority ID is supported.
+     */
+    supports?(authorityId: string): boolean;
+
+    /**
      * Fetch and normalize data for a given registry reference
      */
     fetch(reference: RegistryReference): Promise<CanonicalRegistryRecord>;

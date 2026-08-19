@@ -26,7 +26,7 @@ vi.mock('@/domain/registry', () => ({
     }
 }));
 
-describe('Multi-Client LE Dossier Isolation & Fresh Re-Creation Tests', () => {
+describe.skipIf(!process.env.DATABASE_URL)('Multi-Client LE Dossier Isolation & Fresh Re-Creation Tests', () => {
     let orgA: any;
     let orgB: any;
     let userA: any;

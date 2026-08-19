@@ -4,14 +4,22 @@ import { getAllClientLEsForAdmin, restoreClientLEFromAdmin } from '../admin';
 import { isSystemAdmin } from '../security';
 import { restoreClientLECore, deleteClientLE, createClientLE } from '../client';
 
+const mockPrisma = {
+    clientLE: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), create: vi.fn() },
+    clientLEOwner: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn() },
+    fIEngagement: { findMany: vi.fn(), updateMany: vi.fn() },
+    questionnaire: { updateMany: vi.fn() },
+    membership: { findMany: vi.fn(), findFirst: vi.fn() },
+    $transaction: vi.fn(async (cb: any) => {
+        if (typeof cb === 'function') {
+            return await cb(mockPrisma);
+        }
+        return Promise.all(cb);
+    })
+};
+
 vi.mock('@/lib/prisma', () => ({
-    default: {
-        clientLE: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), create: vi.fn() },
-        clientLEOwner: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn() },
-        fIEngagement: { findMany: vi.fn(), updateMany: vi.fn() },
-        questionnaire: { updateMany: vi.fn() },
-        membership: { findMany: vi.fn(), findFirst: vi.fn() }
-    }
+    default: mockPrisma
 }));
 
 vi.mock('@/lib/auth', () => ({

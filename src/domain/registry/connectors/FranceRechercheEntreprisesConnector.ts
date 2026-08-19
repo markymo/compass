@@ -27,6 +27,10 @@ export class FranceRechercheEntreprisesConnector implements IRegistryConnector {
     readonly connectorKey = "FranceRechercheEntreprisesConnector";
     readonly supportedRegistryKeys = ["FR_RECHERCHE_ENTREPRISES"];
 
+    supports(authorityId: string): boolean {
+        return authorityId === "RA000192";
+    }
+
     private static readonly BASE_URL =
         "https://recherche-entreprises.api.gouv.fr";
 
