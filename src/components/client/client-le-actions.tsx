@@ -65,7 +65,7 @@ export function ClientLEActions({ leId, leName }: ClientLEActionsProps) {
                 onOpenChange={setShowDelete}
                 itemName={leName}
                 title="Delete Legal Entity?"
-                description={`This will delete "${leName}". The entity and its data can be restored later if needed.`}
+                description="This will remove the legal entity from your workspace, including its relationships and questionnaires. It can be restored for up to 30 days if you change your mind. After that, recovery may no longer be possible."
                 confirmLabel="Delete"
                 onConfirm={handleDeleteConfirm}
                 isLoading={isLoading}

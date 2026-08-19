@@ -3,12 +3,10 @@ import { put } from "@vercel/blob";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { isSystemAdmin } from "./security";
+export { isSystemAdmin };
 import { DocumentService } from "@/lib/documents/DocumentService";
 import { getIdentity } from "@/lib/auth";
-
-// 1. Export re-export or just use local one? 
-// The plan said refactor from admin.ts, so let's import it.
-export { isSystemAdmin };
+import { restoreClientLECore } from "./client";
 
 // 2. Get All Users (for Admin Dashboard)
 export async function getAllUsers() {
@@ -220,9 +218,6 @@ export async function getAllClientLEsForAdmin() {
 
     try {
         const clientLEs = await prisma.clientLE.findMany({
-            where: {
-                isDeleted: false,
-            },
             orderBy: {
                 name: "asc",
             },
@@ -256,6 +251,7 @@ export async function getAllClientLEsForAdmin() {
                 name: le.name || "Unnamed LE",
                 shortCode: le.shortCode || null,
                 status: le.status || "ACTIVE",
+                isDeleted: le.isDeleted ?? false,
                 createdAt: le.createdAt ? le.createdAt.toISOString() : new Date().toISOString(),
                 parentOrgs: activeOwners.map((o: any) => ({
                     id: o.party.id,
@@ -271,5 +267,22 @@ export async function getAllClientLEsForAdmin() {
         return [];
     }
 }
+
+// 8. Restore Client LE (System Admin Action)
+export async function restoreClientLEFromAdmin(leId: string) {
+    const isAdmin = await isSystemAdmin();
+    if (!isAdmin) return { success: false, error: "Unauthorized: Only System Admins can restore legal entities." };
+
+    try {
+        await restoreClientLECore(leId);
+        revalidatePath("/app/admin/client-les");
+        revalidatePath("/app");
+        return { success: true };
+    } catch (e: any) {
+        console.error("Failed to restore ClientLE from admin:", e);
+        return { success: false, error: e.message || "Failed to restore entity" };
+    }
+}
+
 
 

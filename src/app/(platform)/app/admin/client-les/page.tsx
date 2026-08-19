@@ -1,14 +1,24 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { getAllClientLEsForAdmin } from "@/actions/admin";
+import { getAllClientLEsForAdmin, restoreClientLEFromAdmin } from "@/actions/admin";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Loader2, Building, Building2, ExternalLink } from "lucide-react";
+import { Search, Loader2, Building, Building2, ExternalLink, RotateCcw } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
+import {
+    AlertDialog,
+    AlertDialogContent,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogCancel,
+} from "@/components/ui/alert-dialog";
 
 interface ParentOrg {
     id: string;
@@ -21,6 +31,7 @@ interface ClientLEItem {
     name: string;
     shortCode: string | null;
     status: string;
+    isDeleted: boolean;
     createdAt: string;
     parentOrgs: ParentOrg[];
     engagementCount: number;
@@ -31,6 +42,8 @@ export default function ClientLEsAdminPage() {
     const [clientLEs, setClientLEs] = useState<ClientLEItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const [restoreTarget, setRestoreTarget] = useState<ClientLEItem | null>(null);
+    const [restoring, setRestoring] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -47,6 +60,25 @@ export default function ClientLEsAdminPage() {
             setLoading(false);
         }
     }
+
+    const handleRestoreConfirm = async () => {
+        if (!restoreTarget) return;
+        setRestoring(true);
+        try {
+            const res = await restoreClientLEFromAdmin(restoreTarget.id);
+            if (res.success) {
+                toast.success(`Restored ${restoreTarget.name}`);
+                setRestoreTarget(null);
+                await loadData();
+            } else {
+                toast.error(res.error || "Failed to restore legal entity");
+            }
+        } catch (e) {
+            toast.error("Failed to restore legal entity");
+        } finally {
+            setRestoring(false);
+        }
+    };
 
     const filteredLEs = clientLEs.filter((le) => {
         if (!searchQuery.trim()) return true;
@@ -111,13 +143,17 @@ export default function ClientLEsAdminPage() {
                                 </TableRow>
                             ) : (
                                 filteredLEs.map((le) => (
-                                    <TableRow key={le.id}>
+                                    <TableRow key={le.id} className={le.isDeleted ? "bg-slate-50/50" : undefined}>
                                         <TableCell className="font-medium">
                                             <div className="flex items-center gap-2">
-                                                <Building className="w-4 h-4 text-slate-400 shrink-0" />
+                                                <Building className={`w-4 h-4 shrink-0 ${le.isDeleted ? "text-slate-300" : "text-slate-400"}`} />
                                                 <Link
                                                     href={`/app/le/${le.id}`}
-                                                    className="font-semibold text-slate-900 hover:text-amber-600 hover:underline transition-colors"
+                                                    className={`font-semibold transition-colors ${
+                                                        le.isDeleted 
+                                                            ? "text-slate-500 hover:text-amber-600 hover:underline"
+                                                            : "text-slate-900 hover:text-amber-600 hover:underline"
+                                                    }`}
                                                 >
                                                     {le.name}
                                                 </Link>
@@ -166,12 +202,14 @@ export default function ClientLEsAdminPage() {
                                             <Badge
                                                 variant="outline"
                                                 className={`text-[10px] font-semibold uppercase px-2 py-0.5 ${
-                                                    le.status === "ACTIVE"
+                                                    le.isDeleted
+                                                        ? "bg-rose-50 text-rose-700 border-rose-200"
+                                                        : le.status === "ACTIVE"
                                                         ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                                                         : "bg-slate-100 text-slate-600 border-slate-200"
                                                 }`}
                                             >
-                                                {le.status}
+                                                {le.isDeleted ? "DELETED" : le.status}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
@@ -191,17 +229,29 @@ export default function ClientLEsAdminPage() {
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                className="h-8 px-2 text-slate-600 hover:text-amber-600"
-                                                asChild
-                                            >
-                                                <Link href={`/app/le/${le.id}`}>
-                                                    <ExternalLink className="w-3.5 h-3.5 mr-1" />
-                                                    View
-                                                </Link>
-                                            </Button>
+                                            {le.isDeleted ? (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-8 px-2 text-slate-700 hover:text-amber-700 hover:bg-amber-50 border-slate-200"
+                                                    onClick={() => setRestoreTarget(le)}
+                                                >
+                                                    <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                                                    Restore
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-8 px-2 text-slate-600 hover:text-amber-600"
+                                                    asChild
+                                                >
+                                                    <Link href={`/app/le/${le.id}`}>
+                                                        <ExternalLink className="w-3.5 h-3.5 mr-1" />
+                                                        View
+                                                    </Link>
+                                                </Button>
+                                            )}
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -210,6 +260,27 @@ export default function ClientLEsAdminPage() {
                     </Table>
                 </CardContent>
             </Card>
+
+            <AlertDialog open={!!restoreTarget} onOpenChange={(open) => !open && setRestoreTarget(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Restore {restoreTarget?.name}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will restore the legal entity, its engagements, and questionnaires to active status.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={restoring}>Cancel</AlertDialogCancel>
+                        <Button
+                            disabled={restoring}
+                            onClick={handleRestoreConfirm}
+                        >
+                            {restoring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Restore
+                        </Button>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

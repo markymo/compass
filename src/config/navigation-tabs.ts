@@ -14,7 +14,8 @@ import {
     Settings2,
     Settings,
     Building2,
-    Link as LinkIcon
+    Link as LinkIcon,
+    ShieldCheck
 } from "lucide-react";
 import { NavItem } from "@/components/layout/HeaderNavList";
 
@@ -52,6 +53,12 @@ export const getLegalEntityTabs = (leId: string): NavItem[] => {
             href: `${baseUrl}/workbench4`,
             icon: Clipboard,
             isActive: (path) => matchesPath(path, `${baseUrl}/workbench4`)
+        },
+        {
+            label: "Approvals",
+            href: `${baseUrl}/approvals`,
+            icon: ShieldCheck,
+            isActive: (path) => matchesPath(path, `${baseUrl}/approvals`)
         },
         {
             label: "Team",

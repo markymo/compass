@@ -543,7 +543,6 @@ export async function createFIEngagement(clientLEId: string, fiName: string) {
         return { success: false, error: "Failed to create engagement" };
     }
 }
-// ... (previous code)
 
 /**
  * Fetches all Master Data values for an LE, flattened by Field Number.
@@ -561,9 +560,6 @@ export async function getFullMasterData(clientLEId: string) {
             }
         }
     });
-
-    // Note: legalEntity is now included above — lei and registrationAuthorityId are available below.
-
 
     if (!clientLE) return { success: false, data: {} };
 
@@ -622,7 +618,7 @@ export async function getFullMasterData(clientLEId: string) {
             };
         }
 
-        // Fetch usage stats (Questions, Questionnaires, Suppliers) across all questionnaires assigned to this LE (engagements & common questionnaires)
+        // Fetch usage stats (Questions, Questionnaires, Suppliers) across all questionnaires assigned to this LE
         const stats = await prisma.$queryRaw<{masterFieldNo: number, questions: bigint, questionnaires: bigint, suppliers: bigint}[]>`
             WITH client_questionnaires AS (
                 -- 1. Direct fiEngagementId
@@ -678,8 +674,6 @@ export async function getFullMasterData(clientLEId: string) {
             });
         }
 
-        // Batch-resolve all fields in 2 DB queries instead of 2×N sequential round-trips.
-        // resolveAllFields: 1× fieldClaim.findMany (all fields) + 1× sourceFieldMapping.findMany
         const resolved = await Sentry.startSpan(
             { name: "master.resolveAllFields", op: "function.data" },
             async () => KycStateService.resolveAllFields(
@@ -742,7 +736,6 @@ export async function getFullMasterData(clientLEId: string) {
             return v;
         };
 
-        // Enrich addresses into _resolvedData on the .value payload directly
         const claimValuesFlat: any[] = [];
         for (const val of Array.from(resolved.values())) {
             if (!val) continue;
@@ -759,7 +752,6 @@ export async function getFullMasterData(clientLEId: string) {
             async () => enrichAddressReferences(claimValuesFlat)
         );
 
-        // Diagnostic Span: master.interpreterLoop
         await Sentry.startSpan(
             { name: "master.interpreterLoop", op: "function.loop" },
             async (loopSpan) => {
@@ -803,7 +795,6 @@ export async function getFullMasterData(clientLEId: string) {
                         }
                     }
 
-                    // Sub-measurement: second/state-check interpreter invocation
                     const t0 = performance.now();
                     const interpreterState = def.isMultiValue 
                         ? resolveFieldCollectionForDisplay(valueToSet || [], { isMultiValue: true } as any).state
@@ -837,7 +828,6 @@ export async function getFullMasterData(clientLEId: string) {
                         userName: null
                     } : null;
 
-                    // Sub-measurement: FieldDisplayModel construction
                     const t2 = performance.now();
                     const displayModel = def.isMultiValue ? 
                         resolveFieldCollectionForDisplay(
@@ -885,7 +875,6 @@ export async function getFullMasterData(clientLEId: string) {
                     modelConstructMs += (t3 - t2);
                     displayModelsCount += 1;
 
-                    // Sub-measurement: master.toExportText
                     const t4 = performance.now();
                     const oldFormattedDisplayValue = toExportText(displayModel);
                     const t5 = performance.now();
@@ -922,7 +911,6 @@ export async function getFullMasterData(clientLEId: string) {
 
     }
 
-    // 3. Custom Data
     const { customData, customDefinitions } = await Sentry.startSpan(
         { name: "master.customData", op: "function.data" },
         async (customSpan) => {
@@ -964,13 +952,8 @@ export async function getFullMasterData(clientLEId: string) {
         }
     );
 
-    // IF `customData` has keys that we missed (e.g. from previous owners), we could fetch them here.
-    // For now, let's stick to active contexts.
-
-    // 4. Find most recent GLEIF-sourced event for this legal entity
     const gleifLastSynced: Date | null = clientLE.gleifFetchedAt;
 
-    // 5. Extract National Registry Data and calculate enrichment status
     let nationalRegistryData = null;
     let computedEnrichmentStatus = 'PENDING_LEI';
 
@@ -992,7 +975,6 @@ export async function getFullMasterData(clientLEId: string) {
             computedEnrichmentStatus = 'PENDING_ENRICHMENT';
         }
     } else if (clientLE.gleifFetchedAt || clientLE.legalEntity?.lei || clientLE.status === 'ACTIVE') {
-        // GLEIF has established identity OR entity is active — unlock the master record.
         computedEnrichmentStatus = 'ENRICHED';
     }
 
@@ -1005,10 +987,8 @@ export async function getFullMasterData(clientLEId: string) {
         nationalRegistryData,
         enrichmentStatus: computedEnrichmentStatus,
         lei: clientLE.legalEntity?.lei,
-        // The GLEIF RA code for this entity's primary registry reference (e.g. RA000585).
-        // Sourced from RegistryReference.authority.id — the authoritative GLEIF identifier.
         registrationAuthorityId: clientLE.registryReferences?.[0]?.authority?.id ?? undefined,
-        masterFields: await listAllMasterFields(), // Already fetched above, but for clarity
+        masterFields: await listAllMasterFields(),
         masterGroups: await listAllMasterGroupsWithItems(),
         masterFieldAssignments: masterFieldAssignmentsMap
     };
@@ -1016,8 +996,6 @@ export async function getFullMasterData(clientLEId: string) {
 }
 
 import { generateLEDescription } from "./ai-actions";
-
-// generateLEDescription moved to ai-actions.ts
 
 export async function updateLEDueDate(leId: string, dueDate: Date | null) {
     try {
@@ -1105,7 +1083,47 @@ export async function getAvailableCommonQuestionnaires(clientLEId: string) {
         }
 
         const { getDiscoverableReferenceSnapshotsForOrg } = await import("@/actions/questionnaires-v2");
-        const snapshots = await getDiscoverableReferenceSnapshotsForOrg(partyId);
+        let snapshots = await getDiscoverableReferenceSnapshotsForOrg(partyId);
+
+        // Fallback: If no REFERENCE_SNAPSHOTs exist, query global/template questionnaires
+        if (!snapshots || snapshots.length === 0) {
+            const templates = await prisma.questionnaire.findMany({
+                where: {
+                    isDeleted: false,
+                    status: { not: "ARCHIVED" },
+                    OR: [
+                        { isGlobal: true },
+                        { isTemplate: true },
+                        { kind: "REFERENCE_SNAPSHOT" },
+                        { kind: "COMMON_QUESTIONNAIRE" },
+                    ]
+                },
+                orderBy: { updatedAt: "desc" },
+                select: {
+                    id: true,
+                    name: true,
+                    description: true,
+                    functionalCode: true,
+                    referenceCode: true,
+                    questions: { select: { id: true } }
+                }
+            });
+
+            snapshots = templates.map((t: any) => ({
+                id: t.id,
+                name: t.name,
+                description: t.description,
+                functionalCode: t.functionalCode,
+                referenceCode: t.referenceCode,
+                questionCount: t.questions.length,
+                visibility: "GLOBAL" as any,
+                ownerOrgId: null,
+                ownerOrgName: "System",
+                updatedAt: new Date(),
+                createdAt: new Date(),
+            }));
+        }
+
         return { success: true, snapshots };
     } catch (error) {
          console.error("Error fetching available questionnaires:", error);
@@ -1206,10 +1224,29 @@ export async function addCommonQuestionnaire(clientLEId: string, questionnaireId
         const now = new Date();
         const userId = identity.userId;
 
+        // Fallback target fiOrgId if template.fiOrgId is missing
+        let targetFiOrgId = template.fiOrgId;
+        if (!targetFiOrgId) {
+            targetFiOrgId = template.ownerOrgId || undefined;
+        }
+        if (!targetFiOrgId) {
+            const owner = await prisma.clientLEOwner.findFirst({
+                where: { clientLEId, endAt: null }
+            });
+            targetFiOrgId = owner?.partyId;
+        }
+        if (!targetFiOrgId) {
+            const anyOrg = await prisma.organization.findFirst({ select: { id: true } });
+            if (!anyOrg?.id) {
+                return { success: false, error: "No organization found to assign questionnaire" };
+            }
+            targetFiOrgId = anyOrg.id;
+        }
+
         const newQuestionnaire = await prisma.questionnaire.create({
             data: {
                 name: instanceName,
-                fiOrgId: template.fiOrgId,
+                fiOrgId: targetFiOrgId,
                 status: "ACTIVE",
                 extractedContent: template.extractedContent as any,
                 kind: "COMMON_QUESTIONNAIRE", 
@@ -1238,6 +1275,7 @@ export async function addCommonQuestionnaire(clientLEId: string, questionnaireId
         });
 
         revalidatePath(`/app/le/${clientLEId}`);
+        revalidatePath(`/app/le/${clientLEId}/relationships`);
         return { success: true };
     } catch (error) {
         console.error("Failed to link common questionnaire:", error);
@@ -1269,12 +1307,13 @@ export async function removeCommonQuestionnaire(clientLEId: string, questionnair
         }
 
         revalidatePath(`/app/le/${clientLEId}`);
+        revalidatePath(`/app/le/${clientLEId}/relationships`);
         return { success: true };
     } catch (error) {
         console.error("Failed to remove common questionnaire:", error);
         return { success: false, error: "Database error" };
     }
-};
+}
 
 export async function getEngagementTeam(engagementId: string) {
     const identity = await getIdentity();
@@ -1548,4 +1587,3 @@ export async function getFieldUsageDetails(
         return { totalQuestions: 0, totalQuestionnaires: 0, totalSuppliers: 0, relationships: [], questions: [], questionnaires: [], suppliers: [] };
     }
 }
-

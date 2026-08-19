@@ -95,11 +95,11 @@ export function SubmitQuestionnaireDialog({
             <DialogContent className="max-w-lg">
                 <DialogHeader>
                     <DialogTitle className="text-lg font-bold flex items-center gap-2">
-                        <Send className="h-5 w-5 text-indigo-600" />
-                        Submit Questionnaire
+                        <ShieldCheck className="h-5 w-5 text-indigo-600" />
+                        Approve Questionnaire
                     </DialogTitle>
                     <DialogDescription className="text-xs text-muted-foreground mt-1">
-                        Creates an immutable, versioned historical submission snapshot for your selected financial institution relationship.
+                        Creates an immutable, versioned historical approval snapshot for your selected financial institution relationship.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -109,9 +109,9 @@ export function SubmitQuestionnaireDialog({
                             <CheckCircle2 className="h-7 w-7" />
                         </div>
                         <div>
-                            <h4 className="font-bold text-slate-900 text-base">Submission Successful!</h4>
+                            <h4 className="font-bold text-slate-900 text-base">Approval Successful!</h4>
                             <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                                Snapshot frozen under Definition Version <span className="font-semibold text-slate-800">{submittedResult.versionNumber}</span> as Submission <span className="font-semibold text-slate-800">#{submittedResult.submissionNumber}</span>.
+                                Snapshot frozen under Definition Version <span className="font-semibold text-slate-800">{submittedResult.versionNumber}</span> as Approval <span className="font-semibold text-slate-800">#{submittedResult.submissionNumber}</span>.
                             </p>
                         </div>
                         <DialogFooter className="pt-4 justify-center">
@@ -136,7 +136,7 @@ export function SubmitQuestionnaireDialog({
                                 </div>
                             ) : relationships.length === 0 ? (
                                 <div className="p-3 bg-amber-50 text-amber-800 rounded-md text-xs">
-                                    No active relationships found for this legal entity. Please create a relationship before submitting.
+                                    No active relationships found for this legal entity. Please create a relationship before approving.
                                 </div>
                             ) : (
                                 <Select value={selectedRelationshipId} onValueChange={setSelectedRelationshipId}>
@@ -163,10 +163,10 @@ export function SubmitQuestionnaireDialog({
                         <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-md text-xs text-indigo-900 space-y-1">
                             <div className="font-semibold flex items-center gap-1.5 text-indigo-950">
                                 <ShieldCheck className="h-4 w-4 text-indigo-600" />
-                                Submission Guarantee
+                                Approval Guarantee
                             </div>
                             <p className="text-[11px] text-indigo-800 leading-normal">
-                                Submitting freezes current canonical answers & reference details into an immutable snapshot. Subsequent master data updates will not alter this submitted record.
+                                Approving freezes current canonical answers & reference details into an immutable snapshot. Subsequent master data updates will not alter this approved record.
                             </p>
                         </div>
 
@@ -180,8 +180,8 @@ export function SubmitQuestionnaireDialog({
                                 disabled={submitting || relationships.length === 0}
                                 className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white"
                             >
-                                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                                Submit Now
+                                {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                                Approve Now
                             </Button>
                         </DialogFooter>
                     </div>

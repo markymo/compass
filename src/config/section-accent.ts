@@ -132,6 +132,7 @@ export function resolveSectionAccent(pathname: string, explicitKey?: SectionAcce
     if (cleanPath.includes("/sources")) return SECTION_ACCENTS.sources;
     if (cleanPath.includes("/master")) return SECTION_ACCENTS.master;
     if (cleanPath.includes("/relationships") || cleanPath.includes("/engagement-new")) return SECTION_ACCENTS.relationships;
+    if (cleanPath.includes("/approvals")) return SECTION_ACCENTS.relationships;
     if (cleanPath.includes("/workbench4") || cleanPath.includes("/questionnaire")) return SECTION_ACCENTS.questionBank;
 
     // Platform Modules
