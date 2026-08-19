@@ -123,12 +123,7 @@ export async function purgeClientLE(clientLEId: string) {
 
             // 4. Delete FieldClaims scoped to this ClientLE
             await tx.fieldClaim.deleteMany({
-                where: {
-                    OR: [
-                        { clientLeScopeId: clientLEId },
-                        ...(subjectLeId && ownerScopeId ? [{ subjectLeId, ownerScopeId }] : [])
-                    ]
-                }
+                where: { clientLEId: clientLEId }
             });
 
             // 5. Delete Engagements & associated Questionnaires / Activities / Queries

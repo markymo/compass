@@ -3,6 +3,8 @@
 
 import { fetchCompanyOfficers } from "@/lib/companies-house";
 import { fetchGleifL2, resolveGleifElf } from "@/lib/gleif/gleif-l2";
+import { RegistryConnectorFactory } from "@/domain/registry/RegistryConnectorFactory";
+import { initializeRegistryDomain } from "@/domain/registry";
 
 export interface GLEIFData {
     data: {
@@ -104,9 +106,10 @@ export async function fetchGLEIFData(lei: string): Promise<GLEIFFetchResult> {
             status: attributes.registration.status // e.g. ISSUED, LAPSED
         };
 
-        // --- Parallel secondary fetches ---
-        // All use Promise.allSettled so no failure can block the main GLEIF data.
+        initializeRegistryDomain();
         const registrationAuthorityId = entity.registeredAt?.id;
+        const connector = registrationAuthorityId ? await RegistryConnectorFactory.getConnectorForAuthorityId(registrationAuthorityId) : null;
+        const shouldFetchOfficers = connector?.supportsOfficerFetch && Boolean(entity.registeredAs);
 
         const [raResult, l2Result, chResult] = await Promise.allSettled([
             // 1. Registration Authority name
@@ -119,8 +122,8 @@ export async function fetchGLEIFData(lei: string): Promise<GLEIFFetchResult> {
             // 2. L2 relationships (direct parent, ultimate parent, children count)
             fetchGleifL2(cleanLEI),
 
-            // 3. Companies House (UK only)
-            entity.jurisdiction === "GB" && registrationAuthorityId === "RA000585" && entity.registeredAs
+            // 3. Officers (when supported by registry connector)
+            shouldFetchOfficers
                 ? fetchCompanyOfficers(entity.registeredAs)
                 : Promise.resolve([]),
         ]);

@@ -88,7 +88,7 @@ describe('kyc-query structured collections', () => {
 
         // Verify the 5th argument is 'SIC_CODES'
         expect(KycStateService.getAuthoritativeCollection).toHaveBeenCalledWith(
-            { subjectLeId: 'le_1' },
+            { clientLEId: 'cle_1', subjectLeId: 'le_1' },
             20,
             'test-scope',
             undefined,

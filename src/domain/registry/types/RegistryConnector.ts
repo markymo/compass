@@ -11,6 +11,21 @@ export interface IRegistryConnector {
     readonly connectorKey: string;
 
     /**
+     * List of RegistryAuthority.registryKey values supported by this connector (e.g. ["GB_COMPANIES_HOUSE"])
+     */
+    readonly supportedRegistryKeys: string[];
+
+    /**
+     * Optional flag indicating if this connector supports officer fetching during ingestion.
+     */
+    readonly supportsOfficerFetch?: boolean;
+
+    /**
+     * Optional method to check if a specific registry authority ID is supported.
+     */
+    supports?(authorityId: string): boolean;
+
+    /**
      * Fetch and normalize data for a given registry reference
      */
     fetch(reference: RegistryReference): Promise<CanonicalRegistryRecord>;
@@ -19,9 +34,4 @@ export interface IRegistryConnector {
      * Normalize raw data from the registry into the Canonical form.
      */
     normalize(rawPayload: any): CanonicalRegistryRecord;
-
-    /**
-     * Check if this connector can handle the given authority ID (e.g. RA000585)
-     */
-    supports(authorityId: string): boolean;
 }

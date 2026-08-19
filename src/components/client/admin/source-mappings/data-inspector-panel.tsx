@@ -10,6 +10,7 @@ import { fetchLiveGleifRecord } from "@/actions/gleif-live";
 import { fetchLiveRegistryRecord } from "@/actions/registry-live";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { normalizeSourceRef } from "@/lib/source-display";
 import {
     detectAddressCandidate,
     isAddressLikePath,
@@ -86,9 +87,7 @@ export function DataInspectorPanel({
     const router = useRouter();
     const isCompaniesHouse = sourceType === "REGISTRATION_AUTHORITY"
         && (sourceReference === "COMPANIES_HOUSE"
-            || sourceReference === "RA000585"
-            || sourceReference === "RA000586"
-            || sourceReference === "RA000587");
+            || normalizeSourceRef(sourceReference || "") === "COMPANIES_HOUSE");
 
     const defaultQuery = resolvedDefaults
         ? (sourceType === "GLEIF" ? resolvedDefaults.gleifLei

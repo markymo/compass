@@ -4,14 +4,26 @@ import { getIdentity } from '@/lib/auth';
 import { deleteClientLE, createClientLE } from '../client';
 import { LegalEntityEnrichmentService } from '@/services/legalEntityEnrichmentService';
 
-vi.mock('@/lib/prisma', () => ({
-    default: {
-        clientLE: { findUnique: vi.fn(), update: vi.fn(), create: vi.fn() },
+const { mockPrisma } = vi.hoisted(() => {
+    const mockPrisma = {
+        clientLE: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn().mockResolvedValue([]), update: vi.fn(), create: vi.fn() },
         clientLEOwner: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn() },
         fIEngagement: { findMany: vi.fn(), updateMany: vi.fn() },
         questionnaire: { updateMany: vi.fn() },
-        membership: { findMany: vi.fn(), findFirst: vi.fn() }
-    }
+        membership: { findMany: vi.fn(), findFirst: vi.fn() },
+        legalEntity: { findFirst: vi.fn(), create: vi.fn() },
+        $transaction: vi.fn(async (cb: any) => {
+            if (typeof cb === 'function') {
+                return await cb(mockPrisma);
+            }
+            return Promise.all(cb);
+        })
+    };
+    return { mockPrisma };
+});
+
+vi.mock('@/lib/prisma', () => ({
+    default: mockPrisma
 }));
 
 vi.mock('@/lib/auth', () => ({
@@ -30,7 +42,7 @@ vi.mock('next/cache', () => ({
 
 const prismaMock = prisma as any;
 
-describe('Normal Delete and Resurrection — ClientLE', () => {
+describe('Normal Delete and Re-creation — ClientLE', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         prismaMock.clientLEOwner.findMany.mockResolvedValue([]);
@@ -78,45 +90,31 @@ describe('Normal Delete and Resurrection — ClientLE', () => {
         });
     });
 
-    describe('createClientLE resurrection', () => {
-        it('resurrects soft-deleted ClientLE, its engagements and questionnaires on LEI match', async () => {
+    describe('createClientLE fresh creation after soft-delete', () => {
+        it('creates a fresh ClientLE dossier when a soft-deleted record exists for the LEI', async () => {
             vi.mocked(getIdentity).mockResolvedValue({ userId: 'org-admin-1' } as any);
             prismaMock.membership.findMany.mockResolvedValue([
                 { organizationId: 'org-1', role: 'ORG_ADMIN', clientLEId: null, fiEngagementId: null }
             ]);
-            prismaMock.clientLE.findUnique.mockResolvedValue({
-                id: 'le-1',
+            prismaMock.legalEntity.findFirst.mockResolvedValue({ id: 'real-le-1', reference: '5493001KJTIIGC8Y1R12' });
+            prismaMock.clientLE.findFirst.mockResolvedValue(null); // No active duplicate in org
+            prismaMock.clientLE.create.mockResolvedValue({
+                id: 'le-fresh-2',
                 name: 'Acme Corp',
                 lei: '5493001KJTIIGC8Y1R12',
-                isDeleted: true
+                legalEntityId: 'real-le-1',
+                isDeleted: false
             });
-            prismaMock.clientLEOwner.findFirst.mockResolvedValue({ id: 'owner-1' });
-            prismaMock.fIEngagement.findMany.mockResolvedValue([{ id: 'eng-1' }]);
 
             const res = await createClientLE({
                 name: 'Acme Corp',
                 lei: '5493001KJTIIGC8Y1R12',
-                clientOrgId: 'org-1'
+                explicitOrgId: 'org-1'
             });
 
             expect(res.success).toBe(true);
-            expect(res.message).toContain('was previously deleted. It has been restored');
-
-            // LE restored
-            expect(prismaMock.clientLE.update).toHaveBeenCalledWith({
-                where: { id: 'le-1' },
-                data: { isDeleted: false, status: 'ACTIVE' }
-            });
-            // Engagements restored
-            expect(prismaMock.fIEngagement.updateMany).toHaveBeenCalledWith({
-                where: { clientLEId: 'le-1' },
-                data: { isDeleted: false }
-            });
-            // Questionnaires restored
-            expect(prismaMock.questionnaire.updateMany).toHaveBeenCalledWith({
-                where: { fiEngagementId: { in: ['eng-1'] } },
-                data: { isDeleted: false }
-            });
+            expect(res.data.id).toBe('le-fresh-2');
+            expect(prismaMock.clientLE.create).toHaveBeenCalled();
         });
     });
 });

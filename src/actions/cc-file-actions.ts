@@ -21,7 +21,7 @@ export async function getCCFiles(clientLEId: string): Promise<CCFileRecord[]> {
     // Find all FILE_ATTACHMENT claims for this client LE that actually have a document attached
     const claims = await prisma.fieldClaim.findMany({
         where: {
-            clientLeScopeId: clientLEId,
+            clientLEId: clientLEId,
             claimRole: 'FILE_ATTACHMENT',
             attachmentDocumentId: { not: null }
         },

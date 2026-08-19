@@ -28,7 +28,7 @@ import { InlineDocumentManager, InlineOutputBuilder, InlineTeamManager } from ".
 import { RelationshipOverviewSection } from "./relationship-overview-section";
 import { CreateApprovalDialog } from "@/components/client/approvals/create-approval-dialog";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-const DASHBOARD_GRID_V2 = "grid-cols-[minmax(280px,1fr)_60px_160px_160px_195px]";
+const DASHBOARD_GRID_V2 = "grid-cols-[minmax(160px,1fr)_45px_125px_125px_285px]";
 
 function MicroChart({ value, total, colorClass, emptyClass, numeratorLabel, denominatorLabel }: { value: number, total: number, colorClass: string, emptyClass: string, numeratorLabel: string, denominatorLabel: string }) {
     if (total === 0) {
@@ -370,11 +370,11 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                         </div>
 
                         {/* 5. Workflow Group */}
-                        <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sign-Off</span>
-                            <div className="flex justify-between pr-20 items-end">
-                                <span className="text-[10px] font-bold text-indigo-600 uppercase">Approved</span>
-                                <span className="text-[10px] font-bold text-emerald-600 uppercase">Released</span>
+                        <div className="flex flex-col border-l border-slate-200 pl-3 h-full">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sign-Off & Actions</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-indigo-600 uppercase min-w-[28px] text-center">Approved</span>
+                                <span className="text-[10px] font-bold text-emerald-600 uppercase min-w-[28px] text-center">Released</span>
                             </div>
                         </div>
                     </div>
@@ -439,18 +439,18 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                 </div>
 
                                                 {/* Col 5: Sign-Off */}
-                                                <div className="border-l border-slate-100 pl-4 pr-1 flex items-center justify-between h-full">
+                                                <div className="border-l border-slate-100 pl-3 pr-1 flex items-center justify-between h-full">
                                                     {eng.metrics && (
-                                                        <>
-                                                            <div className="flex flex-col items-center gap-0.5">
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                            <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
                                                                 <span className={cn("text-[13px] font-bold font-mono", eng.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{eng.metrics.approved}</span>
                                                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Approved</span>
                                                             </div>
-                                                            <div className="flex flex-col items-center gap-0.5">
+                                                            <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
                                                                 <span className={cn("text-[13px] font-bold font-mono", eng.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{eng.metrics.released}</span>
                                                                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Released</span>
                                                             </div>
-                                                        </>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
@@ -631,74 +631,74 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                                 {q.metrics && <MicroChart value={q.metrics.answered} total={q.metrics.total} colorClass="text-amber-500" emptyClass="bg-slate-100" numeratorLabel="Answered" denominatorLabel="Blank" />}
                                                                             </div>
 
-                                                                            {/* Col 5: Sign-Off & Action */}
-                                                                            <div className="border-l border-slate-100 pl-4 pr-1 flex items-center justify-between h-full">
-                                                                                {q.metrics && (
-                                                                                    <>
-                                                                                        <div className="flex flex-col items-center gap-0.5">
-                                                                                            <span className={cn("text-[13px] font-bold font-mono", q.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{q.metrics.approved}</span>
-                                                                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Approved</span>
-                                                                                        </div>
-                                                                                        <div className="flex flex-col items-center gap-0.5">
-                                                                                            <span className={cn("text-[13px] font-bold font-mono", q.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{q.metrics.released}</span>
-                                                                                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Released</span>
-                                                                                        </div>
-                                                                                    </>
-                                                                                )}
-                                                                                <div className="pl-4 flex items-center gap-1">
-                                                                                    {confirmRemoveId === q.id ? (
-                                                                                        <div className="flex items-center gap-1 animate-in fade-in zoom-in duration-200">
-                                                                                            <Button 
-                                                                                                variant="ghost" 
-                                                                                                size="sm"
-                                                                                                onClick={() => handleRemoveQuestionnaire(eng.id, q.id, q.name)}
-                                                                                                className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 px-2 text-xs"
-                                                                                                disabled={isRemoving === q.id}
-                                                                                            >
-                                                                                                {isRemoving === q.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Yes"}
-                                                                                            </Button>
-                                                                                            <Button 
-                                                                                                variant="ghost" 
-                                                                                                size="sm"
-                                                                                                onClick={() => setConfirmRemoveId(null)}
-                                                                                                className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 h-8 px-2 text-xs"
-                                                                                                disabled={isRemoving === q.id}
-                                                                                            >
-                                                                                                No
-                                                                                            </Button>
-                                                                                        </div>
-                                                                                    ) : (
-                                                                                        <>
-                                                                                            <Button
-                                                                                                variant="ghost"
-                                                                                                size="sm"
-                                                                                                onClick={() => setApprovalTarget({ relationshipId: eng.id, questionnaireId: q.id })}
-                                                                                                className="h-8 text-xs text-indigo-600 hover:bg-indigo-50 px-2 flex items-center gap-1 font-medium"
-                                                                                                title="Approve Questionnaire"
-                                                                                            >
-                                                                                                <ShieldCheck className="h-3.5 w-3.5" />
-                                                                                                Approve
-                                                                                            </Button>
-                                                                                            <Link 
-                                                                                                href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(orgName || "Unknown")}&q=${encodeURIComponent(q.name)}`}
-                                                                                                className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors"
-                                                                                                title="Review questionnaire"
-                                                                                            >
-                                                                                                <ArrowUpRight className="h-4 w-4" />
-                                                                                            </Link>
-                                                                                            <Button 
-                                                                                                variant="ghost" 
-                                                                                                size="icon" 
-                                                                                                className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                                                                                                onClick={() => setConfirmRemoveId(q.id)}
-                                                                                                title="Remove Questionnaire"
-                                                                                            >
-                                                                                                <Trash2 className="h-4 w-4" />
-                                                                                            </Button>
-                                                                                        </>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
+                                                                             {/* Col 5: Sign-Off & Action */}
+                                                                             <div className="border-l border-slate-100 pl-3 pr-1 flex items-center justify-between h-full">
+                                                                                 {q.metrics && (
+                                                                                     <div className="flex items-center gap-2 shrink-0">
+                                                                                         <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
+                                                                                             <span className={cn("text-[13px] font-bold font-mono", q.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{q.metrics.approved}</span>
+                                                                                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Approved</span>
+                                                                                         </div>
+                                                                                         <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
+                                                                                             <span className={cn("text-[13px] font-bold font-mono", q.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{q.metrics.released}</span>
+                                                                                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Released</span>
+                                                                                         </div>
+                                                                                     </div>
+                                                                                 )}
+                                                                                 <div className="shrink-0 flex items-center gap-1 pl-2">
+                                                                                     {confirmRemoveId === q.id ? (
+                                                                                         <div className="flex items-center gap-1 animate-in fade-in zoom-in duration-200">
+                                                                                             <Button 
+                                                                                                 variant="ghost" 
+                                                                                                 size="sm"
+                                                                                                 onClick={() => handleRemoveQuestionnaire(eng.id, q.id, q.name)}
+                                                                                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2 text-xs"
+                                                                                                 disabled={isRemoving === q.id}
+                                                                                             >
+                                                                                                 {isRemoving === q.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Yes"}
+                                                                                             </Button>
+                                                                                             <Button 
+                                                                                                 variant="ghost" 
+                                                                                                 size="sm"
+                                                                                                 onClick={() => setConfirmRemoveId(null)}
+                                                                                                 className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 h-7 px-2 text-xs"
+                                                                                                 disabled={isRemoving === q.id}
+                                                                                             >
+                                                                                                 No
+                                                                                             </Button>
+                                                                                         </div>
+                                                                                     ) : (
+                                                                                         <>
+                                                                                             <Button
+                                                                                                 variant="ghost"
+                                                                                                 size="sm"
+                                                                                                 onClick={() => setApprovalTarget({ relationshipId: eng.id, questionnaireId: q.id })}
+                                                                                                 className="h-7 text-xs text-indigo-600 hover:bg-indigo-50 px-2 flex items-center gap-1 font-medium shrink-0"
+                                                                                                 title="Approve Questionnaire"
+                                                                                             >
+                                                                                                 <ShieldCheck className="h-3.5 w-3.5" />
+                                                                                                 Approve
+                                                                                             </Button>
+                                                                                             <Link 
+                                                                                                 href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(orgName || "Unknown")}&q=${encodeURIComponent(q.name)}`}
+                                                                                                 className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors shrink-0"
+                                                                                                 title="Review questionnaire"
+                                                                                             >
+                                                                                                 <ArrowUpRight className="h-4 w-4" />
+                                                                                             </Link>
+                                                                                             <Button 
+                                                                                                 variant="ghost" 
+                                                                                                 size="icon" 
+                                                                                                 className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 shrink-0"
+                                                                                                 onClick={() => setConfirmRemoveId(q.id)}
+                                                                                                 title="Remove Questionnaire"
+                                                                                             >
+                                                                                                 <Trash2 className="h-4 w-4" />
+                                                                                             </Button>
+                                                                                         </>
+                                                                                     )}
+                                                                                 </div>
+                                                                             </div>
                                                                         </div>
                                                                         {/* Mobile View */}
                                                                         <div className="md:hidden flex flex-col gap-3">

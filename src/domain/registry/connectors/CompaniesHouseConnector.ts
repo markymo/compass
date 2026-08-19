@@ -9,11 +9,8 @@ import { SicCodeMapper } from "../utils/SicCodeMapper";
  */
 export class CompaniesHouseConnector implements IRegistryConnector {
     readonly connectorKey = "CompaniesHouseConnector";
-
-    supports(authorityId: string): boolean {
-        // Supports England/Wales (RA000585), Scotland (RA000586), and Northern Ireland (RA000587)
-        return ["RA000585", "RA000586", "RA000587"].includes(authorityId);
-    }
+    readonly supportedRegistryKeys = ["GB_COMPANIES_HOUSE"];
+    readonly supportsOfficerFetch = true;
 
     async fetch(reference: RegistryReference): Promise<CanonicalRegistryRecord> {
         const companyNumber = reference.localRegistrationNumber;

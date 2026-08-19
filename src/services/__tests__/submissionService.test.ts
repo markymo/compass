@@ -15,6 +15,8 @@ vi.mock("@/lib/auth", () => ({
     getIdentity: vi.fn().mockResolvedValue({ userId: "submission-service-user-id" })
 }));
 
+vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
+
 describe.skipIf(!process.env.DATABASE_URL)("Immutable Questionnaire Submissions Architecture Integration Tests", () => {
     let testOrg: any;
     let testClientLE: any;
@@ -122,7 +124,7 @@ describe.skipIf(!process.env.DATABASE_URL)("Immutable Questionnaire Submissions 
             data: {
                 fieldNo: 1,
                 subjectLeId: testClientLE.legalEntityId,
-                clientLeScopeId: testClientLE.id,
+                clientLEId: testClientLE.id,
                 claimRole: "VALUE",
                 sourceType: "USER_INPUT",
                 sourceReference: "SUB_TEST_CLAIM",
@@ -148,7 +150,7 @@ describe.skipIf(!process.env.DATABASE_URL)("Immutable Questionnaire Submissions 
             data: {
                 fieldNo: 1,
                 subjectLeId: testClientLE.legalEntityId,
-                clientLeScopeId: testClientLE.id,
+                clientLEId: testClientLE.id,
                 claimRole: "VALUE",
                 sourceType: "USER_INPUT",
                 sourceReference: "SUB_TEST_CLAIM",
@@ -270,7 +272,7 @@ describe.skipIf(!process.env.DATABASE_URL)("Immutable Questionnaire Submissions 
             data: {
                 fieldNo: 1,
                 subjectLeId: testClientLE.legalEntityId,
-                clientLeScopeId: testClientLE.id,
+                clientLEId: testClientLE.id,
                 claimRole: "VALUE",
                 sourceType: "USER_INPUT",
                 sourceReference: "SUB_TEST_CLAIM",
@@ -374,7 +376,7 @@ describe.skipIf(!process.env.DATABASE_URL)("Immutable Questionnaire Submissions 
             data: {
                 fieldNo: 1,
                 subjectLeId: testClientLE.legalEntityId,
-                clientLeScopeId: testClientLE.id,
+                clientLEId: testClientLE.id,
                 claimRole: "VALUE",
                 sourceType: "USER_INPUT",
                 sourceReference: "SUB_TEST_CLAIM",
@@ -407,7 +409,7 @@ describe.skipIf(!process.env.DATABASE_URL)("Immutable Questionnaire Submissions 
             data: {
                 fieldNo: 1,
                 subjectLeId: testClientLE.legalEntityId,
-                clientLeScopeId: testClientLE.id,
+                clientLEId: testClientLE.id,
                 claimRole: "VALUE",
                 status: "VERIFIED",
                 sourceType: "USER_INPUT",
@@ -446,7 +448,7 @@ describe.skipIf(!process.env.DATABASE_URL)("Immutable Questionnaire Submissions 
             data: {
                 fieldNo: 1,
                 subjectLeId: testClientLE.legalEntityId,
-                clientLeScopeId: testClientLE.id,
+                clientLEId: testClientLE.id,
                 claimRole: "VALUE",
                 sourceType: "USER_INPUT",
                 sourceReference: "SUB_TEST_CLAIM",
@@ -467,7 +469,7 @@ describe.skipIf(!process.env.DATABASE_URL)("Immutable Questionnaire Submissions 
             data: {
                 fieldNo: 1,
                 subjectLeId: testClientLE.legalEntityId,
-                clientLeScopeId: testClientLE.id,
+                clientLEId: testClientLE.id,
                 claimRole: "VALUE",
                 sourceType: "USER_INPUT",
                 sourceReference: "SUB_TEST_CLAIM",

@@ -361,7 +361,7 @@ export async function removeMultiValueEntry(
 
                 // Also emit tombstone for Master Data consistency
                 await FieldClaimService.emitTombstone(
-                    { subjectLeId },
+                    { subjectLeId, clientLEId },
                     fieldNo,
                     def.categoryId || 'GENERAL',
                     claimId, // Use edge ID as instanceId for graph-bound fields
@@ -393,7 +393,7 @@ export async function removeMultiValueEntry(
 
         // Emit tombstone
         const tombstone = await FieldClaimService.emitTombstone(
-            { subjectLeId },
+            { subjectLeId, clientLEId },
             fieldNo,
             claim.collectionId || def.categoryId || 'GENERAL',
             instanceId,
@@ -533,9 +533,6 @@ export async function addExistingCCPartyReferenceToField(
         const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
         const def = await getMasterFieldDefinition(fieldNo);
 
-        const { PrismaClient } = await import('@prisma/client');
-        const prisma = new PrismaClient();
-        
         // Field Profile Config Validation
         const allowedPartyTypes = (def.profileConfig as any)?.allowedPartyTypes as Array<'INDIVIDUAL'|'ORGANISATION'|'TEAM'> | undefined;
         
@@ -622,9 +619,6 @@ export async function createCCPartyAndReferenceField(
         if (!identity?.userId) {
             return { success: false, message: "Unauthorized" };
         }
-
-        const { PrismaClient } = await import('@prisma/client');
-        const prisma = new PrismaClient();
 
         const clientLE = await prisma.clientLE.findUnique({
             where: { id: clientLEId },
@@ -791,9 +785,6 @@ export async function createCCAddressAndReferenceField(
             return { success: false, message: "Unauthorized" };
         }
 
-        const { PrismaClient } = await import('@prisma/client');
-        const prisma = new PrismaClient();
-
         const newAddress = await prisma.$transaction(async (tx: any) => {
             const address = await tx.cCAddress.create({
                 data: {
@@ -923,14 +914,10 @@ export async function restoreSourceValue(
 
         await prisma.fieldClaim.updateMany({
             where: {
-                subjectLeId: clientLE.legalEntityId,
+                clientLEId: clientLEId,
                 fieldNo: fieldNo,
                 sourceType: 'USER_INPUT',
-                status: { in: ['ASSERTED', 'VERIFIED'] },
-                OR: [
-                    { ownerScopeId: ownerScopeId },
-                    { ownerScopeId: null }
-                ]
+                status: { in: ['ASSERTED', 'VERIFIED'] }
             },
             data: {
                 status: 'REJECTED'

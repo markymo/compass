@@ -78,7 +78,7 @@ describe('CCPartyService', () => {
         it('should validate createdFromClaimId existence and scope', async () => {
             (prisma.fieldClaim.findUnique as any).mockResolvedValue({
                 id: 'claim-1',
-                clientLeScopeId: 'client-2' // Mismatched!
+                clientLEId: 'client-2' // Mismatched!
             });
 
             await expect(CCPartyService.create({

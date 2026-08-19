@@ -50,14 +50,10 @@ describe('Restore Source Value Feature', () => {
             expect(res.success).toBe(true);
             expect(mockUpdateMany).toHaveBeenCalledWith({
                 where: {
-                    subjectLeId: 'le-abc',
+                    clientLEId: 'le-123',
                     fieldNo: 205,
                     sourceType: 'USER_INPUT',
-                    status: { in: ['ASSERTED', 'VERIFIED'] },
-                    OR: [
-                        { ownerScopeId: 'scope-123' },
-                        { ownerScopeId: null }
-                    ]
+                    status: { in: ['ASSERTED', 'VERIFIED'] }
                 },
                 data: {
                     status: 'REJECTED'

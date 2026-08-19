@@ -4,14 +4,25 @@ import { getAllClientLEsForAdmin, restoreClientLEFromAdmin } from '../admin';
 import { isSystemAdmin } from '../security';
 import { restoreClientLECore, deleteClientLE, createClientLE } from '../client';
 
-vi.mock('@/lib/prisma', () => ({
-    default: {
+const { mockPrisma } = vi.hoisted(() => {
+    const mockPrisma = {
         clientLE: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), create: vi.fn() },
         clientLEOwner: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn() },
         fIEngagement: { findMany: vi.fn(), updateMany: vi.fn() },
         questionnaire: { updateMany: vi.fn() },
-        membership: { findMany: vi.fn(), findFirst: vi.fn() }
-    }
+        membership: { findMany: vi.fn(), findFirst: vi.fn() },
+        $transaction: vi.fn(async (cb: any) => {
+            if (typeof cb === 'function') {
+                return await cb(mockPrisma);
+            }
+            return Promise.all(cb);
+        })
+    };
+    return { mockPrisma };
+});
+
+vi.mock('@/lib/prisma', () => ({
+    default: mockPrisma
 }));
 
 vi.mock('@/lib/auth', () => ({
@@ -37,6 +48,13 @@ const prismaMock = prisma as any;
 describe('Admin ClientLE Soft-Delete Visibility & Restore Functionality', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        prismaMock.clientLE.findUnique.mockImplementation(async ({ where }: any) => ({
+            id: where.id,
+            legalEntityId: 'real-le-1',
+            isDeleted: true,
+            status: 'ACTIVE',
+            owners: []
+        }));
     });
 
     describe('getAllClientLEsForAdmin', () => {
@@ -111,7 +129,7 @@ describe('Admin ClientLE Soft-Delete Visibility & Restore Functionality', () => 
             expect(result).toEqual({ success: true });
             expect(prismaMock.clientLE.update).toHaveBeenCalledWith({
                 where: { id: 'le-deleted' },
-                data: { isDeleted: false, status: 'ACTIVE' }
+                data: { isDeleted: false }
             });
             expect(prismaMock.fIEngagement.updateMany).toHaveBeenCalledWith({
                 where: { clientLEId: 'le-deleted' },
@@ -134,7 +152,7 @@ describe('Admin ClientLE Soft-Delete Visibility & Restore Functionality', () => 
             expect(res).toEqual({ id: 'le-1', isDeleted: false, status: 'ACTIVE' });
             expect(prismaMock.clientLE.update).toHaveBeenCalledWith({
                 where: { id: 'le-1' },
-                data: { isDeleted: false, status: 'ACTIVE' }
+                data: { isDeleted: false }
             });
             expect(prismaMock.fIEngagement.updateMany).toHaveBeenCalledWith({
                 where: { clientLEId: 'le-1' },

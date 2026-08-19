@@ -140,10 +140,7 @@ export class KycStateService {
                 if (st === "COMPANIES_HOUSE" || mapping.sourceReference === "COMPANIES_HOUSE") {
                     if (r.authority?.registryKey === "COMPANIES_HOUSE" || 
                         r.authority?.mappingSourceKey === "COMPANIES_HOUSE" ||
-                        r.authority?.registryKey === "GB_COMPANIES_HOUSE" ||
-                        r.registryAuthorityId === "RA000585" ||
-                        r.registryAuthorityId === "RA000586" ||
-                        r.registryAuthorityId === "RA000587") {
+                        r.authority?.registryKey === "GB_COMPANIES_HOUSE") {
                         return true;
                     }
                 }
@@ -211,7 +208,7 @@ export class KycStateService {
                         if (mapping.sourceReference && mapping.sourceReference === r.authority?.registryKey) return true;
                         if (mapping.sourceReference && mapping.sourceReference === r.registryAuthorityId) return true;
                         if ((mapping.sourceType === "COMPANIES_HOUSE" || mapping.sourceReference === "COMPANIES_HOUSE") && 
-                            (r.authority?.registryKey === "COMPANIES_HOUSE" || r.authority?.mappingSourceKey === "COMPANIES_HOUSE" || r.authority?.registryKey === "GB_COMPANIES_HOUSE" || r.registryAuthorityId === "RA000585" || r.registryAuthorityId === "RA000586" || r.registryAuthorityId === "RA000587")) {
+                            (r.authority?.registryKey === "COMPANIES_HOUSE" || r.authority?.mappingSourceKey === "COMPANIES_HOUSE" || r.authority?.registryKey === "GB_COMPANIES_HOUSE")) {
                             return true;
                         }
                         if (mapping.sourceType === "NATIONAL_REGISTRY" && (r.authority?.registryKey || r.authority?.mappingSourceKey || r.registryAuthorityId)) {
@@ -344,20 +341,29 @@ export class KycStateService {
         ownerScopeId?: string,
         snapshotDate?: Date
     ): Promise<DerivedValue | null> {
-        const { clientLEId, ...subjectFilter } = subject;
+        const whereClause: any = {
+            fieldNo,
+            claimRole: 'VALUE',
+            status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
+            assertedAt: snapshotDate ? { lte: snapshotDate } : undefined,
+        };
+
+        if (subject.clientLEId) {
+            whereClause.clientLEId = subject.clientLEId;
+        } else {
+            const { clientLEId, ...subjectFilter } = subject;
+            Object.assign(whereClause, subjectFilter);
+            if (ownerScopeId) {
+                whereClause.OR = [
+                    { ownerScopeId: ownerScopeId },
+                    { ownerScopeId: null }
+                ];
+            }
+        }
+
         const claims = await prisma.fieldClaim.findMany({
             include: { evidence: true, valueAddress: true, valuePerson: true, valueLe: true, valueOrg: true },
-            where: {
-                fieldNo,
-                claimRole: 'VALUE',
-                ...subjectFilter,
-                status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
-                assertedAt: snapshotDate ? { lte: snapshotDate } : undefined,
-                OR: [
-                    { ownerScopeId: ownerScopeId || undefined },
-                    { ownerScopeId: null }
-                ]
-            },
+            where: whereClause,
             orderBy: [
                 { assertedAt: 'desc' },
                 { id: 'desc' }
@@ -399,19 +405,28 @@ export class KycStateService {
         fieldNo: number,
         ownerScopeId?: string
     ): Promise<{ currentWinnerClaimId: string; nextDerivedValue: DerivedValue | null } | null> {
-        const { clientLEId, ...subjectFilter } = subject;
+        const whereClause: any = {
+            fieldNo,
+            claimRole: 'VALUE',
+            status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
+        };
+
+        if (subject.clientLEId) {
+            whereClause.clientLEId = subject.clientLEId;
+        } else {
+            const { clientLEId, ...subjectFilter } = subject;
+            Object.assign(whereClause, subjectFilter);
+            if (ownerScopeId) {
+                whereClause.OR = [
+                    { ownerScopeId: ownerScopeId },
+                    { ownerScopeId: null }
+                ];
+            }
+        }
+
         const claims = await prisma.fieldClaim.findMany({
             include: { evidence: true, valueAddress: true, valuePerson: true, valueLe: true, valueOrg: true },
-            where: {
-                fieldNo,
-                claimRole: 'VALUE',
-                ...subjectFilter,
-                status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
-                OR: [
-                    { ownerScopeId: ownerScopeId || undefined },
-                    { ownerScopeId: null }
-                ]
-            },
+            where: whereClause,
             orderBy: [
                 { assertedAt: 'desc' },
                 { id: 'desc' }
@@ -467,23 +482,31 @@ export class KycStateService {
          */
         filterCollectionId?: string
     ): Promise<DerivedValue[]> {
-        const { clientLEId, ...subjectFilter } = subject;
+        const whereClause: any = {
+            fieldNo,
+            claimRole: 'VALUE',
+            collectionId: filterCollectionId ?? undefined,
+            status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
+            assertedAt: snapshotDate ? { lte: snapshotDate } : undefined,
+        };
+
+        if (subject.clientLEId) {
+            whereClause.clientLEId = subject.clientLEId;
+        } else {
+            const { clientLEId, ...subjectFilter } = subject;
+            Object.assign(whereClause, subjectFilter);
+            if (ownerScopeId) {
+                whereClause.OR = [
+                    { ownerScopeId: ownerScopeId },
+                    { ownerScopeId: null }
+                ];
+            }
+        }
+
         // Multi-value Comparison Set: (subject, fieldNo, ownerScopeId, collectionId, instanceId)
         const claims = await prisma.fieldClaim.findMany({
             include: { evidence: true, valueAddress: true, valuePerson: true, valueLe: true, valueOrg: true },
-            where: {
-                fieldNo,
-                claimRole: 'VALUE',
-                ...subjectFilter,
-                // When a named collection is specified, exclude legacy NULL-collectionId claims.
-                collectionId: filterCollectionId ?? undefined,
-                status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
-                assertedAt: snapshotDate ? { lte: snapshotDate } : undefined,
-                OR: [
-                    { ownerScopeId: ownerScopeId || undefined },
-                    { ownerScopeId: null }
-                ]
-            },
+            where: whereClause,
             orderBy: [
                 { assertedAt: 'desc' },
                 { id: 'desc' }
@@ -707,19 +730,28 @@ export class KycStateService {
         const fieldNos = fieldDefs.map(d => d.fieldNo);
 
         // ── Round-trip 1: all claims for all fields ────────────────────────────
-        const { clientLEId, ...subjectFilter } = subject;
+        const whereClause: any = {
+            fieldNo: { in: Array.from(fieldNos) },
+            claimRole: 'VALUE',
+            status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
+        };
+
+        if (subject.clientLEId) {
+            whereClause.clientLEId = subject.clientLEId;
+        } else {
+            const { clientLEId, ...subjectFilter } = subject;
+            Object.assign(whereClause, subjectFilter);
+            if (ownerScopeId) {
+                whereClause.OR = [
+                    { ownerScopeId: ownerScopeId },
+                    { ownerScopeId: null }
+                ];
+            }
+        }
+
         const allClaims = await prisma.fieldClaim.findMany({
             include: { evidence: true, valueAddress: true, valuePerson: true, valueLe: true, valueOrg: true },
-            where: {
-                fieldNo: { in: Array.from(fieldNos) },
-                claimRole: 'VALUE',
-                ...subjectFilter,
-                status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
-                OR: [
-                    { ownerScopeId: ownerScopeId || undefined },
-                    { ownerScopeId: null },
-                ],
-            },
+            where: whereClause,
             orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }],
         });
 

@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getIdentity } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
@@ -275,6 +276,62 @@ export async function getClientLEs(explicitOrgId?: string) {
     });
 }
 
+/**
+ * Determines whether a ClientLE record is a CURRENT operational dossier.
+ * - CURRENT: isDeleted === false AND status !== "ARCHIVED" (e.g. ACTIVE, SUSPENDED).
+ * - NON-CURRENT: isDeleted === true OR status === "ARCHIVED".
+ */
+export async function isCurrentClientLEDossier(cle: { isDeleted: boolean; status?: string | null }): Promise<boolean> {
+    if (cle.isDeleted) return false;
+    if (cle.status && cle.status.toUpperCase() === "ARCHIVED") return false;
+    return true;
+}
+
+/**
+ * Centralized domain helper: Finds any CURRENT operational ClientLE dossier for a given Client Organisation + LegalEntity (or LEI).
+ * Scoped strictly to the specified clientOrgId.
+ */
+export async function findCurrentClientLEDossier(params: {
+    clientOrgId: string;
+    legalEntityId?: string | null;
+    lei?: string | null;
+    excludingClientLEId?: string;
+    dbClient?: any;
+}) {
+    const { clientOrgId, legalEntityId, lei, excludingClientLEId, dbClient } = params;
+    if (!legalEntityId && !lei) return null;
+    const client = dbClient || prisma;
+
+    const whereOr: any[] = [];
+    if (legalEntityId) whereOr.push({ legalEntityId });
+    if (lei) whereOr.push({ lei });
+
+    const clientLEs = await client.clientLE.findMany({
+        where: {
+            id: excludingClientLEId ? { not: excludingClientLEId } : undefined,
+            isDeleted: false,
+            status: { not: "ARCHIVED" },
+            OR: whereOr,
+            owners: {
+                some: {
+                    partyId: clientOrgId,
+                    endAt: null
+                }
+            }
+        },
+        select: {
+            id: true,
+            name: true,
+            status: true,
+            isDeleted: true,
+            legalEntityId: true,
+            lei: true
+        }
+    });
+
+    return clientLEs.length > 0 ? clientLEs[0] : null;
+}
+
 // 2. Create a new LE
 export async function createClientLE(data: { name: string; jurisdiction: string; explicitOrgId?: string; lei?: string; gleifData?: any }) {
     const identity = await getIdentity();
@@ -335,106 +392,95 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
         return { success: false, error: "Unauthorized: You do not have permission to create Legal Entities for this Organization." };
     }
 
-    // --- Check if LEI already exists ---
+    // --- 1. Shared LegalEntity linkage & Per-Client CURRENT dossier duplicate check ---
+    let legalEntityId: string | undefined = undefined;
     if (data.lei) {
-        const existingLE = await prisma.clientLE.findUnique({
-            where: { lei: data.lei }
+        let legalEntity = await prisma.legalEntity.findFirst({
+            where: { reference: data.lei }
         });
-
-        if (existingLE) {
-            console.log(`[createClientLE] LEI collision for ${data.lei}. Checking status...`);
-
-            // --- Case A: Entity is Soft Deleted (Resurrect It) ---
-            if (existingLE.isDeleted) {
-                console.log(`[createClientLE] Entity ${existingLE.id} is deleted. Resurrecting...`);
-
-                await restoreClientLECore(existingLE.id);
-
-                // 3. Ensure Ownership
-                const existingOwner = await prisma.clientLEOwner.findFirst({
-                    where: {
-                        clientLEId: existingLE.id,
-                        partyId: targetOrgId!,
-                        endAt: null
+        if (!legalEntity) {
+            try {
+                legalEntity = await prisma.legalEntity.create({
+                    data: {
+                        reference: data.lei,
+                        name: data.name,
+                        jurisdiction: data.jurisdiction
                     }
                 });
-
-                if (!existingOwner) {
-                    await prisma.clientLEOwner.create({
-                        data: {
-                            clientLEId: existingLE.id,
-                            partyId: targetOrgId!,
-                            startAt: new Date()
-                        }
-                    });
-                }
-
-                revalidatePath("/app/clients/[clientId]");
-                revalidatePath("/app/le");
-
-                return {
-                    success: true,
-                    data: existingLE,
-                    message: `Entity "${existingLE.name}" was previously deleted. It has been restored to your workspace.`
-                };
+            } catch (e) {
+                legalEntity = await prisma.legalEntity.findFirst({
+                    where: { reference: data.lei }
+                });
             }
+        }
+        legalEntityId = legalEntity?.id;
+    }
 
-            // --- Case B: Entity is Active (Real Collision) ---
+    const creationResult = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        // Transactional Advisory Lock: prevents concurrent duplicate creation races for same Org + LE
+        const lockKey = `client_le_create:${targetOrgId}:${legalEntityId || data.lei || data.name}`;
+        try {
+            await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+        } catch (e) {
+            // Ignore fallback for non-PostgreSQL mock environments
+        }
 
-            // Check if already owned by this org
-            const existingOwner = await prisma.clientLEOwner.findFirst({
-                where: {
-                    clientLEId: existingLE.id,
-                    partyId: targetOrgId!, // targetOrgId is definitely set by now
-                    endAt: null
-                }
-            });
+        // Enforce One-Current-Dossier rule:
+        // Prevent creating multiple CURRENT operational dossiers for the SAME LegalEntity within the SAME Client Organisation.
+        const existingCurrent = await findCurrentClientLEDossier({
+            clientOrgId: targetOrgId!,
+            legalEntityId,
+            lei: data.lei,
+            dbClient: tx
+        });
 
-            if (existingOwner) {
-                return { success: false, error: "This Legal Entity is already in your dashboard." };
-            }
-
-            // Not owned -> Owned by someone else (Global Unique Check)
-            // User requested: "Whoever gets it first gets to keep it."
+        if (existingCurrent) {
             return {
                 success: false,
-                error: `The entity "${existingLE.name}" has already been registered by another client. Access is currently restricted.`
+                error: `${data.name} already exists in your organisation.`
             };
         }
-    }
 
-    // --- Proceed with valid creation ---
-    // Extract National Registry Data if present in the GLEIF blob
-    let gleifPayload = data.gleifData;
-    let nationalPayload = null;
-    if (gleifPayload && gleifPayload.nationalRegistryData) {
-        nationalPayload = gleifPayload.nationalRegistryData;
-        // Create a clean copy without our injected field
-        const { nationalRegistryData, ...rest } = gleifPayload;
-        gleifPayload = rest;
-    }
+        // --- Proceed with valid creation ---
+        // Extract National Registry Data if present in the GLEIF blob
+        let gleifPayload = data.gleifData;
+        let nationalPayload = null;
+        if (gleifPayload && gleifPayload.nationalRegistryData) {
+            nationalPayload = gleifPayload.nationalRegistryData;
+            // Create a clean copy without our injected field
+            const { nationalRegistryData, ...rest } = gleifPayload;
+            gleifPayload = rest;
+        }
 
-    const newLE = await prisma.clientLE.create({
-        data: {
-            name: data.name,
-            jurisdiction: data.jurisdiction,
-            // @ts-ignore - Prisma client types may be stale in IDE
-            lei: data.lei,
-            gleifData: gleifPayload,
-            gleifFetchedAt: gleifPayload ? new Date() : null,
-            // @ts-ignore
-            nationalRegistryData: nationalPayload,
-            // @ts-ignore
-            registryFetchedAt: nationalPayload ? new Date() : null,
-            status: "ACTIVE",
-            owners: {
-                create: {
-                    partyId: targetOrgId!,
-                    startAt: new Date()
+        const newLE = await tx.clientLE.create({
+            data: {
+                name: data.name,
+                jurisdiction: data.jurisdiction,
+                lei: data.lei,
+                dossierLabel: (data as any).dossierLabel || null,
+                legalEntityId: legalEntityId || undefined,
+                gleifData: gleifPayload,
+                gleifFetchedAt: gleifPayload ? new Date() : null,
+                nationalRegistryData: nationalPayload,
+                registryFetchedAt: nationalPayload ? new Date() : null,
+                status: "ACTIVE",
+                owners: {
+                    create: {
+                        partyId: targetOrgId!,
+                        startAt: new Date()
+                    }
                 }
-            }
-        },
+            },
+        });
+
+        return { success: true, data: newLE };
     });
+
+    if (!creationResult.success) {
+        return creationResult;
+    }
+
+    const newLE = creationResult.data!;
 
     // Fire and forget (or await) the enrichment bootstrap
     try {
@@ -444,9 +490,6 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
     }
 
     revalidatePath("/app/le");
-    // Also revalidate the client dashboard if we know the path - but it uses dynamic ID so revalidating /app/clients/[id] is tricky without the ID here.
-    // Ideally we return the path to redirect or revalidatePath acts globally enough.
-    // Actually, revalidatePath layout might be safer:
     revalidatePath("/app/clients/[clientId]");
 
     return { success: true, data: newLE };
@@ -825,34 +868,79 @@ export async function getDashboardMetrics(leId: string) {
 /**
  * Canonical core restore logic for ClientLE, its FIEngagements, and linked Questionnaires.
  * Restores existing soft-deleted record without creating a new record or modifying master data/history.
+ * Soft delete changes only deletion state. Restore reverses deletion state and does not silently rewrite operational status.
  */
 export async function restoreClientLECore(clientLEId: string) {
-    // 1. Un-delete the LE and ensure status ACTIVE
-    const updatedLE = await prisma.clientLE.update({
-        where: { id: clientLEId },
-        data: { isDeleted: false, status: "ACTIVE" }
-    });
+    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        // 0. Load target ClientLE to inspect legal entity and owner organizations
+        const targetLE = await tx.clientLE.findUnique({
+            where: { id: clientLEId },
+            include: {
+                owners: {
+                    where: { endAt: null },
+                    select: { partyId: true }
+                }
+            }
+        });
 
-    // 2. Un-delete Engagements & Questionnaires for this LE
-    await prisma.fIEngagement.updateMany({
-        where: { clientLEId: clientLEId },
-        data: { isDeleted: false }
-    });
+        if (!targetLE) {
+            throw new Error("ClientLE not found.");
+        }
 
-    const restoredEngs = await prisma.fIEngagement.findMany({
-        where: { clientLEId: clientLEId },
-        select: { id: true }
-    });
-    const restoredEngIds = restoredEngs.map((e: any) => e.id);
+        // Enforce One-Current-Dossier rule:
+        // If restoring will make this dossier CURRENT (status != "ARCHIVED"), block restore if another CURRENT operational dossier exists.
+        if (targetLE.status !== "ARCHIVED") {
+            for (const owner of targetLE.owners) {
+                const lockKey = `client_le_create:${owner.partyId}:${targetLE.legalEntityId || targetLE.lei || targetLE.name}`;
+                try {
+                    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey}))`;
+                } catch (e) {
+                    // Ignore for non-PostgreSQL mock environments
+                }
 
-    if (restoredEngIds.length > 0) {
-        await prisma.questionnaire.updateMany({
-            where: { fiEngagementId: { in: restoredEngIds } },
+                const existingCurrent = await findCurrentClientLEDossier({
+                    clientOrgId: owner.partyId,
+                    legalEntityId: targetLE.legalEntityId || undefined,
+                    lei: targetLE.lei || undefined,
+                    excludingClientLEId: clientLEId,
+                    dbClient: tx
+                });
+
+                if (existingCurrent) {
+                    throw new Error(
+                        `Cannot restore this dossier because ${targetLE.name} already has a current dossier for this Client Organisation. The current dossier must be deleted or archived before restoring this record.`
+                    );
+                }
+            }
+        }
+
+        // 1. Un-delete the LE while preserving its operational status (ACTIVE, SUSPENDED, or ARCHIVED)
+        const updatedLE = await tx.clientLE.update({
+            where: { id: clientLEId },
             data: { isDeleted: false }
         });
-    }
 
-    return updatedLE;
+        // 2. Un-delete Engagements & Questionnaires for this LE
+        await tx.fIEngagement.updateMany({
+            where: { clientLEId: clientLEId },
+            data: { isDeleted: false }
+        });
+
+        const restoredEngs = await tx.fIEngagement.findMany({
+            where: { clientLEId: clientLEId },
+            select: { id: true }
+        });
+        const restoredEngIds = restoredEngs.map((e: any) => e.id);
+
+        if (restoredEngIds.length > 0) {
+            await tx.questionnaire.updateMany({
+                where: { fiEngagementId: { in: restoredEngIds } },
+                data: { isDeleted: false }
+            });
+        }
+
+        return updatedLE;
+    });
 }
 
 // 7. Archive / Delete Client LE
