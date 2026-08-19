@@ -455,7 +455,9 @@ export class KycWriteService {
             const isL2Target = fieldNo === 40 || fieldNo === 38;
             if (isL2Target) {
                 const isEqual = authoritativeState ? valuesAreCanonicallyEqual(authoritativeState.value, value) : false;
-                console.log(`[GLEIF-L2-TRACE] [G.WriteDecision] fieldNo=${fieldNo} incomingValue=${JSON.stringify(value).slice(0, 250)} authoritativeValue=${JSON.stringify(authoritativeState?.value).slice(0, 250)} isCanonicallyEqual=${isEqual}`);
+                const incStr = JSON.stringify(value);
+                const authStr = JSON.stringify(authoritativeState?.value);
+                console.log(`[GLEIF-L2-TRACE] [G.WriteDecision] fieldNo=${fieldNo} incomingValue=${(incStr || 'undefined').slice(0, 250)} authoritativeValue=${(authStr || 'undefined').slice(0, 250)} isCanonicallyEqual=${isEqual}`);
             }
 
             if (authoritativeState && valuesAreCanonicallyEqual(authoritativeState.value, value)) {

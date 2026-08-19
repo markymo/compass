@@ -93,7 +93,8 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
                 }
 
                 if (isL2Target) {
-                    console.log(`[GLEIF-L2-TRACE] [C.CandidateEntry] fieldNo=${targetFieldNo} path="${mapping.sourcePath}" subtype="${mapping.payloadSubtype}" configuredTransform="${mapping.transformType}" rawValueNull=${rawValue == null} rawValuePreview=${rawValue ? JSON.stringify(rawValue).slice(0, 150) : 'null'}`);
+                    const rvStr = JSON.stringify(rawValue);
+                    console.log(`[GLEIF-L2-TRACE] [C.CandidateEntry] fieldNo=${targetFieldNo} path="${mapping.sourcePath}" subtype="${mapping.payloadSubtype}" configuredTransform="${mapping.transformType}" rawValueNull=${rawValue == null} rawValuePreview=${(rvStr || 'undefined').slice(0, 150)}`);
                 }
 
                 if (rawValue == null) {
@@ -131,7 +132,8 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
                 const transformed = applyTransform(rawValue, effectiveTransform, effectiveConfig);
 
                 if (isL2Target) {
-                    console.log(`[GLEIF-L2-TRACE] [E.TransformOutput] fieldNo=${targetFieldNo} candidateValue=${JSON.stringify(transformed.value).slice(0, 200)}`);
+                    const tvStr = JSON.stringify(transformed.value);
+                    console.log(`[GLEIF-L2-TRACE] [E.TransformOutput] fieldNo=${targetFieldNo} candidateValue=${(tvStr || 'undefined').slice(0, 200)}`);
                 }
 
                 if (transformed.value == null) continue;
