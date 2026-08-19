@@ -48,6 +48,7 @@ import { isAddressValue } from "@/lib/master-data/address-value";
 import { AddressValueEditor } from "../fields/AddressValueEditor";
 import { UnifiedAddressPicker } from "../fields/UnifiedAddressPicker";
 import { isPersonOrContactValue, getPersonOrContactSummary, isValidPartyValue } from "@/lib/master-data/person-or-contact-value";
+import { applyTransform } from "@/services/kyc/normalization/transforms";
 import { PersonOrContactValueViewer } from "../fields/PersonOrContactValueViewer";
 import { CanonicalPartyEditDialog } from "../fields/CanonicalPartyEditDialog";
 import { UnifiedPartyPicker } from "../fields/UnifiedPartyPicker";
@@ -2490,14 +2491,31 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         {(() => {
                                                             let parsed = candidate.value;
                                                             if (typeof parsed === 'string' && (parsed.startsWith('{') || parsed.startsWith('['))) { try { parsed = JSON.parse(parsed); } catch {} }
-                                                            if (isPersonOrContactValue(parsed) || (parsed && typeof parsed === 'object' && 'ccPartyId' in parsed)) {
+
+                                                            if ((isPartyField || isPersonOrContactField) && parsed && typeof parsed === 'object' && !isPersonOrContactValue(parsed) && (parsed.legalName || parsed.organisationName || parsed.lei || parsed.registeredAs)) {
+                                                                const transformed = applyTransform(parsed, 'TO_PARTY_ORGANISATION');
+                                                                if (transformed.value) parsed = transformed.value;
+                                                            }
+
+                                                            if (isPersonOrContactValue(parsed) || (parsed && typeof parsed === 'object' && ('ccPartyId' in parsed || 'legalName' in parsed || 'organisationName' in parsed))) {
                                                                 const candCanonical = (candidate as any)?.canonicalDisplayModel;
-                                                                const partyLabel = candCanonical?.value ? (candCanonical.value as any).partyLabel : undefined;
+                                                                const partyLabel = candCanonical?.value ? (candCanonical.value as any).partyLabel : (parsed?.legalName || parsed?.organisationName || undefined);
                                                                 const partyVal = candCanonical?.value?.kind === 'partyRef' 
                                                                     ? candCanonical.value.resolved 
                                                                     : (candCanonical?.value?.kind === 'party' ? candCanonical.value.data : (parsed?.ccParty?.data || parsed?._resolvedData?.ccParty?.data || parsed));
 
-                                                                return <PersonOrContactValueViewer value={partyVal} partyLabel={partyLabel} layout="detailed" displayMask={data?.profileConfig?.displayMask} />;
+                                                                return (
+                                                                    <PersonOrContactValueViewer 
+                                                                        value={partyVal} 
+                                                                        partyLabel={partyLabel} 
+                                                                        layout="detailed" 
+                                                                        displayMask={data?.profileConfig?.displayMask} 
+                                                                        claimId={candidate.id}
+                                                                        isPromotedToCCC={candidate.isPromotedToCCC}
+                                                                        isPromoting={isPromoting === candidate.id}
+                                                                        onSaveForReuse={handleSaveForReuse}
+                                                                    />
+                                                                );
                                                             }
                                                             return renderRowValue(candidate.value, candidate);
                                                         })()}
@@ -2516,7 +2534,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                     </div>
                                                 </div>
                                                 
-                                                {!candidate.isAuthoritative && (
+                                                {!candidate.isAuthoritative && !(isPersonOrContactValue(candidate.value) || (candidate.value && typeof candidate.value === 'object' && ('ccPartyId' in candidate.value || 'legalName' in candidate.value || 'organisationName' in candidate.value))) && (
                                                     <Button 
                                                         size="sm" 
                                                         variant="outline" 

@@ -112,7 +112,18 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
                     : mapping.transformConfig;
 
                 let effectiveTransform = mapping.transformType;
-                if ((effectiveTransform === 'DIRECT' || !effectiveTransform) && mapping.payloadSubtype === 'LEVEL_2_RELATIONSHIPS' && rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
+                const isL2OrParentPath =
+                    mapping.payloadSubtype === 'LEVEL_2_RELATIONSHIPS' ||
+                    mapping.targetFieldNo === 41 || // Ultimate parent
+                    mapping.targetFieldNo === 39 || // Direct parent
+                    (typeof mapping.sourcePath === 'string' && (
+                        mapping.sourcePath.includes('gleifL2') ||
+                        mapping.sourcePath.includes('ultimateParent') ||
+                        mapping.sourcePath.includes('directParent')
+                    )) ||
+                    (rawValue && typeof rawValue === 'object' && ('legalName' in rawValue || 'lei' in rawValue));
+
+                if ((effectiveTransform === 'DIRECT' || !effectiveTransform) && isL2OrParentPath && rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
                     effectiveTransform = 'TO_PARTY_ORGANISATION';
                 }
 
