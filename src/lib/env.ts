@@ -53,3 +53,15 @@ export function isDevSubdomain(host?: string | null): boolean {
     normalizedHost.includes("127.0.0.1")
   );
 }
+
+/**
+ * Feature flag for showing public marketing pages.
+ * Defaults to false so public pages remain hidden behind a Coming Soon gate until polished.
+ */
+export function isPublicSiteEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_ENABLE_PUBLIC_SITE === "true" ||
+    process.env.ENABLE_PUBLIC_SITE === "true"
+  );
+}
+
