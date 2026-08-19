@@ -1,6 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getIdentity } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
@@ -415,7 +416,7 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
         legalEntityId = legalEntity?.id;
     }
 
-    const creationResult = await prisma.$transaction(async (tx) => {
+    const creationResult = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // Transactional Advisory Lock: prevents concurrent duplicate creation races for same Org + LE
         const lockKey = `client_le_create:${targetOrgId}:${legalEntityId || data.lei || data.name}`;
         try {
@@ -870,7 +871,7 @@ export async function getDashboardMetrics(leId: string) {
  * Soft delete changes only deletion state. Restore reverses deletion state and does not silently rewrite operational status.
  */
 export async function restoreClientLECore(clientLEId: string) {
-    return await prisma.$transaction(async (tx) => {
+    return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         // 0. Load target ClientLE to inspect legal entity and owner organizations
         const targetLE = await tx.clientLE.findUnique({
             where: { id: clientLEId },

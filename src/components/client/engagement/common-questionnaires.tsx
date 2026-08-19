@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 import { CreateApprovalDialog } from "@/components/client/approvals/create-approval-dialog";
 
-const DASHBOARD_GRID_V2 = "grid-cols-[minmax(280px,1fr)_60px_160px_160px_195px]";
+const DASHBOARD_GRID_V2 = "grid-cols-[minmax(160px,1fr)_45px_125px_125px_285px]";
 
 function MicroChart({ value, total, colorClass, emptyClass, numeratorLabel, denominatorLabel }: { value: number, total: number, colorClass: string, emptyClass: string, numeratorLabel: string, denominatorLabel: string }) {
     if (total === 0) {
@@ -227,11 +227,11 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                         </div>
 
                         {/* 5. Workflow Group */}
-                        <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sign-Off</span>
-                            <div className="flex justify-between pr-20 items-end">
-                                <span className="text-[10px] font-bold text-indigo-600 uppercase">Approved</span>
-                                <span className="text-[10px] font-bold text-emerald-600 uppercase">Released</span>
+                        <div className="flex flex-col border-l border-slate-200 pl-3 h-full">
+                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sign-Off & Actions</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-indigo-600 uppercase min-w-[28px] text-center">Approved</span>
+                                <span className="text-[10px] font-bold text-emerald-600 uppercase min-w-[28px] text-center">Released</span>
                             </div>
                         </div>
                     </div>
@@ -269,27 +269,27 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                     </div>
 
                                     {/* Col 5: Sign-Off and Actions */}
-                                    <div className="border-l border-slate-100 pl-4 pr-1 flex items-center justify-between h-full">
+                                    <div className="border-l border-slate-100 pl-3 pr-1 flex items-center justify-between h-full">
                                         {q.metrics ? (
-                                            <>
-                                                <div className="flex flex-col items-center gap-0.5">
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
                                                     <span className={cn("text-[13px] font-bold font-mono", q.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{q.metrics.approved}</span>
                                                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Approved</span>
                                                 </div>
-                                                <div className="flex flex-col items-center gap-0.5">
+                                                <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
                                                     <span className={cn("text-[13px] font-bold font-mono", q.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{q.metrics.released}</span>
                                                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Released</span>
                                                 </div>
-                                            </>
+                                            </div>
                                         ) : (
-                                            <div className="text-xs text-slate-500 italic pr-4">No data</div>
+                                            <div className="text-xs text-slate-500 italic pr-2">No data</div>
                                         )}
-                                        <div className="shrink-0 flex items-center gap-1 pl-4">
+                                        <div className="shrink-0 flex items-center gap-1 pl-2">
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => setApprovalQuestionnaireId(q.id)}
-                                                className="h-8 text-xs text-indigo-600 hover:bg-indigo-50 px-2 flex items-center gap-1 font-medium"
+                                                className="h-7 text-xs text-indigo-600 hover:bg-indigo-50 px-2 flex items-center gap-1 font-medium shrink-0"
                                                 title="Approve Common Questionnaire"
                                             >
                                                 <ShieldCheck className="h-3.5 w-3.5" />
@@ -297,7 +297,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                             </Button>
                                             <Link 
                                                 href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`}
-                                                className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                                                className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors shrink-0"
                                                 title="Review in Question Bank"
                                             >
                                                 <ArrowRight className="h-4 w-4" />
@@ -305,7 +305,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                             <Button 
                                                 variant="ghost" 
                                                 size="icon" 
-                                                className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                                                className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 shrink-0"
                                                 onClick={() => setRemoveTarget({ id: q.id, name: q.name })}
                                                 title="Remove Common Questionnaire"
                                             >
