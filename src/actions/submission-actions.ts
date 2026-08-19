@@ -123,7 +123,7 @@ export async function getRelationshipsForLEAction(clientLEId: string) {
         const engagements = await prisma.fIEngagement.findMany({
             where: { clientLEId, isDeleted: false },
             include: { org: { select: { id: true, name: true } } },
-            orderBy: { createdAt: 'desc' }
+            orderBy: { org: { name: 'asc' } }
         });
         return {
             success: true,
