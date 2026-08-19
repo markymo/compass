@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import NextAuth from "next-auth";
 import authConfig from "./auth.config";
-import { isNonProductionEnv } from "@/lib/env";
+import { isNonProductionEnv, isPublicSiteEnabled } from "@/lib/env";
 
 const { auth } = NextAuth(authConfig);
 
 const PUBLIC_PATH_PREFIXES = [
   "/login",
   "/invite",
+  "/coming-soon",
   "/how-it-works",
   "/partner",
   "/about",
@@ -15,8 +16,28 @@ const PUBLIC_PATH_PREFIXES = [
   "/terms",
   "/contact",
   "/why-onpro",
+  "/logo-preview",
   "/api",
 ];
+
+const MARKETING_SITE_ROUTES = [
+  "/",
+  "/about",
+  "/contact",
+  "/how-it-works",
+  "/partner",
+  "/privacy",
+  "/terms",
+  "/why-onpro",
+  "/logo-preview",
+];
+
+function isMarketingRoute(pathname: string): boolean {
+  if (pathname === "/") return true;
+  return MARKETING_SITE_ROUTES.some(
+    (prefix) => prefix !== "/" && (pathname === prefix || pathname.startsWith(`${prefix}/`))
+  );
+}
 
 function isPublicRoute(pathname: string): boolean {
   if (pathname === "/") return true;
@@ -74,8 +95,28 @@ export const proxy = auth((req) => {
     }
   }
 
-  // Step 2: NextAuth Authentication check for protected routes
   const pathname = req.nextUrl.pathname;
+  const publicSiteEnabled = isPublicSiteEnabled();
+
+  // Step 1.5: If public marketing site is disabled, redirect/rewrite public marketing routes to /coming-soon
+  if (!publicSiteEnabled && isMarketingRoute(pathname) && pathname !== "/coming-soon") {
+    const comingSoonUrl = new URL("/coming-soon", req.nextUrl.origin);
+    if (pathname === "/") {
+      const rewriteRes = NextResponse.rewrite(comingSoonUrl);
+      if (isNonProd) {
+        rewriteRes.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+      }
+      return rewriteRes;
+    } else {
+      const redirectRes = NextResponse.redirect(comingSoonUrl);
+      if (isNonProd) {
+        redirectRes.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+      }
+      return redirectRes;
+    }
+  }
+
+  // Step 2: NextAuth Authentication check for protected routes
   if (!req.auth && !isPublicRoute(pathname)) {
     const newUrl = new URL("/login", req.nextUrl.origin);
     const redirectRes = NextResponse.redirect(newUrl);
@@ -92,6 +133,7 @@ export const proxy = auth((req) => {
   }
   return response;
 });
+
 
 export default proxy;
 
