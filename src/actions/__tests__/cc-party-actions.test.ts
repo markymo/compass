@@ -261,7 +261,7 @@ describe("cc-party-actions", () => {
             mockFieldClaimFindUnique.mockResolvedValue({
                 id: 'claim-1',
                 claimRole: 'VALUE',
-                clientLeScopeId: 'le-123',
+                clientLEId: 'le-123',
                 fieldNo: 63,
                 valueJson: validParty // Note: this is a legacy PartyValue
             });
@@ -293,7 +293,7 @@ describe("cc-party-actions", () => {
             mockFieldClaimFindUnique.mockResolvedValue({
                 id: 'claim-1',
                 claimRole: 'VALUE',
-                clientLeScopeId: 'le-123',
+                clientLEId: 'le-123',
                 fieldNo: 64,
                 valueJson: validParty
             });

@@ -923,14 +923,10 @@ export async function restoreSourceValue(
 
         await prisma.fieldClaim.updateMany({
             where: {
-                subjectLeId: clientLE.legalEntityId,
+                clientLEId: clientLEId,
                 fieldNo: fieldNo,
                 sourceType: 'USER_INPUT',
-                status: { in: ['ASSERTED', 'VERIFIED'] },
-                OR: [
-                    { ownerScopeId: ownerScopeId },
-                    { ownerScopeId: null }
-                ]
+                status: { in: ['ASSERTED', 'VERIFIED'] }
             },
             data: {
                 status: 'REJECTED'

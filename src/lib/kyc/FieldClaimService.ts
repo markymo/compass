@@ -63,6 +63,10 @@ export class FieldClaimService {
      * idempotent write-back mechanism described in the architecture design.
      */
     static async assertClaim(input: AssertClaimInput): Promise<FieldClaim> {
+        if (input.subjectLeId && !input.clientLEId) {
+            throw new Error("FieldClaim assertion requires a valid clientLEId.");
+        }
+
         // Idempotency short-circuit
         if (input.idempotencyKey) {
             const existing = await prisma.fieldClaim.findUnique({
@@ -74,7 +78,7 @@ export class FieldClaimService {
                 if (existing.subjectLeId !== (input.subjectLeId || null)) throw new Error("Idempotency conflict: subjectLeId mismatch");
                 if (existing.subjectPersonId !== (input.subjectPersonId || null)) throw new Error("Idempotency conflict: subjectPersonId mismatch");
                 if (existing.subjectOrgId !== (input.subjectOrgId || null)) throw new Error("Idempotency conflict: subjectOrgId mismatch");
-                if (existing.clientLeScopeId !== (input.clientLEId || null)) throw new Error(`Idempotency conflict: clientLeScopeId mismatch: ${existing.clientLeScopeId} !== ${input.clientLEId}`);
+                if (existing.clientLEId !== input.clientLEId) throw new Error(`Idempotency conflict: clientLEId mismatch: ${existing.clientLEId} !== ${input.clientLEId}`);
                 if (input.claimRole !== 'FILE_ATTACHMENT' && existing.supersedesId !== (input.supersedesId || null)) throw new Error("Idempotency conflict: supersedesId mismatch");
                 if (input.claimRole === 'FILE_ATTACHMENT' && !!input.supersedesId && existing.instanceId !== input.instanceId) throw new Error("Idempotency conflict: instanceId mismatch");
                 if (existing.attachmentDocumentId !== (input.attachmentDocumentId || null)) throw new Error("Idempotency conflict: attachmentDocumentId mismatch");
@@ -115,6 +119,7 @@ export class FieldClaimService {
             const claim = await prisma.fieldClaim.create({
                 data: {
                     fieldNo: input.fieldNo,
+                    clientLEId: input.clientLEId,
                     subjectLeId: input.subjectLeId,
                     subjectPersonId: input.subjectPersonId,
                     subjectOrgId: input.subjectOrgId,
@@ -131,7 +136,6 @@ export class FieldClaimService {
                     valueAddressId: input.valueAddressId,
                     valueDocId: input.valueDocId,
                     attachmentDocumentId: input.attachmentDocumentId,
-                    clientLeScopeId: input.clientLEId || undefined,
 
                     sourceType: input.sourceType,
                     sourceReference: input.sourceReference,
@@ -212,21 +216,26 @@ export class FieldClaimService {
     // ── File Attachment Writes ───────────────────────────────────────────────
 
     private static async validateAttachmentInstance(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string },
+        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
         fieldNo: number,
         instanceId: string,
         ownerScopeId: string | null
     ) {
+        const whereClause: any = {
+            instanceId,
+            fieldNo,
+            claimRole: 'FILE_ATTACHMENT'
+        };
+        if (subject.clientLEId) {
+            whereClause.clientLEId = subject.clientLEId;
+        } else {
+            if (subject.subjectLeId) whereClause.subjectLeId = subject.subjectLeId;
+            if (subject.subjectPersonId) whereClause.subjectPersonId = subject.subjectPersonId;
+            if (subject.subjectOrgId) whereClause.subjectOrgId = subject.subjectOrgId;
+            if (ownerScopeId) whereClause.ownerScopeId = ownerScopeId;
+        }
         const claims = await prisma.fieldClaim.findMany({
-            where: {
-                instanceId,
-                fieldNo,
-                subjectLeId: subject.subjectLeId || null,
-                subjectPersonId: subject.subjectPersonId || null,
-                subjectOrgId: subject.subjectOrgId || null,
-                ownerScopeId: ownerScopeId || null,
-                claimRole: 'FILE_ATTACHMENT'
-            },
+            where: whereClause,
             orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }]
         });
 

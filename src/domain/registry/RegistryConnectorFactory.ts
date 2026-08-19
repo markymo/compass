@@ -1,4 +1,5 @@
 import { IRegistryConnector } from "./types/RegistryConnector";
+import { RegistryAuthorityService } from "./RegistryAuthorityService";
 
 export class RegistryConnectorFactory {
     private static connectors: Map<string, IRegistryConnector> = new Map();
@@ -11,11 +12,29 @@ export class RegistryConnectorFactory {
     }
 
     /**
-     * Get the correct connector for a given registry authority ID.
+     * Get the correct connector for a physical registry authority ID (e.g. "RA000585", "RA000587").
+     * Loads RegistryAuthority, obtains its registryKey, and selects connector matching registryKey.
      */
-    static getConnectorForAuthority(authorityId: string): IRegistryConnector | null {
+    static async getConnectorForAuthorityId(authorityId: string): Promise<IRegistryConnector | null> {
+        const registryKey = await RegistryAuthorityService.getRegistryKey(authorityId);
+        if (!registryKey) return null;
+        return this.getConnectorForRegistryKey(registryKey);
+    }
+
+    /**
+     * Async alias for getConnectorForAuthorityId.
+     */
+    static async getConnectorForAuthority(authorityId: string): Promise<IRegistryConnector | null> {
+        return this.getConnectorForAuthorityId(authorityId);
+    }
+
+    /**
+     * Selects connector matching a given registryKey (e.g. "GB_COMPANIES_HOUSE").
+     */
+    static getConnectorForRegistryKey(registryKey: string): IRegistryConnector | null {
+        if (!registryKey) return null;
         for (const connector of this.connectors.values()) {
-            if (connector.supports(authorityId)) {
+            if (connector.supportedRegistryKeys?.includes(registryKey)) {
                 return connector;
             }
         }
@@ -23,7 +42,7 @@ export class RegistryConnectorFactory {
     }
 
     /**
-     * Get a connector by its key.
+     * Get a connector by its connectorKey (e.g. "CompaniesHouseConnector").
      */
     static getConnectorByKey(key: string): IRegistryConnector | null {
         return this.connectors.get(key) || null;

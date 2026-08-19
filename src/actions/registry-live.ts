@@ -1,34 +1,28 @@
 "use server";
 
 import { RegistryConnectorFactory } from "@/domain/registry/RegistryConnectorFactory";
+import { RegistryAuthorityService } from "@/domain/registry/RegistryAuthorityService";
 import { initializeRegistryDomain } from "@/domain/registry";
+import { IRegistryConnector } from "@/domain/registry/types/RegistryConnector";
 
 // Ensure connectors are registered on first call
 initializeRegistryDomain();
 
 /**
- * Maps a mappingSourceKey (SourceFieldMapping.sourceReference) to a concrete GLEIF RA code
- * that RegistryConnectorFactory.getConnectorForAuthority() can route.
- *
- * Required because the UI now uses "COMPANIES_HOUSE" as the sourceReference (mappingSourceKey),
- * but connectors are registered and dispatched by GLEIF RA code via connector.supports(authorityId).
- *
- * Add entries here whenever a new multi-RA connector is introduced.
- */
-const MAPPING_SOURCE_KEY_TO_RA: Record<string, string> = {
-    COMPANIES_HOUSE: "RA000585", // canonical CH RA for live browse (England & Wales connector)
-};
-
-/**
- * Server Action: Fetch a live record from a specific Registry Authority and
+ * Server Action: Fetch a live record from a specific Registry Authority or source family and
  * return the raw COMPANY_PROFILE payload (from CanonicalRegistryRecord.rawSourcePayload).
  *
  * The Data Inspector uses this to let admins browse real API fields and click-to-map them.
  *
+ * Architectural Rule:
+ * - If `sourceRef` is a physical GLEIF RA code (e.g. "RA000587"), the reference preserves "RA000587".
+ * - If `sourceRef` is a mapping family (e.g. "COMPANIES_HOUSE"), connector selection occurs via
+ *   its configured registryKey, but the reference's `registryAuthorityId` remains "COMPANIES_HOUSE"
+ *   and NEVER manufactures an arbitrary physical RA ID (like RA000585).
+ *
  * @param registrationNumber - The local registration number (company number, SIREN, HRB, etc.)
- * @param sourceRef          - mappingSourceKey (e.g. "COMPANIES_HOUSE") or a direct GLEIF RA code
- *                             (e.g. "RA000585", "RA000192"). Resolved to a connector RA code via
- *                             MAPPING_SOURCE_KEY_TO_RA if needed.
+ * @param sourceRef          - A physical GLEIF RA code (e.g. "RA000587"), a connector registryKey
+ *                             (e.g. "GB_COMPANIES_HOUSE"), or a mappingSourceKey (e.g. "COMPANIES_HOUSE").
  */
 export async function fetchLiveRegistryRecord(
     registrationNumber: string,
@@ -39,23 +33,42 @@ export async function fetchLiveRegistryRecord(
         return { success: false, error: "Please enter at least 3 characters." };
     }
 
-    // Resolve mappingSourceKey → concrete GLEIF RA code for connector dispatch
-    const authorityId = MAPPING_SOURCE_KEY_TO_RA[sourceRef] ?? sourceRef;
-
     try {
-        const connector = RegistryConnectorFactory.getConnectorForAuthority(authorityId);
+        let connector: IRegistryConnector | null = null;
+        let physicalAuthorityId: string | null = null;
+
+        if (sourceRef.startsWith("RA")) {
+            // Explicit physical RA ID supplied (e.g. "RA000587", "RA000586", "RA000585")
+            physicalAuthorityId = sourceRef;
+            connector = await RegistryConnectorFactory.getConnectorForAuthorityId(sourceRef);
+        } else {
+            // Mapping family or connector registryKey (e.g. "COMPANIES_HOUSE" or "GB_COMPANIES_HOUSE")
+            connector = RegistryConnectorFactory.getConnectorForRegistryKey(sourceRef);
+
+            if (!connector) {
+                // Obtain authority record strictly to read its configured registryKey for connector dispatch
+                const authority = await RegistryAuthorityService.getAuthorityBySourceKey(sourceRef);
+                if (authority?.registryKey) {
+                    connector = RegistryConnectorFactory.getConnectorForRegistryKey(authority.registryKey);
+                }
+            }
+            // Do NOT manufacture a physical RA ID when sourceRef is a mapping family / registry key
+            physicalAuthorityId = null;
+        }
+
         if (!connector) {
             return {
                 success: false,
-                error: `No connector registered for authority ${authorityId} (resolved from "${sourceRef}"). ` +
+                error: `No connector registered for authority/source "${sourceRef}". ` +
                     `Check that the connector is registered in initializeRegistryDomain().`,
             };
         }
 
-        // Minimal reference stub — connectors only need localRegistrationNumber + registryAuthorityId
+        // Minimal reference stub — uses physicalAuthorityId ONLY when a physical RA ID was genuinely supplied.
+        // When live browsing by mapping family ("COMPANIES_HOUSE"), registryAuthorityId remains "COMPANIES_HOUSE".
         const reference = {
             localRegistrationNumber: registrationNumber.trim(),
-            registryAuthorityId: authorityId,
+            registryAuthorityId: physicalAuthorityId || sourceRef,
         } as any;
 
         const record = await connector.fetch(reference);

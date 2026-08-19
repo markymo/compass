@@ -64,7 +64,7 @@ export async function resolveMasterData(
                             const cfg = getComplexFieldConfig(fieldNo);
                             const filterCollectionId = cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : undefined;
                             let collection = await KycStateService.getAuthoritativeCollection(
-                                { subjectLeId },
+                                { subjectLeId, clientLEId: leId },
                                 fieldNo,
                                 ownerScopeId || undefined,
                                 undefined,
@@ -93,7 +93,7 @@ export async function resolveMasterData(
                             }
                         } else {
                             const derived = await KycStateService.getAuthoritativeValue(
-                                { subjectLeId },
+                                { subjectLeId, clientLEId: leId },
                                 fieldNo,
                                 ownerScopeId || undefined
                             );
@@ -122,7 +122,7 @@ export async function resolveMasterData(
                 const cfg = getComplexFieldConfig(q.masterFieldNo);
                 const filterCollectionId = cfg?.kind === 'STRUCTURED_COLLECTION' ? cfg.collectionId : undefined;
                 let collection = await KycStateService.getAuthoritativeCollection(
-                    { subjectLeId },
+                    { subjectLeId, clientLEId: leId },
                     q.masterFieldNo,
                     ownerScopeId || undefined,
                     undefined,
@@ -153,7 +153,7 @@ export async function resolveMasterData(
                 }
             } else {
                 const derived = await KycStateService.getAuthoritativeValue(
-                    { subjectLeId },
+                    { subjectLeId, clientLEId: leId },
                     q.masterFieldNo,
                     ownerScopeId || undefined
                 );
@@ -1237,7 +1237,7 @@ export async function getFieldDetail(
                 : undefined;
 
             let collection = await KycStateService.getAuthoritativeCollection(
-                { subjectLeId }, fieldNo, ownerScopeId, undefined, filterCollectionId
+                { subjectLeId, clientLEId: entityType === 'CLIENT_LE' ? entityId : undefined }, fieldNo, ownerScopeId, undefined, filterCollectionId
             );
 
 

@@ -49,10 +49,10 @@ export class RegistryEnrichmentService {
         }
 
         // 2. Find the connector
-        let connector = RegistryConnectorFactory.getConnectorForAuthority(reference.registryAuthorityId);
+        let connector = await RegistryConnectorFactory.getConnectorForAuthorityId(reference.registryAuthorityId);
         if (!connector) {
             initDomain();
-            connector = RegistryConnectorFactory.getConnectorForAuthority(reference.registryAuthorityId);
+            connector = await RegistryConnectorFactory.getConnectorForAuthorityId(reference.registryAuthorityId);
         }
 
         if (!connector) {

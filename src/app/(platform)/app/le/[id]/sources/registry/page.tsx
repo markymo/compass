@@ -90,7 +90,7 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
             <div className="flex items-center justify-between bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-lg p-4">
                 <div className="flex items-center gap-3">
                     <div className="bg-white dark:bg-blue-900/30 p-1 rounded-lg border border-blue-100 dark:border-blue-800 shadow-sm overflow-hidden flex items-center justify-center min-w-[40px] h-[40px]">
-                        {authority?.id === "RA000585" ? (
+                        {authority?.mappingSourceKey === "COMPANIES_HOUSE" ? (
                             <img 
                                 src="/images/Companies_House.png" 
                                 alt="Companies House" 

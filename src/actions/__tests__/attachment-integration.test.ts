@@ -100,7 +100,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
     afterAll(async () => {
         // Cleanup
         await prisma.membership.deleteMany({ where: { clientLEId } });
-        await prisma.fieldClaim.deleteMany({ where: { clientLeScopeId: clientLEId } }); // delete all test claims safely
+        await prisma.fieldClaim.deleteMany({ where: { clientLEId: clientLEId } }); // delete all test claims safely
         await prisma.fieldClaim.deleteMany({ where: { subjectLeId: subjectLeId } });
         await prisma.fieldClaim.deleteMany({ where: { id: { in: testClaims } } });
         await prisma.privateDocumentUploadIntent.deleteMany({ where: { id: { in: testIntents } } });

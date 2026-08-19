@@ -80,7 +80,7 @@ describe.skipIf(!process.env.DATABASE_URL)("Legacy RELEASED Fallback Integration
             data: {
                 fieldNo: 3, // Legal Name
                 subjectLeId: testRealLE.id,
-                clientLeScopeId: testClientLE.id,
+                clientLEId: testClientLE.id,
                 claimRole: "VALUE",
                 status: "ASSERTED",
                 sourceType: "REGISTRATION_AUTHORITY",
@@ -162,7 +162,7 @@ describe.skipIf(!process.env.DATABASE_URL)("Legacy RELEASED Fallback Integration
             data: {
                 fieldNo: 3,
                 subjectLeId: testRealLE.id,
-                clientLeScopeId: testClientLE.id,
+                clientLEId: testClientLE.id,
                 claimRole: "VALUE",
                 status: "ASSERTED",
                 sourceType: "REGISTRATION_AUTHORITY",
@@ -190,7 +190,7 @@ describe.skipIf(!process.env.DATABASE_URL)("Legacy RELEASED Fallback Integration
             data: {
                 fieldNo: 3,
                 subjectLeId: testRealLE.id,
-                clientLeScopeId: testClientLE.id,
+                clientLEId: testClientLE.id,
                 claimRole: "VALUE",
                 status: "ASSERTED",
                 sourceType: "REGISTRATION_AUTHORITY",

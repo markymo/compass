@@ -109,7 +109,7 @@ export class CCPartyService {
             if (!claim) {
                 throw new CCPartyValidationError('CLAIM_NOT_FOUND', 'The provided createdFromClaimId does not exist.');
             }
-            if (claim.clientLeScopeId !== clientLEId) {
+            if (claim.clientLEId !== clientLEId) {
                 throw new CCPartyValidationError('CLAIM_CLIENT_LE_MISMATCH', 'The provided createdFromClaimId belongs to a different Client LE.');
             }
         }

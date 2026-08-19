@@ -2,7 +2,7 @@ import prisma from "@/lib/prisma";
 
 /**
  * Bootstraps initial registry authority data.
- * This identifies RAIDs from GLEIF (e.g. RA000585) and maps them to internal connectors.
+ * Maps physical RA codes from GLEIF (e.g. RA000585, RA000586, RA000587) to internal connectors and mapping families.
  */
 export async function bootstrapRegistryAuthorities() {
     console.log("[Bootstrap] Seeding registry authorities...");
@@ -11,23 +11,53 @@ export async function bootstrapRegistryAuthorities() {
         {
             id: "RA000585",
             registryKey: "GB_COMPANIES_HOUSE",
-            name: "Companies House",
+            mappingSourceKey: "COMPANIES_HOUSE",
+            name: "United Kingdom of Great Britain and Northern Ireland | Companies House | Companies Register (England and Wales)",
             countryCode: "GB",
-            jurisdiction: "UK",
+            jurisdiction: "England and Wales",
             lookupStrategy: "LOCAL_ID",
-            notes: "UK national registry for companies"
+            notes: "UK Companies House for England and Wales"
+        },
+        {
+            id: "RA000586",
+            registryKey: "GB_COMPANIES_HOUSE",
+            mappingSourceKey: "COMPANIES_HOUSE",
+            name: "United Kingdom of Great Britain and Northern Ireland | Companies House | Companies Register (Northern Ireland)",
+            countryCode: "GB",
+            jurisdiction: "Northern Ireland",
+            lookupStrategy: "LOCAL_ID",
+            notes: "UK Companies House for Northern Ireland"
+        },
+        {
+            id: "RA000587",
+            registryKey: "GB_COMPANIES_HOUSE",
+            mappingSourceKey: "COMPANIES_HOUSE",
+            name: "United Kingdom of Great Britain and Northern Ireland | Companies House | Companies Register (Scotland)",
+            countryCode: "GB",
+            jurisdiction: "Scotland",
+            lookupStrategy: "LOCAL_ID",
+            notes: "UK Companies House for Scotland"
+        },
+        {
+            id: "RA000592",
+            registryKey: "UK_FCA",
+            mappingSourceKey: null,
+            name: "United Kingdom of Great Britain and Northern Ireland | Financial Conduct Authority | Financial Services Register",
+            countryCode: "GB",
+            jurisdiction: "United Kingdom of Great Britain and Northern Ireland",
+            lookupStrategy: "LOCAL_ID",
+            notes: "UK Financial Conduct Authority (FCA)"
         },
         {
             id: "RA000242",
             registryKey: "DE_HANDELSREGISTER",
+            mappingSourceKey: null,
             name: "Gemeinsames Registerportal der Länder (Frankfurt am Main)",
             countryCode: "DE",
             jurisdiction: "DE",
             lookupStrategy: "LOCAL_ID",
             notes: "German national registry portal"
         },
-        // Future extensions:
-        // { id: "RA000431", registryKey: "NL_KVK", name: "Kamer van Koophandel", countryCode: "NL" }
     ];
 
     for (const auth of initialAuthorities) {

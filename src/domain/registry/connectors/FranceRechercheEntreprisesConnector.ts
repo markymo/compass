@@ -25,18 +25,10 @@ import { CanonicalRegistryRecord } from "../types/CanonicalRegistryRecord";
  */
 export class FranceRechercheEntreprisesConnector implements IRegistryConnector {
     readonly connectorKey = "FranceRechercheEntreprisesConnector";
+    readonly supportedRegistryKeys = ["FR_RECHERCHE_ENTREPRISES"];
 
     private static readonly BASE_URL =
         "https://recherche-entreprises.api.gouv.fr";
-
-    /**
-     * Handles RA000192 only (France — Infogreffe / RCS).
-     * DOM-TOM sub-codes are not mapped by GLEIF separately; RA000192 covers all
-     * metropolitan and overseas French registered entities.
-     */
-    supports(authorityId: string): boolean {
-        return authorityId === "RA000192";
-    }
 
     async fetch(reference: RegistryReference): Promise<CanonicalRegistryRecord> {
         // Strip any stray spaces from the GLEIF-supplied SIREN

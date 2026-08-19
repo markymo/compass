@@ -8,18 +8,7 @@ import * as https from "https";
 
 export class OfficialGermanRegistryConnector implements IRegistryConnector {
     readonly connectorKey = "OfficialGermanRegistryConnector";
-
-    supports(authorityId: string): boolean {
-        // Match generic German registry authorities if needed.
-        // Frankfurt am Main = RA000242, but we can match any German RA starting with RA if it's mapped to HRB
-        // For now, specific RAIDs for known German courts.
-        const germanRAIDs = [
-            "RA000242", // Frankfurt am Main
-            "RA000431", // KVK Netherlands? Wait, 431 is NL. Let's stick to known DE ones.
-            // In a real app we'd check if jurisdiction == "DE" or something
-        ];
-        return germanRAIDs.includes(authorityId) || authorityId.startsWith("RA0002"); // broad fallback for DE
-    }
+    readonly supportedRegistryKeys = ["DE_HANDELSREGISTER"];
 
     async fetch(reference: RegistryReference): Promise<CanonicalRegistryRecord> {
         const hrbNumber = reference.localRegistrationNumber; // e.g. "HRB 130853"

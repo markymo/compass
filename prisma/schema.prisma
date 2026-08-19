@@ -182,7 +182,8 @@ model ClientLE {
   isDeleted                    Boolean                       @default(false)
   createdAt                    DateTime                      @default(now())
   updatedAt                    DateTime                      @updatedAt
-  lei                          String?                       @unique
+  lei                          String?
+  dossierLabel                 String?
   gleifData                    Json?
   gleifFetchedAt               DateTime?
   nationalRegistryData         Json?
@@ -208,12 +209,14 @@ model ClientLE {
   enrichmentRuns               EnrichmentRun[]
   registrySourcePayloads       RegistrySourcePayload[]
   registryBaselineExtracts     RegistryBaselineExtract[]
+  fieldClaims                  FieldClaim[]
   ccParties                    CCParty[]
   ccAddresses                  CCAddress[]
   commonQuestionnaires         Questionnaire[]               @relation("ClientCommonQuestionnaires")
   privateDocumentUploadIntents PrivateDocumentUploadIntent[]
   submissions                  QuestionnaireSubmission[]
 
+  @@index([lei])
   @@index([legalEntityId])
 }
 
@@ -790,7 +793,7 @@ model FieldClaim {
   claimRole            ClaimRole         @default(VALUE)
   status               ClaimStatus       @default(ASSERTED)
   ownerScopeId         String?
-  clientLeScopeId      String?
+  clientLEId           String
   sourceType           SourceType
   sourceReference      String?
   evidenceId           String?
@@ -803,6 +806,7 @@ model FieldClaim {
   verifiedAt           DateTime?
   subjectAddressId     String?
   valueAddressId       String?
+  clientLE             ClientLE          @relation(fields: [clientLEId], references: [id], onDelete: Cascade)
   attachmentDocument   Document?         @relation("FieldClaimAttachmentDocument", fields: [attachmentDocumentId], references: [id], onDelete: Restrict)
   evidence             EvidenceStore?    @relation(fields: [evidenceId], references: [id])
   ownerScope           Organization?     @relation("OrganizationOwnerScope", fields: [ownerScopeId], references: [id])
@@ -818,8 +822,9 @@ model FieldClaim {
   valuePerson          Person?           @relation("PersonValue", fields: [valuePersonId], references: [id])
   verifiedBy           User?             @relation(fields: [verifiedByUserId], references: [id])
 
+  @@index([clientLEId, fieldNo, claimRole, status])
+  @@index([clientLEId, assertedAt])
   @@index([subjectLeId, fieldNo])
-  @@index([clientLeScopeId])
   @@index([subjectPersonId, fieldNo])
   @@index([subjectOrgId, fieldNo])
   @@index([subjectAddressId, fieldNo])
@@ -1021,7 +1026,7 @@ model SourceSamplePayload {
 
 model RegistryAuthority {
   id               String              @id
-  registryKey      String              @unique // Connector routing key — do not use in SourceFieldMapping
+  registryKey      String              // Connector routing key (non-unique: multiple RAs in same jurisdiction/connector share one key)
   /// Groups RA codes that share one connector and one payload schema under a canonical source identity.
   /// Used as SourceFieldMapping.sourceReference for REGISTRATION_AUTHORITY mappings.
   /// e.g. RA000585, RA000586, RA000587 all set mappingSourceKey = "COMPANIES_HOUSE".

@@ -82,10 +82,10 @@ export async function resolveCCAddressUsages(
     const fieldWhere: any = { valueJson: { not: Prisma.AnyNull }, claimRole: 'VALUE' };
     const claims = await prisma.fieldClaim.findMany({
         where: fieldWhere,
-        select: { fieldNo: true, valueJson: true, clientLeScopeId: true }
+        select: { fieldNo: true, valueJson: true, clientLEId: true }
     });
     
-    const clientClaims = claims.filter((c: any) => c.clientLeScopeId === clientLEId);
+    const clientClaims = claims.filter((c: any) => c.clientLEId === clientLEId);
 
     const defMap = new Map<number, string>();
     for (const claim of clientClaims) {

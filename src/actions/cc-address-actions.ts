@@ -303,7 +303,7 @@ export async function saveAddressForReuse(claimId: string, clientLEId: string) {
             return { success: false, message: "Only VALUE claims can be saved as addresses" };
         }
 
-        if (claim.clientLeScopeId && claim.clientLeScopeId !== clientLEId) {
+        if (claim.clientLEId && claim.clientLEId !== clientLEId) {
             return { success: false, message: "Claim does not belong to this dossier" };
         }
 

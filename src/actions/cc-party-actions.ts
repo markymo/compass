@@ -411,7 +411,7 @@ export async function promoteClaimToCCParty(claimId: string, clientLEId: string)
             throw new Error("Only VALUE claims are promotable");
         }
 
-        if (claim.clientLeScopeId && claim.clientLeScopeId !== clientLEId) {
+        if (claim.clientLEId && claim.clientLEId !== clientLEId) {
             throw new Error("Claim does not belong to this dossier");
         }
 

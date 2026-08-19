@@ -27,4 +27,28 @@ export class RegistryAuthorityService {
         const auth = await this.getAuthority(raid);
         return auth?.registryKey || null;
     }
+
+    /**
+     * Resolves a RAID to an internal mapping source key (e.g. COMPANIES_HOUSE).
+     * Falls back to raid itself if mappingSourceKey is null.
+     */
+    static async getMappingSourceKey(raid: string): Promise<string | null> {
+        const auth = await this.getAuthority(raid);
+        return auth?.mappingSourceKey || auth?.id || null;
+    }
+
+    /**
+     * Resolves an authority record by mappingSourceKey, registryKey, or ID.
+     */
+    static async getAuthorityBySourceKey(sourceKey: string): Promise<RegistryAuthority | null> {
+        return prisma.registryAuthority.findFirst({
+            where: {
+                OR: [
+                    { mappingSourceKey: sourceKey },
+                    { registryKey: sourceKey },
+                    { id: sourceKey }
+                ]
+            }
+        });
+    }
 }

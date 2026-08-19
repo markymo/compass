@@ -76,14 +76,14 @@ describe('FieldClaimService Attachment Writes', () => {
 
         it('rejects if attachment instance is not found in requested scope', async () => {
             (prismaMock.fieldClaim.findMany as any).mockResolvedValue([]);
-            const subject = { subjectLeId: 'le-123' };
+            const subject = { subjectLeId: 'le-123', clientLEId: 'client-1' };
             await expect(FieldClaimService.replaceAttachment(subject, 999, 'inst-1', 'valid-doc', null))
                 .rejects.toThrow(/not found or does not belong to the requested scope/);
         });
 
         it('rejects if attachment instance has already been removed (tombstoned)', async () => {
             (prismaMock.fieldClaim.findMany as any).mockResolvedValue([{ instanceId: 'inst-1', valueJson: { tombstone: true } }]);
-            const subject = { subjectLeId: 'le-123' };
+            const subject = { subjectLeId: 'le-123', clientLEId: 'client-1' };
             await expect(FieldClaimService.replaceAttachment(subject, 999, 'inst-1', 'valid-doc', null))
                 .rejects.toThrow(/has already been removed/);
         });
@@ -91,7 +91,7 @@ describe('FieldClaimService Attachment Writes', () => {
 
     describe('removeAttachment', () => {
         it('verifies instance scope and appends a tombstone claim', async () => {
-            const subject = { subjectLeId: 'le-123' };
+            const subject = { subjectLeId: 'le-123', clientLEId: 'client-1' };
             (prismaMock.fieldClaim.findMany as any).mockResolvedValue([{ instanceId: 'inst-1' }]);
             
             const result = await FieldClaimService.removeAttachment(subject, 999, 'inst-1', null);
@@ -105,7 +105,7 @@ describe('FieldClaimService Attachment Writes', () => {
         it('rejects cross-field/cross-subject removal', async () => {
             // Simulated by findMany returning empty array since scope didn't match
             (prismaMock.fieldClaim.findMany as any).mockResolvedValue([]);
-            const subject = { subjectLeId: 'other-le' };
+            const subject = { subjectLeId: 'other-le', clientLEId: 'client-1' };
             await expect(FieldClaimService.removeAttachment(subject, 999, 'inst-1', null))
                 .rejects.toThrow(/not found or does not belong to the requested scope/);
         });
@@ -114,7 +114,7 @@ describe('FieldClaimService Attachment Writes', () => {
     describe('assertClaim payload invariants', () => {
         it('enforces active FILE_ATTACHMENT must have attachmentDocumentId', async () => {
             await expect(FieldClaimService.assertClaim({
-                fieldNo: 999, subjectLeId: 'le-123', sourceType: SourceType.USER_INPUT,
+                fieldNo: 999, subjectLeId: 'le-123', clientLEId: 'client-1', sourceType: SourceType.USER_INPUT,
                 claimRole: 'FILE_ATTACHMENT',
                 // missing attachmentDocumentId
             })).rejects.toThrow(/Active FILE_ATTACHMENT claim must have attachmentDocumentId/);
@@ -122,7 +122,7 @@ describe('FieldClaimService Attachment Writes', () => {
 
         it('enforces FILE_ATTACHMENT must not populate scalar values', async () => {
             await expect(FieldClaimService.assertClaim({
-                fieldNo: 999, subjectLeId: 'le-123', sourceType: SourceType.USER_INPUT,
+                fieldNo: 999, subjectLeId: 'le-123', clientLEId: 'client-1', sourceType: SourceType.USER_INPUT,
                 claimRole: 'FILE_ATTACHMENT',
                 attachmentDocumentId: 'valid-doc',
                 valueText: 'not allowed'
@@ -131,7 +131,7 @@ describe('FieldClaimService Attachment Writes', () => {
 
         it('enforces FILE_ATTACHMENT tombstone must not have attachmentDocumentId', async () => {
             await expect(FieldClaimService.assertClaim({
-                fieldNo: 999, subjectLeId: 'le-123', sourceType: SourceType.USER_INPUT,
+                fieldNo: 999, subjectLeId: 'le-123', clientLEId: 'client-1', sourceType: SourceType.USER_INPUT,
                 claimRole: 'FILE_ATTACHMENT',
                 attachmentDocumentId: 'valid-doc',
                 valueJson: { tombstone: true }
@@ -140,7 +140,7 @@ describe('FieldClaimService Attachment Writes', () => {
 
         it('enforces VALUE claim must not populate attachmentDocumentId', async () => {
             await expect(FieldClaimService.assertClaim({
-                fieldNo: 999, subjectLeId: 'le-123', sourceType: SourceType.USER_INPUT,
+                fieldNo: 999, subjectLeId: 'le-123', clientLEId: 'client-1', sourceType: SourceType.USER_INPUT,
                 claimRole: 'VALUE',
                 valueText: 'test',
                 attachmentDocumentId: 'valid-doc'

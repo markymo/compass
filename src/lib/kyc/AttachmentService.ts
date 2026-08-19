@@ -17,7 +17,7 @@ export class AttachmentService {
         // 1. Find instance IDs that have ever referenced these documents
         const claimsReferencingDocs = await prisma.fieldClaim.findMany({
             where: {
-                clientLeScopeId: clientLEId,
+                clientLEId: clientLEId,
                 claimRole: 'FILE_ATTACHMENT',
                 attachmentDocumentId: { in: documentIds },
                 status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] }
@@ -32,7 +32,7 @@ export class AttachmentService {
         // 2. Fetch full history for those instances
         const allClaimsForInstances = await prisma.fieldClaim.findMany({
             where: {
-                clientLeScopeId: clientLEId,
+                clientLEId: clientLEId,
                 claimRole: 'FILE_ATTACHMENT',
                 instanceId: { in: instanceIds },
                 status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] }
@@ -58,7 +58,7 @@ export class AttachmentService {
     static async getAttachmentHistoryForDocument(clientLEId: string, documentId: string): Promise<InstanceAttachmentHistory[]> {
         const claimsReferencingDoc = await prisma.fieldClaim.findMany({
             where: {
-                clientLeScopeId: clientLEId,
+                clientLEId: clientLEId,
                 claimRole: 'FILE_ATTACHMENT',
                 attachmentDocumentId: documentId,
                 status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] }
@@ -72,7 +72,7 @@ export class AttachmentService {
 
         const allClaimsForInstances = await prisma.fieldClaim.findMany({
             where: {
-                clientLeScopeId: clientLEId,
+                clientLEId: clientLEId,
                 claimRole: 'FILE_ATTACHMENT',
                 instanceId: { in: instanceIds },
                 status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] }
