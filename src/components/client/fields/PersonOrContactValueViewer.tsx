@@ -273,12 +273,12 @@ export function PersonOrContactValueViewer({
                         )}
                     </div>
                     {proj.secondaryParts.length > 0 && (
-                        <span className="text-xs text-slate-500 truncate mt-0.5">
+                        <span className="text-xs text-slate-500 whitespace-normal break-words mt-0.5">
                             {proj.secondaryParts.join(' · ')}
                         </span>
                     )}
                     {proj.addressText && (
-                        <span className="text-[11px] text-slate-400 truncate mt-0.5">
+                        <span className="text-[11px] text-slate-400 whitespace-normal break-words mt-0.5">
                             {proj.addressText}
                         </span>
                     )}
