@@ -92,6 +92,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     // LE Level
     [Role.LE_ADMIN]: [
         Action.LE_UPDATE, // Added per user request
+        Action.LE_ARCHIVE,
         Action.LE_MANAGE_USERS, // Invite others to THIS LE
         Action.ENG_CREATE,
         Action.ENG_UPDATE,
