@@ -12,10 +12,15 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export function DemoSwitcher() {
+    const [mounted, setMounted] = useState(false);
     const [open, setOpen] = useState(false);
     const [actors, setActors] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [switching, setSwitching] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     useEffect(() => {
         if (open && actors.length === 0) {
@@ -26,6 +31,8 @@ export function DemoSwitcher() {
             });
         }
     }, [open, actors.length]);
+
+    if (!mounted) return null;
 
     async function handleImpersonate(actorId: string) {
         setSwitching(true);

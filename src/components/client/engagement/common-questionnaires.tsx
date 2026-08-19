@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { FileText, ArrowUpRight, ArrowRight, Plus, Search, Check, Trash2, Loader2, X } from "lucide-react";
+import { FileText, ArrowUpRight, ArrowRight, Plus, Search, Check, Trash2, Loader2, X, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { ProgressTracker } from "@/components/shared/progress-tracker";
 import { cn } from "@/lib/utils";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
+import { CreateApprovalDialog } from "@/components/client/approvals/create-approval-dialog";
 
 const DASHBOARD_GRID_V2 = "grid-cols-[minmax(280px,1fr)_60px_160px_160px_195px]";
 
@@ -51,6 +52,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
     const [isLoading, setIsLoading] = useState(false);
     const [open, setOpen] = useState(false);
     const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
+    const [approvalQuestionnaireId, setApprovalQuestionnaireId] = useState<string | null>(null);
 
     useEffect(() => {
         setLinked(initialQuestionnaires || []);
@@ -246,6 +248,16 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                             <div className="text-xs text-slate-500 italic pr-4">No data</div>
                                         )}
                                         <div className="shrink-0 flex items-center gap-1 pl-4">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setApprovalQuestionnaireId(q.id)}
+                                                className="h-8 text-xs text-indigo-600 hover:bg-indigo-50 px-2 flex items-center gap-1 font-medium"
+                                                title="Approve Common Questionnaire"
+                                            >
+                                                <ShieldCheck className="h-3.5 w-3.5" />
+                                                Approve
+                                            </Button>
                                             <Link 
                                                 href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`}
                                                 className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
@@ -361,6 +373,13 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                 confirmLabel="Remove Questionnaire"
                 onConfirm={handleRemoveConfirm}
                 isLoading={isLoading}
+            />
+
+            <CreateApprovalDialog
+                open={Boolean(approvalQuestionnaireId)}
+                onOpenChange={(open) => !open && setApprovalQuestionnaireId(null)}
+                clientLEId={leId}
+                initialQuestionnaireId={approvalQuestionnaireId || undefined}
             />
         </div>
     );

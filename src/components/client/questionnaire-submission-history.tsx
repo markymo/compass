@@ -67,9 +67,9 @@ export function QuestionnaireSubmissionHistory({
                 <Card className="border-dashed border-slate-200">
                     <CardContent className="py-12 text-center text-muted-foreground">
                         <Clock className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                        <h4 className="font-semibold text-slate-700 text-sm">No Submissions Yet</h4>
+                        <h4 className="font-semibold text-slate-700 text-sm">No Approvals Yet</h4>
                         <p className="text-xs max-w-sm mx-auto mt-1 text-slate-500">
-                            When you submit this questionnaire to a relationship, an immutable historical submission snapshot will appear here.
+                            When you approve this questionnaire for a relationship, an immutable historical approval snapshot will appear here.
                         </p>
                     </CardContent>
                 </Card>
@@ -106,7 +106,7 @@ export function QuestionnaireSubmissionHistory({
                                     <div className="space-y-1">
                                         <div className="flex items-center gap-2">
                                             <span className="font-semibold text-sm text-slate-900">
-                                                Submission #{sub.submissionNumber}
+                                                Approval #{sub.submissionNumber}
                                             </span>
                                             {showRelationshipName && sub.relationship?.org?.name && (
                                                 <Badge variant="secondary" className="text-xs flex items-center gap-1">

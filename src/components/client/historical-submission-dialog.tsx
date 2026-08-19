@@ -65,12 +65,12 @@ export function HistoricalSubmissionDialog({ submissionId, onClose }: Historical
                         <div>
                             <DialogTitle className="text-xl font-bold flex items-center gap-2">
                                 <FileText className="h-5 w-5 text-indigo-600" />
-                                {submission?.questionnaire?.name || "Historical Submission"}
+                                {submission?.questionnaire?.name || "Historical Approval"}
                             </DialogTitle>
                             <DialogDescription className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
                                 <span>Definition Version {submission?.definitionVersion?.versionNumber}</span>
                                 <span>•</span>
-                                <span>Submission #{submission?.submissionNumber}</span>
+                                <span>Approval #{submission?.submissionNumber}</span>
                                 {submission?.relationship?.org?.name && (
                                     <>
                                         <span>•</span>
@@ -94,7 +94,7 @@ export function HistoricalSubmissionDialog({ submissionId, onClose }: Historical
                 {loading && (
                     <div className="py-12 flex flex-col items-center justify-center text-muted-foreground">
                         <Loader2 className="h-8 w-8 animate-spin mb-2 text-indigo-600" />
-                        <p className="text-sm">Loading frozen submission snapshot...</p>
+                        <p className="text-sm">Loading frozen approval snapshot...</p>
                     </div>
                 )}
 
@@ -111,7 +111,7 @@ export function HistoricalSubmissionDialog({ submissionId, onClose }: Historical
                             <div className="flex items-center gap-2">
                                 <Calendar className="h-4 w-4 text-slate-400" />
                                 <div>
-                                    <div className="text-muted-foreground">Submitted At</div>
+                                    <div className="text-muted-foreground">Approved At</div>
                                     <div className="font-semibold text-slate-800">
                                         {format(new Date(submission.submittedAt), "PPP 'at' p")}
                                     </div>
@@ -120,7 +120,7 @@ export function HistoricalSubmissionDialog({ submissionId, onClose }: Historical
                             <div className="flex items-center gap-2">
                                 <User className="h-4 w-4 text-slate-400" />
                                 <div>
-                                    <div className="text-muted-foreground">Submitted By</div>
+                                    <div className="text-muted-foreground">Approved By</div>
                                     <div className="font-semibold text-slate-800">
                                         {submission.submittedBy?.name || submission.submittedBy?.email || "Unknown"}
                                     </div>

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Plus, Search, Loader2, X, FileText, ChevronRight, Folder, Download, Users, MoreVertical, Trash2, ArrowUpRight, Check } from "lucide-react";
+import { Building2, Plus, Search, Loader2, X, FileText, ChevronRight, Folder, Download, Users, MoreVertical, Trash2, ArrowUpRight, Check, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { usePreferences } from "@/components/providers/user-preferences-provider";
 import { InlineDocumentManager, InlineOutputBuilder, InlineTeamManager } from "./inline-engagement-sections";
 import { RelationshipOverviewSection } from "./relationship-overview-section";
+import { CreateApprovalDialog } from "@/components/client/approvals/create-approval-dialog";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
 const DASHBOARD_GRID_V2 = "grid-cols-[minmax(280px,1fr)_60px_160px_160px_195px]";
 
@@ -128,6 +129,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
     const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
     const [isRemoving, setIsRemoving] = useState<string | null>(null);
     const [isAddingQ, setIsAddingQ] = useState<string | null>(null);
+    const [approvalTarget, setApprovalTarget] = useState<{ relationshipId: string; questionnaireId: string } | null>(null);
 
     const fetchAvailableForEngagement = async (engId: string, fiOrgId: string) => {
         setIsLoadingAvailable(prev => ({ ...prev, [engId]: true }));
@@ -667,6 +669,16 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                                         </div>
                                                                                     ) : (
                                                                                         <>
+                                                                                            <Button
+                                                                                                variant="ghost"
+                                                                                                size="sm"
+                                                                                                onClick={() => setApprovalTarget({ relationshipId: eng.id, questionnaireId: q.id })}
+                                                                                                className="h-8 text-xs text-indigo-600 hover:bg-indigo-50 px-2 flex items-center gap-1 font-medium"
+                                                                                                title="Approve Questionnaire"
+                                                                                            >
+                                                                                                <ShieldCheck className="h-3.5 w-3.5" />
+                                                                                                Approve
+                                                                                            </Button>
                                                                                             <Link 
                                                                                                 href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(orgName || "Unknown")}&q=${encodeURIComponent(q.name)}`}
                                                                                                 className="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors"
@@ -802,6 +814,15 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                     </div>
                 )
             )}
+
+            <CreateApprovalDialog
+                open={Boolean(approvalTarget)}
+                onOpenChange={(open) => !open && setApprovalTarget(null)}
+                clientLEId={leId}
+                initialRelationships={engagements}
+                initialRelationshipId={approvalTarget?.relationshipId}
+                initialQuestionnaireId={approvalTarget?.questionnaireId}
+            />
         </div>
     );
 }

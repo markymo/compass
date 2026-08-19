@@ -15,7 +15,7 @@ import { saveQuestionnaireChanges } from "@/actions/questionnaire";
 import { VersionHistory } from "@/components/client/version-history";
 import { QuestionnaireSubmissionHistory } from "@/components/client/questionnaire-submission-history";
 import { SubmitQuestionnaireDialog } from "@/components/client/submit-questionnaire-dialog";
-import { Send, History } from "lucide-react";
+import { Send, History, ShieldCheck } from "lucide-react";
 
 interface QuestionnaireFillerProps {
     leId: string;
@@ -203,8 +203,8 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
                         size="sm"
                         className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 font-semibold shadow-sm ml-2"
                     >
-                        <Send className="h-3.5 w-3.5" />
-                        Submit Questionnaire
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Approve Questionnaire
                     </Button>
                 </div>
             </div>
@@ -235,7 +235,7 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
                         className="h-8 text-xs font-semibold flex items-center gap-1.5"
                     >
                         <History className="h-3.5 w-3.5" />
-                        Submission History
+                        Approval History
                     </Button>
                 </div>
             </div>
