@@ -15,6 +15,8 @@ vi.mock("@/lib/auth", () => ({
     getIdentity: vi.fn().mockResolvedValue({ userId: "submission-service-user-id" })
 }));
 
+vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
+
 describe.skipIf(!process.env.DATABASE_URL)("Immutable Questionnaire Submissions Architecture Integration Tests", () => {
     let testOrg: any;
     let testClientLE: any;

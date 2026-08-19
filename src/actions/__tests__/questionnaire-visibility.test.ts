@@ -240,11 +240,12 @@ describe.skipIf(!process.env.DATABASE_URL)('getDiscoverableReferenceSnapshotsFor
         const sysOrg = await bootstrapSystemOrg();
         sysOrgId = sysOrg.id;
 
+        const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
         // Create a second organisation to act as a non-owner caller
         const other = await prisma.organization.create({
             data: {
-                name: 'VIS_TEST_OTHER_ORG',
-                shortCode: 'VISTESTOTHER',
+                name: `VIS_TEST_OTHER_ORG_${suffix}`,
+                shortCode: `VISOTH_${suffix}`,
                 types: [],
             },
         });

@@ -26,16 +26,26 @@ vi.mock('@/lib/kyc/KycStateService', () => ({
 vi.mock('@/services/masterData/definitionService', () => ({
     getMasterFieldDefinition: vi.fn().mockResolvedValue({ fieldNo: 1, appDataType: 'TEXT' })
 }));
-vi.mock('@/lib/prisma', () => ({
-    default: {
+const { mockPrisma } = vi.hoisted(() => {
+    const mockPrisma = {
         clientLE: {
             findUnique: vi.fn(),
             update: vi.fn()
         },
         fieldClaim: {
             findUnique: vi.fn()
+        },
+        cCParty: {
+            findUnique: vi.fn(),
+            delete: vi.fn(),
+            update: vi.fn()
         }
-    }
+    };
+    return { mockPrisma };
+});
+
+vi.mock('@/lib/prisma', () => ({
+    default: mockPrisma
 }));
 vi.mock('@/domain/kyc/FieldDefinitions', () => ({
     isValidFieldNo: vi.fn()
@@ -104,7 +114,6 @@ describe('applyManualOverride Routing Logic', () => {
 });
 
 describe('Party Eligibility Validation in kyc-manual-update', () => {
-    let mockPrisma: any;
     let mockGetMasterFieldDefinition: any;
 
     beforeEach(async () => {
@@ -117,19 +126,10 @@ describe('Party Eligibility Validation in kyc-manual-update', () => {
         const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
         mockGetMasterFieldDefinition = getMasterFieldDefinition as any;
         
-        mockPrisma = {
-            cCParty: {
-                findUnique: vi.fn(),
-                delete: vi.fn(),
-                update: vi.fn()
-            },
-            clientLE: {
-                findUnique: vi.fn().mockResolvedValue({ id: 'le-123' })
-            }
-        };
-
-        const { PrismaClient } = await import('@prisma/client');
-        vi.mocked(PrismaClient).mockImplementation(function() { return mockPrisma; } as any);
+        mockPrisma.clientLE.findUnique.mockResolvedValue({ id: 'le-123' });
+        mockPrisma.cCParty.findUnique.mockReset();
+        mockPrisma.cCParty.delete.mockReset();
+        mockPrisma.cCParty.update.mockReset();
         
         const { isCCPartyData } = await import('@/lib/master-data/party-v2/CCPartyData');
         vi.mocked(isCCPartyData).mockReturnValue(true);

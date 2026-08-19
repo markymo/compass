@@ -4,20 +4,23 @@ import { getIdentity } from '@/lib/auth';
 import { deleteClientLE, createClientLE } from '../client';
 import { LegalEntityEnrichmentService } from '@/services/legalEntityEnrichmentService';
 
-const mockPrisma = {
-    clientLE: { findUnique: vi.fn(), findFirst: vi.fn(), update: vi.fn(), create: vi.fn() },
-    clientLEOwner: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn() },
-    fIEngagement: { findMany: vi.fn(), updateMany: vi.fn() },
-    questionnaire: { updateMany: vi.fn() },
-    membership: { findMany: vi.fn(), findFirst: vi.fn() },
-    legalEntity: { findFirst: vi.fn(), create: vi.fn() },
-    $transaction: vi.fn(async (cb: any) => {
-        if (typeof cb === 'function') {
-            return await cb(mockPrisma);
-        }
-        return Promise.all(cb);
-    })
-};
+const { mockPrisma } = vi.hoisted(() => {
+    const mockPrisma = {
+        clientLE: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn().mockResolvedValue([]), update: vi.fn(), create: vi.fn() },
+        clientLEOwner: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn() },
+        fIEngagement: { findMany: vi.fn(), updateMany: vi.fn() },
+        questionnaire: { updateMany: vi.fn() },
+        membership: { findMany: vi.fn(), findFirst: vi.fn() },
+        legalEntity: { findFirst: vi.fn(), create: vi.fn() },
+        $transaction: vi.fn(async (cb: any) => {
+            if (typeof cb === 'function') {
+                return await cb(mockPrisma);
+            }
+            return Promise.all(cb);
+        })
+    };
+    return { mockPrisma };
+});
 
 vi.mock('@/lib/prisma', () => ({
     default: mockPrisma

@@ -45,6 +45,7 @@ vi.mock('@/services/masterData/definitionService', async (importOriginal) => {
             if (fieldNo === 63) {
                 return {
                     ...def,
+                    isMultiValue: true,
                     profileConfig: {
                         ...(def.profileConfig as any),
                         partyPopulationPolicy: 'SYSTEM_AND_CURATED'
