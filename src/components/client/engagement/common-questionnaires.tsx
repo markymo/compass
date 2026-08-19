@@ -50,7 +50,8 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
     const [linked, setLinked] = useState(initialQuestionnaires || []);
     const [available, setAvailable] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [open, setOpen] = useState(false);
+    const [activePopover, setActivePopover] = useState<'header' | 'empty' | null>(null);
+    const [addingId, setAddingId] = useState<string | null>(null);
     const [removeTarget, setRemoveTarget] = useState<{ id: string; name: string } | null>(null);
     const [approvalQuestionnaireId, setApprovalQuestionnaireId] = useState<string | null>(null);
 
@@ -60,30 +61,48 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
 
     const fetchAvailable = async () => {
         setIsLoading(true);
-        const res = await getAvailableCommonQuestionnaires(leId);
-        if (res.success && res.snapshots) {
-            setAvailable(res.snapshots);
+        try {
+            const res = await getAvailableCommonQuestionnaires(leId);
+            if (res.success && res.snapshots) {
+                setAvailable(res.snapshots);
+            } else {
+                toast.error(res.error || "Failed to load questionnaires");
+            }
+        } catch (error) {
+            console.error("Error fetching questionnaires:", error);
+            toast.error("Failed to load questionnaires");
+        } finally {
+            setIsLoading(false);
         }
-        setIsLoading(false);
     };
 
     const handleAdd = async (snapshot: any) => {
+        if (addingId) return;
+
         // Optimistic UI check for existing linked instance or reference snapshot
         if (linked.find((q: any) => q.id === snapshot.id || q.sourceId === snapshot.id)) {
              toast.error("Already added");
              return;
         }
 
+        setAddingId(snapshot.id);
         const prev = [...linked];
         setLinked([...linked, snapshot]);
-        setOpen(false);
+        setActivePopover(null);
 
-        const res = await addCommonQuestionnaire(leId, snapshot.id);
-        if (res.success) {
-            toast.success(`Added ${snapshot.name}`);
-        } else {
+        try {
+            const res = await addCommonQuestionnaire(leId, snapshot.id);
+            if (res.success) {
+                toast.success(`Added ${snapshot.name}`);
+            } else {
+                setLinked(prev);
+                toast.error(res.error || "Failed to add questionnaire");
+            }
+        } catch (error) {
             setLinked(prev);
             toast.error("Failed to add questionnaire");
+        } finally {
+            setAddingId(null);
         }
     };
 
@@ -103,6 +122,55 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
         });
     };
 
+    const renderPopoverContent = (align: "end" | "center") => (
+        <PopoverContent className="w-full md:w-[400px] p-0" align={align}>
+            <Command>
+                <CommandInput placeholder="Search global questionnaires..." />
+                <CommandList>
+                    <CommandEmpty>
+                        {isLoading ? "Loading..." : "No questionnaires found."}
+                    </CommandEmpty>
+                    <CommandGroup>
+                        {available.map((snapshot) => {
+                            const isLinked = linked.some((q: any) => q.id === snapshot.id || q.sourceId === snapshot.id);
+                            const isAddingThis = addingId === snapshot.id;
+
+                            return (
+                                <CommandItem
+                                    key={snapshot.id}
+                                    value={`${snapshot.id} ${snapshot.name} ${snapshot.referenceCode || ""} ${snapshot.functionalCode || ""} ${snapshot.description || ""}`}
+                                    onSelect={() => handleAdd(snapshot)}
+                                    onPointerDown={(e) => {
+                                        e.preventDefault();
+                                        handleAdd(snapshot);
+                                    }}
+                                    className="flex flex-col items-start py-3 cursor-pointer"
+                                    disabled={isAddingThis}
+                                >
+                                    <div className="flex items-center w-full">
+                                        <FileText className="mr-2 h-4 w-4 text-indigo-500 shrink-0" />
+                                        <span className="font-medium truncate flex-1">{snapshot.name}</span>
+                                        {isAddingThis ? (
+                                            <Loader2 className="ml-2 h-4 w-4 animate-spin text-indigo-500 shrink-0" />
+                                        ) : isLinked ? (
+                                            <Check className="ml-2 h-4 w-4 text-indigo-600 shrink-0" />
+                                        ) : null}
+                                    </div>
+                                    {snapshot.referenceCode && (
+                                        <span className="text-xs text-slate-400 mt-1 ml-6">{snapshot.referenceCode}</span>
+                                    )}
+                                    {snapshot.description && (
+                                        <span className="text-xs text-slate-500 mt-0.5 ml-6 line-clamp-1">{snapshot.description}</span>
+                                    )}
+                                </CommandItem>
+                            );
+                        })}
+                    </CommandGroup>
+                </CommandList>
+            </Command>
+        </PopoverContent>
+    );
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -111,51 +179,20 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                     <p className="text-sm text-slate-500 mt-1">Core questionnaires shared across all of your suppliers.</p>
                 </div>
                 
-                <Popover open={open} onOpenChange={(val) => { setOpen(val); if (val) fetchAvailable(); }}>
+                <Popover
+                    open={activePopover === 'header'}
+                    onOpenChange={(val) => {
+                        setActivePopover(val ? 'header' : null);
+                        if (val) fetchAvailable();
+                    }}
+                >
                     <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" role="combobox" aria-expanded={open} className="h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 w-fit">
+                        <Button variant="outline" size="sm" className="h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 w-fit">
                             <Plus className="h-3 w-3 mr-1" />
                             Add
                         </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-full md:w-[400px] p-0" align="end">
-                        <Command>
-                            <CommandInput placeholder="Search global questionnaires..." />
-                            <CommandList>
-                                <CommandEmpty>
-                                    {isLoading ? "Loading..." : "No questionnaires found."}
-                                </CommandEmpty>
-                                <CommandGroup>
-                                    {available.map((snapshot) => (
-                                        <CommandItem
-                                            key={snapshot.id}
-                                            value={`${snapshot.id} ${snapshot.name} ${snapshot.referenceCode || ""} ${snapshot.functionalCode || ""} ${snapshot.description || ""}`}
-                                            onSelect={() => handleAdd(snapshot)}
-                                            onPointerDown={(e) => {
-                                                e.preventDefault();
-                                                handleAdd(snapshot);
-                                            }}
-                                            className="flex flex-col items-start py-3 cursor-pointer"
-                                        >
-                                            <div className="flex items-center w-full">
-                                                <FileText className="mr-2 h-4 w-4 text-indigo-500 shrink-0" />
-                                                <span className="font-medium truncate flex-1">{snapshot.name}</span>
-                                                {linked.find((q: any) => q.id === snapshot.id || q.sourceId === snapshot.id) && (
-                                                    <Check className="ml-2 h-4 w-4 text-indigo-600 shrink-0" />
-                                                )}
-                                            </div>
-                                            {snapshot.referenceCode && (
-                                                <span className="text-xs text-slate-400 mt-1 ml-6">{snapshot.referenceCode}</span>
-                                            )}
-                                            {snapshot.description && (
-                                                <span className="text-xs text-slate-500 mt-0.5 ml-6 line-clamp-1">{snapshot.description}</span>
-                                            )}
-                                        </CommandItem>
-                                    ))}
-                                </CommandGroup>
-                            </CommandList>
-                        </Command>
-                    </PopoverContent>
+                    {renderPopoverContent("end")}
                 </Popover>
             </div>
 
@@ -315,51 +352,20 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                  <div className="text-center py-10 bg-slate-50 rounded-md border border-dashed border-slate-200">
                      <p className="font-medium text-slate-700">No Common Questionnaires added yet.</p>
                      <p className="text-sm text-slate-500 mt-1 mb-4">Use the + Add button to search and add standard questionnaires.</p>
-                     <Popover open={open} onOpenChange={(val) => { setOpen(val); if (val) fetchAvailable(); }}>
+                     <Popover
+                         open={activePopover === 'empty'}
+                         onOpenChange={(val) => {
+                             setActivePopover(val ? 'empty' : null);
+                             if (val) fetchAvailable();
+                         }}
+                     >
                          <PopoverTrigger asChild>
                              <Button variant="outline" size="sm" className="h-8 text-xs px-3 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
                                  <Plus className="h-3.5 w-3.5 mr-1.5" />
                                  Add Questionnaire
                              </Button>
                          </PopoverTrigger>
-                         <PopoverContent className="w-full md:w-[400px] p-0" align="center">
-                             <Command>
-                                 <CommandInput placeholder="Search global questionnaires..." />
-                                 <CommandList>
-                                     <CommandEmpty>
-                                         {isLoading ? "Loading..." : "No questionnaires found."}
-                                     </CommandEmpty>
-                                     <CommandGroup>
-                                         {available.map((snapshot) => (
-                                             <CommandItem
-                                                 key={snapshot.id}
-                                                 value={`${snapshot.id} ${snapshot.name} ${snapshot.referenceCode || ""} ${snapshot.functionalCode || ""} ${snapshot.description || ""}`}
-                                                 onSelect={() => handleAdd(snapshot)}
-                                                 onPointerDown={(e) => {
-                                                     e.preventDefault();
-                                                     handleAdd(snapshot);
-                                                 }}
-                                                 className="flex flex-col items-start py-3 cursor-pointer"
-                                             >
-                                                 <div className="flex items-center w-full">
-                                                     <FileText className="mr-2 h-4 w-4 text-indigo-500 shrink-0" />
-                                                     <span className="font-medium truncate flex-1">{snapshot.name}</span>
-                                                     {linked.find((q: any) => q.id === snapshot.id || q.sourceId === snapshot.id) && (
-                                                         <Check className="ml-2 h-4 w-4 text-indigo-600 shrink-0" />
-                                                     )}
-                                                 </div>
-                                                 {snapshot.referenceCode && (
-                                                     <span className="text-xs text-slate-400 mt-1 ml-6">{snapshot.referenceCode}</span>
-                                                 )}
-                                                 {snapshot.description && (
-                                                     <span className="text-xs text-slate-500 mt-0.5 ml-6 line-clamp-1">{snapshot.description}</span>
-                                                 )}
-                                             </CommandItem>
-                                         ))}
-                                     </CommandGroup>
-                                 </CommandList>
-                             </Command>
-                         </PopoverContent>
+                         {renderPopoverContent("center")}
                      </Popover>
                  </div>
             )}

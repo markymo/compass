@@ -1237,7 +1237,10 @@ export async function addCommonQuestionnaire(clientLEId: string, questionnaireId
         }
         if (!targetFiOrgId) {
             const anyOrg = await prisma.organization.findFirst({ select: { id: true } });
-            targetFiOrgId = anyOrg?.id || "SYSTEM";
+            if (!anyOrg?.id) {
+                return { success: false, error: "No organization found to assign questionnaire" };
+            }
+            targetFiOrgId = anyOrg.id;
         }
 
         const newQuestionnaire = await prisma.questionnaire.create({
