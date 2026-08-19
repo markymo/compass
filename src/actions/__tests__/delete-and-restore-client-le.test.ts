@@ -88,6 +88,23 @@ describe('Normal Delete and Re-creation — ClientLE', () => {
                 data: { isDeleted: true }
             });
         });
+
+        it('soft-deletes ClientLE when authorized by LE_ADMIN of the entity', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: 'le-admin-rob' } as any);
+            prismaMock.membership.findMany.mockResolvedValue([
+                { clientLEId: 'le-zoom-1', role: 'LE_ADMIN', organizationId: null, fiEngagementId: null }
+            ]);
+            prismaMock.clientLE.findUnique.mockResolvedValue({ id: 'le-zoom-1' });
+            prismaMock.fIEngagement.findMany.mockResolvedValue([]);
+
+            const res = await deleteClientLE('le-zoom-1');
+
+            expect(res).toEqual({ success: true });
+            expect(prismaMock.clientLE.update).toHaveBeenCalledWith({
+                where: { id: 'le-zoom-1' },
+                data: { isDeleted: true }
+            });
+        });
     });
 
     describe('createClientLE fresh creation after soft-delete', () => {

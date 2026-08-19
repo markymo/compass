@@ -4,8 +4,20 @@ import { CanonicalRegistryRecord } from "../types/CanonicalRegistryRecord";
 import { SicCodeMapper } from "../utils/SicCodeMapper";
 
 /**
- * Placeholder for UK Companies House Connector.
- * In a real implementation, this would use a fetch client with a CH API Key.
+ * Helper to normalize and left-pad UK Companies House company numbers to 8 characters.
+ * E.g. "747608" -> "00747608", "14059418" -> "14059418", "SC123456" -> "SC123456".
+ */
+function formatCompanyNumber(num: string): string {
+    const trimmed = (num || "").trim().toUpperCase();
+    if (/^\d+$/.test(trimmed)) {
+        return trimmed.padStart(8, "0");
+    }
+    return trimmed;
+}
+
+/**
+ * UK Companies House Registry Connector.
+ * Communicates with official UK Companies House API endpoint using HTTP Basic Auth.
  */
 export class CompaniesHouseConnector implements IRegistryConnector {
     readonly connectorKey = "CompaniesHouseConnector";
@@ -13,14 +25,15 @@ export class CompaniesHouseConnector implements IRegistryConnector {
     readonly supportsOfficerFetch = true;
 
     async fetch(reference: RegistryReference): Promise<CanonicalRegistryRecord> {
-        const companyNumber = reference.localRegistrationNumber;
+        const rawCompanyNumber = reference.localRegistrationNumber;
+        const companyNumber = formatCompanyNumber(rawCompanyNumber);
         const apiKey = process.env.COMPANIES_HOUSE_API_KEY;
 
         if (!apiKey) {
             throw new Error("Companies House API key not configured. National registry enrichment is disabled.");
         }
 
-        console.log(`[CompaniesHouseConnector] Fetching real data for UK company ${companyNumber}...`);
+        console.log(`[CompaniesHouseConnector] Fetching real data for UK company ${companyNumber} (raw: "${rawCompanyNumber}")...`);
 
         try {
             const authHeader = `Basic ${Buffer.from(apiKey + ":").toString("base64")}`;
@@ -31,6 +44,12 @@ export class CompaniesHouseConnector implements IRegistryConnector {
             });
 
             if (!profileRes.ok) {
+                if (profileRes.status === 404) {
+                    throw new Error(
+                        `Companies House API: Company number "${companyNumber}" (raw: "${rawCompanyNumber}") was not found (404 Not Found). ` +
+                        `Please check that this is a valid UK Companies House registration number.`
+                    );
+                }
                 throw new Error(`Companies House API error: ${profileRes.status} ${profileRes.statusText}`);
             }
 
@@ -113,5 +132,4 @@ export class CompaniesHouseConnector implements IRegistryConnector {
             }
         };
     }
-
 }
