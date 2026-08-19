@@ -124,3 +124,49 @@ describe('PersonOrContactValueViewer correspondenceAddress rendering', () => {
         expect(html).not.toContain('10, Street Name, London, SW1A 1AA, England');
     });
 });
+
+describe('PersonOrContactValueViewer F64 PSC row layout truncation safety', () => {
+    const pscParty: PartyValue = {
+        contactType: 'ORGANISATION',
+        partyType: 'LEGAL_ENTITY',
+        name: 'International Holdco Limited',
+        roles: [
+            {
+                roleTitle: 'corporate-entity-person-with-significant-control',
+                roleType: 'PSC',
+                appointedOn: '2026-04-30',
+                resignedOn: null,
+                isActiveRole: true,
+                natureOfControl: [
+                    'ownership-of-shares-75-to-100-percent',
+                    'voting-rights-75-to-100-percent'
+                ]
+            }
+        ],
+        sourceIdentifiers: [],
+        phones: [],
+        nationality: [],
+        countryOfResidence: null,
+        placeOfBirth: null,
+        title: null,
+        email: null,
+        isActiveParty: true,
+        isActivePersonOrContact: true,
+        visibility: { scope: 'CLIENT_LE' }
+    };
+
+    it('renders secondaryParts in row layout with whitespace-normal break-words without truncate CSS class', () => {
+        const result = PersonOrContactValueViewer({
+            value: pscParty,
+            layout: 'row'
+        });
+
+        const html = renderToStaticMarkup(result as any);
+        expect(html).toContain('International Holdco Limited');
+        expect(html).toContain('Ownership of shares — 75% or more');
+        expect(html).toContain('Ownership of voting rights — 75% or more');
+        expect(html).toContain('whitespace-normal break-words');
+        expect(html).not.toContain('truncate mt-0.5');
+    });
+});
+
