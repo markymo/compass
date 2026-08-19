@@ -57,6 +57,9 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
     // 5. Group by targetFieldNo for priority deduplication
     const byTarget = new Map<number, typeof dbMappings>();
     for (const mapping of dbMappings) {
+        if (mapping.targetFieldNo === 40 || mapping.targetFieldNo === 38 || (typeof mapping.sourcePath === 'string' && mapping.sourcePath.includes('gleifL2'))) {
+            console.log(`[GLEIF-L2-TRACE] [A.Mapping] id=${mapping.id} fieldNo=${mapping.targetFieldNo} path="${mapping.sourcePath}" subtype="${mapping.payloadSubtype}" transform="${mapping.transformType}" scope="${mapping.mappingScope}" active=${mapping.isActive} priority=${mapping.priority}`);
+        }
         const group = byTarget.get(mapping.targetFieldNo) || [];
         group.push(mapping);
         byTarget.set(mapping.targetFieldNo, group);
@@ -69,6 +72,7 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
         // Try each mapping by priority until one resolves
         for (const mapping of mappings) {
             try {
+                const isL2Target = targetFieldNo === 40 || targetFieldNo === 38 || (typeof mapping.sourcePath === 'string' && mapping.sourcePath.includes('gleifL2'));
                 const segments = parsePath(mapping.sourcePath);
                 let rawValue = null;
 
@@ -86,6 +90,10 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
                     if (rawValue == null && (mapping.sourcePath.startsWith("gleifL2") || mapping.sourcePath.startsWith("gleifElf"))) {
                         rawValue = resolveDotPath(payload, segments);
                     }
+                }
+
+                if (isL2Target) {
+                    console.log(`[GLEIF-L2-TRACE] [C.CandidateEntry] fieldNo=${targetFieldNo} path="${mapping.sourcePath}" subtype="${mapping.payloadSubtype}" configuredTransform="${mapping.transformType}" rawValueNull=${rawValue == null} rawValuePreview=${rawValue ? JSON.stringify(rawValue).slice(0, 150) : 'null'}`);
                 }
 
                 if (rawValue == null) {
@@ -112,22 +120,19 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
                     : mapping.transformConfig;
 
                 let effectiveTransform = mapping.transformType;
-                const isL2OrParentPath =
-                    mapping.payloadSubtype === 'LEVEL_2_RELATIONSHIPS' ||
-                    mapping.targetFieldNo === 41 || // Ultimate parent
-                    mapping.targetFieldNo === 39 || // Direct parent
-                    (typeof mapping.sourcePath === 'string' && (
-                        mapping.sourcePath.includes('gleifL2') ||
-                        mapping.sourcePath.includes('ultimateParent') ||
-                        mapping.sourcePath.includes('directParent')
-                    )) ||
-                    (rawValue && typeof rawValue === 'object' && ('legalName' in rawValue || 'lei' in rawValue));
-
-                if ((effectiveTransform === 'DIRECT' || !effectiveTransform) && isL2OrParentPath && rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
+                if ((effectiveTransform === 'DIRECT' || !effectiveTransform) && mapping.payloadSubtype === 'LEVEL_2_RELATIONSHIPS' && rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
                     effectiveTransform = 'TO_PARTY_ORGANISATION';
                 }
 
+                if (isL2Target) {
+                    console.log(`[GLEIF-L2-TRACE] [D.TransformDecision] fieldNo=${targetFieldNo} configuredTransform="${mapping.transformType}" effectiveTransform="${effectiveTransform}" subtype="${mapping.payloadSubtype}"`);
+                }
+
                 const transformed = applyTransform(rawValue, effectiveTransform, effectiveConfig);
+
+                if (isL2Target) {
+                    console.log(`[GLEIF-L2-TRACE] [E.TransformOutput] fieldNo=${targetFieldNo} candidateValue=${JSON.stringify(transformed.value).slice(0, 200)}`);
+                }
 
                 if (transformed.value == null) continue;
 

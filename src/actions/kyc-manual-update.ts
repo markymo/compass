@@ -183,16 +183,7 @@ export async function promoteClaim(
 
         if (!claim) return { success: false, message: "Claim not found." };
 
-        const def = await getMasterFieldDefinition(claim.fieldNo);
-        let val = (claim.valueText ?? claim.valueNumber ?? claim.valueDate ?? claim.valueJson ?? claim.valueLeId ?? claim.valuePersonId ?? claim.valueOrgId ?? claim.valueDocId) ?? null;
-
-        // If promoting a PARTY claim containing raw/un-normalized organisation data, normalize to PartyValue
-        if ((def.appDataType === 'PARTY' || def.appDataType === 'PERSON_OR_CONTACT') && val && typeof val === 'object') {
-            if (!isPartyValue(val) && (val.legalName || val.organisationName || val.name || val.lei || val.registeredAs)) {
-                const transformed = applyTransform(val, 'TO_PARTY_ORGANISATION');
-                if (transformed.value) val = transformed.value;
-            }
-        }
+        const val = (claim.valueText ?? claim.valueNumber ?? claim.valueDate ?? claim.valueJson ?? claim.valueLeId ?? claim.valuePersonId ?? claim.valueOrgId ?? claim.valueDocId) ?? null;
 
         // 2. Assert as a new verified manual claim
         return await updateFieldManually(

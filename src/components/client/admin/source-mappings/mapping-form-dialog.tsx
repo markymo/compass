@@ -262,25 +262,38 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
     }, [transformType, targetField]);
 
     const isPersonOrContactMapping = useMemo(() => {
-        return transformType === "TO_PARTY_VALUE_LIST" ||
-               transformType === "TO_PARTY_VALUE" ||
-               transformType === "TO_PERSON_OR_CONTACT_LIST" || 
-               transformType === "TO_PERSON_OR_CONTACT_VALUE" || 
-               targetField?.appDataType === "PARTY" ||
-               targetField?.appDataType === "PERSON_OR_CONTACT";
-    }, [transformType, targetField]);
+        const isListTransform =
+            transformType === "TO_PARTY_VALUE_LIST" ||
+            transformType === "TO_PARTY_LIST" ||
+            transformType === "TO_PERSON_OR_CONTACT_LIST" ||
+            transformType === "TO_COMPANIES_HOUSE_ACTIVE_DIRECTOR_PARTY_VALUE_LIST";
+        const isOfficerSubtype = payloadSubtype === "OFFICERS";
+        const isRepeatingTarget = !!targetField?.isMultiValue;
+        return (isListTransform || isOfficerSubtype) && isRepeatingTarget;
+    }, [transformType, targetField, payloadSubtype]);
 
     const transformDescription = getTransformDescription(isAddressMapping ? "TO_ADDRESS_VALUE" : transformType);
 
+    const isL2Path = isGleif && sourcePath.trim().startsWith("gleifL2.");
+
+    useEffect(() => {
+        if (isL2Path && payloadSubtype !== "LEVEL_2_RELATIONSHIPS") {
+            setPayloadSubtype("LEVEL_2_RELATIONSHIPS");
+        }
+    }, [isL2Path, payloadSubtype]);
+
     useEffect(() => {
         if (!open) return;
-        setSourcePath(existingMapping?.sourcePath ?? initialSourcePath ?? "");
+        const initialPath = existingMapping?.sourcePath ?? initialSourcePath ?? "";
+        setSourcePath(initialPath);
         setTargetFieldNo(existingMapping?.targetFieldNo?.toString() ?? "");
         setMappingScope(existingMapping?.mappingScope ?? (isGleif ? GLEIF_SCOPE_DEFAULT : RA_SCOPE_DEFAULT));
 
         const targetFieldId = existingMapping?.targetFieldNo?.toString() ?? "";
         const field = fieldDefs.find((f: any) => String(f.fieldNo) === targetFieldId);
-        const defaultSubtype = isGleif ? "LEVEL_1" : ((field?.appDataType === "PARTY" || field?.appDataType === "PERSON_OR_CONTACT") ? "OFFICERS" : RA_SUBTYPE_DEFAULT);
+        const defaultSubtype = isGleif
+            ? (initialPath.trim().startsWith("gleifL2.") ? "LEVEL_2_RELATIONSHIPS" : "LEVEL_1")
+            : ((field?.appDataType === "PARTY" || field?.appDataType === "PERSON_OR_CONTACT") ? "OFFICERS" : RA_SUBTYPE_DEFAULT);
         setPayloadSubtype(existingMapping?.payloadSubtype ?? initialPayloadSubtype ?? defaultSubtype);
 
         setTransformType(existingMapping?.transformType ?? initialTransformType ?? "DIRECT");
@@ -545,28 +558,39 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
                                             { id: "LEVEL_1", title: "Level 1 (Core)", desc: "Entity core data (name, address, status)." },
                                             { id: "LEVEL_2_RELATIONSHIPS", title: "Level 2 (Rel.)", desc: "Parents, funds, children, LOUs." },
                                             { id: "ELF", title: "ELF Data", desc: "Entity legal forms & jurisdiction." }
-                                        ].map(opt => (
-                                            <div 
-                                                key={opt.id}
-                                                onClick={() => setPayloadSubtype(opt.id)}
-                                                className={cn(
-                                                    "cursor-pointer rounded-lg border p-2.5 transition-all duration-200 hover:shadow-sm group",
-                                                    payloadSubtype === opt.id 
-                                                        ? "bg-gradient-to-br from-indigo-50 to-white border-indigo-200 dark:from-indigo-950/40 dark:to-zinc-900/50 dark:border-indigo-800/50 shadow-sm ring-1 ring-indigo-500/20"
-                                                        : "bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 hover:border-indigo-100 dark:hover:border-indigo-900/30"
-                                                )}
-                                            >
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <span className={cn(
-                                                        "text-[11px] font-semibold transition-colors",
-                                                        payloadSubtype === opt.id ? "text-indigo-700 dark:text-indigo-300" : "text-slate-700 dark:text-zinc-300 group-hover:text-indigo-600"
-                                                    )}>{opt.title}</span>
-                                                    {payloadSubtype === opt.id && <Check className="w-3 h-3 text-indigo-500" />}
+                                        ].map(opt => {
+                                            const isDisabled = isL2Path && opt.id !== "LEVEL_2_RELATIONSHIPS";
+                                            return (
+                                                <div 
+                                                    key={opt.id}
+                                                    onClick={() => !isDisabled && setPayloadSubtype(opt.id)}
+                                                    className={cn(
+                                                        "rounded-lg border p-2.5 transition-all duration-200 hover:shadow-sm group",
+                                                        isDisabled
+                                                            ? "opacity-40 cursor-not-allowed bg-slate-100 dark:bg-zinc-900 border-slate-200"
+                                                            : "cursor-pointer",
+                                                        payloadSubtype === opt.id 
+                                                            ? "bg-gradient-to-br from-indigo-50 to-white border-indigo-200 dark:from-indigo-950/40 dark:to-zinc-900/50 dark:border-indigo-800/50 shadow-sm ring-1 ring-indigo-500/20"
+                                                            : (!isDisabled && "bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 hover:border-indigo-100 dark:hover:border-indigo-900/30")
+                                                    )}
+                                                >
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <span className={cn(
+                                                            "text-[11px] font-semibold transition-colors",
+                                                            payloadSubtype === opt.id ? "text-indigo-700 dark:text-indigo-300" : "text-slate-700 dark:text-zinc-300 group-hover:text-indigo-600"
+                                                        )}>{opt.title}</span>
+                                                        {payloadSubtype === opt.id && <Check className="w-3 h-3 text-indigo-500" />}
+                                                    </div>
+                                                    <p className="text-[9px] text-slate-500 dark:text-zinc-400 leading-tight pr-2">{opt.desc}</p>
                                                 </div>
-                                                <p className="text-[9px] text-slate-500 dark:text-zinc-400 leading-tight pr-2">{opt.desc}</p>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
+                                    {isL2Path && (
+                                        <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5 font-medium">
+                                            Scope is locked to Level 2 (Rel.) for source paths beginning with gleifL2.
+                                        </p>
+                                    )}
                                 </div>
                             )}
 

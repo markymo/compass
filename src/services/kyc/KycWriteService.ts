@@ -452,6 +452,12 @@ export class KycWriteService {
                 fieldNo
             );
 
+            const isL2Target = fieldNo === 40 || fieldNo === 38;
+            if (isL2Target) {
+                const isEqual = authoritativeState ? valuesAreCanonicallyEqual(authoritativeState.value, value) : false;
+                console.log(`[GLEIF-L2-TRACE] [G.WriteDecision] fieldNo=${fieldNo} incomingValue=${JSON.stringify(value).slice(0, 250)} authoritativeValue=${JSON.stringify(authoritativeState?.value).slice(0, 250)} isCanonicallyEqual=${isEqual}`);
+            }
+
             if (authoritativeState && valuesAreCanonicallyEqual(authoritativeState.value, value)) {
                 const incomingSourceType = (provenance.source as any) === 'USER_INPUT' ? 'USER_INPUT'
                     : (provenance.source as any) === 'GLEIF' ? 'GLEIF'
@@ -459,6 +465,9 @@ export class KycWriteService {
                     : 'SYSTEM_DERIVED';
                 
                 if (authoritativeState.sourceType === incomingSourceType) {
+                    if (isL2Target) {
+                        console.log(`[GLEIF-L2-TRACE] [G.SkippedWrite] fieldNo=${fieldNo} reason="Value AND source identical"`);
+                    }
                     console.log(`[KycWriteService] Idempotency: Value AND source identical for Field ${fieldNo}. Skipping.`);
                     return true;
                 }

@@ -2492,11 +2492,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                             let parsed = candidate.value;
                                                             if (typeof parsed === 'string' && (parsed.startsWith('{') || parsed.startsWith('['))) { try { parsed = JSON.parse(parsed); } catch {} }
 
-                                                            if ((isPartyField || isPersonOrContactField) && parsed && typeof parsed === 'object' && !isPersonOrContactValue(parsed) && (parsed.legalName || parsed.organisationName || parsed.lei || parsed.registeredAs)) {
-                                                                const transformed = applyTransform(parsed, 'TO_PARTY_ORGANISATION');
-                                                                if (transformed.value) parsed = transformed.value;
-                                                            }
-
                                                             if (isPersonOrContactValue(parsed) || (parsed && typeof parsed === 'object' && ('ccPartyId' in parsed || 'legalName' in parsed || 'organisationName' in parsed))) {
                                                                 const candCanonical = (candidate as any)?.canonicalDisplayModel;
                                                                 const partyLabel = candCanonical?.value ? (candCanonical.value as any).partyLabel : (parsed?.legalName || parsed?.organisationName || undefined);

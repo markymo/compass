@@ -157,6 +157,10 @@ export class FieldClaimService {
                 }
             });
 
+            if (input.fieldNo === 40 || input.fieldNo === 38) {
+                console.log(`[GLEIF-L2-TRACE] [G.PersistedClaim] claimId=${claim.id} fieldNo=${claim.fieldNo} sourceType=${claim.sourceType} valueJson=${JSON.stringify(claim.valueJson).slice(0, 250)}`);
+            }
+
             // 5. Graph write-back — awaited with error isolation so a write-back failure
             // never rolls back the claim, but the edge IS committed before we return.
             // This is critical for the UI: callers call getFieldDetail() immediately after

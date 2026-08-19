@@ -117,6 +117,15 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
             };
         }
 
+        // 1c. GLEIF: sourcePath starting with 'gleifL2.' must use payloadSubtype 'LEVEL_2_RELATIONSHIPS'
+        const isGleifL2Path = input.sourceType === 'GLEIF' && input.sourcePath.trim().startsWith('gleifL2.');
+        if (isGleifL2Path && input.payloadSubtype && input.payloadSubtype !== 'LEVEL_2_RELATIONSHIPS') {
+            return {
+                success: false,
+                error: 'GLEIF source paths starting with "gleifL2." must use GLEIF Data Scope "LEVEL_2_RELATIONSHIPS".'
+            };
+        }
+
         // 2. Target field must exist and be active
         const targetField = await prisma.masterFieldDefinition.findUnique({
             where: { fieldNo: input.targetFieldNo }
@@ -208,9 +217,11 @@ export async function upsertSourceMapping(input: UpsertMappingInput) {
         const isRA = input.sourceType === 'REGISTRATION_AUTHORITY';
         const effectiveMappingScope = input.mappingScope
             ?? (isRA ? 'RAW_PAYLOAD' : undefined);
-        const effectivePayloadSubtype = input.payloadSubtype !== undefined
-            ? input.payloadSubtype
-            : (isRA ? 'COMPANY_PROFILE' : undefined);
+        const effectivePayloadSubtype = isGleifL2Path
+            ? 'LEVEL_2_RELATIONSHIPS'
+            : (input.payloadSubtype !== undefined
+                ? input.payloadSubtype
+                : (isRA ? 'COMPANY_PROFILE' : undefined));
 
         // ── Upsert ──
         const data = {
