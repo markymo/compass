@@ -18,6 +18,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { ConfirmArchiveDialog } from "@/components/shared/confirm-dialogs";
+import { ClientLETable } from "@/components/admin/ClientLETable";
+import { mapClientLEToAdminRow } from "@/types/admin-client-le";
 
 // Helper for Logs
 function LogViewer({ logs }: { logs: any }) {
@@ -743,56 +745,17 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                 <CardTitle>Client Legal Entities</CardTitle>
                                 <CardDescription>Legal Entities owned by this organization in its client capacity.</CardDescription>
                             </CardHeader>
-                            <CardContent>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Name</TableHead>
-                                            <TableHead>Jurisdiction</TableHead>
-                                            <TableHead>LEI</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead>isDeleted</TableHead>
-                                            <TableHead className="text-right">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {org.ownedLEs?.map((ownerRecord: any) => {
-                                            const le = ownerRecord.clientLE;
-                                            return (
-                                                <TableRow key={le.id}>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            <Building className="w-4 h-4 text-muted-foreground" />
-                                                            <span className="font-medium">{le.name}</span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-muted-foreground">{le.jurisdiction || "-"}</TableCell>
-                                                    <TableCell className="font-mono text-xs text-muted-foreground">{le.legalEntity?.lei || "-"}</TableCell>
-                                                    <TableCell>
-                                                        <Badge variant={le.status === "ACTIVE" ? "default" : "secondary"}>{le.status}</Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant={le.isDeleted ? "destructive" : "outline"}>
-                                                            {le.isDeleted ? "true" : "false"}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Link href={`/app/le/${le.id}`}>
-                                                            <Button variant="outline" size="sm">Manage LE</Button>
-                                                        </Link>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
-                                        {(!org.ownedLEs || org.ownedLEs.length === 0) && (
-                                            <TableRow>
-                                                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                                                    No Legal Entities found. Create one to get started.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
+                            <CardContent className="p-0">
+                                <ClientLETable
+                                    les={(org.ownedLEs || [])
+                                        .map((ownerRecord: any) => ownerRecord.clientLE)
+                                        .filter(Boolean)
+                                        .map(mapClientLEToAdminRow)}
+                                    emptyMessage="No Legal Entities found. Create one to get started."
+                                    onRestoreSuccess={() => {
+                                        if (unwrappedParams?.id) loadData(unwrappedParams.id);
+                                    }}
+                                />
                             </CardContent>
                         </Card>
 

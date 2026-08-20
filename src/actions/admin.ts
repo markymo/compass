@@ -7,6 +7,7 @@ export { isSystemAdmin };
 import { DocumentService } from "@/lib/documents/DocumentService";
 import { getIdentity } from "@/lib/auth";
 import { restoreClientLECore } from "./client";
+import { mapClientLEToAdminRow, AdminClientLEItem } from "@/types/admin-client-le";
 
 // 2. Get All Users (for Admin Dashboard)
 export async function getAllUsers() {
@@ -212,7 +213,7 @@ export async function uploadSourceDocument(formData: FormData) {
 }
 
 // 7. Get All Client Legal Entities (for Admin Directory)
-export async function getAllClientLEsForAdmin() {
+export async function getAllClientLEsForAdmin(): Promise<AdminClientLEItem[]> {
     const isAdmin = await isSystemAdmin();
     if (!isAdmin) return [];
 
@@ -222,6 +223,7 @@ export async function getAllClientLEsForAdmin() {
                 name: "asc",
             },
             include: {
+                legalEntity: true,
                 owners: {
                     where: { endAt: null },
                     include: {
@@ -244,24 +246,7 @@ export async function getAllClientLEsForAdmin() {
             },
         });
 
-        return clientLEs.map((le: any) => {
-            const activeOwners = (le.owners || []).filter((o: any) => o && o.party);
-            return {
-                id: le.id,
-                name: le.name || "Unnamed LE",
-                shortCode: le.shortCode || null,
-                status: le.status || "ACTIVE",
-                isDeleted: le.isDeleted ?? false,
-                createdAt: le.createdAt ? le.createdAt.toISOString() : new Date().toISOString(),
-                parentOrgs: activeOwners.map((o: any) => ({
-                    id: o.party.id,
-                    name: o.party.name,
-                    shortCode: o.party.shortCode || null,
-                })),
-                engagementCount: (le.fiEngagements || []).length,
-                memberCount: (le.memberships || []).length,
-            };
-        });
+        return clientLEs.map(mapClientLEToAdminRow);
     } catch (error) {
         console.error("Failed to fetch client LEs for admin:", error);
         return [];

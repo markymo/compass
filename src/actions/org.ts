@@ -138,9 +138,30 @@ export async function getOrganizationDetails(orgId: string) {
                 where: { endAt: null },
                 include: {
                     clientLE: {
-                        include: { legalEntity: true }
-                    }
-                }
+                        include: {
+                            legalEntity: true,
+                            owners: {
+                                where: { endAt: null },
+                                include: {
+                                    party: {
+                                        select: {
+                                            id: true,
+                                            name: true,
+                                            shortCode: true,
+                                        },
+                                    },
+                                },
+                            },
+                            fiEngagements: {
+                                where: { isDeleted: false },
+                                select: { id: true },
+                            },
+                            memberships: {
+                                select: { id: true },
+                            },
+                        },
+                    },
+                },
             },
             engagements: {
                 select: {
