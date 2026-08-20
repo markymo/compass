@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, UserPlus, Mail, FileText, Upload, Plus, Pen, Check, X, Trash2, ArchiveRestore, Clock, Building, CheckCircle2, AlertCircle, Shield, Eye } from "lucide-react";
+import { Loader2, ArrowLeft, UserPlus, Mail, FileText, Upload, Plus, Pen, Check, X, Trash2, ArchiveRestore, Clock, Building, CheckCircle2, AlertCircle, Shield, Eye, Info } from "lucide-react";
 import Link from "next/link";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -464,6 +464,13 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
 
                 {activeTab === "members" && (
                     <div className="space-y-6">
+                        <div className="text-sm text-slate-600 bg-slate-50 p-4 rounded-lg border border-slate-200/80 flex items-start gap-3">
+                            <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+                            <p>
+                                Umbrella Organisation membership is for account-level administration. Users do not need to be members of this organisation to access a ClientLE; ClientLE access is managed separately.
+                            </p>
+                        </div>
+
                         <div className="grid gap-6 md:grid-cols-3">
                             {/* MEMBER LIST */}
                             <Card className="md:col-span-2">

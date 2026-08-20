@@ -8,13 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import crypto from "crypto";
 import prisma from "@/lib/prisma";
 import { InvitationAcceptFlow } from "@/components/client/invitation-accept-flow";
-import { acceptInvitation } from "@/actions/accept-invitation";
-
 // This is a Public Page (outside (platform) layout)
-export default async function InvitationPage({ params, searchParams }: { params: { token: string }, searchParams: { autoAccept?: string } }) {
+export default async function InvitationPage({ params }: { params: { token: string } }) {
     const { token } = await params;
-    const sp = await searchParams;
-    const autoAccept = sp?.autoAccept === "1";
     const identity = await getIdentity();
     const userId = identity?.userId;
     const userEmail = identity?.email || undefined;
@@ -65,15 +61,6 @@ export default async function InvitationPage({ params, searchParams }: { params:
 
     // Determine context display based on scope type
     const isLoggedIn = !!userId;
-
-    // Auto-Accept: if user just registered and was redirected back here, complete the flow silently.
-    if (autoAccept && isLoggedIn) {
-        const acceptRes = await acceptInvitation(token);
-        if (acceptRes.success && acceptRes.redirectUrl) {
-            redirect(acceptRes.redirectUrl);
-        }
-        // If it fails (e.g. already used), fall through and show the normal page.
-    }
 
     const orgName =
         invite.organization?.name ??
