@@ -85,7 +85,7 @@ describe('Normal Delete and Re-creation — ClientLE', () => {
             });
             expect(prismaMock.clientLE.update).toHaveBeenCalledWith({
                 where: { id: 'le-1' },
-                data: { isDeleted: true }
+                data: { isDeleted: true, status: "ARCHIVED" }
             });
         });
 
@@ -102,7 +102,7 @@ describe('Normal Delete and Re-creation — ClientLE', () => {
             expect(res).toEqual({ success: true });
             expect(prismaMock.clientLE.update).toHaveBeenCalledWith({
                 where: { id: 'le-zoom-1' },
-                data: { isDeleted: true }
+                data: { isDeleted: true, status: "ARCHIVED" }
             });
         });
     });

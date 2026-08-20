@@ -914,10 +914,10 @@ export async function restoreClientLECore(clientLEId: string) {
             }
         }
 
-        // 1. Un-delete the LE while preserving its operational status (ACTIVE, SUSPENDED, or ARCHIVED)
+        // 1. Un-delete the LE while restoring operational status to ACTIVE
         const updatedLE = await tx.clientLE.update({
             where: { id: clientLEId },
-            data: { isDeleted: false }
+            data: { isDeleted: false, status: "ACTIVE" }
         });
 
         // 2. Un-delete Engagements & Questionnaires for this LE
@@ -986,10 +986,10 @@ export async function deleteClientLE(leId: string) {
             data: { isDeleted: true }
         });
 
-        // 4. Soft Delete the LE itself
+        // 4. Soft Delete the LE itself and set status to ARCHIVED
         await prisma.clientLE.update({
             where: { id: leId },
-            data: { isDeleted: true }
+            data: { isDeleted: true, status: "ARCHIVED" }
         });
 
         revalidatePath("/app");
