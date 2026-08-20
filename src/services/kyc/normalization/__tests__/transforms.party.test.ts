@@ -459,7 +459,10 @@ describe('TO_PARTY_ORGANISATION transform', () => {
         expect(result.value).toEqual({
             schemaVersion: 2,
             partyType: 'ORGANISATION',
+            contactType: 'CONTACT',
             legalName: 'JAGUAR LAND ROVER AUTOMOTIVE PLC',
+            organisationName: 'JAGUAR LAND ROVER AUTOMOTIVE PLC',
+            displayName: 'JAGUAR LAND ROVER AUTOMOTIVE PLC',
             incorporatedIn: 'GB',
             registrationNumber: '06477691',
             legalForm: 'B6ES',
@@ -470,7 +473,9 @@ describe('TO_PARTY_ORGANISATION transform', () => {
             roles: [],
             sourceIdentifiers: [{ scheme: 'LEI', value: '529900L73GEWN1O5NH84' }],
             registeredAddressRef: null,
-            isActiveParty: true
+            isActiveParty: true,
+            isActivePersonOrContact: true,
+            visibility: { scope: 'CLIENT_LE' }
         });
     });
 
