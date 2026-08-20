@@ -528,7 +528,10 @@ export function MappingFormDialog({ open, onOpenChange, selectedOption, fieldDef
                                     <pre className="font-mono text-[10px] text-slate-600 dark:text-zinc-400 overflow-auto max-h-[120px] whitespace-pre-wrap">
                                         {(() => {
                                             if (!sourcePath) return "Enter a source path...";
-                                            const rootValue = resolvePathString(samplePayload, sourcePath);
+                                            const pathForResolution = (isGleif && payloadSubtype === 'LEVEL_2_RELATIONSHIPS' && sourcePath.startsWith('gleifL2.'))
+                                                ? sourcePath.replace(/^gleifL2\./, '')
+                                                : sourcePath;
+                                            const rootValue = resolvePathString(samplePayload, pathForResolution);
                                             if (rootValue === null || rootValue === undefined) return `No node found at path: ${sourcePath}`;
                                             return JSON.stringify(rootValue, null, 2);
                                         })()}
