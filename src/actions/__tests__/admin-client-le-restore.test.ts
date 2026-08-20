@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { getAllClientLEsForAdmin, restoreClientLEFromAdmin } from '../admin';
 import { isSystemAdmin } from '../security';
 import { restoreClientLECore, deleteClientLE, createClientLE } from '../client';
+import { getDisplayStatus, mapClientLEToAdminRow } from '@/types/admin-client-le';
 
 const { mockPrisma } = vi.hoisted(() => {
     const mockPrisma = {
@@ -162,6 +163,64 @@ describe('Admin ClientLE Soft-Delete Visibility & Restore Functionality', () => 
                 where: { fiEngagementId: { in: ['eng-1', 'eng-2'] } },
                 data: { isDeleted: false }
             });
+        });
+    });
+
+    describe('AdminClientLE display status & row contract centralization', () => {
+        it('derived display status returns DELETED when isDeleted is true even if status is ACTIVE', () => {
+            expect(getDisplayStatus({ isDeleted: true, status: 'ACTIVE' })).toBe('DELETED');
+            expect(getDisplayStatus({ isDeleted: true, status: 'SUSPENDED' })).toBe('DELETED');
+        });
+
+        it('derived display status returns underlying operational status when isDeleted is false', () => {
+            expect(getDisplayStatus({ isDeleted: false, status: 'ACTIVE' })).toBe('ACTIVE');
+            expect(getDisplayStatus({ isDeleted: false, status: 'SUSPENDED' })).toBe('SUSPENDED');
+        });
+
+        it('mapClientLEToAdminRow maps both directory and organization detail Prisma records into standard row shape', () => {
+            const mockRecord = {
+                id: 'le-100',
+                name: 'Test LE',
+                shortCode: 'TLE',
+                jurisdiction: 'GB',
+                status: 'ACTIVE',
+                isDeleted: true,
+                createdAt: new Date('2026-05-10'),
+                legalEntity: { lei: '1234567890ABCDEFGHIJ' },
+                owners: [
+                    { party: { id: 'org-1', name: 'Parent Org 1', shortCode: 'PO1' } }
+                ],
+                fiEngagements: [{ id: 'e1' }, { id: 'e2' }],
+                memberships: [{ id: 'm1' }]
+            };
+
+            const mapped = mapClientLEToAdminRow(mockRecord);
+            expect(mapped).toEqual({
+                id: 'le-100',
+                name: 'Test LE',
+                shortCode: 'TLE',
+                jurisdiction: 'GB',
+                lei: '1234567890ABCDEFGHIJ',
+                status: 'ACTIVE',
+                isDeleted: true,
+                createdAt: expect.any(String),
+                parentOrgs: [{ id: 'org-1', name: 'Parent Org 1', shortCode: 'PO1' }],
+                engagementCount: 2,
+                memberCount: 1
+            });
+        });
+
+        it('clearing deletion via restore exposes operational status ACTIVE again', async () => {
+            const deletedState = { isDeleted: true, status: 'ACTIVE' };
+            expect(getDisplayStatus(deletedState)).toBe('DELETED');
+
+            vi.mocked(isSystemAdmin).mockResolvedValue(true);
+            prismaMock.clientLE.update.mockResolvedValue({ id: 'le-deleted', isDeleted: false, status: 'ACTIVE' });
+            prismaMock.fIEngagement.findMany.mockResolvedValue([]);
+
+            await restoreClientLEFromAdmin('le-deleted');
+            const restoredState = { isDeleted: false, status: 'ACTIVE' };
+            expect(getDisplayStatus(restoredState)).toBe('ACTIVE');
         });
     });
 });
