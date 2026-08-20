@@ -29,6 +29,12 @@ export async function getActorContext(
             clientLEId: true,
             fiEngagementId: true,
             role: true,
+            clientLE: {
+                select: {
+                    isDeleted: true,
+                    status: true,
+                }
+            }
         },
     });
 
@@ -40,3 +46,4 @@ export async function getActorContext(
         servicePrincipalId: options?.servicePrincipalId,
     };
 }
+

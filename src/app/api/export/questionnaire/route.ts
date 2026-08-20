@@ -6,6 +6,10 @@ import React from "react";
 import { QuestionnairePDF } from "@/components/pdf/questionnaire-pdf";
 import { KycStateService } from "@/lib/kyc/KycStateService";
 
+import { getIdentity } from "@/lib/auth";
+import { Action, can, UserWithMemberships } from "@/lib/auth/permissions";
+import { isSystemAdmin } from "@/actions/security";
+
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
@@ -15,6 +19,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
         }
 
+        const identity = await getIdentity();
+        if (!identity?.userId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+        const { userId } = identity;
+
         // 1. Fetch Engagement & Data
         const engagement = await prisma.fIEngagement.findUnique({
             where: { id: engagementId },
@@ -23,6 +33,35 @@ export async function POST(req: NextRequest) {
 
         if (!engagement) {
             return NextResponse.json({ error: "Engagement not found" }, { status: 404 });
+        }
+
+        // Authorize caller against ClientLE & Engagement
+        const sysAdmin = await isSystemAdmin();
+        let allowed = sysAdmin;
+
+        if (!allowed) {
+            const memberships = await prisma.membership.findMany({
+                where: { userId },
+                select: {
+                    organizationId: true,
+                    clientLEId: true,
+                    fiEngagementId: true,
+                    role: true,
+                    clientLE: { select: { isDeleted: true, status: true } }
+                }
+            });
+            const user: UserWithMemberships = { id: userId, memberships };
+
+            if (engagement.clientLEId) {
+                allowed = await can(user, Action.LE_VIEW_MASTER_DATA, { clientLEId: engagement.clientLEId }, prisma);
+            }
+            if (!allowed) {
+                allowed = await can(user, Action.ENG_VIEW_RELEASED_DATA, { engagementId: engagement.id }, prisma);
+            }
+        }
+
+        if (!allowed) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         // --- Resolved Master Data Context ---

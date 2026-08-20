@@ -29,6 +29,8 @@ export async function calculateQuestionStateMetricsForQuestions(
         masterQuestionGroupId: string | null;
         customFieldDefinitionId: string | null;
         questionnaireId?: string | null;
+        canonicalDisplayModel?: any;
+        masterDataSource?: string | null;
     }>,
     legalEntityId?: string | null,
     customData?: any,
@@ -84,13 +86,45 @@ export async function calculateQuestionStateMetricsForQuestions(
 
     // 3. Resolve all master fields (including group sub-fields) in batch
     let resolvedMap = new Map<number, DerivedValue | DerivedValue[] | null>();
-    if (legalEntityId && masterFieldNos.size > 0) {
+    const defaultResponseMap = new Map<number, string>();
+    if (masterFieldNos.size > 0) {
         const fieldDefs = Array.from(masterFieldNos).map((no: number) => ({ fieldNo: no, isMultiValue: true }));
         resolvedMap = await KycStateService.resolveAllFields(
-            { subjectLeId: legalEntityId, clientLEId: clientLeId || undefined },
+            { subjectLeId: legalEntityId || undefined, clientLEId: clientLeId || undefined },
             fieldDefs,
             ownerScopeId || undefined
         ).catch(() => new Map());
+
+        const defs = await prisma.masterFieldDefinition.findMany({
+            where: { fieldNo: { in: Array.from(masterFieldNos) } },
+            select: { fieldNo: true, defaultResponse: true }
+        });
+        for (const def of defs) {
+            if (typeof def.defaultResponse === "string" && def.defaultResponse.trim().length > 0) {
+                defaultResponseMap.set(def.fieldNo, def.defaultResponse.trim());
+            }
+        }
+    }
+
+    let clientLEForSource: any = null;
+    if (clientLeId) {
+        clientLEForSource = await prisma.clientLE.findUnique({
+            where: { id: clientLeId },
+            include: { registryReferences: { include: { authority: true } } }
+        }).catch(() => null);
+    }
+
+    const fieldMappingMap = new Map<number, Array<{ sourceType: string; sourceReference: string | null }>>();
+    if (masterFieldNos.size > 0) {
+        const activeMappings = await prisma.sourceFieldMapping.findMany({
+            where: { targetFieldNo: { in: Array.from(masterFieldNos) }, isActive: true },
+            select: { targetFieldNo: true, sourceType: true, sourceReference: true, priority: true },
+            orderBy: { priority: "asc" }
+        }).catch(() => []);
+        for (const mRow of activeMappings) {
+            if (!fieldMappingMap.has(mRow.targetFieldNo)) fieldMappingMap.set(mRow.targetFieldNo, []);
+            fieldMappingMap.get(mRow.targetFieldNo)!.push(mRow);
+        }
     }
 
     // Helper to extract winning claim from resolvedMap for a fieldNo
@@ -150,21 +184,73 @@ export async function calculateQuestionStateMetricsForQuestions(
                 isScoped = res.isScoped;
                 evidenceProvider = res.evidenceProvider;
                 displayState = res.displayState;
+            } else if (defaultResponseMap.has(q.masterFieldNo)) {
+                hasAnswer = true;
+                sourceType = "DEFAULT_RESPONSE";
+                displayState = "DEFAULT_RESPONSE";
+            } else if (clientLEForSource) {
+                const mappings = fieldMappingMap.get(q.masterFieldNo) || [];
+                if (mappings.length > 0) {
+                    const evalResult = KycStateService.evaluateSyncAttempt(clientLEForSource, mappings);
+                    const calculatedState = KycStateService.calculateDisplayState({
+                        hasValue: false,
+                        hasApplicableMapping: evalResult.hasApplicableMapping,
+                        hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
+                        defaultText: defaultResponseMap.get(q.masterFieldNo)
+                    });
+                    if (calculatedState === "CHECKED_NO_DATA" && evalResult.evaluatedSourceBadge) {
+                        hasAnswer = true;
+                        displayState = "CHECKED_NO_DATA";
+                        sourceType = evalResult.evaluatedSourceBadge;
+                    }
+                }
             }
         }
 
         // B. Master Field Group
         if (!hasAnswer && q.masterQuestionGroupId !== null) {
             const subFieldNos = groupFieldMap.get(q.masterQuestionGroupId) || [];
+            let hasAnyGroupVal = false;
             for (const fNo of subFieldNos) {
                 const res = extractDerivedValue(fNo);
                 if (res.hasVal) {
                     hasAnswer = true;
+                    hasAnyGroupVal = true;
                     sourceType = res.sourceType;
                     isScoped = res.isScoped;
                     evidenceProvider = res.evidenceProvider;
                     displayState = res.displayState;
                     break;
+                }
+            }
+            if (!hasAnyGroupVal) {
+                for (const fNo of subFieldNos) {
+                    if (defaultResponseMap.has(fNo)) {
+                        hasAnswer = true;
+                        sourceType = "DEFAULT_RESPONSE";
+                        displayState = "DEFAULT_RESPONSE";
+                        break;
+                    }
+                }
+            }
+            if (!hasAnswer && clientLEForSource) {
+                for (const fNo of subFieldNos) {
+                    const mappings = fieldMappingMap.get(fNo) || [];
+                    if (mappings.length > 0) {
+                        const evalResult = KycStateService.evaluateSyncAttempt(clientLEForSource, mappings);
+                        const calculatedState = KycStateService.calculateDisplayState({
+                            hasValue: false,
+                            hasApplicableMapping: evalResult.hasApplicableMapping,
+                            hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
+                            defaultText: defaultResponseMap.get(fNo)
+                        });
+                        if (calculatedState === "CHECKED_NO_DATA" && evalResult.evaluatedSourceBadge) {
+                            hasAnswer = true;
+                            displayState = "CHECKED_NO_DATA";
+                            sourceType = evalResult.evaluatedSourceBadge;
+                            break;
+                        }
+                    }
                 }
             }
         }
@@ -193,6 +279,21 @@ export async function calculateQuestionStateMetricsForQuestions(
             hasAnswer = true;
             sourceType = "USER_INPUT";
             isScoped = true;
+        }
+
+        // E. Sourced field evaluated with no data returned (CHECKED_NO_DATA / "None")
+        if (!hasAnswer) {
+            const rawSource = q.canonicalDisplayModel?.source?.type || q.masterDataSource;
+            const hasTimestamp = Boolean(q.canonicalDisplayModel?.source?.lastValidatedAt || (q as any).masterDataUpdatedAt || q.canonicalDisplayModel?.source?.timestamp);
+            if (
+                q.canonicalDisplayModel?.state === "CHECKED_NO_DATA" ||
+                displayState === "CHECKED_NO_DATA" ||
+                (q.canonicalDisplayModel?.state === "NO_DATA" && Boolean(rawSource) && hasTimestamp)
+            ) {
+                hasAnswer = true;
+                displayState = "CHECKED_NO_DATA";
+                sourceType = sourceType || rawSource || "EXTERNAL";
+            }
         }
 
         const category = classifyQuestionAnswerState(hasAnswer, sourceType, isScoped, evidenceProvider, displayState);

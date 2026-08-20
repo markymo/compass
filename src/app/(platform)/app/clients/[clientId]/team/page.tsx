@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import ClientTeamPage from "@/components/client/team-page-client";
 import { getPendingInvitations } from "@/actions/invitations";
 import { notFound } from "next/navigation";
+import { isSystemAdmin } from "@/actions/security";
 
 export default async function TeamPageWrapper({ params }: { params: Promise<{ clientId: string }> }) {
     // Await params for Next.js 15 compatibility
@@ -10,7 +11,7 @@ export default async function TeamPageWrapper({ params }: { params: Promise<{ cl
     const identity = await getIdentity();
     const userId = identity?.userId;
 
-    if (!userId) return <div>Unauthorized</div>;
+    if (!userId) return notFound();
 
     // 1. Fetch Organization Details
     const org = await prisma.organization.findUnique({
@@ -20,56 +21,103 @@ export default async function TeamPageWrapper({ params }: { params: Promise<{ cl
 
     if (!org) return notFound();
 
-    // 2. Check Permission (Can Manage?)
-    // Simple check: Is user an ADMIN of this Org?
-    const membership = await prisma.membership.findFirst({
+    const sysAdmin = await isSystemAdmin();
+
+    // 2. Server-side Authorization Guard
+    const orgMembership = await prisma.membership.findFirst({
         where: {
             userId,
-            organizationId: clientId,
-            role: { in: ["ADMIN", "ORG_ADMIN"] }
+            organizationId: clientId
         }
     });
-    const canManage = !!membership;
 
-    // 3. Fetch Active Users
-    const activeMembers = await prisma.membership.findMany({
-        where: {
-            // Gets members of the Org OR members of LEs owned by this Org?
-            // "Team" usually implies Party Members.
-            // But we also want to see LE-only guests (Contractors).
-            OR: [
-                { organizationId: clientId },
-                { clientLE: { owners: { some: { partyId: clientId, endAt: null } } } }
-            ]
-        },
-        include: {
-            user: true,
-            clientLE: { select: { name: true } }
-        },
-        orderBy: { user: { email: 'asc' } }
-    });
+    const isOrgAdmin = orgMembership?.role === "ADMIN" || orgMembership?.role === "ORG_ADMIN";
+    const canManage = isOrgAdmin || sysAdmin;
 
-    // 5. Fetch ALL Client LEs (for matrix view)
-    const allClientLEs = await prisma.clientLE.findMany({
+    // Check active LE memberships for LE-scoped users
+    const userActiveLeMemberships = await prisma.membership.findMany({
         where: {
-            owners: {
-                some: {
-                    partyId: clientId,
-                    endAt: null,
-                }
+            userId,
+            clientLE: {
+                isDeleted: false,
+                status: { not: "ARCHIVED" },
+                owners: { some: { partyId: clientId, endAt: null } }
             }
         },
+        select: { clientLEId: true }
+    });
+
+    const hasActiveLeAccess = userActiveLeMemberships.length > 0;
+    const isAuthorized = sysAdmin || !!orgMembership || hasActiveLeAccess;
+
+    if (!isAuthorized) {
+        return notFound();
+    }
+
+    const isOrgLevelUser = sysAdmin || !!orgMembership;
+
+    // 5. Fetch Client LEs for matrix view (filtering deleted/archived and scoping to user visibility)
+    const leWhere: any = {
+        isDeleted: false,
+        status: { not: "ARCHIVED" },
+        owners: {
+            some: {
+                partyId: clientId,
+                endAt: null,
+            }
+        }
+    };
+
+    if (!isOrgLevelUser) {
+        // Restricted LE user: only include active LEs assigned to the user
+        const assignedLeIds = userActiveLeMemberships.map((m: any) => m.clientLEId).filter(Boolean);
+        leWhere.id = { in: assignedLeIds };
+    }
+
+    const allClientLEs = await prisma.clientLE.findMany({
+        where: leWhere,
         select: { id: true, name: true },
         orderBy: { name: 'asc' }
     });
 
-    console.log(`[TeamPageWrapper] Fetched ${allClientLEs.length} Client LEs for ${clientId}:`, allClientLEs.map((l: any) => l.name));
+    // 3. Fetch Active Users (filtering out memberships on soft-deleted/archived LEs)
+    const memberWhere: any = {
+        OR: [
+            { organizationId: clientId },
+            {
+                clientLE: {
+                    isDeleted: false,
+                    status: { not: "ARCHIVED" },
+                    owners: { some: { partyId: clientId, endAt: null } }
+                }
+            }
+        ]
+    };
 
+    if (!isOrgLevelUser) {
+        // LE-scoped user: restrict to org members and members of their visible active LEs
+        const visibleLeIds = allClientLEs.map((l: any) => l.id);
+        memberWhere.OR = [
+            { organizationId: clientId },
+            { clientLEId: { in: visibleLeIds } }
+        ];
+    }
+
+    const activeMembers = await prisma.membership.findMany({
+        where: memberWhere,
+        include: {
+            user: true,
+            clientLE: { select: { name: true, isDeleted: true } }
+        },
+        orderBy: { user: { email: 'asc' } }
+    });
 
     // Deduplicate and Group Users
     const userMap = new Map<string, any>();
 
     activeMembers.forEach((m: any) => {
+        if (m.clientLE && m.clientLE.isDeleted) return;
+
         if (!userMap.has(m.userId)) {
             userMap.set(m.userId, {
                 id: m.userId,
@@ -117,3 +165,4 @@ export default async function TeamPageWrapper({ params }: { params: Promise<{ cl
         />
     );
 }
+

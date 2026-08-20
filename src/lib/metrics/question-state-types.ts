@@ -52,8 +52,17 @@ export function classifyQuestionAnswerState(
     const normSource = (sourceType || evidenceProvider || "").toUpperCase().trim();
     const normState = (displayState || "").toUpperCase().trim();
 
-    if (normState === "DEFAULT_RESPONSE" || normSource === "DEFAULT_RESPONSE") {
+    if (
+        normState === "DEFAULT_RESPONSE" ||
+        normState === "DEFAULT" ||
+        normSource === "DEFAULT_RESPONSE" ||
+        normSource === "DEFAULT"
+    ) {
         return "DEFAULT_RESPONSE";
+    }
+
+    if (normState === "CHECKED_NO_DATA") {
+        return isScoped ? "USER_INPUT" : "EXTERNAL";
     }
 
     if (!hasAnswer) {

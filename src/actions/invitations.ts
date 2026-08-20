@@ -360,9 +360,13 @@ export async function getPendingInvitations(organizationId: string) {
         if (!membership) return [];
     }
 
-    // Fetch org-level invites and LE-level invites for LEs owned by this org
+    // Fetch org-level invites and LE-level invites for ACTIVE LEs owned by this org
     const leIds = (await prisma.clientLEOwner.findMany({
-        where: { partyId: organizationId, endAt: null },
+        where: {
+            partyId: organizationId,
+            endAt: null,
+            clientLE: { isDeleted: false, status: { not: "ARCHIVED" } }
+        },
         select: { clientLEId: true },
     })).map((o: any) => o.clientLEId);
 

@@ -8,7 +8,7 @@ import { FieldSourceBadge } from "@/components/client/fields/FieldSourceBadge";
 import { FieldAttachmentIndicator } from "@/components/shared/FieldAttachmentIndicator";
 import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
 
-import { useState, useMemo, useTransition } from "react";
+import { useState, useEffect, useMemo, useTransition } from "react";
 import { Workbench4Data, mapQuestionToField, getAIFieldNameSuggestion } from "@/actions/kyc-workbench";
 import { ConsoleQuestion } from "@/actions/kyc-query";
 import { createCustomFieldDefinition } from "@/actions/questionnaire";
@@ -161,6 +161,103 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     const [catFilter, setCatFilter] = useState<string>(searchParams.get("cat") || "ALL");
     const [answerStateFilter, setAnswerStateFilter] = useState<string>(searchParams.get("answerState") || "ALL");
     const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
+    // Sync state whenever searchParams change (e.g. navigation or drill-down links)
+    useEffect(() => {
+        setSearch(searchParams.get("s") || "");
+        setRelationshipIdFilter(searchParams.get("relationshipId") || searchParams.get("relId") || "ALL");
+        setRelFilter(searchParams.get("rel") || "ALL");
+        setQuestionnaireIdFilter(searchParams.get("questionnaireId") || searchParams.get("qId") || "ALL");
+        setQFilter(searchParams.get("q") || "ALL");
+        setMappingTypeFilter(searchParams.get("m") || "ALL");
+        setCatFilter(searchParams.get("cat") || "ALL");
+        setAnswerStateFilter(searchParams.get("answerState") || "ALL");
+    }, [searchParams]);
+
+    // Derive unique relationship options (stable ID + org name)
+    const relationshipOptions = useMemo(() => {
+        const map = new Map<string, { id?: string; name: string }>();
+        for (const q of data.questions) {
+            if (q.fiEngagementId && q.engagementOrgName && q.engagementOrgName !== "Common") {
+                map.set(q.fiEngagementId, { id: q.fiEngagementId, name: q.engagementOrgName });
+            } else if (q.isCommon || q.engagementOrgName === "Common") {
+                map.set("Common", { id: undefined, name: "Common" });
+            } else if (q.engagementOrgName) {
+                map.set(q.engagementOrgName, { id: undefined, name: q.engagementOrgName });
+            }
+        }
+        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    }, [data.questions]);
+
+    const activeRelationshipValue = useMemo(() => {
+        if (relationshipIdFilter !== "ALL") {
+            const opt = relationshipOptions.find(o => o.id === relationshipIdFilter || o.name === relationshipIdFilter);
+            return opt ? (opt.id || opt.name) : relationshipIdFilter;
+        }
+        if (relFilter !== "ALL") return relFilter;
+        return "ALL";
+    }, [relationshipIdFilter, relFilter, relationshipOptions]);
+
+    const handleRelationshipSelect = (val: string) => {
+        clearPinned();
+        if (val === "ALL") {
+            setRelationshipIdFilter("ALL");
+            setRelFilter("ALL");
+            updateUrl({ relationshipId: null, relId: null, rel: null });
+        } else {
+            const opt = relationshipOptions.find(o => o.id === val || o.name === val);
+            if (opt?.id) {
+                setRelationshipIdFilter(opt.id);
+                setRelFilter("ALL");
+                updateUrl({ relationshipId: opt.id, relId: null, rel: null });
+            } else {
+                setRelationshipIdFilter("ALL");
+                setRelFilter(val);
+                updateUrl({ relationshipId: null, relId: null, rel: val });
+            }
+        }
+    };
+
+    // Derive unique questionnaire options (stable ID + name)
+    const questionnaireOptions = useMemo(() => {
+        const map = new Map<string, { id?: string; name: string }>();
+        for (const q of data.questions) {
+            if (q.questionnaireId && q.questionnaireName) {
+                map.set(q.questionnaireId, { id: q.questionnaireId, name: q.questionnaireName });
+            } else if (q.questionnaireName) {
+                map.set(q.questionnaireName, { id: undefined, name: q.questionnaireName });
+            }
+        }
+        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    }, [data.questions]);
+
+    const activeQuestionnaireValue = useMemo(() => {
+        if (questionnaireIdFilter !== "ALL") {
+            const opt = questionnaireOptions.find(o => o.id === questionnaireIdFilter || o.name === questionnaireIdFilter);
+            return opt ? (opt.id || opt.name) : questionnaireIdFilter;
+        }
+        if (qFilter !== "ALL") return qFilter;
+        return "ALL";
+    }, [questionnaireIdFilter, qFilter, questionnaireOptions]);
+
+    const handleQuestionnaireSelect = (val: string) => {
+        clearPinned();
+        if (val === "ALL") {
+            setQuestionnaireIdFilter("ALL");
+            setQFilter("ALL");
+            updateUrl({ questionnaireId: null, qId: null, q: null });
+        } else {
+            const opt = questionnaireOptions.find(o => o.id === val || o.name === val);
+            if (opt?.id) {
+                setQuestionnaireIdFilter(opt.id);
+                setQFilter("ALL");
+                updateUrl({ questionnaireId: opt.id, qId: null, q: null });
+            } else {
+                setQuestionnaireIdFilter("ALL");
+                setQFilter(val);
+                updateUrl({ questionnaireId: null, qId: null, q: val });
+            }
+        }
+    };
 
     const urlView = searchParams.get("view");
     const viewMode = ((urlView === "flow" || urlView === "classic" || urlView === "compact")
@@ -216,6 +313,30 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     // Inspection Drawer State
     const [selectedInspectionField, setSelectedInspectionField] = useState<{ fieldNo: number; name: string; customFieldId?: string } | null>(null);
 
+    const clearAllFilters = () => {
+        clearPinned();
+        setSearch("");
+        setRelFilter("ALL");
+        setRelationshipIdFilter("ALL");
+        setQFilter("ALL");
+        setQuestionnaireIdFilter("ALL");
+        setCatFilter("ALL");
+        setMappingTypeFilter("ALL");
+        setAnswerStateFilter("ALL");
+        updateUrl({
+            s: null,
+            rel: null,
+            relationshipId: null,
+            relId: null,
+            q: null,
+            questionnaireId: null,
+            qId: null,
+            cat: null,
+            m: null,
+            answerState: null,
+        });
+    };
+
     // Categories for filtering (derived from questions that are mapped)
     const availableCategories = useMemo(() => {
         const cats = new Set<string>();
@@ -266,16 +387,47 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
 
             // 5. Answer State (answerState) - Separate filter dimension using shared V2 classifier
             if (answerStateFilter !== "ALL") {
+                const hasNonEmptyValue = (val: any): boolean => {
+                    if (val === null || val === undefined || val === "") return false;
+                    if (typeof val === "object" && !Array.isArray(val) && !(val instanceof Date)) {
+                        return Object.values(val).some(v => v !== null && v !== undefined && v !== "");
+                    }
+                    return true;
+                };
+
+                const hasGroupDefault = Boolean(
+                    (q as any).masterDataGroupFields?.some(
+                        (f: any) => f.canonicalDisplayModel?.state === "DEFAULT" || (f.canonicalDisplayModel?.defaultText && f.canonicalDisplayModel.defaultText.trim().length > 0)
+                    )
+                );
+
+                const rawSource = q.canonicalDisplayModel?.source?.type || q.masterDataSource;
+                const hasTimestamp = Boolean(q.canonicalDisplayModel?.source?.lastValidatedAt || q.masterDataUpdatedAt || q.canonicalDisplayModel?.source?.timestamp);
+                const isCheckedNoData = q.canonicalDisplayModel?.state === "CHECKED_NO_DATA" ||
+                    (q.canonicalDisplayModel?.state === "NO_DATA" && Boolean(rawSource) && hasTimestamp);
+
                 const hasAnswer = Boolean(
                     q.canonicalDisplayModel?.state === "POPULATED" ||
                     q.canonicalDisplayModel?.state === "EXPLICIT_NONE" ||
-                    (q.masterDataValue !== null && q.masterDataValue !== undefined && q.masterDataValue !== "") ||
+                    isCheckedNoData ||
+                    q.canonicalDisplayModel?.state === "DEFAULT" ||
+                    q.canonicalDisplayModel?.state === "DEFAULT_RESPONSE" ||
+                    hasGroupDefault ||
+                    hasNonEmptyValue(q.masterDataValue) ||
                     (q.answer && q.answer.trim().length > 0 && q.answer !== "null" && q.answer !== "{}")
                 );
-                const sourceType = q.canonicalDisplayModel?.source?.type || q.masterDataSource || null;
+
+                const isDefaultState = q.canonicalDisplayModel?.state === "DEFAULT" ||
+                    q.canonicalDisplayModel?.state === "DEFAULT_RESPONSE" ||
+                    q.canonicalDisplayModel?.source?.type === "DEFAULT" ||
+                    (!hasNonEmptyValue(q.masterDataValue) && hasGroupDefault);
+
+                const sourceType = isDefaultState
+                    ? "DEFAULT_RESPONSE"
+                    : (q.canonicalDisplayModel?.source?.type || q.masterDataSource || null);
                 const isScoped = Boolean(q.canonicalDisplayModel?.isScoped);
                 const evidenceProvider = q.canonicalDisplayModel?.source?.reference || null;
-                const displayState = q.canonicalDisplayModel?.state || null;
+                const displayState = isDefaultState ? "DEFAULT_RESPONSE" : (q.canonicalDisplayModel?.state || null);
 
                 const category = classifyQuestionAnswerState(hasAnswer, sourceType, isScoped, evidenceProvider, displayState);
                 if (category !== answerStateFilter.toUpperCase()) {
@@ -498,17 +650,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                             <Sparkles className="h-3 w-3" />
                             <span className="text-[10px] font-bold uppercase tracking-wider">Filters Applied</span>
                             <button 
-                                onClick={() => {
-                                    setSearch("");
-                                    setRelFilter("ALL");
-                                    setRelationshipIdFilter("ALL");
-                                    setQFilter("ALL");
-                                    setQuestionnaireIdFilter("ALL");
-                                    setCatFilter("ALL");
-                                    setMappingTypeFilter("ALL");
-                                    setAnswerStateFilter("ALL");
-                                    router.replace(pathname, { scroll: false });
-                                }}
+                                onClick={clearAllFilters}
                                 className="ml-1 hover:text-indigo-800 transition-colors"
                             >
                                 <X className="h-3 w-3" />
@@ -517,32 +659,30 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                     )}
                     <Filter className="h-4 w-4 text-slate-500 mr-1" />
 
-                    <Select value={relFilter} onValueChange={(val) => {
-                        handleFilterChange(setRelFilter)(val);
-                        updateUrl({ rel: val });
-                    }}>
+                    <Select value={activeRelationshipValue} onValueChange={handleRelationshipSelect}>
                         <SelectTrigger className="w-[180px] bg-slate-50/50">
                             <SelectValue placeholder="Relationship" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="ALL">All Relationships</SelectItem>
-                            {data.relationships.map((r: any) => (
-                                <SelectItem key={r} value={r}>{r}</SelectItem>
+                            {relationshipOptions.map((opt) => (
+                                <SelectItem key={opt.id || opt.name} value={opt.id || opt.name}>
+                                    {opt.name}
+                                </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
 
-                    <Select value={qFilter} onValueChange={(val) => {
-                        handleFilterChange(setQFilter)(val);
-                        updateUrl({ q: val });
-                    }}>
+                    <Select value={activeQuestionnaireValue} onValueChange={handleQuestionnaireSelect}>
                         <SelectTrigger className="w-[200px] bg-slate-50/50">
                             <SelectValue placeholder="Questionnaire" />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="ALL">All Questionnaires</SelectItem>
-                            {data.questionnaires.map((q: any) => (
-                                <SelectItem key={q} value={q}>{q}</SelectItem>
+                            {questionnaireOptions.map((opt) => (
+                                <SelectItem key={opt.id || opt.name} value={opt.id || opt.name}>
+                                    {opt.name}
+                                </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>

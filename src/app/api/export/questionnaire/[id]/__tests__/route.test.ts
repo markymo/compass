@@ -25,8 +25,18 @@ vi.mock('@/lib/prisma', () => ({
         },
         user: {
             findUnique: vi.fn(),
+        },
+        membership: {
+            findMany: vi.fn().mockResolvedValue([]),
+        },
+        clientLEOwner: {
+            findMany: vi.fn().mockResolvedValue([]),
         }
     }
+}));
+
+vi.mock('@/actions/security', () => ({
+    isSystemAdmin: vi.fn().mockResolvedValue(true),
 }));
 
 vi.mock('@/lib/auth', () => ({

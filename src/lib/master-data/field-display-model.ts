@@ -8,7 +8,7 @@ export interface FieldDisplayModel {
     value: ResolvedFieldValue;
     
     // Core states
-    state: 'POPULATED' | 'EXPLICIT_NONE' | 'DEFAULT' | 'UNMAPPED' | 'NO_DATA';
+    state: 'POPULATED' | 'EXPLICIT_NONE' | 'DEFAULT' | 'UNMAPPED' | 'NO_DATA' | 'CHECKED_NO_DATA';
     
     // Provenance
     source: FieldSource | null;

@@ -1,15 +1,7 @@
-/**
- * DEBUG ENDPOINT — admin only
- * GET /api/admin/debug-live-payloads
- *
- * Tests live API connectivity AND queries the DB for the records that
- * the mapping workbench depends on. Use this to diagnose why CH/FR
- * source data is missing in production.
- */
-
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { getIdentity } from "@/lib/auth";
+import { isSystemAdmin } from "@/actions/security";
 
 const COMPANIES_HOUSE_API_KEY = process.env.COMPANIES_HOUSE_API_KEY;
 const GLEIF_LEI              = "213800SN8QHYGA7QUF79";
@@ -17,9 +9,14 @@ const CH_COMPANY_NO          = "14059418";
 const FR_SIREN               = "542051180";
 
 export async function GET() {
-    const session = await auth();
-    if (!session?.user) {
+    const identity = await getIdentity();
+    if (!identity?.userId) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const sysAdmin = await isSystemAdmin();
+    if (!sysAdmin) {
+        return NextResponse.json({ error: "Forbidden: System Admin required" }, { status: 403 });
     }
 
     const results: Record<string, any> = {

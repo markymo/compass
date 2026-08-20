@@ -13,6 +13,8 @@ import { ManifestPDF } from "@/components/pdf/manifest-pdf";
 import { QuestionnairePDF } from "@/components/pdf/questionnaire-pdf";
 import { resolveExportAnswer } from "@/lib/export/export-answer-resolver";
 import { KycStateService } from "@/lib/kyc/KycStateService";
+import { Action, can, UserWithMemberships } from "@/lib/auth/permissions";
+import { isSystemAdmin } from "@/actions/security";
 import * as Sentry from "@sentry/nextjs";
 
 export async function POST(req: NextRequest) {
@@ -35,10 +37,15 @@ export async function POST(req: NextRequest) {
         }
 
         const identity = await getIdentity();
+        if (!identity?.userId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+        const { userId } = identity;
+
         const exportId = uuidv4();
         const generatedAt = new Date().toISOString();
-        const user = identity?.userId ? await prisma.user.findUnique({ where: { id: identity.userId } }) : null;
-        const generatedBy = user?.name || user?.email || identity?.userId || "System";
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const generatedBy = user?.name || user?.email || userId;
 
         const engagement = await prisma.fIEngagement.findUnique({
             where: { id: engagementId },
@@ -57,6 +64,35 @@ export async function POST(req: NextRequest) {
 
         if (!engagement) {
             return NextResponse.json({ error: "Engagement not found" }, { status: 404 });
+        }
+
+        // Authorize caller against ClientLE & Engagement
+        const sysAdmin = await isSystemAdmin();
+        let allowed = sysAdmin;
+
+        if (!allowed) {
+            const memberships = await prisma.membership.findMany({
+                where: { userId },
+                select: {
+                    organizationId: true,
+                    clientLEId: true,
+                    fiEngagementId: true,
+                    role: true,
+                    clientLE: { select: { isDeleted: true, status: true } }
+                }
+            });
+            const userWithMem: UserWithMemberships = { id: userId, memberships };
+
+            if (engagement.clientLEId) {
+                allowed = await can(userWithMem, Action.LE_VIEW_MASTER_DATA, { clientLEId: engagement.clientLEId }, prisma);
+            }
+            if (!allowed) {
+                allowed = await can(userWithMem, Action.ENG_VIEW_RELEASED_DATA, { engagementId: engagement.id }, prisma);
+            }
+        }
+
+        if (!allowed) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
         const engagementName = engagement.org.name;

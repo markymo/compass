@@ -145,6 +145,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
 };
 
 // Types
+// Types
 export interface UserWithMemberships {
     id: string;
     memberships: {
@@ -152,6 +153,7 @@ export interface UserWithMemberships {
         clientLEId?: string | null;
         fiEngagementId?: string | null;
         role: string;
+        clientLE?: { isDeleted: boolean; status?: string | null } | null;
     }[];
 }
 
@@ -166,7 +168,7 @@ export async function can(
     user: UserWithMemberships,
     action: Action,
     context: ValidationContext,
-    prisma: { clientLEOwner: { findMany: Function }, fIEngagement?: { findUnique: Function } } & Record<string, any>
+    prisma: { clientLEOwner: { findMany: Function }, fIEngagement?: { findUnique: Function }, clientLE?: { findUnique: Function } } & Record<string, any>
 ): Promise<boolean> {
 
     // 1. System Admin Override
@@ -207,19 +209,34 @@ export async function can(
     if (context.clientLEId) {
         // 1. Direct Workspace membership
         const leRole = getRoleForLE(user, context.clientLEId);
-        if (leRole && checkPermission(leRole, action)) return true;
+        if (leRole && checkPermission(leRole, action)) {
+            const mem = user.memberships.find((m: any) => m.clientLEId === context.clientLEId);
+            if (mem?.clientLE) {
+                if (!mem.clientLE.isDeleted) return true;
+            } else if (prisma.clientLE) {
+                const le = await prisma.clientLE.findUnique({
+                    where: { id: context.clientLEId },
+                    select: { isDeleted: true }
+                });
+                if (le && !le.isDeleted) return true;
+            } else {
+                return true;
+            }
+        }
 
         // 2. Ownership Inheritance (Org Admin of the owner Org)
-        const owners = await prisma.clientLEOwner.findMany({
+        const owners = (await prisma.clientLEOwner.findMany({
             where: { clientLEId: context.clientLEId, endAt: null },
-            select: { partyId: true }
-        });
+            include: { clientLE: { select: { isDeleted: true } } }
+        })) || [];
 
         for (const owner of owners) {
+            if (owner.clientLE && owner.clientLE.isDeleted) continue;
             const orgRole = getRoleForOrg(user, owner.partyId);
             if (orgRole && checkPermission(orgRole, action)) return true;
         }
     }
+
 
     // C. Org Context (Management Access)
     // Tenant Admins (ORG_ADMIN, SUPPLIER_ADMIN) are authorized here.
@@ -246,7 +263,12 @@ function getRoleForEngagement(user: UserWithMemberships, engagementId: string): 
 
 function getRoleForLE(user: UserWithMemberships, leId: string): string | undefined {
     // Direct LE membership (fiEngagementId must be falsy to prevent leakage)
-    const membership = user.memberships.find((m: any) => m.clientLEId === leId && !m.fiEngagementId);
+    // Membership associated with a soft-deleted ClientLE must never confer active LE authorization.
+    const membership = user.memberships.find((m: any) => {
+        if (m.clientLEId !== leId || m.fiEngagementId) return false;
+        if (m.clientLE && m.clientLE.isDeleted) return false;
+        return true;
+    });
     return membership?.role;
 }
 
@@ -261,3 +283,4 @@ function checkPermission(role: string, action: Action): boolean {
     if (perms.includes("*")) return true;
     return perms.includes(action);
 }
+

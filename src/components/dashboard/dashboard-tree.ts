@@ -38,17 +38,25 @@ export function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
         const les: OrgChild[] = ctx.legalEntities
             .filter((le: any) => le.clientName === client.name)
             .map((le: any) => {
-                const leCommonQs: OrgChild[] = (le.commonQuestionnaires || []).map((cq: any) => ({
-                    type: "questionnaire" as const,
-                    id: cq.id,
-                    leId: le.id,
-                    name: cq.name,
-                    subtitle: "Common Questionnaire",
-                    status: cq.status,
-                    href: `/app/le/${le.id}/relationships`,
-                    metrics: cq.metrics,
-                    v2Metrics: cq.v2Metrics || emptyQuestionStateMetrics(),
-                }));
+                let leCommonQs: OrgChild[] = [];
+                if (le.commonQuestionnaires && le.commonQuestionnaires.length > 0) {
+                    const groupMetrics = emptyMetrics();
+                    const groupV2Metrics = emptyQuestionStateMetrics();
+                    for (const cq of le.commonQuestionnaires) {
+                        rollupMetrics(groupMetrics, cq.metrics);
+                        rollupQuestionStateMetrics(groupV2Metrics, cq.v2Metrics || emptyQuestionStateMetrics());
+                    }
+
+                    leCommonQs = [{
+                        type: "questionnaire" as const,
+                        id: `common-qs-${le.id}`,
+                        leId: le.id,
+                        name: "Common Questionnaires",
+                        href: `/app/le/${le.id}/relationships`,
+                        metrics: groupMetrics,
+                        v2Metrics: groupV2Metrics,
+                    }];
+                }
 
                 const leEngagements: OrgChild[] = ctx.relationships
                     .filter((r: any) => r.clientLEId === le.id && r.userIsClient)

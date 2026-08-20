@@ -82,32 +82,58 @@ export function ExperimentalMetricSummary({
         return <span className={textClass}>{val}</span>;
     };
 
+    const renderTotalCell = () => {
+        if (isZeroPopulation) {
+            return <span className="text-sm text-slate-300 dark:text-zinc-700">-</span>;
+        }
+
+        const displayContent = (
+            <span className="inline-flex items-baseline justify-end gap-0.5">
+                <span className="text-sm font-bold font-mono text-slate-900 dark:text-slate-100">{total}</span>
+                <span className="text-xs font-mono text-slate-400">/</span>
+                <span className="text-xs font-medium font-mono text-slate-500 dark:text-zinc-400">{questionnairesCount}</span>
+            </span>
+        );
+
+        if (linkContext && linkContext.leId) {
+            const href = buildHref(undefined);
+            return (
+                <Link
+                    href={href}
+                    className="hover:underline focus:outline-none hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                    data-testid="metric-link-total"
+                >
+                    {displayContent}
+                </Link>
+            );
+        }
+
+        return displayContent;
+    };
+
     return (
         <div
             data-testid="experimental-metric-summary"
             className={cn(
-                "grid grid-cols-[65px_70px_85px_70px_70px_70px] gap-2 items-center text-right shrink-0",
+                "grid grid-cols-[80px_80px_80px_75px_85px] gap-2 items-center text-right shrink-0",
                 className
             )}
         >
-            {/* 1. Structural Questionnaires Count */}
-            <div>{renderCell(questionnairesCount, undefined, false, false, true)}</div>
-
-            {/* 2. Total Questions (Anchor metric: bold, separated by border/gap) */}
+            {/* 1. Combined Total Questions / Questionnaires Count (e.g. 54/3) */}
             <div className="pr-3 border-r border-slate-200/80 dark:border-zinc-700/80">
-                {renderCell(total, undefined, true)}
+                {renderTotalCell()}
             </div>
 
-            {/* 3. External Answers */}
+            {/* 2. External Answers */}
             <div>{renderCell(external, "external", false)}</div>
 
-            {/* 4. User Input */}
+            {/* 3. User Input */}
             <div>{renderCell(userInput, "user_input", false)}</div>
 
-            {/* 5. Default Answers */}
+            {/* 4. Default Answers */}
             <div>{renderCell(defaultResponse, "default_response", false, defaultResponse === 0)}</div>
 
-            {/* 6. Unanswered */}
+            {/* 5. Unanswered */}
             <div>{renderCell(unanswered, "unanswered", false, unanswered === 0)}</div>
         </div>
     );

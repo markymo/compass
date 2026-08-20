@@ -10,6 +10,9 @@ import { resolveExportAnswer } from "@/lib/export/export-answer-resolver";
 import { resolveQuestionnaireContext } from "@/lib/kyc/engagement-context";
 import { resolveSystemTimezone } from "@/lib/date-utils";
 
+import { Action, can, UserWithMemberships } from "@/lib/auth/permissions";
+import { isSystemAdmin } from "@/actions/security";
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
     try {
         const resolvedParams = await params;
@@ -20,7 +23,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         }
 
         const identity = await getIdentity();
-        const user = identity?.userId ? await prisma.user.findUnique({ where: { id: identity.userId } }) : null;
+        if (!identity?.userId) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        }
+        const { userId } = identity;
 
         const explicitEngagementId = req.nextUrl.searchParams.get('engagementId') || undefined;
         const submissionId = req.nextUrl.searchParams.get('submissionId') || undefined;
@@ -30,6 +36,41 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             return NextResponse.json({ error: "Questionnaire not found" }, { status: 404 });
         }
         const { questionnaire, engagement, clientLE, subjectLeId, ownerScopeId, clientLeId: entityId } = ctx;
+
+        // Authorize caller against underlying ClientLE / Engagement / Questionnaire
+        const sysAdmin = await isSystemAdmin();
+        let allowed = sysAdmin;
+
+        if (!allowed) {
+            const memberships = await prisma.membership.findMany({
+                where: { userId },
+                select: {
+                    organizationId: true,
+                    clientLEId: true,
+                    fiEngagementId: true,
+                    role: true,
+                    clientLE: { select: { isDeleted: true, status: true } }
+                }
+            });
+            const user: UserWithMemberships = { id: userId, memberships };
+
+            if (entityId) {
+                allowed = await can(user, Action.LE_VIEW_MASTER_DATA, { clientLEId: entityId }, prisma);
+            }
+            if (!allowed && (engagement?.id || explicitEngagementId)) {
+                const targetEngId = engagement?.id || explicitEngagementId;
+                allowed = await can(user, Action.ENG_VIEW_RELEASED_DATA, { engagementId: targetEngId }, prisma);
+            }
+            if (!allowed && questionnaire.fiOrgId) {
+                allowed = await can(user, Action.QUESTIONNAIRE_UPDATE, { partyId: questionnaire.fiOrgId }, prisma);
+            }
+        }
+
+        if (!allowed) {
+            return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+
+        const user = await prisma.user.findUnique({ where: { id: userId } });
 
         const questions = await prisma.question.findMany({
             where: { questionnaireId },

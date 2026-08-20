@@ -8,7 +8,7 @@ import { MasterSchemaDefinition } from "@/types/schema";
 import { Action, can } from "@/lib/auth/permissions";
 import { getMasterFieldDefinition, listAllMasterFields, listAllMasterGroupsWithItems } from "@/services/masterData/definitionService";
 import { getIdentity } from "@/lib/auth";
-import { getUserFIOrg } from "./security";
+import { getUserFIOrg, isSystemAdmin } from "./security";
 import { calculateEngagementMetrics, calculateQuestionnaireMetrics } from "@/lib/metrics-calc";
 import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -549,9 +549,37 @@ export async function createFIEngagement(clientLEId: string, fiName: string) {
  * This is used for the Questionnaire Mapper to show existing values.
  */
 export async function getFullMasterData(clientLEId: string) {
-    // 1. Fetch ClientLE (link to LegalEntity)
-    const clientLE = await prisma.clientLE.findUnique({
-        where: { id: clientLEId },
+    if (!clientLEId) return { success: false, data: {} };
+
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, data: {} };
+    const { userId } = identity;
+
+    const sysAdmin = await isSystemAdmin();
+
+    // 1. Authorization check using central engine
+    const memberships = await prisma.membership.findMany({
+        where: { userId },
+        select: {
+            organizationId: true,
+            clientLEId: true,
+            fiEngagementId: true,
+            role: true,
+            clientLE: { select: { isDeleted: true, status: true } }
+        }
+    });
+
+    const allowed = await can({ id: userId, memberships }, Action.LE_VIEW_MASTER_DATA, { clientLEId }, prisma);
+    if (!allowed && !sysAdmin) {
+        return { success: false, data: {} };
+    }
+
+    // 2. Fetch ClientLE (link to LegalEntity), filtering deleted unless SysAdmin
+    const clientLE = await prisma.clientLE.findFirst({
+        where: {
+            id: clientLEId,
+            ...(sysAdmin ? {} : { isDeleted: false, status: { not: "ARCHIVED" } })
+        },
         include: {
             legalEntity: true,
             registryReferences: {
@@ -562,6 +590,7 @@ export async function getFullMasterData(clientLEId: string) {
     });
 
     if (!clientLE) return { success: false, data: {} };
+
 
     // 2. Resolve Subject and Scope
     const subjectLeId = clientLE.legalEntityId;
@@ -946,7 +975,7 @@ export async function getFullMasterData(clientLEId: string) {
                 });
             }
 
-            customSpan?.setAttribute("customFields.count", rawCustomDefs.length);
+            customSpan?.setAttribute("customFields.count", (rawCustomDefs || []).length);
 
             return { customData: rawCustomData, customDefinitions: rawCustomDefs };
         }

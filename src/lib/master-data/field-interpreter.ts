@@ -192,7 +192,7 @@ function resolveState(
     defaultText?: string
 ): FieldDisplayModel['state'] {
     if (displayState === 'UNMAPPED_NO_RESPONSE' || displayState === 'MAPPED_NOT_CHECKED') return 'UNMAPPED';
-    if (displayState === 'CHECKED_NO_DATA') return 'NO_DATA';
+    if (displayState === 'CHECKED_NO_DATA') return 'CHECKED_NO_DATA';
     if (displayState === 'DEFAULT_RESPONSE') {
         const hasGenuineDefault = typeof defaultText === 'string' && defaultText.trim().length > 0;
         if (hasGenuineDefault) return 'DEFAULT';
