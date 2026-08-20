@@ -1515,80 +1515,242 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                             : null;
 
                                                         return (
-                                                        <div key={row.id} className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 hover:border-slate-300 transition-all">
-                                                            <div className="flex-1 min-w-0">
-                                                                {partyValForExpandable ? (
-                                                                    <ExpandableRowItem
-                                                                        isExpanded={expandedRowId === row.id}
-                                                                        onToggle={() => setExpandedRowId(expandedRowId === row.id ? null : row.id)}
-                                                                        collapsedContent={
-                                                                            <PersonOrContactValueViewer
-                                                                                value={partyValForExpandable}
-                                                                                partyLabel={rowPartyLabel}
-                                                                                layout="row"
-                                                                                displayMask={data?.profileConfig?.displayMask}
-                                                                                claimId={row.id}
-                                                                                isPromotedToCCC={row.isPromotedToCCC}
-                                                                                isPromoting={isPromoting === row.id}
-                                                                                onSaveForReuse={handleSaveForReuse}
-                                                                            />
-                                                                        }
-                                                                        expandedContent={
-                                                                            <PersonOrContactValueViewer
-                                                                                value={partyValForExpandable}
-                                                                                partyLabel={rowPartyLabel}
-                                                                                layout="detailed"
-                                                                                displayMask={data?.profileConfig?.displayMask}
-                                                                                claimId={row.id}
-                                                                                isPromotedToCCC={row.isPromotedToCCC}
-                                                                                isPromoting={isPromoting === row.id}
-                                                                                onSaveForReuse={handleSaveForReuse}
-                                                                            />
-                                                                        }
-                                                                    />
-                                                                ) : addressValForExpandable ? (
-                                                                    <ExpandableRowItem
-                                                                        isExpanded={expandedRowId === row.id}
-                                                                        onToggle={() => setExpandedRowId(expandedRowId === row.id ? null : row.id)}
-                                                                        collapsedContent={
-                                                                            <AddressValueViewer
-                                                                                value={addressValForExpandable}
-                                                                                layout="compact"
-                                                                                claimId={row.id}
-                                                                                isPromotedToCCC={row.isPromotedToCCC}
-                                                                                isPromoting={isPromoting === row.id}
-                                                                                onSaveForReuse={handleSaveForReuse}
-                                                                            />
-                                                                        }
-                                                                        expandedContent={
-                                                                            <AddressValueViewer
-                                                                                value={addressValForExpandable}
-                                                                                layout="detailed"
-                                                                                claimId={row.id}
-                                                                                isPromotedToCCC={row.isPromotedToCCC}
-                                                                                isPromoting={isPromoting === row.id}
-                                                                                onSaveForReuse={handleSaveForReuse}
-                                                                            />
-                                                                        }
-                                                                    />
-                                                                ) : (
-                                                                    <div className="text-sm font-medium text-slate-800 truncate">
-                                                                        {renderRowValue(row.value, row)}
+                                                        <div key={row.id}>
+                                                            {deletingRowId === row.id ? (
+                                                                <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 animate-in fade-in duration-150">
+                                                                    <span className="text-xs text-red-700 font-medium truncate flex-1 flex items-center gap-1">
+                                                                        {isPartyRefValue ? (
+                                                                            <span>Break link to "{row.data?.resolvedSummary || (typeof row.value === 'object' && row.value?.ccPartyId) || 'saved party'}"?</span>
+                                                                        ) : (
+                                                                            <>
+                                                                                Remove "{typeof row.value === 'object' && row.value ? (row.value.label || JSON.stringify(row.value)) : String(row.value)}"?
+                                                                            </>
+                                                                        )}
+                                                                    </span>
+                                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="h-6 px-2 text-[11px] text-red-700 hover:bg-red-100 hover:text-red-800"
+                                                                            onClick={() => handleRemoveEntry(row.id)}
+                                                                            disabled={isSaving}
+                                                                        >
+                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isPartyRefValue ? 'Yes, break link' : 'Yes, remove'}
+                                                                        </Button>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            className="h-6 px-2 text-[11px] text-slate-500 hover:bg-slate-100"
+                                                                            onClick={() => setDeletingRowId(null)}
+                                                                        >
+                                                                            Cancel
+                                                                        </Button>
                                                                     </div>
-                                                                )}
-                                                                <div className="mt-1 flex items-center gap-2">
-                                                                    <FieldSourceBadge 
-                                                                        legacySourceType={row.source || 'UNKNOWN'} 
-                                                                        legacySourceReference={row.sourceReference} 
-                                                                        legacyRaId={registrationAuthorityId} 
-                                                                        legacyRaName={(registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined) || 'Registration Authority'}
-                                                                        variant="span"
-                                                                        className="uppercase tracking-wider"
-                                                                        wrapperClassName="flex items-center gap-1.5"
-                                                                    />
                                                                 </div>
-                                                            </div>
-                                                            {actionButtons}
+                                                            ) : editingRowId === row.id ? (
+                                                                <div className={cn(
+                                                                    "px-3 py-2 rounded-lg bg-indigo-50 border border-indigo-200 animate-in fade-in duration-150 flex items-center gap-1.5"
+                                                                )}>
+                                                                    {isObjectRef ? (
+                                                                        <div className="flex-1">
+                                                                            <GraphNodePicker
+                                                                                clientLEId={clientLEId}
+                                                                                graphNodeType={graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS")}
+                                                                                filterEdgeType={graphBindings.find(b => b.isActive)?.filterEdgeType}
+                                                                                allowCreate={graphBindings.find(b => b.isActive)?.allowCreate ?? true}
+                                                                                pickerLabel={graphBindings.find(b => b.isActive)?.pickerLabel || (isPartyRef ? "Select Party" : "Select Address")}
+                                                                                pickerConfig={graphBindings.find(b => b.isActive)?.pickerConfig ?? null}
+                                                                                isMultiValue={false}
+                                                                                selectedNodeIds={currentSelectionIds}
+                                                                                disabled={isAddingSaving || isLoadingBindings}
+                                                                                className="border-slate-400 bg-white"
+                                                                                onSelect={(item) => handleGraphNodeSelect(item, row.instanceId)}
+                                                                                onCreateNew={() => handleCreateNewNode(graphBindings.find(b => b.isActive)?.graphNodeType || (isPartyRef ? "PERSON" : "ADDRESS"))}
+                                                                            />
+                                                                        </div>
+                                                                    ) : inferredKind === 'ADDRESS_REF' || inferredKind === 'ADDRESS' ? (
+                                                                        <div className="flex-1 min-w-0 bg-slate-50 p-3 rounded border border-slate-200 space-y-3">
+                                                                            {parsedRowValue?.ccAddressId && (
+                                                                                <SharedResourceUsageNotice
+                                                                                    resourceType="ADDRESS"
+                                                                                    resourceId={parsedRowValue.ccAddressId}
+                                                                                    clientLEId={clientLEId}
+                                                                                    currentFieldNo={fieldNo}
+                                                                                />
+                                                                            )}
+                                                                            <AddressValueEditor
+                                                                                value={editingRowValue || {} as any}
+                                                                                onChange={setEditingRowValue}
+                                                                                disabled={isSaving}
+                                                                            />
+                                                                            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200/60 bg-slate-50/50">
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    variant="outline"
+                                                                                    className="h-8 text-xs bg-white text-slate-700 border-slate-200"
+                                                                                    onClick={() => { setEditingRowId(null); setEditingRowValue(""); }}
+                                                                                    disabled={isSaving}
+                                                                                >
+                                                                                    Cancel
+                                                                                </Button>
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    className="h-8 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-medium"
+                                                                                    onClick={() => handleInlineEditSave(row)}
+                                                                                    disabled={isSaving}
+                                                                                >
+                                                                                    {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : null}
+                                                                                    Save
+                                                                                </Button>
+                                                                            </div>
+                                                                        </div>
+                                                                    ) : data?.options && data.options.length > 0 ? (
+                                                                        <Select
+                                                                            value={editingRowValue}
+                                                                            onValueChange={setEditingRowValue}
+                                                                            disabled={isSaving}
+                                                                        >
+                                                                            <SelectTrigger className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400">
+                                                                                <SelectValue placeholder="Select a value..." />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent position="item-aligned">
+                                                                                {data.options.map((opt: any) => {
+                                                                                    const v = typeof opt === 'object' ? opt.value : opt;
+                                                                                    const l = typeof opt === 'object' ? opt.label : opt;
+                                                                                    return <SelectItem key={v} value={v}>{l}</SelectItem>;
+                                                                                })}
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                    ) : isBooleanType ? (
+                                                                        <Select
+                                                                            value={String(editingRowValue)}
+                                                                            onValueChange={(val) => setEditingRowValue(val === 'true')}
+                                                                            disabled={isSaving}
+                                                                        >
+                                                                            <SelectTrigger className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400">
+                                                                                <SelectValue placeholder="Select Yes/No..." />
+                                                                            </SelectTrigger>
+                                                                            <SelectContent>
+                                                                                <SelectItem value="true">Yes</SelectItem>
+                                                                                <SelectItem value="false">No</SelectItem>
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                    ) : (
+                                                                        <Input
+                                                                            type={isDateType ? 'date' : 'text'}
+                                                                            value={isDateType ? formatDateForInput(editingRowValue) : editingRowValue}
+                                                                            onChange={(e) => setEditingRowValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
+                                                                            onKeyDown={(e) => {
+                                                                                if (e.key === 'Enter' && (typeof editingRowValue === 'string' ? editingRowValue.trim() : true)) handleInlineEditSave(row);
+                                                                                if (e.key === 'Escape') { setEditingRowId(null); setEditingRowValue(""); }
+                                                                            }}
+                                                                            className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400"
+                                                                            autoFocus
+                                                                            disabled={isSaving}
+                                                                        />
+                                                                    )}
+
+                                                                    {!isObjectRef && inferredKind !== 'ADDRESS_REF' && inferredKind !== 'ADDRESS' && (
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-7 w-7 text-green-600 hover:bg-green-50 shrink-0"
+                                                                            onClick={() => handleInlineEditSave(row)}
+                                                                            disabled={isSaving || (typeof editingRowValue === 'string' ? !editingRowValue.trim() : false)}
+                                                                            title="Save value"
+                                                                        >
+                                                                            {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                                                                        </Button>
+                                                                    )}
+                                                                    {inferredKind !== 'ADDRESS_REF' && inferredKind !== 'ADDRESS' && (
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="icon"
+                                                                            className="h-7 w-7 text-slate-400 hover:bg-slate-100 shrink-0"
+                                                                            onClick={() => { setEditingRowId(null); setEditingRowValue(""); }}
+                                                                            title="Cancel"
+                                                                        >
+                                                                            <X className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <div className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-slate-50 border border-slate-200/80 hover:border-slate-300 transition-all">
+                                                                    <div className="flex-1 min-w-0">
+                                                                        {partyValForExpandable ? (
+                                                                            <ExpandableRowItem
+                                                                                isExpanded={expandedRowId === row.id}
+                                                                                onToggle={() => setExpandedRowId(expandedRowId === row.id ? null : row.id)}
+                                                                                collapsedContent={
+                                                                                    <PersonOrContactValueViewer
+                                                                                        value={partyValForExpandable}
+                                                                                        partyLabel={rowPartyLabel}
+                                                                                        layout="row"
+                                                                                        displayMask={data?.profileConfig?.displayMask}
+                                                                                        claimId={row.id}
+                                                                                        isPromotedToCCC={row.isPromotedToCCC}
+                                                                                        isPromoting={isPromoting === row.id}
+                                                                                        onSaveForReuse={handleSaveForReuse}
+                                                                                    />
+                                                                                }
+                                                                                expandedContent={
+                                                                                    <PersonOrContactValueViewer
+                                                                                        value={partyValForExpandable}
+                                                                                        partyLabel={rowPartyLabel}
+                                                                                        layout="detailed"
+                                                                                        displayMask={data?.profileConfig?.displayMask}
+                                                                                        claimId={row.id}
+                                                                                        isPromotedToCCC={row.isPromotedToCCC}
+                                                                                        isPromoting={isPromoting === row.id}
+                                                                                        onSaveForReuse={handleSaveForReuse}
+                                                                                    />
+                                                                                }
+                                                                            />
+                                                                        ) : addressValForExpandable ? (
+                                                                            <ExpandableRowItem
+                                                                                isExpanded={expandedRowId === row.id}
+                                                                                onToggle={() => setExpandedRowId(expandedRowId === row.id ? null : row.id)}
+                                                                                collapsedContent={
+                                                                                    <AddressValueViewer
+                                                                                        value={addressValForExpandable}
+                                                                                        layout="compact"
+                                                                                        claimId={row.id}
+                                                                                        isPromotedToCCC={row.isPromotedToCCC}
+                                                                                        isPromoting={isPromoting === row.id}
+                                                                                        onSaveForReuse={handleSaveForReuse}
+                                                                                    />
+                                                                                }
+                                                                                expandedContent={
+                                                                                    <AddressValueViewer
+                                                                                        value={addressValForExpandable}
+                                                                                        layout="detailed"
+                                                                                        claimId={row.id}
+                                                                                        isPromotedToCCC={row.isPromotedToCCC}
+                                                                                        isPromoting={isPromoting === row.id}
+                                                                                        onSaveForReuse={handleSaveForReuse}
+                                                                                    />
+                                                                                }
+                                                                            />
+                                                                        ) : (
+                                                                            <div className="text-sm font-medium text-slate-800 truncate">
+                                                                                {renderRowValue(row.value, row)}
+                                                                            </div>
+                                                                        )}
+                                                                        <div className="mt-1 flex items-center gap-2">
+                                                                            <FieldSourceBadge 
+                                                                                legacySourceType={row.source || 'UNKNOWN'} 
+                                                                                legacySourceReference={row.sourceReference} 
+                                                                                legacyRaId={registrationAuthorityId} 
+                                                                                legacyRaName={(registrationAuthorityId ? raNameMap[registrationAuthorityId] : undefined) || 'Registration Authority'}
+                                                                                variant="span"
+                                                                                className="uppercase tracking-wider"
+                                                                                wrapperClassName="flex items-center gap-1.5"
+                                                                            />
+                                                                        </div>
+                                                                    </div>
+                                                                    {actionButtons}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         );
                                                     })}
