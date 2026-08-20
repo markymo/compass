@@ -58,6 +58,11 @@ export class LegalEntityEnrichmentService {
         // 2. Persist Evidence from GLEIF and Apply Candidates
         const candidateWarnings: string[] = [];
         try {
+            const traceId = `trace_${Date.now()}`;
+            const ultP = JSON.stringify(gleifData?.gleifL2?.ultimateParent);
+            const dirP = JSON.stringify(gleifData?.gleifL2?.directParent);
+            console.log(`[GLEIF-L2-TRACE] [B.RawL2] traceId=${traceId} leId=${legalEntityId} ultimateParent=${(ultP || 'undefined').slice(0, 200)} directParent=${(dirP || 'undefined').slice(0, 200)}`);
+
             const evidenceId = await evidenceService.normalizeEvidence(
                 gleifData,
                 'GLEIF',
@@ -67,6 +72,10 @@ export class LegalEntityEnrichmentService {
 
             const gleifCandidates = await mapGleifPayloadToFieldCandidates(gleifData, evidenceId);
             for (const candidate of gleifCandidates) {
+                if (candidate.fieldNo === 40 || candidate.fieldNo === 38) {
+                    const cVal = JSON.stringify(candidate.value);
+                    console.log(`[GLEIF-L2-TRACE] [F.WriteEntry] traceId=${traceId} fieldNo=${candidate.fieldNo} source=${candidate.source} candidateValue=${(cVal || 'undefined').slice(0, 250)}`);
+                }
                 try {
                     await kycWriteService.applyFieldCandidate(legalEntityId, candidate, undefined, 'CLIENT_LE');
                 } catch (e: any) {

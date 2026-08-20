@@ -4,6 +4,7 @@ import { isPartyValue, getPartySummary } from './party-value';
 import { isAddressValue, getAddressSummary } from './address-value';
 import { formatStructuredCollectionRow } from './structured-value-formatters';
 import { FIELD_DEFINITIONS } from '@/domain/kyc/FieldDefinitions';
+import { applyTransform } from '@/services/kyc/normalization/transforms';
 
 export interface FieldInterpreterMetadata {
     fieldNo: number;
@@ -344,9 +345,19 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
         // Attempt canonical Party normalisation for embedded values
         let isParty = false;
         if (appDataType === 'PARTY') {
-            if (typeof val === 'object' && val !== null) isPartyValue(val); // run for normalisation mutations
+            if (typeof val === 'object' && val !== null) {
+                if (!isPartyValue(val) && (val.legalName || val.organisationName || val.name || val.lei || val.registeredAs)) {
+                    const transformed = applyTransform(val, 'TO_PARTY_ORGANISATION');
+                    if (transformed.value) val = transformed.value;
+                }
+                isPartyValue(val); // run for normalisation mutations
+            }
             isParty = true;
-        } else if (val && typeof val === 'object' && (isPartyValue(val) || ('contactType' in val) || ('forenames' in val) || ('firstName' in val))) {
+        } else if (val && typeof val === 'object' && (isPartyValue(val) || ('contactType' in val) || ('forenames' in val) || ('firstName' in val) || ('legalName' in val))) {
+            if (!isPartyValue(val) && (val.legalName || val.organisationName || val.lei || val.registeredAs)) {
+                const transformed = applyTransform(val, 'TO_PARTY_ORGANISATION');
+                if (transformed.value) val = transformed.value;
+            }
             isParty = true;
         }
 

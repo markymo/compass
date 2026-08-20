@@ -1026,7 +1026,7 @@ export function applyTransform(
                 return { value: null, confidencePenalty: 1 };
             }
 
-            const legalName = value.legalName || value.name || value.organisationName || '';
+            const legalName = value.legalName || value.name || value.organisationName || value.displayName || '';
             if (!legalName || String(legalName).trim() === '') {
                 return { value: null, confidencePenalty: 1 };
             }
@@ -1039,10 +1039,16 @@ export function applyTransform(
                 sourceIdentifiers.push({ scheme: 'LEI', value: String(lei).trim() });
             }
 
-            const orgPartyData: OrganisationPartyData = {
+            const cleanLegalName = String(legalName).trim();
+            const activeStatus = value.entityStatus ? value.entityStatus === 'ACTIVE' : null;
+
+            const orgPartyData: OrganisationPartyData & Record<string, any> = {
                 schemaVersion: 2,
                 partyType: 'ORGANISATION',
-                legalName: String(legalName).trim(),
+                contactType: 'CONTACT',
+                legalName: cleanLegalName,
+                organisationName: cleanLegalName,
+                displayName: cleanLegalName,
                 incorporatedIn: value.jurisdiction || value.incorporatedIn || null,
                 registrationNumber: value.registeredAs || value.registrationNumber || null,
                 legalForm: value.legalFormId || value.legalForm || null,
@@ -1053,7 +1059,9 @@ export function applyTransform(
                 roles: [],
                 sourceIdentifiers,
                 registeredAddressRef: null,
-                isActiveParty: value.entityStatus ? value.entityStatus === 'ACTIVE' : null
+                isActiveParty: activeStatus,
+                isActivePersonOrContact: activeStatus,
+                visibility: { scope: 'CLIENT_LE' }
             };
 
             return { value: orgPartyData, confidencePenalty: 0 };
