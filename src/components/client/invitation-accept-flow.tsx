@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { acceptInvitation } from "@/actions/accept-invitation";
-import { registerUser } from "@/actions/auth-register";
+import { acceptInvitation, registerAndAcceptInvitation } from "@/actions/accept-invitation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -56,13 +55,12 @@ export function InvitationAcceptFlow({ token, sentToEmail, isLoggedIn, userEmail
         setActionError(null);
         
         try {
-            // 1. Create account (Derive name from email prefix)
-            const derivedName = sentToEmail.split('@')[0].split('.').map(n => n.charAt(0).toUpperCase() + n.slice(1)).join(' ');
-            const regResult = await registerUser({
-                name: derivedName,
-                email: sentToEmail,
+            // 1. Create account & accept invitation atomically in single server action
+            const derivedName = name.trim() || sentToEmail.split('@')[0].split('.').map(n => n.charAt(0).toUpperCase() + n.slice(1)).join(' ');
+            const regResult = await registerAndAcceptInvitation({
+                token,
                 password,
-                token
+                name: derivedName,
             });
 
             if (!regResult.success) {
@@ -79,16 +77,15 @@ export function InvitationAcceptFlow({ token, sentToEmail, isLoggedIn, userEmail
             });
 
             if (signInResult?.error) {
-                setActionError("Account created, but automatic login failed. Please sign in.");
+                setActionError("Account created and invitation accepted, but automatic login failed. Please sign in.");
                 setIsLoading(false);
                 return;
             }
 
-            // 3. Hard-redirect back to this invite page with ?autoAccept=1
-            // We cannot call acceptInvitation() directly here because the new session
-            // cookie isn't available to Server Actions until the next full request.
-            // The page will re-render server-side with the live session and auto-accept.
-            window.location.href = `/invite/${token}?autoAccept=1`;
+            toast.success("Account created and invitation accepted!");
+
+            // 3. Direct hard-redirect to target dashboard URL (no ?autoAccept=1 loop)
+            window.location.href = regResult.redirectUrl || "/app";
 
         } catch (e) {
             setActionError("An unexpected error occurred during setup.");

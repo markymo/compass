@@ -1,10 +1,35 @@
 
 "use client";
 
-import { useSession } from "next-auth/react";
+import React from "react";
+import { useSession, signOut } from "next-auth/react";
 import { X, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { signOut } from "next-auth/react";
+
+class DemoBannerErrorBoundary extends React.Component<
+    { children: React.ReactNode },
+    { hasError: boolean }
+> {
+    constructor(props: { children: React.ReactNode }) {
+        super(props);
+        this.state = { hasError: false };
+    }
+
+    static getDerivedStateFromError() {
+        return { hasError: true };
+    }
+
+    componentDidCatch(error: any) {
+        console.warn("[DemoBanner] Suppressed SessionProvider error:", error?.message);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return null;
+        }
+        return this.props.children;
+    }
+}
 
 function DemoBannerContent() {
     const { data: session } = useSession();
@@ -54,5 +79,9 @@ function DemoBannerContent() {
 }
 
 export function DemoBanner() {
-    return <DemoBannerContent />;
+    return (
+        <DemoBannerErrorBoundary>
+            <DemoBannerContent />
+        </DemoBannerErrorBoundary>
+    );
 }
