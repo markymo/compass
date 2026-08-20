@@ -23,7 +23,7 @@ import { checkCustomFieldDependencies, softDeleteCustomField, DependencyReport }
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useRouter } from "next/navigation";
 // FIELD_DEFINITIONS removed
-import { updateFieldManually, applyCandidate, updateCustomFieldManually, addMultiValueEntry, removeMultiValueEntry, applyBulkOverride, promoteClaim, releaseFieldDefault, releaseFieldAbsence, restoreSourceValue } from "@/actions/kyc-manual-update";
+import { updateFieldManually, applyCandidate, updateCustomFieldManually, addMultiValueEntry, removeMultiValueEntry, clearSingleValueEntry, applyBulkOverride, promoteClaim, releaseFieldDefault, releaseFieldAbsence, restoreSourceValue } from "@/actions/kyc-manual-update";
 import { promoteClaimToCCParty } from "@/actions/cc-party-actions";
 import { saveAddressForReuse } from "@/actions/cc-address-actions";
 import { setMasterFieldAssignment, setMasterFieldAssignmentStatus } from "@/actions/standing-data";
@@ -762,6 +762,30 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
         } finally {
             setIsSaving(false);
             setDeletingRowId(null);
+            setIsClearingSingleValue(false);
+        }
+    };
+
+    const handleClearSingleValue = async () => {
+        setIsSaving(true);
+        try {
+            const res = await clearSingleValueEntry(clientLEId, fieldNo);
+            if (res.success) {
+                toast.success("Value cleared");
+                setIsClearingSingleValue(false);
+                const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                setData(refreshed);
+                if (onUpdate && refreshed?.current) {
+                    onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                }
+            } else {
+                toast.error(res.message || "Failed to clear value");
+            }
+        } catch (e) {
+            toast.error("An error occurred");
+        } finally {
+            setIsSaving(false);
+            setIsClearingSingleValue(false);
         }
     };
 
@@ -2091,7 +2115,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         variant="ghost"
                                                                         size="sm"
                                                                         className="h-6 px-2 text-[11px] text-red-700 hover:bg-red-100 hover:text-red-800"
-                                                                        onClick={() => handleRemoveEntry('current')}
+                                                                        onClick={() => handleClearSingleValue()}
                                                                         disabled={isSaving}
                                                                     >
                                                                         {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isCuratedPartyRef ? 'Yes, break link' : 'Yes, clear'}

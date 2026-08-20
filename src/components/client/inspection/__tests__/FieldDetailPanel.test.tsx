@@ -14,6 +14,7 @@ vi.mock('@/actions/kyc-query', () => ({
 vi.mock('@/actions/kyc-manual-update', () => ({
     updateFieldManually: vi.fn().mockResolvedValue({ success: true }),
     removeMultiValueEntry: vi.fn().mockResolvedValue({ success: true }),
+    clearSingleValueEntry: vi.fn().mockResolvedValue({ success: true }),
     addCodeListEntry: vi.fn().mockResolvedValue({ success: true }),
 }));
 
@@ -277,6 +278,15 @@ describe('FieldDetailPanel - Generic Multi-Value Branch (Field 235 & Generic Rep
                     current: { value: ['C Manufacturing', 'J Information and Communication'], source: 'USER_INPUT', timestamp: new Date('2026-08-02') },
                 } as any;
             }
+            if (fieldNo === 78) {
+                return {
+                    fieldNo: 78,
+                    fieldName: 'Primary business activity',
+                    dataType: 'TEXT',
+                    isRepeating: false,
+                    current: { value: 'Test business activity', source: 'USER_INPUT', timestamp: new Date('2026-08-20') },
+                } as any;
+            }
             if (fieldNo === 300) {
                 return {
                     fieldNo: 300,
@@ -294,6 +304,42 @@ describe('FieldDetailPanel - Generic Multi-Value Branch (Field 235 & Generic Rep
                 fieldNo: fieldNo || 123,
                 current: { value: 'Test Value', source: 'TEST' },
             } as any;
+        });
+    });
+
+    it('clears single-value scalar field F78 when Yes, clear is confirmed via clearSingleValueEntry', async () => {
+        const kycManual = await import('@/actions/kyc-manual-update');
+        vi.mocked(kycManual.clearSingleValueEntry).mockResolvedValue({ success: true });
+        const { fireEvent } = await import('@testing-library/react');
+
+        render(
+            <FieldDetailPanel 
+                open={true} 
+                onOpenChange={() => {}} 
+                clientLEId="le-123" 
+                fieldNo={78} 
+                fieldName="Primary business activity" 
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Test business activity')).toBeTruthy();
+        });
+
+        const trashBtn = screen.getByTitle('Clear value');
+        fireEvent.click(trashBtn);
+
+        expect(screen.getByText('Clear this value?')).toBeTruthy();
+
+        const confirmBtn = screen.getByText('Yes, clear');
+        fireEvent.click(confirmBtn);
+
+        await waitFor(() => {
+            expect(kycManual.clearSingleValueEntry).toHaveBeenCalledWith(
+                'le-123',
+                78
+            );
+            expect(kycManual.removeMultiValueEntry).not.toHaveBeenCalled();
         });
     });
 
