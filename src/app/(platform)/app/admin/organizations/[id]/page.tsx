@@ -751,6 +751,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                             <TableHead>Jurisdiction</TableHead>
                                             <TableHead>LEI</TableHead>
                                             <TableHead>Status</TableHead>
+                                            <TableHead>isDeleted</TableHead>
                                             <TableHead className="text-right">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -770,6 +771,11 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                                     <TableCell>
                                                         <Badge variant={le.status === "ACTIVE" ? "default" : "secondary"}>{le.status}</Badge>
                                                     </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant={le.isDeleted ? "destructive" : "outline"}>
+                                                            {le.isDeleted ? "true" : "false"}
+                                                        </Badge>
+                                                    </TableCell>
                                                     <TableCell className="text-right">
                                                         <Link href={`/app/le/${le.id}`}>
                                                             <Button variant="outline" size="sm">Manage LE</Button>
@@ -780,7 +786,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                         })}
                                         {(!org.ownedLEs || org.ownedLEs.length === 0) && (
                                             <TableRow>
-                                                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                                                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                                                     No Legal Entities found. Create one to get started.
                                                 </TableCell>
                                             </TableRow>

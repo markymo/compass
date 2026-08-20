@@ -13,13 +13,24 @@ import * as kycQuery from '../kyc-query';
 import * as definitionService from '@/services/masterData/definitionService';
 import * as sourceLabelServer from '@/lib/kyc/source-label.server';
 
-vi.mock('@/lib/prisma', () => ({
-    default: {
-        clientLE: { findUnique: vi.fn() },
+vi.mock('@/lib/prisma', () => {
+    const clientLEMock = {
+        findUnique: vi.fn(),
+        findFirst: vi.fn((args?: any) => clientLEMock.findUnique(args)),
+    };
+    return {
+        default: {
+            clientLE: clientLEMock,
+        membership: {
+            findMany: vi.fn().mockResolvedValue([
+                { userId: 'user-1', clientLEId: 'cle_1', role: 'LE_USER', clientLE: { isDeleted: false, status: 'ACTIVE' } },
+                { userId: 'user-1', clientLEId: 'cle_unmapped', role: 'LE_USER', clientLE: { isDeleted: false, status: 'ACTIVE' } }
+            ])
+        },
         fieldClaim: { findMany: vi.fn().mockResolvedValue([]), findFirst: vi.fn().mockResolvedValue(null), findUnique: vi.fn().mockResolvedValue(null) },
         sourceFieldMapping: { findMany: vi.fn().mockResolvedValue([]) },
         customFieldDefinition: { findMany: vi.fn().mockResolvedValue([]) },
-        clientLEOwner: { findFirst: vi.fn().mockResolvedValue(null) },
+        clientLEOwner: { findFirst: vi.fn().mockResolvedValue(null), findMany: vi.fn().mockResolvedValue([]) },
         masterFieldDefinition: { findUnique: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
         masterFieldGroup: { findUnique: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
         masterFieldAssignment: { findUnique: vi.fn().mockResolvedValue(null) },
@@ -30,6 +41,16 @@ vi.mock('@/lib/prisma', () => ({
         masterFieldGraphBinding: { findMany: vi.fn().mockResolvedValue([]) },
         $queryRaw: vi.fn().mockResolvedValue([])
     }
+};
+});
+
+vi.mock('@/lib/auth', () => ({
+    getIdentity: vi.fn().mockResolvedValue({ userId: 'user-1' })
+}));
+
+vi.mock('@/actions/security', () => ({
+    getUserFIOrg: vi.fn().mockResolvedValue(null),
+    isSystemAdmin: vi.fn().mockResolvedValue(false)
 }));
 
 vi.mock('@/lib/kyc/source-label.server', () => ({ fetchRaNameLookup: vi.fn() }));
@@ -122,7 +143,7 @@ describe('CHECKED_NO_DATA Provenance Integration & Regression Suite', () => {
             expect(result.questions).toHaveLength(1);
             const q = result.questions[0] as any;
             expect(q.canonicalDisplayModel).toBeDefined();
-            expect(q.canonicalDisplayModel.state).toBe('NO_DATA');
+            expect(q.canonicalDisplayModel.state).toBe('CHECKED_NO_DATA');
             expect(q.canonicalDisplayModel.source).toBeDefined();
             expect(q.canonicalDisplayModel.source?.type).toBe('GLEIF');
             expect(q.canonicalDisplayModel.source?.label).toBe('GLEIF');

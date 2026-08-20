@@ -171,6 +171,20 @@ describe("Experimental Homepage V2 Tweaks and Metric Parity", () => {
             expect(dest.unanswered).toBe(4);
             expect(dest.total).toBe(dest.external + dest.userInput + dest.defaultResponse + dest.unanswered);
         });
+
+        it("9. Default answer is classified as DEFAULT_RESPONSE when un-overwritten, but becomes USER_INPUT / EXTERNAL when overwritten", () => {
+            // Un-overwritten default
+            const defaultCat = classifyQuestionAnswerState(true, "DEFAULT_RESPONSE", false, null, "DEFAULT_RESPONSE");
+            expect(defaultCat).toBe("DEFAULT_RESPONSE");
+
+            // Overwritten by User Input
+            const userInputOverrideCat = classifyQuestionAnswerState(true, "USER_INPUT", true, null, null);
+            expect(userInputOverrideCat).toBe("USER_INPUT");
+
+            // Overwritten by External Source
+            const externalOverrideCat = classifyQuestionAnswerState(true, "COMPANIES_HOUSE", false, "COMPANIES_HOUSE", null);
+            expect(externalOverrideCat).toBe("EXTERNAL");
+        });
     });
 
     describe("ExperimentalMetricSummary Presentation & Zero Blanking", () => {
@@ -192,7 +206,7 @@ describe("Experimental Homepage V2 Tweaks and Metric Parity", () => {
             render(<ExperimentalMetricSummary metrics={emptyQuestionStateMetrics()} />);
 
             const dashes = screen.getAllByText("-");
-            expect(dashes.length).toBe(6);
+            expect(dashes.length).toBe(5);
         });
 
         it("does NOT render progress bars or percentages", () => {
@@ -208,15 +222,55 @@ describe("Experimental Homepage V2 Tweaks and Metric Parity", () => {
         it("renders section column headers ONCE per organization section", () => {
             render(<ExperimentalDashboardContent contexts={mockContexts} />);
 
-            expect(screen.getByText("Questionnaires")).toBeDefined();
-            expect(screen.getByText("Total Questions")).toBeDefined();
-            expect(screen.getByText("External Answers")).toBeDefined();
+            expect(screen.getByText("Answers")).toBeDefined();
+            expect(screen.getByText("Total")).toBeDefined();
+            expect(screen.getByText("External")).toBeDefined();
             expect(screen.getByText("User Input")).toBeDefined();
-            expect(screen.getByText("Default Answers")).toBeDefined();
+            expect(screen.getByText("Default")).toBeDefined();
             expect(screen.getByText("Unanswered")).toBeDefined();
 
             expect(screen.getAllByText("147").length).toBeGreaterThanOrEqual(1);
             expect(screen.getAllByText("83").length).toBeGreaterThanOrEqual(1);
+        });
+
+        it("groups multiple common questionnaires under the single label 'Common Questionnaires' without displaying individual questionnaire names", () => {
+            const multiCQContexts: DashboardContexts = {
+                clients: [{ id: "c1", name: "ZZOOMM GROUP", role: "ORG_ADMIN", source: "DIRECT", metrics: { total: 23, noData: 16, mapped: 7, answered: 7, approved: 0, released: 0 } }],
+                financialInstitutions: [],
+                lawFirms: [],
+                legalEntities: [{
+                    id: "le-1",
+                    name: "ZZOOMM PLC",
+                    clientName: "ZZOOMM GROUP",
+                    role: "ADMIN_VISIBILITY",
+                    metrics: { total: 23, noData: 16, mapped: 7, answered: 7, approved: 0, released: 0 },
+                    commonQuestionnaires: [
+                        {
+                            id: "cq-1",
+                            name: "OTC OPERATIONS",
+                            status: "ACTIVE",
+                            updatedAt: new Date(),
+                            metrics: { total: 9, noData: 6, mapped: 3, answered: 3, approved: 0, released: 0 },
+                            v2Metrics: { questionnairesCount: 1, total: 9, external: 2, userInput: 0, defaultResponse: 1, unanswered: 6 },
+                        },
+                        {
+                            id: "cq-2",
+                            name: "CRS-E Feb 16",
+                            status: "ACTIVE",
+                            updatedAt: new Date(),
+                            metrics: { total: 14, noData: 10, mapped: 4, answered: 4, approved: 0, released: 0 },
+                            v2Metrics: { questionnairesCount: 1, total: 14, external: 4, userInput: 0, defaultResponse: 0, unanswered: 10 },
+                        },
+                    ],
+                }],
+                relationships: [],
+            };
+
+            render(<ExperimentalDashboardContent contexts={multiCQContexts} />);
+
+            expect(screen.getByText("Common Questionnaires")).toBeDefined();
+            expect(screen.queryByText("OTC OPERATIONS")).toBeNull();
+            expect(screen.queryByText("CRS-E Feb 16")).toBeNull();
         });
     });
 

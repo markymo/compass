@@ -26,13 +26,19 @@ async function ensureAuthorization(action: Action, context: { partyId?: string, 
     if (!identity?.userId) throw new Error("Unauthorized: No User");
     const { userId } = identity;
 
-    // Fetch User with Memberships (reusing simple fetch for now, similar to ensureUserOrg but raw)
+    // Fetch User with Memberships (including clientLE deletion status)
     const memberships = await prisma.membership.findMany({
         where: { userId },
         select: {
             organizationId: true,
             clientLEId: true,
-            role: true
+            role: true,
+            clientLE: {
+                select: {
+                    isDeleted: true,
+                    status: true,
+                }
+            }
         }
     });
 
@@ -914,10 +920,10 @@ export async function restoreClientLECore(clientLEId: string) {
             }
         }
 
-        // 1. Un-delete the LE while preserving its operational status (ACTIVE, SUSPENDED, or ARCHIVED)
+        // 1. Un-delete the LE while restoring operational status to ACTIVE
         const updatedLE = await tx.clientLE.update({
             where: { id: clientLEId },
-            data: { isDeleted: false }
+            data: { isDeleted: false, status: "ACTIVE" }
         });
 
         // 2. Un-delete Engagements & Questionnaires for this LE
@@ -986,10 +992,10 @@ export async function deleteClientLE(leId: string) {
             data: { isDeleted: true }
         });
 
-        // 4. Soft Delete the LE itself
+        // 4. Soft Delete the LE itself and set status to ARCHIVED
         await prisma.clientLE.update({
             where: { id: leId },
-            data: { isDeleted: true }
+            data: { isDeleted: true, status: "ARCHIVED" }
         });
 
         revalidatePath("/app");
@@ -1186,11 +1192,13 @@ export async function getClientDashboardData(clientId: string) {
             }));
 
         } else {
-            // CASE B: No Direct Membership -> Check for LE-scoped access
+            // CASE B: No Direct Membership -> Check for LE-scoped access (active LEs only)
             const leMemberships = await prisma.membership.findMany({
                 where: {
                     userId,
                     clientLE: {
+                        isDeleted: false,
+                        status: { not: "ARCHIVED" },
                         owners: {
                             some: {
                                 partyId: clientId,
@@ -1287,6 +1295,13 @@ export async function getCurrentUserLERole(leId: string): Promise<string | null>
     const isSysAdmin = await checkIsSystemAdmin(userId);
     if (isSysAdmin) return "SYSTEM_ADMIN";
 
+    // Soft-deleted ClientLE check: non-SysAdmins gain no roles on deleted ClientLEs
+    const le = await prisma.clientLE.findUnique({
+        where: { id: leId },
+        select: { isDeleted: true }
+    });
+    if (!le || le.isDeleted) return null;
+
     // 2. Direct LE membership (LE_ADMIN or LE_USER)
     const leMembership = await prisma.membership.findFirst({
         where: { userId, clientLEId: leId, role: { in: ["LE_ADMIN", "LE_USER"] } },
@@ -1310,6 +1325,7 @@ export async function getCurrentUserLERole(leId: string): Promise<string | null>
 
     return null;
 }
+
 
 // 12b. Get LE Users
 export interface LEUser {

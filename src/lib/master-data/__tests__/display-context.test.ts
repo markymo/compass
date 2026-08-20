@@ -38,7 +38,7 @@ describe('Master Field Display Context', () => {
             expect(model.displayContext).toBe('Direct parent with more than 50% ownership');
         });
 
-        it('does NOT expose displayContext when state is NO_DATA, UNMAPPED, DEFAULT, or EXPLICIT_NONE', () => {
+        it('does NOT expose displayContext when state is CHECKED_NO_DATA, UNMAPPED, DEFAULT, or EXPLICIT_NONE', () => {
             const noDataModel = resolveFieldForDisplay(
                 null,
                 null,
@@ -49,7 +49,7 @@ describe('Master Field Display Context', () => {
                     displayContext: 'Direct parent with more than 50% ownership'
                 }
             );
-            expect(noDataModel.state).toBe('NO_DATA');
+            expect(noDataModel.state).toBe('CHECKED_NO_DATA');
             expect(noDataModel.displayContext).toBeUndefined();
 
             const unmappedModel = resolveFieldForDisplay(

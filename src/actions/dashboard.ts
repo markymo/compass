@@ -156,7 +156,7 @@ export async function getUserContexts(): Promise<DashboardContexts> {
         }
 
         // B. Direct Worksheet (LE) Memberships
-        if (m.clientLE) {
+        if (m.clientLE && !m.clientLE.isDeleted && m.clientLE.status !== "ARCHIVED") {
             const le = m.clientLE;
             const ownerName = le.owners[0]?.party.name || "Unknown Client";
 
@@ -181,6 +181,7 @@ export async function getUserContexts(): Promise<DashboardContexts> {
             });
         }
     }
+
 
     context.clients = Array.from(clientMap.values());
     context.financialInstitutions = Array.from(fiMap.values());

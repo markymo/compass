@@ -141,7 +141,7 @@ describe('Canonical Source-Applicability & Evaluation Fix Matrix', () => {
     // ─────────────────────────────────────────────────────────────────────────
     // Scenario 4: UK Companies House LE + successful refresh + field missing
     // ─────────────────────────────────────────────────────────────────────────
-    it('4. UK Companies House LE + successful refresh (lastSyncSucceededAt set) + field missing -> CHECKED_NO_DATA / NO_DATA (None)', () => {
+    it('4. UK Companies House LE + successful refresh (lastSyncSucceededAt set) + field missing -> CHECKED_NO_DATA / CHECKED_NO_DATA (None)', () => {
         const syncDate = new Date('2026-08-17T10:00:00Z');
         const ukClientLE = {
             lei: null,
@@ -180,7 +180,8 @@ describe('Canonical Source-Applicability & Evaluation Fix Matrix', () => {
             displayState
         });
 
-        expect(model.state).toBe('NO_DATA');
+        expect(model.state).toBe('CHECKED_NO_DATA');
+        expect(model.value).toEqual({ kind: 'empty' });
     });
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -332,7 +333,7 @@ describe('Canonical Source-Applicability & Evaluation Fix Matrix', () => {
     // ─────────────────────────────────────────────────────────────────────────
     // Scenario 10: GLEIF valid LEI, successfully fetched, field absent
     // ─────────────────────────────────────────────────────────────────────────
-    it('10. GLEIF valid LEI, successfully fetched, field absent -> CHECKED_NO_DATA / NO_DATA', () => {
+    it('10. GLEIF valid LEI, successfully fetched, field absent -> CHECKED_NO_DATA / CHECKED_NO_DATA', () => {
         const fetchDate = new Date('2026-08-10T00:00:00Z');
         const gleifLE = {
             lei: '5493001KJTIIGC8Y1R12',
@@ -357,7 +358,8 @@ describe('Canonical Source-Applicability & Evaluation Fix Matrix', () => {
 
         expect(displayState).toBe('CHECKED_NO_DATA');
         const model = resolveFieldForDisplay(null, null, { fieldNo: 1, label: 'LEI', displayState });
-        expect(model.state).toBe('NO_DATA');
+        expect(model.state).toBe('CHECKED_NO_DATA');
+        expect(model.value).toEqual({ kind: 'empty' });
     });
 
     // ─────────────────────────────────────────────────────────────────────────

@@ -4,35 +4,50 @@ import prisma from '@/lib/prisma';
 import { KycStateService } from '@/lib/kyc/KycStateService';
 import * as defService from '@/services/masterData/definitionService';
 
-vi.mock('@/lib/prisma', () => ({
-    default: {
-        clientLE: { 
-            findUnique: vi.fn().mockResolvedValue({ 
-                id: 'cle_1', 
-                legalEntityId: 'le_1', 
-                gleifFetchedAt: new Date('2026-07-04T00:00:00Z'),
-                registryReferences: [
-                    {
-                        lastSyncSucceededAt: new Date('2026-07-06T00:00:00Z'),
-                        authority: { id: 'auth-1', registryKey: 'COMPANIES_HOUSE', name: 'Companies House' }
-                    }
-                ]
-            }) 
-        },
-        clientLEOwner: { findFirst: vi.fn().mockResolvedValue({ partyId: 'org-1' }) },
-        customFieldDefinition: { findMany: vi.fn().mockResolvedValue([]) },
-        sourceFieldMapping: { findMany: vi.fn().mockResolvedValue([{ targetFieldNo: 3, sourceType: 'COMPANIES_HOUSE', sourceReference: 'COMPANIES_HOUSE', priority: 1 }]) },
-        cCParty: { findMany: vi.fn().mockResolvedValue([{ id: 'p-123', data: { contactType: 'PERSON', forenames: 'Manual', surname: 'Party' } }]) },
-        $queryRaw: vi.fn().mockResolvedValue([]),
-    }
-}));
+vi.mock('@/lib/prisma', () => {
+    const mockClientLE = { 
+        id: 'cle_1', 
+        legalEntityId: 'le_1', 
+        isDeleted: false,
+        status: 'ACTIVE',
+        gleifFetchedAt: new Date('2026-07-04T00:00:00Z'),
+        registryReferences: [
+            {
+                lastSyncSucceededAt: new Date('2026-07-06T00:00:00Z'),
+                authority: { id: 'auth-1', registryKey: 'COMPANIES_HOUSE', name: 'Companies House' }
+            }
+        ]
+    };
+    return {
+        default: {
+            clientLE: { 
+                findUnique: vi.fn().mockResolvedValue(mockClientLE),
+                findFirst: vi.fn().mockResolvedValue(mockClientLE),
+            },
+            membership: {
+                findMany: vi.fn().mockResolvedValue([
+                    { userId: 'user-1', clientLEId: 'cle_1', role: 'LE_USER', clientLE: { isDeleted: false, status: 'ACTIVE' } }
+                ])
+            },
+            clientLEOwner: { 
+                findFirst: vi.fn().mockResolvedValue({ partyId: 'org-1' }),
+                findMany: vi.fn().mockResolvedValue([]) 
+            },
+            customFieldDefinition: { findMany: vi.fn().mockResolvedValue([]) },
+            sourceFieldMapping: { findMany: vi.fn().mockResolvedValue([{ targetFieldNo: 3, sourceType: 'COMPANIES_HOUSE', sourceReference: 'COMPANIES_HOUSE', priority: 1 }]) },
+            cCParty: { findMany: vi.fn().mockResolvedValue([{ id: 'p-123', data: { contactType: 'PERSON', forenames: 'Manual', surname: 'Party' } }]) },
+            $queryRaw: vi.fn().mockResolvedValue([]),
+        }
+    };
+});
 
 vi.mock('@/lib/auth', () => ({
     getIdentity: vi.fn().mockResolvedValue({ userId: 'user-1' })
 }));
 
 vi.mock('@/actions/security', () => ({
-    getUserFIOrg: vi.fn().mockResolvedValue(null)
+    getUserFIOrg: vi.fn().mockResolvedValue(null),
+    isSystemAdmin: vi.fn().mockResolvedValue(false),
 }));
 
 vi.mock('@/lib/kyc/KycStateService', async (importOriginal) => {

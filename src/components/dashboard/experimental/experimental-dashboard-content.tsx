@@ -7,10 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
     Building2, Landmark, Gavel, ChevronDown, ChevronRight,
-    FileText, FileCheck, Briefcase, Factory, Loader2
+    FileText, FileCheck, Briefcase, Factory, Loader2, HelpCircle
 } from "lucide-react";
-import Link from "next/link";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import Link from "next/link";
+import { StandardTooltip } from "@/components/ui/standard-tooltip";
 import { cn } from "@/lib/utils";
 import { usePreferences } from "@/components/providers/user-preferences-provider";
 import { OrgType, OrgChild, OrgNode, reshapeContexts } from "../dashboard-tree";
@@ -141,16 +142,28 @@ function ExperimentalOrgCard({ org }: { org: OrgNode }) {
                         </Badge>
                     </div>
 
-                    {/* Section Metric Column Titles */}
-                    <div className="grid grid-cols-[65px_70px_85px_70px_70px_70px] gap-2 text-right shrink-0">
-                        <span>Questionnaires</span>
-                        <span className="pr-3 border-r border-slate-200/80 font-bold text-slate-700 dark:text-zinc-300">
-                            Total Questions
-                        </span>
-                        <span>External Answers</span>
-                        <span>User Input</span>
-                        <span>Default Answers</span>
-                        <span>Unanswered</span>
+                    {/* Section Metric Column Titles (2-Tier Header: Questions | Answers) */}
+                    <div className="flex flex-col text-right shrink-0 space-y-1">
+                        {/* Tier 1: Category Titles */}
+                        <div className="grid grid-cols-[80px_324px] gap-2 text-[10px] font-bold uppercase tracking-wider">
+                            <span className="pr-3 border-r border-slate-200/80 text-slate-400">Questions</span>
+                            <span className="text-center text-slate-500 dark:text-zinc-400 border-b border-slate-200/80 pb-0.5">Answers</span>
+                        </div>
+
+                        {/* Tier 2: Sub-column Labels */}
+                        <div className="grid grid-cols-[80px_80px_80px_75px_85px] gap-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wider items-center">
+                            <div className="pr-3 border-r border-slate-200/80 justify-end flex">
+                                <StandardTooltip content="Total Questions / Questionnaires Count (e.g. 54/3 = 54 questions across 3 questionnaires)">
+                                    <span className="font-bold text-slate-700 dark:text-zinc-300">
+                                        Total
+                                    </span>
+                                </StandardTooltip>
+                            </div>
+                            <span>External</span>
+                            <span>User Input</span>
+                            <span>Default</span>
+                            <span>Unanswered</span>
+                        </div>
                     </div>
                 </div>
 
@@ -231,7 +244,7 @@ function ExperimentalTreeNode({ item, level }: { item: OrgChild; level: number }
         return undefined;
     }, [item.type, item.id, item.leId]);
 
-    const isCQ = item.type === "questionnaire" && item.subtitle === "Common Questionnaire";
+    const isCQ = item.type === "questionnaire" && (item.subtitle === "Common Questionnaire" || item.name === "Common Questionnaires");
 
     return (
         <Collapsible open={isOpen} onOpenChange={handleOpenChange}>

@@ -28,6 +28,8 @@ vi.mock('next/navigation', () => ({ notFound: vi.fn() }));
 vi.mock('@/context/breadcrumb-context', () => ({ SetPageBreadcrumbs: () => null }));
 vi.mock('@/components/client/kyc/enrichment-gate', () => ({ EnrichmentGate: ({ children }: any) => children }));
 vi.mock('@/components/client/data-schema-tab', () => ({ DataSchemaTab: () => null }));
+vi.mock('@/lib/auth', () => ({ getIdentity: vi.fn().mockResolvedValue({ userId: 'user_perf' }) }));
+vi.mock('@/actions/security', () => ({ isSystemAdmin: vi.fn().mockResolvedValue(true), getUserFIOrg: vi.fn() }));
 
 import prisma from '@/lib/prisma';
 import MasterRecordPage from '@/app/(platform)/app/le/[id]/master/page';
@@ -83,8 +85,8 @@ const mockClientLE = {
 
 vi.mock('@/lib/prisma', () => ({
     default: {
-        clientLE: { findUnique: vi.fn() },
-        clientLEOwner: { findFirst: vi.fn() },
+        clientLE: { findUnique: vi.fn(), findFirst: vi.fn() },
+        clientLEOwner: { findFirst: vi.fn(), findMany: vi.fn() },
         fieldClaim: { findMany: vi.fn() },
         sourceFieldMapping: { findMany: vi.fn() },
         masterFieldDefinition: { findMany: vi.fn() },
@@ -93,7 +95,7 @@ vi.mock('@/lib/prisma', () => ({
         customFieldDefinition: { findMany: vi.fn() },
         cCParty: { findMany: vi.fn() },
         cCAddress: { findMany: vi.fn() },
-        membership: { findFirst: vi.fn() },
+        membership: { findFirst: vi.fn(), findMany: vi.fn() },
         $queryRaw: vi.fn()
     }
 }));
@@ -112,7 +114,9 @@ describe('Master Record Diagnostic Measurements', () => {
         };
 
         (prisma.clientLE.findUnique as any).mockImplementation(countQuery(async () => mockClientLE));
+        (prisma.clientLE.findFirst as any).mockImplementation(countQuery(async () => mockClientLE));
         (prisma.clientLEOwner.findFirst as any).mockImplementation(countQuery(async () => ({ partyId: 'party_owner_1' })));
+        (prisma.clientLEOwner.findMany as any).mockImplementation(countQuery(async () => []));
         (prisma.fieldClaim.findMany as any).mockImplementation(countQuery(async () => mockClaims));
         (prisma.sourceFieldMapping.findMany as any).mockImplementation(countQuery(async () => [
             { targetFieldNo: 1, sourceType: 'GLEIF', sourceReference: null, priority: 1 }
@@ -126,6 +130,7 @@ describe('Master Record Diagnostic Measurements', () => {
         (prisma.cCParty.findMany as any).mockImplementation(countQuery(async () => [{ id: 'party_1', data: { name: 'Acme Corp' } }]));
         (prisma.cCAddress.findMany as any).mockImplementation(countQuery(async () => []));
         (prisma.membership.findFirst as any).mockImplementation(countQuery(async () => ({ id: 'mem_1' })));
+        (prisma.membership.findMany as any).mockImplementation(countQuery(async () => []));
         (prisma.$queryRaw as any).mockImplementation(countQuery(async () => []));
 
         vi.spyOn(definitionService, 'listAllMasterFields').mockResolvedValue(mockMasterFields as any);
