@@ -422,7 +422,7 @@ describe('field-interpreter', () => {
             };
 
             const model = resolveFieldCollectionForDisplay([], meta);
-            expect(model.state).toBe('NO_DATA');
+            expect(model.state).toBe('CHECKED_NO_DATA');
             expect(model.value).toEqual({ kind: 'empty' });
             expect(model.source).toBeDefined();
             expect(model.source?.type).toBe('GLEIF');
