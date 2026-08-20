@@ -93,11 +93,42 @@ describe('LibraryUploader', () => {
         });
     });
 
+    it('uses correct private upload contract parameters (endpoint, access, intentId, pathname, clientPayload)', async () => {
+        render(<LibraryUploader clientLEId="le-1" label="Upload Document" />);
+        const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+
+        vi.mocked(upload).mockResolvedValue({} as any);
+        vi.mocked(getUploadIntentStatus).mockResolvedValue({ status: 'completed', attachment: { documentId: 'doc-1' } } as any);
+
+        const file = new File(['hello'], 'my invoice & report.pdf', { type: 'application/pdf' });
+
+        await act(async () => {
+            fireEvent.change(input, { target: { files: [file] } });
+        });
+
+        expect(upload).toHaveBeenCalledTimes(1);
+        const [pathname, uploadFile, options] = vi.mocked(upload).mock.calls[0];
+
+        expect(options.handleUploadUrl).toBe('/api/documents/upload');
+        expect(options.access).toBe('private');
+        expect(uploadFile).toBe(file);
+
+        // Pathname sanitizes filename and starts with private-documents/le-1/<uuid>/
+        expect(pathname).toMatch(/^private-documents\/le-1\/[0-9a-f-]+\/my_invoice___report\.pdf$/);
+
+        // clientPayload is valid JSON with required fields
+        const payload = JSON.parse(options.clientPayload);
+        expect(payload.clientLEId).toBe('le-1');
+        expect(payload.mimeType).toBe('application/pdf');
+        expect(payload.intentId).toBeDefined();
+        expect(pathname).toContain(payload.intentId);
+    });
+
     it('completed intent triggers one router.refresh()', async () => {
         render(<LibraryUploader clientLEId="le-1" label="Upload Document" />);
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         
-        vi.mocked(upload).mockResolvedValue({ clientPayload: JSON.stringify({ intentId: 'intent-1' }) } as any);
+        vi.mocked(upload).mockResolvedValue({} as any);
         vi.mocked(getUploadIntentStatus).mockResolvedValue({ status: 'completed', attachment: { documentId: 'doc-1' } } as any);
 
         const file = new File(['hello'], 'doc.pdf', { type: 'application/pdf' });
@@ -131,7 +162,7 @@ describe('LibraryUploader', () => {
         render(<LibraryUploader clientLEId="le-1" label="Upload Document" />);
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         
-        vi.mocked(upload).mockResolvedValue({ clientPayload: JSON.stringify({ intentId: 'intent-1' }) } as any);
+        vi.mocked(upload).mockResolvedValue({} as any);
         vi.mocked(getUploadIntentStatus).mockResolvedValue({ status: 'failed', message: 'Virus detected' });
 
         const file = new File(['hello'], 'doc.pdf', { type: 'application/pdf' });
@@ -148,7 +179,7 @@ describe('LibraryUploader', () => {
         render(<LibraryUploader clientLEId="le-1" label="Upload Document" />);
         const input = document.querySelector('input[type="file"]') as HTMLInputElement;
         
-        vi.mocked(upload).mockResolvedValue({ clientPayload: JSON.stringify({ intentId: 'intent-1' }) } as any);
+        vi.mocked(upload).mockResolvedValue({} as any);
         vi.mocked(getUploadIntentStatus).mockResolvedValue({ status: 'pending' });
 
         vi.useFakeTimers();
@@ -203,7 +234,7 @@ describe('LibraryUploader', () => {
         expect(upload).toHaveBeenCalledTimes(1);
 
         await act(async () => {
-            resolveUpload({ clientPayload: JSON.stringify({ intentId: 'intent-1' }) });
+            resolveUpload({});
         });
     });
 });
