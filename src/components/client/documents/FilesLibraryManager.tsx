@@ -89,8 +89,10 @@ export function FilesLibraryManager({ clientLEId, initialFiles }: FilesLibraryMa
                                         <TableHead className="w-[44%] px-4 py-3 text-xs text-slate-500 font-semibold">File</TableHead>
                                         <TableHead className="w-[22%] px-4 py-3 text-xs text-slate-500 font-semibold">Uploaded</TableHead>
                                         <TableHead className="w-[16%] px-4 py-3 text-xs text-slate-500 font-semibold">Status</TableHead>
-                                        <TableHead className="w-[10%] px-4 py-3 text-xs text-slate-500 font-semibold text-center">Current usage</TableHead>
-                                        <TableHead className="w-[8%] px-4 py-3 text-xs text-slate-500 font-semibold text-right">Actions</TableHead>
+                                        <TableHead className="w-[10%] px-4 py-3 text-xs text-slate-500 font-semibold text-center">Current</TableHead>
+                                        <TableHead className="w-[8%] px-4 py-3 text-xs text-slate-500 font-semibold text-right">
+                                            <span className="sr-only">Actions</span>
+                                        </TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
