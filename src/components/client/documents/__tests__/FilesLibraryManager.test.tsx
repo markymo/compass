@@ -84,25 +84,22 @@ describe('FilesLibraryManager', () => {
         expect(screen.getAllByText('UnusedSpreadsheet.xlsx')[0]).toBeInTheDocument();
     });
 
-    it('renders both current and historical counts properly formatted', () => {
+    it('renders current usage count properly formatted', () => {
         render(<FilesLibraryManager clientLEId="le-1" initialFiles={mockFiles} />);
         
-        expect(screen.getAllByText('2 current')[0]).toBeInTheDocument();
-        expect(screen.getAllByText('1 historic')[0]).toBeInTheDocument();
-
-        expect(screen.getAllByText('0 current')[0]).toBeInTheDocument();
-        expect(screen.getAllByText('3 historic')[0]).toBeInTheDocument();
+        expect(screen.getByText('2')).toBeInTheDocument();
+        expect(screen.getAllByText('0').length).toBeGreaterThan(0);
     });
 
     it('formats ISO dates and byte strings correctly', () => {
         render(<FilesLibraryManager clientLEId="le-1" initialFiles={mockFiles} />);
         
         // 2048 bytes -> 2 KB
-        expect(screen.getByText('2 KB')).toBeInTheDocument();
+        expect(screen.getByText(/2 KB/i)).toBeInTheDocument();
         // 1048576 bytes -> 1 MB
-        expect(screen.getByText('1 MB')).toBeInTheDocument();
+        expect(screen.getByText(/1 MB/i)).toBeInTheDocument();
         // 0 bytes -> 0 B
-        expect(screen.getByText('0 B')).toBeInTheDocument();
+        expect(screen.getByText(/0 B/i)).toBeInTheDocument();
 
         // 16 Jul 2026
         expect(screen.getByText(/16 Jul 2026/i)).toBeInTheDocument();

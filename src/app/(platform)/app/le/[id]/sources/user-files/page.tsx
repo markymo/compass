@@ -16,7 +16,7 @@ export default async function UserFilesPage({ params }: UserFilesPageProps) {
     const initialFiles = await DocumentLibraryService.listLibraryDocuments(id);
     
     return (
-        <div className="space-y-6 max-w-5xl">
+        <div className="space-y-6 w-full">
             <SetPageBreadcrumbs items={[]} />
             <FilesLibraryManager clientLEId={id} initialFiles={initialFiles} />
         </div>
