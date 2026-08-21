@@ -28,6 +28,7 @@ interface PersonOrContactValueViewerProps {
     isPromotedToCCC?: boolean;
     isPromoting?: boolean;
     onSaveForReuse?: SaveForReuseHandler;
+    hideStatusBadge?: boolean;
 }
 
 // ── Role type badge colour ────────────────────────────────────────────────────
@@ -201,7 +202,8 @@ export function PersonOrContactValueViewer({
     claimId,
     isPromotedToCCC,
     isPromoting,
-    onSaveForReuse
+    onSaveForReuse,
+    hideStatusBadge = false
 }: PersonOrContactValueViewerProps) {
     if (!isPersonOrContactValue(value)) {
         if (value && typeof value === 'object' && 'ccPartyId' in value) {
@@ -312,7 +314,7 @@ export function PersonOrContactValueViewer({
                 </div>
                 <div className="flex items-center gap-2">
                     {renderActionButton()}
-                    {poc.isActivePersonOrContact !== null && (
+                    {!hideStatusBadge && poc.isActivePersonOrContact !== null && (
                         <span className={`text-[10px] font-semibold rounded-full px-2 py-1 border ${poc.isActivePersonOrContact ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
                             {poc.isActivePersonOrContact ? 'Active' : 'Inactive'}
                         </span>

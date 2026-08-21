@@ -2695,6 +2695,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         isPromotedToCCC={candidate.isPromotedToCCC}
                                                                         isPromoting={isPromoting === candidate.id}
                                                                         onSaveForReuse={handleSaveForReuse}
+                                                                        hideStatusBadge={fieldNo === 104}
                                                                     />
                                                                 );
                                                             }

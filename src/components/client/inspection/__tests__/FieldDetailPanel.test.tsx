@@ -116,6 +116,39 @@ describe('FieldDetailPanel - Attachment Integration', () => {
                     }
                 } as any;
             }
+            if (fieldNo === 104 || fieldNo === 105) {
+                const partyObj = {
+                    contactType: 'PERSON',
+                    partyType: 'INDIVIDUAL',
+                    forenames: 'Christopher David',
+                    surname: 'Marsh',
+                    isActivePersonOrContact: true
+                };
+                return {
+                    fieldNo,
+                    fieldName: fieldNo === 104 ? 'SSI callback contact(s)' : 'Other Party Field',
+                    dataType: 'PARTY',
+                    isRepeating: false,
+                    candidates: [
+                        {
+                            id: `cand-${fieldNo}`,
+                            source: 'USER_INPUT',
+                            isAuthoritative: false,
+                            timestamp: new Date('2026-08-20'),
+                            confidence: 0.95,
+                            value: partyObj
+                        }
+                    ],
+                    current: { value: partyObj, source: 'USER_INPUT' },
+                    canonicalDisplayModel: {
+                        allowAttachments: false,
+                        attachments: [],
+                        isEditable: true,
+                        state: 'POPULATED',
+                        value: { kind: 'party', data: partyObj }
+                    }
+                } as any;
+            }
             return {
                 fieldNo: fieldNo || 123,
                 current: { value: 'Test Value', source: 'TEST' },
@@ -298,6 +331,39 @@ describe('FieldDetailPanel - Generic Multi-Value Branch (Field 235 & Generic Rep
                         { id: 'text-claim-1', instanceId: 'text-inst-1', value: 'First Text Value', source: 'USER_INPUT', timestamp: new Date('2026-08-01') }
                     ],
                     current: { value: ['First Text Value'], source: 'USER_INPUT', timestamp: new Date('2026-08-01') },
+                } as any;
+            }
+            if (fieldNo === 104 || fieldNo === 105) {
+                const partyObj = {
+                    contactType: 'PERSON',
+                    partyType: 'INDIVIDUAL',
+                    forenames: 'Christopher David',
+                    surname: 'Marsh',
+                    isActivePersonOrContact: true
+                };
+                return {
+                    fieldNo,
+                    fieldName: fieldNo === 104 ? 'SSI callback contact(s)' : 'Other Party Field',
+                    dataType: 'PARTY',
+                    isRepeating: false,
+                    candidates: [
+                        {
+                            id: `cand-${fieldNo}`,
+                            source: 'USER_INPUT',
+                            isAuthoritative: false,
+                            timestamp: new Date('2026-08-20'),
+                            confidence: 0.95,
+                            value: partyObj
+                        }
+                    ],
+                    current: { value: partyObj, source: 'USER_INPUT' },
+                    canonicalDisplayModel: {
+                        allowAttachments: false,
+                        attachments: [],
+                        isEditable: true,
+                        state: 'POPULATED',
+                        value: { kind: 'party', data: partyObj }
+                    }
                 } as any;
             }
             return {
@@ -574,4 +640,84 @@ describe('FieldDetailPanel - Generic Multi-Value Branch (Field 235 & Generic Rep
         expect(inputControl.value).toBe('First Text Value');
     });
 });
+
+describe('FieldDetailPanel - Field 104 Suggestions Badge Suppression', () => {
+    beforeEach(() => {
+        cleanup();
+        vi.clearAllMocks();
+        vi.mocked(kycQuery.getFieldDetail).mockImplementation(async (arg0: any, arg1: any) => {
+            const fieldNo = typeof arg0 === 'number' ? arg0 : (typeof arg1 === 'number' ? arg1 : arg0?.fieldNo);
+            const partyObj = {
+                contactType: 'PERSON',
+                partyType: 'INDIVIDUAL',
+                forenames: 'Christopher David',
+                surname: 'Marsh',
+                isActivePersonOrContact: true
+            };
+            return {
+                fieldNo: fieldNo || 104,
+                fieldName: fieldNo === 104 ? 'SSI callback contact(s)' : 'Other Party Field',
+                dataType: 'PARTY',
+                isRepeating: false,
+                candidates: [
+                    {
+                        id: `cand-${fieldNo}`,
+                        source: 'USER_INPUT',
+                        isAuthoritative: false,
+                        timestamp: new Date('2026-08-20'),
+                        confidence: 0.95,
+                        value: partyObj
+                    }
+                ],
+                current: { value: partyObj, source: 'USER_INPUT' },
+                canonicalDisplayModel: {
+                    allowAttachments: false,
+                    attachments: [],
+                    isEditable: true,
+                    state: 'POPULATED',
+                    value: { kind: 'party', data: partyObj }
+                }
+            } as any;
+        });
+    });
+
+    it('suppresses Active / Inactive badge for Field 104 Suggestions rendering while preserving forenames, surname and candidate structure', async () => {
+        render(
+            <FieldDetailPanel 
+                open={true} 
+                onOpenChange={() => {}} 
+                clientLEId="le-123" 
+                fieldNo={104} 
+                fieldName="SSI callback contact(s)" 
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Christopher David')).toBeTruthy();
+            expect(screen.getByText('Marsh')).toBeTruthy();
+        });
+
+        // Verify Field 104 Suggestions card does NOT contain "Active" status badge
+        expect(screen.queryByText('Active')).toBeNull();
+    });
+
+    it('retains Active / Inactive badge for non-104 Party field Suggestions (e.g. Field 105)', async () => {
+        render(
+            <FieldDetailPanel 
+                open={true} 
+                onOpenChange={() => {}} 
+                clientLEId="le-123" 
+                fieldNo={105} 
+                fieldName="Other Party Field" 
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Christopher David')).toBeTruthy();
+            expect(screen.getByText('Marsh')).toBeTruthy();
+            expect(screen.getByText('Active')).toBeTruthy();
+        });
+    });
+});
+
 

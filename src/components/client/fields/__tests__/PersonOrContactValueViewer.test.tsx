@@ -170,3 +170,51 @@ describe('PersonOrContactValueViewer F64 PSC row layout truncation safety', () =
     });
 });
 
+describe('PersonOrContactValueViewer Field 104 hideStatusBadge scoping', () => {
+    const activePerson: PartyValue = {
+        contactType: 'PERSON',
+        partyType: 'INDIVIDUAL',
+        forenames: 'Christopher David',
+        surname: 'Marsh',
+        roles: [],
+        sourceIdentifiers: [],
+        phones: [],
+        nationality: [],
+        countryOfResidence: null,
+        placeOfBirth: null,
+        title: null,
+        email: null,
+        isActiveParty: true,
+        isActivePersonOrContact: true,
+        visibility: { scope: 'CLIENT_LE' }
+    };
+
+    it('suppresses Active / Inactive status badge when hideStatusBadge is true in detailed layout', () => {
+        const result = PersonOrContactValueViewer({
+            value: activePerson,
+            layout: 'detailed',
+            hideStatusBadge: true
+        });
+
+        const html = renderToStaticMarkup(result as any);
+        expect(html).toContain('Christopher David');
+        expect(html).toContain('Marsh');
+        expect(html).not.toContain('Active');
+        expect(html).not.toContain('Inactive');
+    });
+
+    it('renders Active status badge when hideStatusBadge is false or omitted in detailed layout', () => {
+        const result = PersonOrContactValueViewer({
+            value: activePerson,
+            layout: 'detailed',
+            hideStatusBadge: false
+        });
+
+        const html = renderToStaticMarkup(result as any);
+        expect(html).toContain('Christopher David');
+        expect(html).toContain('Marsh');
+        expect(html).toContain('Active');
+    });
+});
+
+
