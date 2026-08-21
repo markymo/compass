@@ -98,36 +98,30 @@ export function LibraryUploader({ clientLEId, label = "Add", className }: Librar
             return;
         }
 
-        try {
-            setOpState('UPLOADING');
-            setProgress(0);
+        const newIntentId = crypto.randomUUID();
+        const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const storagePathname = `private-documents/${clientLEId}/${newIntentId}/${sanitizedFilename}`;
 
-            const blob: any = await upload(file.name, file, {
-                access: 'public',
-                handleUploadUrl: `/api/documents/upload-intent?clientLEId=${clientLEId}`,
+        setOpState('UPLOADING');
+        setProgress(0);
+        setActiveIntentId(newIntentId);
+        pollAttempts.current = 0;
+
+        try {
+            await upload(storagePathname, file, {
+                access: 'private',
+                handleUploadUrl: '/api/documents/upload',
+                clientPayload: JSON.stringify({ 
+                    clientLEId, 
+                    intentId: newIntentId,
+                    mimeType: file.type
+                }),
                 onUploadProgress: (progressEvent) => {
                     setProgress(progressEvent.percentage);
                 },
             });
 
             setOpState('PROCESSING');
-            if (blob?.clientPayload) {
-                try {
-                    const parsed = JSON.parse(blob.clientPayload);
-                    if (parsed.intentId) {
-                        setActiveIntentId(parsed.intentId);
-                    } else {
-                        toast.error('Upload response missing tracking details');
-                        resetState();
-                    }
-                } catch {
-                    toast.error('Malformed payload received from upload handler');
-                    resetState();
-                }
-            } else {
-                toast.error('Upload response missing payload');
-                resetState();
-            }
         } catch (err: any) {
             console.error("Upload error", err);
             toast.error(err.message || 'Failed to upload document');

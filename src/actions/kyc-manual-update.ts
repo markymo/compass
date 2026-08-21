@@ -413,6 +413,51 @@ export async function removeMultiValueEntry(
     }
 }
 
+/**
+ * Clears a single-value (non-repeating) scalar field by emitting a USER_INPUT tombstone claim.
+ */
+export async function clearSingleValueEntry(
+    clientLEId: string,
+    fieldNo: number
+): Promise<{ success: boolean; message?: string }> {
+    try {
+        const identity = await getIdentity();
+        const userId = identity?.userId;
+        if (!userId) {
+            return { success: false, message: "Authentication required." };
+        }
+
+        const def = await getMasterFieldDefinition(fieldNo);
+        if (def.isMultiValue) {
+            return { success: false, message: "Field is a multi-value collection. Use removeMultiValueEntry instead." };
+        }
+
+        const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
+        const subjectLeId = clientLE?.legalEntityId;
+        const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
+
+        if (!subjectLeId) {
+            return { success: false, message: "Could not resolve subject." };
+        }
+
+        const tombstone = await FieldClaimService.emitTombstone(
+            { subjectLeId, clientLEId },
+            fieldNo,
+            def.categoryId || 'GENERAL',
+            'single',
+            ownerScopeId
+        );
+
+        await FieldClaimService.verifyClaim(tombstone.id, userId);
+
+        revalidatePath(`/app/le/${clientLEId}`, 'layout');
+        return { success: true };
+    } catch (e: any) {
+        console.error("clearSingleValueEntry error:", e);
+        return { success: false, message: e.message };
+    }
+}
+
 export async function applyBulkOverride(
     clientLEId: string,
     modelName: string,

@@ -13,6 +13,13 @@ import { createFIEngagement } from "@/actions/client-le";
 import { toast } from "sonner";
 import { deleteEngagementByClient, searchFIs } from "@/actions/client";
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -201,22 +208,56 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
         });
     };
 
-    // Initial Mock Data to show something before type
-    const initialDirectory = [
-        { value: "barclays", label: "Barclays", description: "Global Financial Services" },
-        { value: "jpmorgan", label: "J.P. Morgan", description: "Leading Global Financial Services Firm" },
-    ];
+    // --- Search-first Organization State ---
+    const [searchQuery, setSearchQuery] = useState("");
+    const [searchResults, setSearchResults] = useState<{ value: string; label: string; description: string }[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
 
-    const [searchResults, setSearchResults] = useState<{ value: string, label: string, description: string }[]>(initialDirectory);
+    const handleOpenAddChange = (open: boolean) => {
+        setIsAdding(open);
+        if (!open) {
+            setSearchQuery("");
+            setSearchResults([]);
+            setIsSearching(false);
+        }
+    };
 
-    const handleAdd = async (fiName: string) => {
+    const handleSearchValueChange = async (val: string) => {
+        setSearchQuery(val);
+        if (!val.trim()) {
+            setSearchResults([]);
+            setIsSearching(false);
+            return;
+        }
+        setIsSearching(true);
+        try {
+            const res = await searchFIs(val);
+            setSearchResults(res || []);
+        } catch (error) {
+            console.error("Search FIs failed", error);
+            setSearchResults([]);
+        } finally {
+            setIsSearching(false);
+        }
+    };
+
+    const handleAdd = async (fiOrgId: string, fiName: string) => {
+        const isAlreadyAdded = engagements.some((eng: any) => 
+            eng.fiOrgId === fiOrgId || eng.org?.id === fiOrgId
+        );
+        if (isAlreadyAdded) {
+            toast.info(`Relationship with ${fiName} is already active.`);
+            return;
+        }
+
         setIsSubmitting(true);
         // Optimistic Update
         const tempId = `temp-${Date.now()}`;
         const newEng = {
             id: tempId,
+            fiOrgId: fiOrgId,
             status: "PREPARATION",
-            org: { name: fiName },
+            org: { id: fiOrgId, name: fiName },
             questionnaires: [],
             _count: { sharedDocuments: 0, invitations: 0, memberships: 0 }
         };
@@ -224,21 +265,35 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
         const previousEngagements = [...engagements as any[]];
         setEngagements([newEng, ...engagements]);
         setIsAdding(false);
+        setSearchQuery("");
+        setSearchResults([]);
 
-        const result = await createFIEngagement(leId, fiName);
+        const result = await createFIEngagement(leId, fiOrgId);
 
         if (result.success && result.engagement) {
             const realEng = {
                 ...result.engagement,
-                org: { name: fiName },
+                fiOrgId: fiOrgId,
+                org: result.engagement.org || { id: fiOrgId, name: fiName },
                 questionnaires: [],
                 _count: { sharedDocuments: 0, invitations: 0, memberships: 0 }
             };
-            setEngagements(prev => prev.map((e: any) => e.id === tempId ? realEng : e));
-            toast.success(`Relationship with ${fiName} created`);
+            if (result.actionType === "RESTORED") {
+                setEngagements(prev => prev.map((e: any) => e.id === tempId ? realEng : e));
+                toast.success(`Relationship with ${fiName} restored`);
+            } else if (result.actionType === "ALREADY_EXISTS") {
+                setEngagements(prev => {
+                    const filtered = prev.filter((e: any) => e.id !== tempId && e.fiOrgId !== fiOrgId && e.org?.id !== fiOrgId);
+                    return [realEng, ...filtered];
+                });
+                toast.info(result.message || `Relationship with ${fiName} is already active.`);
+            } else {
+                setEngagements(prev => prev.map((e: any) => e.id === tempId ? realEng : e));
+                toast.success(`Relationship with ${fiName} created`);
+            }
         } else {
             setEngagements(previousEngagements);
-            toast.error("Failed to create engagement: " + result.error);
+            toast.error("Failed to add relationship: " + (result.error || "Unknown error"));
         }
         setIsSubmitting(false);
     };
@@ -262,82 +317,104 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                 <div>
                     <h2 className="text-xl font-semibold text-slate-900">Supplier Relationships</h2>
                 </div>
-                {!isAdding && (
-                    <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => setIsAdding(true)} 
-                        className="h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 w-fit"
-                        title="Add Supplier Relationship"
-                    >
-                        <Plus className="h-3 w-3 mr-1" />
-                        Add
-                    </Button>
-                )}
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleOpenAddChange(true)} 
+                    className="h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 w-fit"
+                    title="Add Supplier Relationship"
+                >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add
+                </Button>
             </div>
 
-            {isAdding && (
-                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                    <Card variant="structural" className="border-2 border-indigo-100 shadow-md bg-white overflow-hidden">
-                        <div className="[&_[cmdk-item][data-selected='true']]:bg-slate-100 [&_[cmdk-item][data-selected='true']]:text-slate-900">
-                            <Command className="rounded-none border-0" shouldFilter={false}>
-                                <div className="flex items-center border-b border-slate-100 px-3 overflow-hidden">
-                                    <Search className="h-4 w-4 shrink-0 opacity-50 text-slate-500 mr-2" />
-                                    <CommandInput
-                                        placeholder="Search for a bank to add..."
-                                        autoFocus
-                                        className="border-0 focus:ring-0 shadow-none px-0 h-12 text-base"
-                                        onValueChange={(val) => {
-                                            if (val.length > 2) {
-                                                searchFIs(val).then((res: any) => setSearchResults(res));
-                                            }
-                                        }}
-                                    />
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="ml-2 h-8 w-8 text-slate-400 hover:text-slate-600"
-                                        onClick={() => setIsAdding(false)}
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                </div>
-                                <CommandList className="max-h-[220px]">
-                                    <CommandEmpty className="py-6 px-4 text-center">
-                                        <p className="text-sm text-slate-500 mb-3">Institution not found.</p>
-                                        <Button
-                                            variant="secondary"
-                                            size="sm"
-                                            onClick={() => handleAdd("New Partner Bank")}
-                                        >
-                                            + Create New Entry
-                                        </Button>
+            <Dialog open={isAdding} onOpenChange={handleOpenAddChange}>
+                <DialogContent className="sm:max-w-lg p-0 overflow-hidden bg-white">
+                    <DialogHeader className="px-5 pt-5 pb-3 border-b border-slate-100">
+                        <DialogTitle className="text-lg font-bold text-slate-900">Add Supplier Relationship</DialogTitle>
+                        <DialogDescription className="text-xs text-slate-500">
+                            Search for a financial institution to add a relationship to this legal entity.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="p-0">
+                        <Command className="rounded-none border-0" shouldFilter={false}>
+                            <div className="flex items-center border-b border-slate-100 px-4 overflow-hidden">
+                                <Search className="h-4 w-4 shrink-0 text-slate-400 mr-2" />
+                                <CommandInput
+                                    placeholder="Search financial institutions..."
+                                    autoFocus
+                                    value={searchQuery}
+                                    onValueChange={handleSearchValueChange}
+                                    className="border-0 focus:ring-0 shadow-none px-0 h-12 text-base"
+                                />
+                                {isSearching && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-400 ml-2" />}
+                            </div>
+                            <CommandList className="max-h-[260px] min-h-[120px] p-2">
+                                {!searchQuery.trim() ? (
+                                    <div className="py-10 px-4 text-center text-xs text-slate-400">
+                                        Type an institution name to search matching organizations.
+                                    </div>
+                                ) : isSearching ? (
+                                    <div className="py-10 px-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                                        <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                                        Searching institutions...
+                                    </div>
+                                ) : searchResults.length === 0 ? (
+                                    <CommandEmpty className="py-8 px-4 text-center">
+                                        <p className="text-sm text-slate-500">
+                                            No financial institutions found matching &quot;{searchQuery}&quot;.
+                                        </p>
                                     </CommandEmpty>
-                                    <CommandGroup heading="Available Institutions">
-                                        {searchResults.map((framework: any) => (
+                                ) : (
+                                    searchResults.map((framework: any) => {
+                                        const isAlreadyAdded = engagements.some((eng: any) => 
+                                            eng.fiOrgId === framework.value || eng.org?.id === framework.value
+                                        );
+
+                                        return (
                                             <CommandItem
                                                 key={framework.value}
                                                 value={framework.value}
-                                                onSelect={() => handleAdd(framework.label)}
-                                                className="cursor-pointer py-3"
+                                                disabled={isAlreadyAdded}
+                                                onSelect={() => {
+                                                    if (!isAlreadyAdded) {
+                                                        handleAdd(framework.value, framework.label);
+                                                    }
+                                                }}
+                                                className={cn(
+                                                    "py-3 px-3 rounded-md flex items-center justify-between transition-colors",
+                                                    isAlreadyAdded
+                                                        ? "opacity-60 cursor-not-allowed bg-slate-50/80"
+                                                        : "cursor-pointer hover:bg-slate-100"
+                                                )}
                                             >
-                                                <Building2 className="mr-3 h-4 w-4 text-slate-400" />
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium text-slate-700">{framework.label}</span>
-                                                    <span className="text-xs text-slate-400">{framework.description?.slice(0, 50)}...</span>
+                                                <div className="flex items-center min-w-0 flex-1 mr-3">
+                                                    <Building2 className="mr-3 h-4 w-4 text-slate-400 shrink-0" />
+                                                    <div className="flex flex-col flex-1 min-w-0">
+                                                        <span className="font-medium text-slate-900 truncate">{framework.label}</span>
+                                                        {framework.description && (
+                                                            <span className="text-xs text-slate-500 truncate">{framework.description}</span>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                                <div className="ml-auto opacity-0 group-data-[selected=true]:opacity-100">
-                                                    <Plus className="h-4 w-4 text-slate-400" />
-                                                </div>
+                                                {isAlreadyAdded ? (
+                                                    <div className="flex items-center gap-1 text-xs text-slate-500 font-medium shrink-0 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                                        <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                                        <span>Already added</span>
+                                                    </div>
+                                                ) : (
+                                                    <Plus className="h-4 w-4 text-slate-400 shrink-0" />
+                                                )}
                                             </CommandItem>
-                                        ))}
-                                    </CommandGroup>
-                                </CommandList>
-                            </Command>
-                        </div>
-                    </Card>
-                </div>
-            )}
+                                        );
+                                    })
+                                )}
+                            </CommandList>
+                        </Command>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             {engagements.length > 0 ? (
                 <div className="flex flex-col gap-3">
@@ -804,7 +881,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                     <div className="text-center py-20 bg-slate-50 rounded-md border-2 border-dashed border-slate-200">
                         <p className="text-slate-500">No active relationships found.</p>
                         <Button 
-                            onClick={() => setIsAdding(true)} 
+                            onClick={() => handleOpenAddChange(true)} 
                             className="mt-3 bg-indigo-600 hover:bg-indigo-700 text-white" 
                             size="sm"
                         >

@@ -469,58 +469,59 @@ export async function getEngagementDetails(engagementId: string) {
     }
 }
 
-export async function createFIEngagement(clientLEId: string, fiName: string) {
+export async function createFIEngagement(clientLEId: string, fiOrgId: string) {
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     const { userId } = identity;
 
     try {
-        // 1. Find or Create the Organization for the FI
-        // In a real app, we would search properly. Here we treat 'fiName' as the unique key for demo.
-        let fiOrg = await prisma.organization.findFirst({
-            where: { name: fiName, types: { has: "FI" } }
+        // 1. Verify the selected Organization exists by ID
+        const fiOrg = await prisma.organization.findUnique({
+            where: { id: fiOrgId }
         });
 
         if (!fiOrg) {
-            fiOrg = await prisma.organization.create({
-                data: {
-                    name: fiName,
-                    types: ["FI"],
-                    memberships: {
-                        create: {
-                            userId: userId,
-                            role: "ORG_ADMIN"
-                        }
-                    }
-                }
-            });
+            return { success: false, error: "Organization not found" };
         }
 
-        // 2. Check for Existing Engagement
+        if (!fiOrg.types.includes("FI")) {
+            return { success: false, error: "Selected organization is not a financial institution" };
+        }
+
+        // 2. Check for Existing Engagement using canonical composite key [fiOrgId, clientLEId]
         const existingEngagement = await prisma.fIEngagement.findUnique({
             where: {
                 fiOrgId_clientLEId: {
                     fiOrgId: fiOrg.id,
                     clientLEId: clientLEId
                 }
-            }
+            },
+            include: { org: true }
         });
 
         if (existingEngagement) {
-            // Be idempotent: If it's already there, just return it!
-            // Optionally check isDeleted and restore?
+            // Case A: Existing soft-deleted engagement -> Reactivate existing record
             if (existingEngagement.isDeleted) {
                 const restored = await prisma.fIEngagement.update({
                     where: { id: existingEngagement.id },
-                    data: { isDeleted: false, status: EngagementStatus.INVITED }
+                    data: { isDeleted: false, status: EngagementStatus.INVITED },
+                    include: { org: true }
                 });
+                revalidatePath(`/app/le/${clientLEId}/relationships`);
                 revalidatePath(`/app/le/${clientLEId}/v2`);
-                return { success: true, engagement: restored };
+                return { success: true, engagement: restored, actionType: "RESTORED" };
             }
-            return { success: true, engagement: existingEngagement };
+
+            // Case B: Existing active engagement -> Return explicit ALREADY_EXISTS status
+            return {
+                success: true,
+                engagement: existingEngagement,
+                actionType: "ALREADY_EXISTS",
+                message: `Relationship with ${fiOrg.name} is already active.`
+            };
         }
 
-        // 3. Create the Engagement
+        // 3. Create New Engagement
         const engagement = await prisma.fIEngagement.create({
             data: {
                 clientLEId: clientLEId,
@@ -530,17 +531,19 @@ export async function createFIEngagement(clientLEId: string, fiName: string) {
                     create: {
                         userId: userId,
                         type: "INVITE_SENT",
-                        details: { fiName }
+                        details: { fiName: fiOrg.name }
                     }
                 }
-            }
+            },
+            include: { org: true }
         });
 
+        revalidatePath(`/app/le/${clientLEId}/relationships`);
         revalidatePath(`/app/le/${clientLEId}/v2`);
-        return { success: true, engagement };
-    } catch (error) {
-        console.error("Failed to create engagement:", error);
-        return { success: false, error: "Failed to create engagement" };
+        return { success: true, engagement, actionType: "CREATED" };
+    } catch (e: any) {
+        console.error("Create FI Engagement Failed", e);
+        return { success: false, error: e.message || "Failed to create engagement" };
     }
 }
 

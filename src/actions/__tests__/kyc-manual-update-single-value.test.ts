@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { addExistingCCPartyReferenceToField, createCCPartyAndReferenceField } from '../kyc-manual-update';
+import { addExistingCCPartyReferenceToField, createCCPartyAndReferenceField, clearSingleValueEntry, removeMultiValueEntry } from '../kyc-manual-update';
 import { FieldClaimService } from '@/lib/kyc/FieldClaimService';
 
 // Mock Dependencies
@@ -11,7 +11,9 @@ vi.mock('@/lib/auth', () => ({
 }));
 vi.mock('@/lib/kyc/FieldClaimService', () => ({
     FieldClaimService: {
-        assertClaim: vi.fn().mockImplementation((input) => Promise.resolve({ id: 'claim-1', ...input }))
+        assertClaim: vi.fn().mockImplementation((input) => Promise.resolve({ id: 'claim-1', ...input })),
+        emitTombstone: vi.fn().mockImplementation((subject, fieldNo, collectionId, instanceId, ownerScopeId) => Promise.resolve({ id: 'tombstone-123', fieldNo, instanceId })),
+        verifyClaim: vi.fn().mockResolvedValue({})
     }
 }));
 vi.mock('@/lib/kyc/KycStateService', () => ({
@@ -20,7 +22,12 @@ vi.mock('@/lib/kyc/KycStateService', () => ({
     }
 }));
 vi.mock('@/services/masterData/definitionService', () => ({
-    getMasterFieldDefinition: vi.fn().mockResolvedValue({ fieldNo: 133, appDataType: 'PARTY', isMultiValue: false })
+    getMasterFieldDefinition: vi.fn().mockImplementation(async (fieldNo: number) => {
+        if (fieldNo === 235) {
+            return { fieldNo: 235, appDataType: 'SELECT', isMultiValue: true, categoryId: 'GENERAL' };
+        }
+        return { fieldNo: fieldNo || 133, appDataType: 'PARTY', isMultiValue: false, categoryId: 'GENERAL' };
+    })
 }));
 vi.mock('@/services/masterData/cc-party-service', () => ({
     CCPartyService: {
@@ -116,5 +123,38 @@ describe('addExistingCCPartyReferenceToField & createCCPartyAndReferenceField fo
         const res = await createCCPartyAndReferenceField('le-123', 133, { contactType: 'PERSON' });
         expect(res.success).toBe(false);
         expect(res.message).toMatch(/Invalid CCPartyData V2/);
+    });
+});
+
+describe('clearSingleValueEntry & removeMultiValueEntry server action contracts', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('clearSingleValueEntry emits tombstone claim for single-value field (F78)', async () => {
+        const res = await clearSingleValueEntry('le-123', 78);
+        expect(res.success).toBe(true);
+        expect(FieldClaimService.emitTombstone).toHaveBeenCalledWith(
+            { subjectLeId: 'le-abc', clientLEId: 'le-123' },
+            78,
+            'GENERAL',
+            'single',
+            'scope-123'
+        );
+        expect(FieldClaimService.verifyClaim).toHaveBeenCalledWith('tombstone-123', 'user-123');
+    });
+
+    it('clearSingleValueEntry rejects multi-value field (F235)', async () => {
+        const res = await clearSingleValueEntry('le-123', 235);
+        expect(res.success).toBe(false);
+        expect(res.message).toMatch(/multi-value collection/i);
+        expect(FieldClaimService.emitTombstone).not.toHaveBeenCalled();
+    });
+
+    it('removeMultiValueEntry rejects single-value field (F78)', async () => {
+        const res = await removeMultiValueEntry('le-123', 78, 'current');
+        expect(res.success).toBe(false);
+        expect(res.message).toMatch(/is not multi-value/i);
+        expect(FieldClaimService.emitTombstone).not.toHaveBeenCalled();
     });
 });

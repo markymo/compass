@@ -11,6 +11,13 @@ vi.mock('@/actions/kyc-query', () => ({
     getFieldDetail: vi.fn(),
 }));
 
+vi.mock('@/actions/kyc-manual-update', () => ({
+    updateFieldManually: vi.fn().mockResolvedValue({ success: true }),
+    removeMultiValueEntry: vi.fn().mockResolvedValue({ success: true }),
+    clearSingleValueEntry: vi.fn().mockResolvedValue({ success: true }),
+    addCodeListEntry: vi.fn().mockResolvedValue({ success: true }),
+}));
+
 vi.mock('@/actions/client-le', () => ({
     getFieldUsageDetails: vi.fn().mockResolvedValue({
         totalQuestions: 1,
@@ -246,3 +253,325 @@ describe('FieldDetailPanel - Attachment Integration', () => {
         expect(inputControl.value).toBe('Original Value');
     });
 });
+
+describe('FieldDetailPanel - Generic Multi-Value Branch (Field 235 & Generic Repeating Fields)', () => {
+    beforeEach(() => {
+        cleanup();
+        vi.clearAllMocks();
+        vi.mocked(kycQuery.getFieldDetail).mockImplementation(async (arg0: any, arg1: any) => {
+            const fieldNo = typeof arg0 === 'number' ? arg0 : (typeof arg1 === 'number' ? arg1 : arg0?.fieldNo);
+            if (fieldNo === 235) {
+                return {
+                    fieldNo: 235,
+                    fieldName: 'Corporate Sector(s)',
+                    dataType: 'SELECT',
+                    isRepeating: true,
+                    options: [
+                        { label: 'D Electricity, Gas, Steam and Air Conditioning Supply', value: 'D Electricity, Gas, Steam and Air Conditioning Supply' },
+                        { label: 'C Manufacturing', value: 'C Manufacturing' },
+                        { label: 'J Information and Communication', value: 'J Information and Communication' }
+                    ],
+                    rows: [
+                        { id: 'claim-1', instanceId: 'inst-1', value: 'C Manufacturing', source: 'USER_INPUT', timestamp: new Date('2026-08-01') },
+                        { id: 'claim-2', instanceId: 'inst-2', value: 'J Information and Communication', source: 'USER_INPUT', timestamp: new Date('2026-08-02') }
+                    ],
+                    current: { value: ['C Manufacturing', 'J Information and Communication'], source: 'USER_INPUT', timestamp: new Date('2026-08-02') },
+                } as any;
+            }
+            if (fieldNo === 78) {
+                return {
+                    fieldNo: 78,
+                    fieldName: 'Primary business activity',
+                    dataType: 'TEXT',
+                    isRepeating: false,
+                    current: { value: 'Test business activity', source: 'USER_INPUT', timestamp: new Date('2026-08-20') },
+                } as any;
+            }
+            if (fieldNo === 300) {
+                return {
+                    fieldNo: 300,
+                    fieldName: 'Repeating Text Field',
+                    dataType: 'TEXT',
+                    isRepeating: true,
+                    options: [],
+                    rows: [
+                        { id: 'text-claim-1', instanceId: 'text-inst-1', value: 'First Text Value', source: 'USER_INPUT', timestamp: new Date('2026-08-01') }
+                    ],
+                    current: { value: ['First Text Value'], source: 'USER_INPUT', timestamp: new Date('2026-08-01') },
+                } as any;
+            }
+            return {
+                fieldNo: fieldNo || 123,
+                current: { value: 'Test Value', source: 'TEST' },
+            } as any;
+        });
+    });
+
+    it('clears single-value scalar field F78 when Yes, clear is confirmed via clearSingleValueEntry', async () => {
+        const kycManual = await import('@/actions/kyc-manual-update');
+        vi.mocked(kycManual.clearSingleValueEntry).mockResolvedValue({ success: true });
+        const { fireEvent } = await import('@testing-library/react');
+
+        render(
+            <FieldDetailPanel 
+                open={true} 
+                onOpenChange={() => {}} 
+                clientLEId="le-123" 
+                fieldNo={78} 
+                fieldName="Primary business activity" 
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Test business activity')).toBeTruthy();
+        });
+
+        const trashBtn = screen.getByTitle('Clear value');
+        fireEvent.click(trashBtn);
+
+        expect(screen.getByText('Clear this value?')).toBeTruthy();
+
+        const confirmBtn = screen.getByText('Yes, clear');
+        fireEvent.click(confirmBtn);
+
+        await waitFor(() => {
+            expect(kycManual.clearSingleValueEntry).toHaveBeenCalledWith(
+                'le-123',
+                78
+            );
+            expect(kycManual.removeMultiValueEntry).not.toHaveBeenCalled();
+        });
+    });
+
+    it('shows repeating SELECT rows in read-only state initially with Edit and Trash buttons', async () => {
+        render(
+            <FieldDetailPanel 
+                open={true} 
+                onOpenChange={() => {}} 
+                clientLEId="le-123" 
+                fieldNo={235} 
+                fieldName="Corporate Sector(s)" 
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('C Manufacturing')).toBeTruthy();
+            expect(screen.getByText('J Information and Communication')).toBeTruthy();
+        });
+
+        const editBtns = screen.getAllByTitle('Edit value');
+        const trashBtns = screen.getAllByTitle('Remove value');
+        expect(editBtns.length).toBe(2);
+        expect(trashBtns.length).toBe(2);
+    });
+
+    it('enters edit mode for a specific row when Pencil is clicked and renders Select dropdown with options', async () => {
+        const { fireEvent } = await import('@testing-library/react');
+        render(
+            <FieldDetailPanel 
+                open={true} 
+                onOpenChange={() => {}} 
+                clientLEId="le-123" 
+                fieldNo={235} 
+                fieldName="Corporate Sector(s)" 
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('C Manufacturing')).toBeTruthy();
+        });
+
+        const editBtns = screen.getAllByTitle('Edit value');
+        fireEvent.click(editBtns[0]); // Edit row 1 ('claim-1', 'C Manufacturing')
+
+        // Verify Save and Cancel buttons appear for row 1 edit mode
+        expect(screen.getByTitle('Save value')).toBeTruthy();
+        expect(screen.getByTitle('Cancel')).toBeTruthy();
+
+        // Sibling row ('J Information and Communication') remains in read-only mode
+        expect(screen.getByText('J Information and Communication')).toBeTruthy();
+    });
+
+    it('cancels edit mode without saving when Cancel button is clicked', async () => {
+        const kycManual = await import('@/actions/kyc-manual-update');
+        const { fireEvent } = await import('@testing-library/react');
+
+        render(
+            <FieldDetailPanel 
+                open={true} 
+                onOpenChange={() => {}} 
+                clientLEId="le-123" 
+                fieldNo={235} 
+                fieldName="Corporate Sector(s)" 
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('C Manufacturing')).toBeTruthy();
+        });
+
+        const editBtns = screen.getAllByTitle('Edit value');
+        fireEvent.click(editBtns[0]);
+
+        const cancelBtn = screen.getByTitle('Cancel');
+        fireEvent.click(cancelBtn);
+
+        // Returns to read-only state
+        expect(screen.getByText('C Manufacturing')).toBeTruthy();
+        expect(kycManual.updateFieldManually).not.toHaveBeenCalled();
+    });
+
+    it('invokes updateFieldManually with correct instanceId when Save is clicked', async () => {
+        const kycManual = await import('@/actions/kyc-manual-update');
+        vi.mocked(kycManual.updateFieldManually).mockResolvedValue({ success: true });
+        const { fireEvent } = await import('@testing-library/react');
+
+        render(
+            <FieldDetailPanel 
+                open={true} 
+                onOpenChange={() => {}} 
+                clientLEId="le-123" 
+                fieldNo={235} 
+                fieldName="Corporate Sector(s)" 
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('C Manufacturing')).toBeTruthy();
+        });
+
+        const editBtns = screen.getAllByTitle('Edit value');
+        fireEvent.click(editBtns[0]); // Edit claim-1
+
+        const saveBtn = screen.getByTitle('Save value');
+        fireEvent.click(saveBtn);
+
+        await waitFor(() => {
+            expect(kycManual.updateFieldManually).toHaveBeenCalledWith(
+                'le-123',
+                235,
+                'C Manufacturing',
+                'Inline edit',
+                'inst-1',
+                'CLIENT_LE'
+            );
+        });
+    });
+
+    it('shows inline Remove / Cancel confirmation when Trash icon is clicked', async () => {
+        const { fireEvent } = await import('@testing-library/react');
+        render(
+            <FieldDetailPanel 
+                open={true} 
+                onOpenChange={() => {}} 
+                clientLEId="le-123" 
+                fieldNo={235} 
+                fieldName="Corporate Sector(s)" 
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('C Manufacturing')).toBeTruthy();
+        });
+
+        const trashBtns = screen.getAllByTitle('Remove value');
+        fireEvent.click(trashBtns[0]); // Trash row 1 ('claim-1')
+
+        // Confirmation banner appears
+        expect(screen.getByText(/Remove "C Manufacturing"\?/i)).toBeTruthy();
+        expect(screen.getByText('Yes, remove')).toBeTruthy();
+        expect(screen.getByText('Cancel')).toBeTruthy();
+
+        // Row 2 remains untouched
+        expect(screen.getByText('J Information and Communication')).toBeTruthy();
+    });
+
+    it('cancels delete confirmation when Cancel button is clicked', async () => {
+        const kycManual = await import('@/actions/kyc-manual-update');
+        const { fireEvent } = await import('@testing-library/react');
+
+        render(
+            <FieldDetailPanel 
+                open={true} 
+                onOpenChange={() => {}} 
+                clientLEId="le-123" 
+                fieldNo={235} 
+                fieldName="Corporate Sector(s)" 
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('C Manufacturing')).toBeTruthy();
+        });
+
+        const trashBtns = screen.getAllByTitle('Remove value');
+        fireEvent.click(trashBtns[0]);
+
+        const cancelBtn = screen.getByText('Cancel');
+        fireEvent.click(cancelBtn);
+
+        // Returns to read-only state without calling removeMultiValueEntry
+        expect(screen.getByText('C Manufacturing')).toBeTruthy();
+        expect(kycManual.removeMultiValueEntry).not.toHaveBeenCalled();
+    });
+
+    it('invokes removeMultiValueEntry with claim ID when Yes, remove is confirmed', async () => {
+        const kycManual = await import('@/actions/kyc-manual-update');
+        vi.mocked(kycManual.removeMultiValueEntry).mockResolvedValue({ success: true });
+        const { fireEvent } = await import('@testing-library/react');
+
+        render(
+            <FieldDetailPanel 
+                open={true} 
+                onOpenChange={() => {}} 
+                clientLEId="le-123" 
+                fieldNo={235} 
+                fieldName="Corporate Sector(s)" 
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('C Manufacturing')).toBeTruthy();
+        });
+
+        const trashBtns = screen.getAllByTitle('Remove value');
+        fireEvent.click(trashBtns[0]); // claim-1
+
+        const confirmBtn = screen.getByText('Yes, remove');
+        fireEvent.click(confirmBtn);
+
+        await waitFor(() => {
+            expect(kycManual.removeMultiValueEntry).toHaveBeenCalledWith(
+                'le-123',
+                235,
+                'claim-1'
+            );
+        });
+    });
+
+    it('enters edit mode with a usable <Input> control for repeating TEXT field F300', async () => {
+        const { fireEvent } = await import('@testing-library/react');
+        render(
+            <FieldDetailPanel 
+                open={true} 
+                onOpenChange={() => {}} 
+                clientLEId="le-123" 
+                fieldNo={300} 
+                fieldName="Repeating Text Field" 
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('First Text Value')).toBeTruthy();
+        });
+
+        const editBtn = screen.getByTitle('Edit value');
+        fireEvent.click(editBtn);
+
+        // Renders Input with current text value
+        const inputControl = document.querySelector('input[type="text"]') as HTMLInputElement;
+        expect(inputControl).toBeTruthy();
+        expect(inputControl.value).toBe('First Text Value');
+    });
+});
+
