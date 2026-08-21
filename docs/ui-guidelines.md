@@ -371,3 +371,32 @@ To maintain architectural stability while allowing future design iteration, this
 - **Additional Line & Geometry Motifs**: Explore subtle horizontal section dividers or secondary geometric markers if needed for dense multi-pane mapping.
 - **Card Geometry & Shadow Systems**: Subtle evolutions to card radius, border weight, or elevation depth.
 - **Micro-Animations & Motion**: Smooth transition physics for side drawers, popovers, or accordion collapse states.
+
+---
+
+## 13. Search-First Entity Lookup & Selection Overlays
+
+When adding entities, organizations, or reference items via an `+ Add` trigger (e.g. adding a Supplier Relationship or selecting an Organization):
+
+1. **User-Visible Zero Initial State**:
+   - Entity selectors opened from "+ Add" should start with an empty search field and no candidate entities displayed.
+   - Candidate results should appear only once the user has entered a search term.
+   - Do not show an initial, suggested, recent, or "Available…" list unless the product explicitly requires that behavior.
+   - Note: This rule governs user-visible behavior, not a particular data-fetching architecture. Implementations may pre-fetch or hold candidates in memory, but candidate results must remain hidden in the UI until user search input is entered.
+2. **Search-Driven Display & Loading**:
+   - Results display only after the user enters a non-empty search term.
+   - While dynamic/asynchronous searches are in flight, render a subtle inline loading spinner (`Loader2`).
+3. **Duplicate Selection & Identity Rule**:
+   - If a search result represents an entity already linked in the current context, prefer keeping the result visible but disabled and clearly identifying it as already linked (`Already added`), rather than hiding it from the search results.
+   - **Canonical Identity Comparison**: Identity comparisons MUST use canonical IDs (`Organization.id / fiOrgId`), NEVER display names or search labels.
+4. **Empty / No Results State**:
+   - When the user enters a search term and no matching entities are found, display a clear empty state indicating no results were found (e.g., `No financial institutions found matching "[query]"`).
+   - Relationship selection must NOT silently or accidentally create new Organization entities as a side-effect of search text.
+5. **Overlay Form Factor Options**:
+   - **Dialog / Modal (`<Dialog />`)**: Preferred for primary entity additions (such as adding a Supplier Relationship) to provide focus, avoid clipping on long tables, and provide clean modal focus management.
+   - **Popover (`<Popover />`)**: Preferred for lightweight, single-field lookups adjacent to trigger controls.
+   - **Inline Container**: Acceptable when embedded directly within an active workflow, provided zero-initial-candidate display rules are strictly enforced.
+6. **Keyboard & Focus Handling**:
+   - Auto-focus search inputs (`autoFocus`) upon opening.
+   - Support `Escape` key dismissal and standard arrow-key keyboard navigation.
+
