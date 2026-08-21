@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { StandardTooltip } from "@/components/ui/standard-tooltip";
 import {
     FileText,
     Download,
@@ -460,7 +461,22 @@ export function OutputPackBuilder({
                                 />
                                 {fileIcon(doc.name)}
                                 <span className="text-sm font-medium text-slate-700 flex-1 truncate">{doc.name}</span>
-                                <span className="text-[11px] text-slate-400 shrink-0">{doc.size}</span>
+                                <div className="flex items-center gap-2 shrink-0">
+                                    <span className="text-[11px] text-slate-400">{doc.size}</span>
+                                    <StandardTooltip content="Download Document">
+                                        <a
+                                            href={`/api/documents/${doc.id}/download`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={(e) => e.stopPropagation()}
+                                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors inline-flex items-center justify-center"
+                                            title={`Download ${doc.name}`}
+                                            aria-label={`Download ${doc.name}`}
+                                        >
+                                            <FileDown className="h-4 w-4" />
+                                        </a>
+                                    </StandardTooltip>
+                                </div>
                             </div>
                         ))}
                     </CardContent>
