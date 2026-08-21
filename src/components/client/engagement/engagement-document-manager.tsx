@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
+import { StandardTooltip } from "@/components/ui/standard-tooltip";
 
 interface SharedDocument {
     id: string;
@@ -277,9 +278,16 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                                             </div>
                                         </div>
                                         <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
-                                            <Button variant="ghost" size="sm" className="gap-2 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                            <StandardTooltip content="Download Document">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" asChild>
+                                                    <a href={`/api/documents/${doc.id}/download`} target="_blank" rel="noopener noreferrer" aria-label={`Download ${doc.name}`}>
+                                                        <Download className="h-4 w-4" />
+                                                    </a>
+                                                </Button>
+                                            </StandardTooltip>
+                                            <Button variant="ghost" size="sm" className="gap-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 h-8 px-2 text-xs"
                                                 onClick={() => setRevokeDoc({ id: doc.id, name: doc.name })}>
-                                                <Trash2 className="h-4 w-4" /> Revoke
+                                                <Trash2 className="h-3.5 w-3.5" /> Revoke
                                             </Button>
                                         </div>
                                     </div>
@@ -332,10 +340,17 @@ export function EngagementDocumentManager({ engagementId, documents, evidenceDoc
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <Button variant="ghost" size="sm" className="gap-2 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <StandardTooltip content="Download Document">
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50" asChild>
+                                                            <a href={`/api/documents/${doc.id}/download`} target="_blank" rel="noopener noreferrer" aria-label={`Download ${doc.name}`}>
+                                                                <Download className="h-4 w-4" />
+                                                            </a>
+                                                        </Button>
+                                                    </StandardTooltip>
+                                                    <Button variant="ghost" size="sm" className="gap-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 h-8 px-2 text-xs"
                                                         onClick={() => setRevokeDoc({ id: doc.id, name: doc.name })}>
-                                                        <Trash2 className="h-4 w-4" /> Revoke
+                                                        <Trash2 className="h-3.5 w-3.5" /> Revoke
                                                     </Button>
                                                 </div>
                                             </div>
