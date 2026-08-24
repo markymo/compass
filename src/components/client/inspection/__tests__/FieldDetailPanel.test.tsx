@@ -2,7 +2,7 @@
  * @vitest-environment happy-dom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
 import { FieldDetailPanel } from '../field-detail-panel';
 import * as kycQuery from '@/actions/kyc-query';
 
@@ -719,5 +719,133 @@ describe('FieldDetailPanel - Field 104 Suggestions Badge Suppression', () => {
         });
     });
 });
+
+describe('FieldDetailPanel - CanonicalScalarEditor Integration', () => {
+    beforeEach(() => {
+        cleanup();
+        vi.clearAllMocks();
+    });
+
+    it('renders constrained boolean select (not free text input) for populated BOOLEAN field 243 when Pencil is clicked', async () => {
+        vi.mocked(kycQuery.getFieldDetail).mockResolvedValueOnce({
+            fieldNo: 243,
+            fieldName: 'Cleared derivative trading only?',
+            dataType: 'BOOLEAN',
+            isRepeating: false,
+            current: { value: true, source: 'USER_INPUT' },
+            canonicalDisplayModel: {
+                allowAttachments: false,
+                attachments: [],
+                isEditable: true,
+                state: 'POPULATED',
+                value: { kind: 'scalar', display: 'Yes', rawValue: true }
+            }
+        } as any);
+
+        render(
+            <FieldDetailPanel
+                open={true}
+                onOpenChange={() => {}}
+                clientLEId="le-123"
+                fieldNo={243}
+                fieldName="Cleared derivative trading only?"
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Yes')).toBeTruthy();
+        });
+
+        // Click Edit Pencil
+        const editButton = screen.getByTitle('Edit value');
+        fireEvent.click(editButton);
+
+        // Should render a Select dropdown combobox for Yes/No, NOT a generic text input
+        await waitFor(() => {
+            expect(screen.getByRole('combobox')).toBeTruthy();
+            expect(screen.queryByPlaceholderText('Enter value...')).toBeNull();
+        });
+    });
+
+    it('renders constrained boolean select (not free text input) for empty BOOLEAN field 243 when Plus is clicked', async () => {
+        vi.mocked(kycQuery.getFieldDetail).mockResolvedValueOnce({
+            fieldNo: 243,
+            fieldName: 'Cleared derivative trading only?',
+            dataType: 'BOOLEAN',
+            isRepeating: false,
+            current: null,
+            canonicalDisplayModel: {
+                allowAttachments: false,
+                attachments: [],
+                isEditable: true,
+                state: 'NO_DATA',
+                value: { kind: 'empty' }
+            }
+        } as any);
+
+        render(
+            <FieldDetailPanel
+                open={true}
+                onOpenChange={() => {}}
+                clientLEId="le-123"
+                fieldNo={243}
+                fieldName="Cleared derivative trading only?"
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTitle('Add value')).toBeTruthy();
+        });
+
+        // Click Add Value Plus icon
+        fireEvent.click(screen.getByTitle('Add value'));
+
+        // Should render a Select dropdown combobox for Yes/No, NOT a free text input
+        await waitFor(() => {
+            expect(screen.getByRole('combobox')).toBeTruthy();
+            expect(screen.queryByPlaceholderText('Type a value and press Enter...')).toBeNull();
+        });
+    });
+
+    it('renders standard text input for ordinary TEXT field 18 in edit mode', async () => {
+        vi.mocked(kycQuery.getFieldDetail).mockResolvedValueOnce({
+            fieldNo: 18,
+            fieldName: 'Registered number',
+            dataType: 'TEXT',
+            isRepeating: false,
+            current: { value: '123456', source: 'USER_INPUT' },
+            canonicalDisplayModel: {
+                allowAttachments: false,
+                attachments: [],
+                isEditable: true,
+                state: 'POPULATED',
+                value: { kind: 'scalar', display: '123456', rawValue: '123456' }
+            }
+        } as any);
+
+        render(
+            <FieldDetailPanel
+                open={true}
+                onOpenChange={() => {}}
+                clientLEId="le-123"
+                fieldNo={18}
+                fieldName="Registered number"
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('123456')).toBeTruthy();
+        });
+
+        fireEvent.click(screen.getByTitle('Edit value'));
+
+        await waitFor(() => {
+            const input = screen.getByPlaceholderText('Enter value...');
+            expect(input).toBeTruthy();
+            expect((input as HTMLInputElement).value).toBe('123456');
+        });
+    });
+});
+
 
 

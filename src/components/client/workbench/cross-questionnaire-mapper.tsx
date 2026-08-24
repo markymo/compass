@@ -1360,7 +1360,7 @@ function QuestionCard({
                     </span>
                 </div>
             )}
-            {!isEditing && !isGroupAnswer && (
+            {!isEditing && (
                 question.canonicalDisplayModel?.source ? (
                     <div className="flex items-center gap-3 pl-6 mt-1 text-[10px] font-medium">
                         <FieldSourceBadge source={question.canonicalDisplayModel.source} showLastValidated={true} variant="span" />
@@ -1369,19 +1369,13 @@ function QuestionCard({
                         ) : null}
                     </div>
                 ) : (question.masterDataSource || question.masterDataUpdatedAt) ? (
-                    <div className="flex items-center gap-3 pl-6 text-[10px] text-slate-400 font-medium">
-                        {question.masterDataSource && (
-                            <div className="flex items-center gap-1 bg-slate-100/50 px-1.5 py-0.5 rounded border border-slate-200/50">
-                                <span className="opacity-60 uppercase tracking-wide">Source:</span>
-                                <span className="text-slate-600 font-bold uppercase">{question.masterDataSource}</span>
-                            </div>
-                        )}
-                        {question.masterDataUpdatedAt && (
-                            <div className="flex items-center gap-1">
-                                <span className="opacity-60 uppercase tracking-wide">Last Updated:</span>
-                                <span className="text-slate-500 font-semibold">{new Date(question.masterDataUpdatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
-                            </div>
-                        )}
+                    <div className="flex items-center gap-3 pl-6 mt-1 text-[10px] font-medium">
+                        <FieldSourceBadge 
+                            legacySourceType={question.masterDataSource ?? undefined} 
+                            legacyTimestamp={question.masterDataUpdatedAt} 
+                            showLastValidated={true} 
+                            variant="span" 
+                        />
                         {question.masterFieldNo && masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount ? (
                             <FieldAttachmentIndicator count={masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount} />
                         ) : null}
@@ -2102,7 +2096,7 @@ function QuestionTableRow({
                         )}
                     </div>
 
-                    {!isEditing && !isGroupAnswer && (
+                    {!isEditing && (
                         question.canonicalDisplayModel?.source ? (
                             <div className="flex items-center gap-2 pl-4 text-[10px]">
                                 <FieldSourceBadge source={question.canonicalDisplayModel.source} showLastValidated={false} variant="span" />
@@ -2111,13 +2105,8 @@ function QuestionTableRow({
                                 ) : null}
                             </div>
                         ) : (question.masterDataSource || question.masterDataUpdatedAt) ? (
-                            <div className="flex items-center gap-2 pl-4 text-[10px] text-slate-400">
-                                {question.masterDataSource && (
-                                    <span className="font-semibold text-slate-500 uppercase">{question.masterDataSource}</span>
-                                )}
-                                {question.masterDataUpdatedAt && (
-                                    <span>· {new Date(question.masterDataUpdatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
-                                )}
+                            <div className="flex items-center gap-2 pl-4 text-[10px]">
+                                <FieldSourceBadge legacySourceType={question.masterDataSource ?? undefined} legacyTimestamp={question.masterDataUpdatedAt} showLastValidated={false} variant="span" />
                             </div>
                         ) : null
                     )}

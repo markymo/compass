@@ -263,8 +263,9 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
 
                     for (const [fNo, fv] of Object.entries(resolvedValues[q.id])) {
                         groupMap[fNo] = fv.value;
-                        if (!latestDate || (fv.updatedAt && fv.updatedAt > latestDate)) {
-                            latestDate = fv.updatedAt || null;
+                        const fvDate = fv.sourceCheckedAt || fv.updatedAt;
+                        if (!latestDate || (fvDate && fvDate > latestDate)) {
+                            latestDate = fvDate || null;
                             primarySource = fv.source;
                         }
                     }
@@ -341,13 +342,18 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                     q.masterDataUpdatedAt = latestDate;
                     (q as any).masterDataGroupFields = groupFields;
                     q.masterDataGroupDisplayStyle = groupDisplayStyleMap.get(q.masterQuestionGroupId) ?? 'LIST';
+
+                    const primaryGroupDisplayModel = groupFields.find(g => g.canonicalDisplayModel?.source)?.canonicalDisplayModel || groupFields[0]?.canonicalDisplayModel;
+                    if (primaryGroupDisplayModel) {
+                        q.canonicalDisplayModel = primaryGroupDisplayModel;
+                    }
                 } else {
                     const fieldValues = Object.values(resolvedValues[q.id]);
                     if (fieldValues.length > 0) {
                         const fv = fieldValues[0];
                         q.masterDataValue = fv.value;
                         q.masterDataSource = fv.source;
-                        q.masterDataUpdatedAt = fv.updatedAt;
+                        q.masterDataUpdatedAt = fv.sourceCheckedAt || fv.updatedAt;
 
                         const def = fieldDefMap.get(q.masterFieldNo);
                         const cfg = getComplexFieldConfig(q.masterFieldNo);

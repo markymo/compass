@@ -58,6 +58,7 @@ import { SharedResourceUsageNotice } from "./SharedResourceUsageNotice";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 import { ExpandableText } from "@/components/ui/expandable-text";
 import { getExpectedDataTypeLabel } from "@/lib/master-data/field-type-resolver";
+import { CanonicalScalarEditor } from "@/components/client/fields/CanonicalScalarEditor";
 
 import {
     DropdownMenu,
@@ -1756,8 +1757,17 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                 }
                                                                             />
                                                                         ) : (
-                                                                            <div className="text-sm font-medium text-slate-800 truncate">
-                                                                                {renderRowValue(row.value, row)}
+                                                                            <div className="text-sm font-medium text-slate-800 break-words whitespace-normal leading-snug">
+                                                                                {typeof row.value === 'string' && row.value.length > 400 && !row.value.startsWith('{') && !row.value.startsWith('[') ? (
+                                                                                    <ExpandableText 
+                                                                                        text={row.value} 
+                                                                                        targetChars={300} 
+                                                                                        overflowThreshold={400} 
+                                                                                        textClassName="text-sm font-medium text-slate-800 leading-snug" 
+                                                                                    />
+                                                                                ) : (
+                                                                                    renderRowValue(row.value, row)
+                                                                                )}
                                                                             </div>
                                                                         )}
                                                                         <div className="mt-1 flex items-center gap-2">
@@ -2203,38 +2213,38 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         Cancel
                                                                     </Button>
                                                                 </div>
-                                                                <>
-                                                                    <Input
-                                                                        type={isDateType ? 'date' : 'text'}
-                                                                        value={isDateType ? formatDateForInput(manualValue) : manualValue}
-                                                                        onChange={(e) => setManualValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
-                                                                        onKeyDown={(e) => {
-                                                                            if (e.key === 'Enter' && manualValue) {
+                                                                <CanonicalScalarEditor
+                                                                    dataType={data?.dataType}
+                                                                    value={manualValue}
+                                                                    onChange={setManualValue}
+                                                                    options={data?.options}
+                                                                    disabled={isSaving}
+                                                                    fieldName={fieldName}
+                                                                    autoFocus
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter' && (manualValue === true || manualValue === false || (typeof manualValue === 'string' ? manualValue.trim() : manualValue))) {
+                                                                            setIsEditing(true);
+                                                                            handleManualSave();
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                {(manualValue === true || manualValue === false || (manualValue && typeof manualValue === 'string' ? manualValue.trim() : manualValue)) && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Button
+                                                                            size="sm"
+                                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                            onClick={() => {
                                                                                 setIsEditing(true);
                                                                                 handleManualSave();
-                                                                            }
-                                                                        }}
-                                                                        placeholder={isDateType ? '' : 'Type a value and press Enter...'}
-                                                                        className="bg-white border-slate-200 focus:border-indigo-300 focus:ring-indigo-200"
-                                                                    />
-                                                                    {manualValue && (
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Button
-                                                                                size="sm"
-                                                                                className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                                                onClick={() => {
-                                                                                    setIsEditing(true);
-                                                                                    handleManualSave();
-                                                                                }}
-                                                                                disabled={isSaving}
-                                                                            >
-                                                                                {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                                                                Save
-                                                                            </Button>
-                                                                            <span className="text-[10px] text-slate-400">or press Enter</span>
-                                                                        </div>
-                                                                    )}
-                                                                </>
+                                                                            }}
+                                                                            disabled={isSaving}
+                                                                        >
+                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                            Save
+                                                                        </Button>
+                                                                        <span className="text-[10px] text-slate-400">or press Enter</span>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         ) : (
                                                             <div className="text-[13px] text-slate-400 italic mt-2">No value provided.</div>
@@ -2318,32 +2328,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                     disabled={isSaving}
                                                 />
                                             </div>
-                                        ) : data?.options && data.options.length > 0 ? (
-                                            <Select value={manualValue} onValueChange={setManualValue}>
-                                                <SelectTrigger className="w-full bg-white border-slate-300">
-                                                    <SelectValue placeholder={`Select ${fieldName}...`} />
-                                                </SelectTrigger>
-                                                <SelectContent position="item-aligned">
-                                                    {data.options.map((opt: any) => {
-                                                        const v = typeof opt === 'object' ? opt.value : opt;
-                                                        const l = typeof opt === 'object' ? opt.label : opt;
-                                                        return <SelectItem key={v} value={v}>{l}</SelectItem>;
-                                                    })}
-                                                </SelectContent>
-                                            </Select>
-                                        ) : isDateType ? (
-                                            <Input
-                                                type="date"
-                                                value={formatDateForInput(manualValue)}
-                                                onChange={(e) => setManualValue(parseDateFromInput(e.target.value))}
-                                                className="bg-white border-slate-300"
-                                            />
                                         ) : (
-                                            <Input
+                                            <CanonicalScalarEditor
+                                                dataType={data?.dataType}
                                                 value={manualValue}
-                                                onChange={(e) => setManualValue(e.target.value)}
-                                                placeholder="Enter value..."
-                                                className="bg-white border-slate-300"
+                                                onChange={setManualValue}
+                                                options={data?.options}
+                                                disabled={isSaving}
+                                                fieldName={fieldName}
                                             />
                                         )}
                                     </div>
