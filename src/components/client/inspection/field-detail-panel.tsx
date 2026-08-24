@@ -1629,49 +1629,25 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                 </Button>
                                                                             </div>
                                                                         </div>
-                                                                    ) : data?.options && data.options.length > 0 ? (
-                                                                        <Select
-                                                                            value={editingRowValue}
-                                                                            onValueChange={setEditingRowValue}
-                                                                            disabled={isSaving}
-                                                                        >
-                                                                            <SelectTrigger className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400">
-                                                                                <SelectValue placeholder="Select a value..." />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent position="item-aligned">
-                                                                                {data.options.map((opt: any) => {
-                                                                                    const v = typeof opt === 'object' ? opt.value : opt;
-                                                                                    const l = typeof opt === 'object' ? opt.label : opt;
-                                                                                    return <SelectItem key={v} value={v}>{l}</SelectItem>;
-                                                                                })}
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                    ) : isBooleanType ? (
-                                                                        <Select
-                                                                            value={String(editingRowValue)}
-                                                                            onValueChange={(val) => setEditingRowValue(val === 'true')}
-                                                                            disabled={isSaving}
-                                                                        >
-                                                                            <SelectTrigger className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400">
-                                                                                <SelectValue placeholder="Select Yes/No..." />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent>
-                                                                                <SelectItem value="true">Yes</SelectItem>
-                                                                                <SelectItem value="false">No</SelectItem>
-                                                                            </SelectContent>
-                                                                        </Select>
                                                                     ) : (
-                                                                        <Input
-                                                                            type={isDateType ? 'date' : 'text'}
-                                                                            value={isDateType ? formatDateForInput(editingRowValue) : editingRowValue}
-                                                                            onChange={(e) => setEditingRowValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
+                                                                        <CanonicalScalarEditor
+                                                                            dataType={data?.dataType}
+                                                                            value={editingRowValue}
+                                                                            onChange={setEditingRowValue}
+                                                                            options={data?.options}
+                                                                            disabled={isSaving}
+                                                                            fieldName={fieldName}
+                                                                            autoFocus
                                                                             onKeyDown={(e) => {
-                                                                                if (e.key === 'Enter' && (typeof editingRowValue === 'string' ? editingRowValue.trim() : true)) handleInlineEditSave(row);
-                                                                                if (e.key === 'Escape') { setEditingRowId(null); setEditingRowValue(""); }
+                                                                                if (e.key === 'Enter' && (editingRowValue === true || editingRowValue === false || (typeof editingRowValue === 'string' ? editingRowValue.trim() : editingRowValue))) {
+                                                                                    handleInlineEditSave(row);
+                                                                                }
+                                                                                if (e.key === 'Escape') {
+                                                                                    setEditingRowId(null);
+                                                                                    setEditingRowValue("");
+                                                                                }
                                                                             }}
                                                                             className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400"
-                                                                            autoFocus
-                                                                            disabled={isSaving}
                                                                         />
                                                                     )}
 
@@ -1681,7 +1657,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                             size="icon"
                                                                             className="h-7 w-7 text-green-600 hover:bg-green-50 shrink-0"
                                                                             onClick={() => handleInlineEditSave(row)}
-                                                                            disabled={isSaving || (typeof editingRowValue === 'string' ? !editingRowValue.trim() : false)}
+                                                                            disabled={isSaving || (editingRowValue !== true && editingRowValue !== false && (typeof editingRowValue === 'string' ? !editingRowValue.trim() : false))}
                                                                             title="Save value"
                                                                         >
                                                                             {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
@@ -1847,78 +1823,33 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         />
                                                     ) : (
                                                         <div className="flex items-center gap-1.5">
-                                                            {data?.options && data.options.length > 0 ? (
-                                                                <>
-                                                                    <Select
-                                                                        value={newEntryValue}
-                                                                        onValueChange={setNewEntryValue}
-                                                                        disabled={isAddingSaving}
-                                                                    >
-                                                                        <SelectTrigger className="h-8 text-sm flex-1 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300">
-                                                                            <SelectValue placeholder="Select a value..." />
-                                                                        </SelectTrigger>
-                                                                        <SelectContent position="item-aligned">
-                                                                            {data.options.map((opt) => {
-                                                                                const v = typeof opt === 'object' ? opt.value : opt;
-                                                                                const l = typeof opt === 'object' ? opt.label : opt;
-                                                                                return <SelectItem key={v} value={v}>{l}</SelectItem>;
-                                                                            })}
-                                                                        </SelectContent>
-                                                                    </Select>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="h-8 px-3 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
-                                                                        onClick={() => handleAddNewEntry()}
-                                                                        disabled={isAddingSaving || !newEntryValue.trim()}
-                                                                    >
-                                                                        {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
-                                                                    </Button>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <div className="relative flex-1">
-                                                                        <Plus className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                                                                        {isBooleanType ? (
-                                                                            <Select
-                                                                                value={String(newEntryValue)}
-                                                                                onValueChange={(val) => setNewEntryValue(val === 'true')}
-                                                                                disabled={isAddingSaving}
-                                                                            >
-                                                                                <SelectTrigger className="h-8 text-sm pl-8 flex-1 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300">
-                                                                                    <SelectValue placeholder="Select Yes/No..." />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    <SelectItem value="true">Yes</SelectItem>
-                                                                                    <SelectItem value="false">No</SelectItem>
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        ) : (
-                                                                            <Input
-                                                                                ref={newEntryInputRef}
-                                                                                type={isDateType ? 'date' : 'text'}
-                                                                                value={isDateType ? formatDateForInput(newEntryValue) : newEntryValue}
-                                                                                onChange={(e) => setNewEntryValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
-                                                                                onKeyDown={(e) => {
-                                                                                    if (e.key === 'Enter' && (typeof newEntryValue === 'string' ? newEntryValue.trim() : true)) handleAddNewEntry();
-                                                                                }}
-                                                                                placeholder={isDateType ? '' : 'Add new value...'}
-                                                                                className="h-8 text-sm pl-8 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300"
-                                                                                disabled={isAddingSaving}
-                                                                            />
-                                                                        )}
-                                                                    </div>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="h-8 px-3 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
-                                                                        onClick={() => handleAddNewEntry()}
-                                                                        disabled={isAddingSaving || newEntryValue === "" || (typeof newEntryValue === 'string' && !newEntryValue.trim())}
-                                                                    >
-                                                                        {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
-                                                                    </Button>
-                                                                </>
-                                                            )}
+                                                            <div className="relative flex-1">
+                                                                <Plus className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 z-10 pointer-events-none" />
+                                                                <CanonicalScalarEditor
+                                                                    dataType={data?.dataType}
+                                                                    value={newEntryValue}
+                                                                    onChange={setNewEntryValue}
+                                                                    options={data?.options}
+                                                                    disabled={isAddingSaving}
+                                                                    fieldName={fieldName}
+                                                                    placeholder="Add new value..."
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter' && (newEntryValue === true || newEntryValue === false || (typeof newEntryValue === 'string' ? newEntryValue.trim() : newEntryValue))) {
+                                                                            handleAddNewEntry();
+                                                                        }
+                                                                    }}
+                                                                    className="h-8 text-sm pl-8 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300"
+                                                                />
+                                                            </div>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-8 px-3 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
+                                                                onClick={() => handleAddNewEntry()}
+                                                                disabled={isAddingSaving || (newEntryValue !== true && newEntryValue !== false && (typeof newEntryValue === 'string' ? !newEntryValue.trim() : !newEntryValue))}
+                                                            >
+                                                                {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
+                                                            </Button>
                                                         </div>
                                                     )}
                                                 </div>

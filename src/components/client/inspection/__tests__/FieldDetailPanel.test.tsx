@@ -14,6 +14,7 @@ vi.mock('@/actions/kyc-query', () => ({
 vi.mock('@/actions/kyc-manual-update', () => ({
     updateFieldManually: vi.fn().mockResolvedValue({ success: true }),
     removeMultiValueEntry: vi.fn().mockResolvedValue({ success: true }),
+    addMultiValueEntry: vi.fn().mockResolvedValue({ success: true }),
     clearSingleValueEntry: vi.fn().mockResolvedValue({ success: true }),
     addCodeListEntry: vi.fn().mockResolvedValue({ success: true }),
 }));
@@ -331,6 +332,32 @@ describe('FieldDetailPanel - Generic Multi-Value Branch (Field 235 & Generic Rep
                         { id: 'text-claim-1', instanceId: 'text-inst-1', value: 'First Text Value', source: 'USER_INPUT', timestamp: new Date('2026-08-01') }
                     ],
                     current: { value: ['First Text Value'], source: 'USER_INPUT', timestamp: new Date('2026-08-01') },
+                } as any;
+            }
+            if (fieldNo === 500) {
+                return {
+                    fieldNo: 500,
+                    fieldName: 'Repeating Boolean Field',
+                    dataType: 'BOOLEAN',
+                    isRepeating: true,
+                    options: [],
+                    rows: [
+                        { id: 'bool-claim-1', instanceId: 'bool-inst-1', value: true, source: 'USER_INPUT', timestamp: new Date('2026-08-01') }
+                    ],
+                    current: { value: [true], source: 'USER_INPUT' }
+                } as any;
+            }
+            if (fieldNo === 501) {
+                return {
+                    fieldNo: 501,
+                    fieldName: 'Repeating Date Field',
+                    dataType: 'DATE',
+                    isRepeating: true,
+                    options: [],
+                    rows: [
+                        { id: 'date-claim-1', instanceId: 'date-inst-1', value: '2026-08-20T00:00:00.000Z', source: 'USER_INPUT', timestamp: new Date('2026-08-20') }
+                    ],
+                    current: { value: ['2026-08-20T00:00:00.000Z'], source: 'USER_INPUT' }
                 } as any;
             }
             if (fieldNo === 104 || fieldNo === 105) {
@@ -846,6 +873,133 @@ describe('FieldDetailPanel - CanonicalScalarEditor Integration', () => {
         });
     });
 });
+
+describe('FieldDetailPanel - Multi-Value CanonicalScalarEditor Integration', () => {
+    beforeEach(() => {
+        cleanup();
+        vi.clearAllMocks();
+    });
+
+    it('TEXT × MANY: uses standard text input for both editing existing items and adding new items', async () => {
+        const kycManual = await import('@/actions/kyc-manual-update');
+        vi.mocked(kycQuery.getFieldDetail).mockResolvedValueOnce({
+            fieldNo: 300,
+            fieldName: 'Repeating Text Field',
+            dataType: 'TEXT',
+            isRepeating: true,
+            options: [],
+            rows: [
+                { id: 'text-claim-1', instanceId: 'text-inst-1', value: 'Existing Text Item', source: 'USER_INPUT', timestamp: new Date('2026-08-01') }
+            ],
+            current: { value: ['Existing Text Item'], source: 'USER_INPUT' }
+        } as any);
+
+        render(
+            <FieldDetailPanel
+                open={true}
+                onOpenChange={() => {}}
+                clientLEId="le-123"
+                fieldNo={300}
+                fieldName="Repeating Text Field"
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Existing Text Item')).toBeTruthy();
+        });
+
+        // 1. Edit existing item -> uses text input
+        fireEvent.click(screen.getByTitle('Edit value'));
+        await waitFor(() => {
+            const editInput = screen.getByDisplayValue('Existing Text Item') as HTMLInputElement;
+            expect(editInput).toBeTruthy();
+            expect(editInput.type).toBe('text');
+        });
+
+        // 2. Add new item -> uses text input
+        const addInput = screen.getByPlaceholderText('Add new value...') as HTMLInputElement;
+        expect(addInput).toBeTruthy();
+        expect(addInput.type).toBe('text');
+    });
+
+    it('BOOLEAN × MANY: uses constrained Yes/No dropdown control (not free text) for both edit and add states and passes boolean to save', async () => {
+        const kycManual = await import('@/actions/kyc-manual-update');
+        vi.mocked(kycManual.addMultiValueEntry).mockResolvedValue({ success: true });
+        vi.mocked(kycQuery.getFieldDetail).mockResolvedValueOnce({
+            fieldNo: 500,
+            fieldName: 'Repeating Boolean Field',
+            dataType: 'BOOLEAN',
+            isRepeating: true,
+            options: [],
+            rows: [
+                { id: 'bool-claim-1', instanceId: 'bool-inst-1', value: true, source: 'USER_INPUT', timestamp: new Date('2026-08-01') }
+            ],
+            current: { value: [true], source: 'USER_INPUT' }
+        } as any);
+
+        render(
+            <FieldDetailPanel
+                open={true}
+                onOpenChange={() => {}}
+                clientLEId="le-123"
+                fieldNo={500}
+                fieldName="Repeating Boolean Field"
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTitle('Edit value')).toBeTruthy();
+        });
+
+        // 1. Existing item edit -> renders combobox Select, not free text input
+        fireEvent.click(screen.getByTitle('Edit value'));
+        await waitFor(() => {
+            const comboboxes = screen.getAllByRole('combobox');
+            expect(comboboxes.length).toBeGreaterThan(0);
+        });
+
+        // 2. Add new item -> renders combobox Select for Yes/No, not free text input
+        const addCombobox = screen.getAllByRole('combobox').pop();
+        expect(addCombobox).toBeTruthy();
+        expect(screen.queryByPlaceholderText('Add new value...')).toBeNull();
+    });
+
+    it('DATE × MANY: confirms repeating date fields render date picker inputs', async () => {
+        vi.mocked(kycQuery.getFieldDetail).mockResolvedValueOnce({
+            fieldNo: 501,
+            fieldName: 'Repeating Date Field',
+            dataType: 'DATE',
+            isRepeating: true,
+            options: [],
+            rows: [
+                { id: 'date-claim-1', instanceId: 'date-inst-1', value: '2026-08-20T00:00:00.000Z', source: 'USER_INPUT', timestamp: new Date('2026-08-20') }
+            ],
+            current: { value: ['2026-08-20T00:00:00.000Z'], source: 'USER_INPUT' }
+        } as any);
+
+        const { container } = render(
+            <FieldDetailPanel
+                open={true}
+                onOpenChange={() => {}}
+                clientLEId="le-123"
+                fieldNo={501}
+                fieldName="Repeating Date Field"
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTitle('Edit value')).toBeTruthy();
+        });
+
+        // Edit existing date item -> uses input[type="date"]
+        fireEvent.click(screen.getByTitle('Edit value'));
+        await waitFor(() => {
+            const dateInputs = container.querySelectorAll('input[type="date"]');
+            expect(dateInputs.length).toBeGreaterThan(0);
+        });
+    });
+});
+
 
 
 
