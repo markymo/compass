@@ -4,6 +4,9 @@ import * as crypto from "crypto";
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { getFieldDetail, enrichPartyReferences, enrichAddressReferences, resolveMasterDataBatch } from "@/actions/kyc-query";
 import { getMasterFieldGroup, getMasterFieldDefinition } from "@/services/masterData/definitionService";
+import { buildPartyFieldProjection, extractCanonicalPartyIds } from "@/lib/master-data/party-value";
+import { isFieldPermittedByCatalogue } from "@/lib/master-data/party-display-catalogue";
+import { CCPartyDocumentService } from "@/lib/documents/party/CCPartyDocumentService";
 
 export interface CreateSubmissionInput {
     questionnaireId: string;
@@ -274,6 +277,31 @@ export async function createQuestionnaireSubmission(
                 const valuesToEnrich = Array.isArray(valueJson) ? valueJson : [valueJson];
                 await enrichPartyReferences(valuesToEnrich);
                 await enrichAddressReferences(valuesToEnrich);
+
+                if (q.masterFieldNo) {
+                    const masterFieldDef = await getMasterFieldDefinition(q.masterFieldNo);
+                    const mask = (masterFieldDef as any)?.profileConfig?.displayMask;
+
+                    const projected = Array.isArray(valueJson)
+                        ? valueJson.map(v => buildPartyFieldProjection(v, mask))
+                        : buildPartyFieldProjection(valueJson, mask);
+                    valueJson = projected;
+
+                    const permitsPartyDocs = isFieldPermittedByCatalogue('party.documents', mask);
+                    if (permitsPartyDocs) {
+                        const partyIds = extractCanonicalPartyIds(valueJson);
+                        if (partyIds.length > 0) {
+                            const partyDocsMap = await CCPartyDocumentService.resolvePartyDocumentsBatch(partyIds, clientLEId);
+                            for (const docs of Array.from(partyDocsMap.values())) {
+                                for (const d of docs) {
+                                    if (d.documentId && !documentIds.includes(d.documentId)) {
+                                        documentIds.push(d.documentId);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             resolvedAnswerMap.set(q.id, {

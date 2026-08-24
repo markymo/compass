@@ -144,8 +144,9 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                 resolvedValuesMap.set(Number(fNo), { value: hv.value });
             }
         }
-        const fieldsWithAttachments = allFields.filter((f: any) => f.allowAttachments).map((f: any) => f.fieldNo);
-        const resolvedAttachments = await resolveAmalgamatedAttachments({ subjectLeId, clientLEId: leId }, fieldsWithAttachments, resolvedValuesMap);
+        const allFieldNos = allFields.map((f: any) => f.fieldNo);
+        const fieldDefsMap = new Map(allFields.map((f: any) => [f.fieldNo, { allowAttachments: f.allowAttachments, profileConfig: f.profileConfig }]));
+        const resolvedAttachments = await resolveAmalgamatedAttachments({ subjectLeId, clientLEId: leId }, allFieldNos, resolvedValuesMap, fieldDefsMap);
 
         for (const hvMap of Object.values(resolvedValues)) {
             for (const [fNo, hv] of Object.entries(hvMap)) {

@@ -132,11 +132,13 @@ export async function resolveExportAnswer(
             }
 
             if (subAnswer.valueJson !== null && subAnswer.valueJson !== undefined) {
+                const masterFieldDef = question.masterFieldNo ? await getMasterFieldDefinition(question.masterFieldNo) : null;
                 const meta: FieldInterpreterMetadata = {
                     fieldNo: question.masterFieldNo || -1,
                     label: question.text,
                     displayState: "HAS_VALUE",
-                    isMultiValue: Array.isArray(subAnswer.valueJson)
+                    isMultiValue: Array.isArray(subAnswer.valueJson),
+                    profileConfig: (masterFieldDef as any)?.profileConfig
                 };
 
                 const primarySource: RawFieldSource | null = subAnswer.provenanceJson ? {

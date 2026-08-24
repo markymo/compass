@@ -724,13 +724,15 @@ export async function getFullMasterData(clientLEId: string) {
             )
         );
 
-        const fieldsWithAttachments = allFields.filter(f => f.allowAttachments).map(f => f.fieldNo);
+        const allFieldNos = allFields.map(f => f.fieldNo);
+        const fieldDefsMap = new Map(allFields.map(f => [f.fieldNo, { allowAttachments: f.allowAttachments, profileConfig: f.profileConfig as any }]));
         const resolvedAttachments = await Sentry.startSpan(
             { name: "master.resolveAttachments", op: "function.data" },
             async () => resolveAmalgamatedAttachments(
                 { subjectLeId, clientLEId: clientLE.id },
-                fieldsWithAttachments,
-                resolved
+                allFieldNos,
+                resolved,
+                fieldDefsMap
             )
         );
 

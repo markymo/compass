@@ -760,10 +760,48 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                     }
                                                 }
 
-                                                const currentMask = formData.profileConfig?.displayMask || [];
+                                                const rawMask = formData.profileConfig?.displayMask;
+                                                const isDefaultMask = rawMask === undefined || rawMask === null;
+                                                const allKeys = availableFields.map(df => df.key);
+                                                const currentMask = isDefaultMask ? allKeys : (rawMask as string[]);
 
                                                 return (
                                                     <div className="space-y-5">
+                                                        <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded p-2.5 text-xs">
+                                                            <div>
+                                                                <span className="font-semibold text-slate-800">
+                                                                    {isDefaultMask
+                                                                        ? "Default Mask (Unrestricted)"
+                                                                        : (currentMask.length === 0
+                                                                            ? "Explicit Mask: Minimum Identity Only"
+                                                                            : `Explicit Mask: ${currentMask.length} attribute${currentMask.length === 1 ? '' : 's'} selected`)}
+                                                                </span>
+                                                                <p className="text-slate-500 text-[11px] mt-0.5">
+                                                                    {isDefaultMask
+                                                                        ? "Exposes minimum party identity plus all optional attributes & documents."
+                                                                        : (currentMask.length === 0
+                                                                            ? "Exposes minimum party identity label only; hides all optional attributes and party documents."
+                                                                            : "Exposes minimum party identity plus explicitly selected attributes.")}
+                                                                </p>
+                                                            </div>
+                                                            {!isDefaultMask && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 text-[11px] text-slate-600 hover:text-slate-900 shrink-0"
+                                                                    onClick={() => {
+                                                                        setFormData({
+                                                                            ...formData,
+                                                                            profileConfig: { ...formData.profileConfig, displayMask: undefined }
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    Reset to Default
+                                                                </Button>
+                                                            )}
+                                                        </div>
+
                                                         {sections.map(section => (
                                                             <div key={section.title} className="space-y-2">
                                                                 <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200 pb-1">
@@ -771,7 +809,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                                 </h4>
                                                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
                                                                     {section.fields.map(f => {
-                                                                        const isSelected = currentMask.some((p: string) => p === f.key || f.legacyKeys.includes(p));
+                                                                        const isSelected = isDefaultMask ? true : currentMask.some((p: string) => p === f.key || f.legacyKeys.includes(p));
                                                                         const toggleId = `mask-toggle-${f.key.replace(/\./g, '-')}`;
                                                                         return (
                                                                             <div key={f.key} className="flex items-center space-x-2 py-0.5">
@@ -780,7 +818,9 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                                                     checked={isSelected}
                                                                                     onCheckedChange={() => {
                                                                                         let next: string[];
-                                                                                        if (isSelected) {
+                                                                                        if (isDefaultMask) {
+                                                                                            next = allKeys.filter((k: string) => k !== f.key);
+                                                                                        } else if (isSelected) {
                                                                                             next = currentMask.filter((p: string) => p !== f.key && !f.legacyKeys.includes(p));
                                                                                         } else {
                                                                                             next = [...currentMask, f.key];

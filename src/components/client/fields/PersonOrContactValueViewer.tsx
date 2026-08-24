@@ -168,22 +168,35 @@ function PartyAttachmentIndicator({ attachments, partyName }: { attachments: imp
             <Tooltip>
                 <TooltipTrigger asChild>
                     <div 
-                        className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-700 text-xs font-medium shrink-0 cursor-default"
+                        className="inline-flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200/80 text-slate-700 hover:text-slate-900 px-2 py-0.5 rounded text-xs font-medium shrink-0 cursor-pointer transition-colors border border-slate-200/60"
                         aria-label={`${attachments.length} document${attachments.length === 1 ? '' : 's'} attached to ${partyName}`}
                     >
-                        <Paperclip className="h-3.5 w-3.5 text-slate-400" />
-                        <span>{attachments.length}</span>
+                        <Paperclip className="h-3.5 w-3.5 text-slate-500" />
+                        <span>{attachments.length} doc{attachments.length === 1 ? '' : 's'}</span>
                     </div>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs bg-slate-900 text-white border-slate-800 p-2 max-w-xs shadow-md">
-                    <div className="font-semibold mb-1 text-[11px] text-slate-300">
-                        {attachments.length === 1 ? 'Attached document:' : `${attachments.length} Attached documents:`}
+                <TooltipContent side="top" className="text-xs bg-white text-slate-900 border-slate-200 p-3 max-w-sm shadow-xl z-50">
+                    <div className="font-semibold mb-2 text-[11px] text-slate-500 uppercase tracking-wider flex items-center justify-between border-b border-slate-100 pb-1.5">
+                        <span>{attachments.length === 1 ? 'Party Document' : `${attachments.length} Party Documents`}</span>
                     </div>
-                    <ul className="space-y-1">
+                    <ul className="space-y-2">
                         {attachments.map(att => (
-                            <li key={att.documentId} className="flex items-center gap-1.5 truncate">
-                                <FileText className="w-3 h-3 text-slate-400 shrink-0" />
-                                <span className="truncate">{att.displayName}</span>
+                            <li key={att.documentId} className="flex items-center justify-between gap-2 p-1.5 rounded bg-slate-50 border border-slate-100">
+                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                    <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                    <span className="truncate text-xs text-slate-700 font-medium">{att.displayName}</span>
+                                </div>
+                                <a
+                                    href={`/api/documents/${att.documentId}/download`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 text-[10px] font-semibold shrink-0"
+                                    title="Download document"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <Download className="w-3 h-3" />
+                                    Download
+                                </a>
                             </li>
                         ))}
                     </ul>
@@ -313,6 +326,9 @@ export function PersonOrContactValueViewer({
                     })()}
                 </div>
                 <div className="flex items-center gap-2">
+                    {attachments && attachments.length > 0 && (
+                        <PartyAttachmentIndicator attachments={attachments} partyName={primaryText || 'Party'} />
+                    )}
                     {renderActionButton()}
                     {!hideStatusBadge && poc.isActivePersonOrContact !== null && (
                         <span className={`text-[10px] font-semibold rounded-full px-2 py-1 border ${poc.isActivePersonOrContact ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>

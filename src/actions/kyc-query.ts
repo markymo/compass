@@ -395,7 +395,7 @@ function resolveField(
  * Mutates the objects in-place to attach `resolvedSummary` and `ccParty` payload,
  * ensuring generic renderers can display the CCParty name cleanly.
  */
-export async function enrichPartyReferences(values: any[]) {
+export async function enrichPartyReferences(values: any[], forceReenrich: boolean = false) {
     const ccPartyIds = new Set<string>();
     const isEnvelope = (val: any) => val && typeof val === 'object' && 'value' in val && 'source' in val && val.source && 'type' in val.source;
 
@@ -406,13 +406,17 @@ export async function enrichPartyReferences(values: any[]) {
             for (const item of v) {
                 const target = isEnvelope(item) ? item.value : item;
                 if (target && typeof target === 'object' && target.ccPartyId) {
-                    ccPartyIds.add(target.ccPartyId);
+                    if (forceReenrich || !target.ccParty) {
+                        ccPartyIds.add(target.ccPartyId);
+                    }
                 }
             }
         } else {
             const target = isEnvelope(v) ? v.value : v;
             if (target && typeof target === 'object' && target.ccPartyId) {
-                ccPartyIds.add(target.ccPartyId);
+                if (forceReenrich || !target.ccParty) {
+                    ccPartyIds.add(target.ccPartyId);
+                }
             }
         }
     }
@@ -432,6 +436,20 @@ export async function enrichPartyReferences(values: any[]) {
             for (const item of v) {
                 const target = isEnvelope(item) ? item.value : item;
                 if (target && typeof target === 'object' && target.ccPartyId) {
+                    if (forceReenrich || !target.ccParty) {
+                        const party = partyMap.get(target.ccPartyId);
+                        if (party) {
+                            target.ccParty = party;
+                            target.resolvedSummary = getPartySummary((party as any).data);
+                            target.resolvedType = (party as any).data?.partySubType || (party as any).data?.partyType;
+                        }
+                    }
+                }
+            }
+        } else {
+            const target = isEnvelope(v) ? v.value : v;
+            if (target && typeof target === 'object' && target.ccPartyId) {
+                if (forceReenrich || !target.ccParty) {
                     const party = partyMap.get(target.ccPartyId);
                     if (party) {
                         target.ccParty = party;
@@ -440,21 +458,11 @@ export async function enrichPartyReferences(values: any[]) {
                     }
                 }
             }
-        } else {
-            const target = isEnvelope(v) ? v.value : v;
-            if (target && typeof target === 'object' && target.ccPartyId) {
-                const party = partyMap.get(target.ccPartyId);
-                if (party) {
-                    target.ccParty = party;
-                    target.resolvedSummary = getPartySummary((party as any).data);
-                    target.resolvedType = (party as any).data?.partySubType || (party as any).data?.partyType;
-                }
-            }
         }
     }
 }
 
-export async function enrichAddressReferences(values: any[]) {
+export async function enrichAddressReferences(values: any[], forceReenrich: boolean = false) {
     const ccAddressIds = new Set<string>();
     const isEnvelope = (val: any) => val && typeof val === 'object' && 'value' in val && 'source' in val && val.source && 'type' in val.source;
 
@@ -464,13 +472,17 @@ export async function enrichAddressReferences(values: any[]) {
             for (const item of v) {
                 const target = isEnvelope(item) ? item.value : item;
                 if (target && typeof target === 'object' && target.ccAddressId) {
-                    ccAddressIds.add(target.ccAddressId);
+                    if (forceReenrich || !target.ccAddress) {
+                        ccAddressIds.add(target.ccAddressId);
+                    }
                 }
             }
         } else {
             const target = isEnvelope(v) ? v.value : v;
             if (target && typeof target === 'object' && target.ccAddressId) {
-                ccAddressIds.add(target.ccAddressId);
+                if (forceReenrich || !target.ccAddress) {
+                    ccAddressIds.add(target.ccAddressId);
+                }
             }
         }
     }
@@ -500,20 +512,24 @@ export async function enrichAddressReferences(values: any[]) {
             for (const item of v) {
                 const target = isEnvelope(item) ? item.value : item;
                 if (target && typeof target === 'object' && target.ccAddressId) {
-                    const address = addressMap.get(target.ccAddressId);
-                    if (address) {
-                        target.ccAddress = address;
-                        target.resolvedSummary = getSummary((address as any).data);
+                    if (forceReenrich || !target.ccAddress) {
+                        const address = addressMap.get(target.ccAddressId);
+                        if (address) {
+                            target.ccAddress = address;
+                            target.resolvedSummary = getSummary((address as any).data);
+                        }
                     }
                 }
             }
         } else {
             const target = isEnvelope(v) ? v.value : v;
             if (target && typeof target === 'object' && target.ccAddressId) {
-                const address = addressMap.get(target.ccAddressId);
-                if (address) {
-                    target.ccAddress = address;
-                    target.resolvedSummary = getSummary((address as any).data);
+                if (forceReenrich || !target.ccAddress) {
+                    const address = addressMap.get(target.ccAddressId);
+                    if (address) {
+                        target.ccAddress = address;
+                        target.resolvedSummary = getSummary((address as any).data);
+                    }
                 }
             }
         }
@@ -843,10 +859,12 @@ export async function getFieldDetail(
                 })
             ]);
             
+            const fieldDefsMap = new Map(defs.map(d => [d.fieldNo, { allowAttachments: d.allowAttachments, profileConfig: (d as any).profileConfig }]));
             const resolvedAttachmentsMap = await resolveAmalgamatedAttachments(
                 { subjectLeId, clientLEId: entityType === 'CLIENT_LE' ? entityId : undefined },
-                defs.filter(d => d.allowAttachments).map(d => d.fieldNo),
-                resolvedValuesMap
+                defs.map(d => d.fieldNo),
+                resolvedValuesMap,
+                fieldDefsMap
             );
             
             let clientLEForSource: any = null;
@@ -1677,9 +1695,8 @@ export async function getFieldDetail(
     if (result.current?.value) {
         resolvedValuesMap.set(fieldNo, { value: result.current.value } as any);
     }
-    const amalgamatedAttachmentsMap = def?.allowAttachments 
-        ? await resolveAmalgamatedAttachments({ subjectLeId }, [fieldNo], resolvedValuesMap)
-        : new Map();
+    const fieldDefMap = def ? new Map([[fieldNo, { allowAttachments: def.allowAttachments, profileConfig: (def as any).profileConfig }]]) : undefined;
+    const amalgamatedAttachmentsMap = await resolveAmalgamatedAttachments({ subjectLeId }, [fieldNo], resolvedValuesMap, fieldDefMap);
     
     const metadataForDisplay = {
         fieldNo: result.fieldNo ?? 0,

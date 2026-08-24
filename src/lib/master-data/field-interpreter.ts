@@ -1,6 +1,7 @@
 import { FieldDisplayModel, ResolvedFieldValue, FieldSource, ResolvedAttachment } from './field-display-model';
 import { getSourceDisplayName } from '@/lib/source-display';
-import { isPartyValue, getPartySummary } from './party-value';
+import { isPartyValue, getPartySummary, buildPartyFieldProjection } from './party-value';
+import { isFieldPermittedByCatalogue } from './party-display-catalogue';
 import { isAddressValue, getAddressSummary } from './address-value';
 import { formatStructuredCollectionRow } from './structured-value-formatters';
 import { FIELD_DEFINITIONS } from '@/domain/kyc/FieldDefinitions';
@@ -87,10 +88,13 @@ export function resolveFieldCollectionForDisplay(
             partyNameStr = val.partyLabel || getPartySummary(pd) || [pd?.forenames, pd?.surname].filter(Boolean).join(' ') || pd?.organisationName || pd?.displayName || undefined;
         }
 
+        const permitsPartyDocs = isFieldPermittedByCatalogue('party.documents', metadata.profileConfig?.displayMask);
+
         if (metadata.attachments && metadata.attachments.length > 0) {
             const matched = metadata.attachments.filter(att =>
                 att.provenance?.some(p => {
                     if (p.type !== 'PARTY') return false;
+                    if (!permitsPartyDocs) return false;
                     if (ccPartyId && p.partyId === ccPartyId) return true;
                     if (partyNameStr && p.partyName && p.partyName.trim().toLowerCase() === partyNameStr.trim().toLowerCase()) return true;
                     return false;
@@ -240,7 +244,7 @@ function resolveValue(
 import { normaliseCCPartyData as normalisePartyReadModel } from './party-v2/normaliser';
 import { getPartyLabel } from './party-v2/label-helper';
 
-function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, appDataType?: string, fieldNo?: number): ResolvedFieldValue {
+export function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, appDataType?: string, fieldNo?: number): ResolvedFieldValue {
     if (val === null || val === undefined) return { kind: 'empty' };
 
     if (val instanceof Date) {
@@ -302,16 +306,17 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
 
     if (typeof val === 'object') {
         if (val.ccPartyId) {
-            const resolvedParty = val.ccParty?.data || val._resolvedData?.ccParty?.data;
-            const norm = normalisePartyReadModel(resolvedParty || val);
+            const rawResolvedParty = val.ccParty?.data || val._resolvedData?.ccParty?.data;
+            const norm = normalisePartyReadModel(rawResolvedParty || val);
             const partyLabel = norm ? getPartyLabel(norm) : `ID:${val.ccPartyId.slice(0, 8)}…`;
+            const projectedResolved = rawResolvedParty ? buildPartyFieldProjection(rawResolvedParty, displayMask, partyLabel) : undefined;
             
             return {
                 kind: 'partyRef',
                 refId: val.ccPartyId,
-                summary: resolvedParty ? getPartySummary(resolvedParty, displayMask) : `ID:${val.ccPartyId.slice(0, 8)}…`,
+                summary: projectedResolved ? getPartySummary(projectedResolved, displayMask) : `ID:${val.ccPartyId.slice(0, 8)}…`,
                 partyLabel,
-                resolved: resolvedParty,
+                resolved: projectedResolved,
                 displayMask
             };
         }
@@ -364,11 +369,13 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
         if (isParty) {
             const norm = normalisePartyReadModel(val);
             if (norm) {
+                const partyLabel = getPartyLabel(norm);
+                const projectedData = buildPartyFieldProjection(val, displayMask, partyLabel);
                 return {
                     kind: 'party',
-                    data: val as any,
-                    summary: getPartySummary(val as any, displayMask),
-                    partyLabel: getPartyLabel(norm),
+                    data: projectedData as any,
+                    summary: getPartySummary(projectedData, displayMask),
+                    partyLabel,
                     displayMask
                 };
             }

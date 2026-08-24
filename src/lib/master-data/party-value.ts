@@ -37,13 +37,15 @@ export function extractCanonicalPartyIds(value: any): string[] {
     
     if (!value) return [];
     
-    // 1. Scalar Party reference
+    // 1. Scalar Party reference or canonical Party object
     if (isPartyRefValue(value) && value.ccPartyId) {
         ids.add(value.ccPartyId);
     } 
-    // Fallback if the object itself is a resolved CCParty wrapping its ID
     else if (typeof value === 'object' && typeof value.ccPartyId === 'string' && value.ccPartyId) {
         ids.add(value.ccPartyId);
+    }
+    else if (typeof value === 'object' && typeof value.id === 'string' && value.id) {
+        ids.add(value.id);
     }
     
     // 2. Repeated values (Collection fields)
@@ -405,8 +407,11 @@ export function getPartyName(v: PartyValue | CCPartyData): string {
 
     // V1 / Legacy Support
     const pv = v as PartyValue;
+    if (pv.partyType === 'TEAM') {
+        return (pv as any).teamName || pv.displayName || pv.organisationName || '';
+    }
     if (pv.partyType === 'ORGANISATION' || pv.contactType === 'CONTACT') {
-        return pv.displayName || pv.organisationName || (pv as any).companyName || (pv as any).legalName || (pv as any).name || '';
+        return pv.displayName || pv.organisationName || (pv as any).companyName || (pv as any).legalName || (pv as any).name || (pv as any).teamName || '';
     }
 
     return [pv.title, pv.forenames, pv.surname].filter(Boolean).join(' ') || (pv as any).name || '';
@@ -660,5 +665,153 @@ export function formatPartialDob(
     if (dob.year && isFieldPermittedByMask('dateOfBirth.year', displayMask)) parts.push(String(dob.year));
     
     return parts.length > 0 ? parts.join(' ') : null;
+}
+
+/**
+ * Server-side Party Field Disclosure Projection
+ *
+ * Constructs a Projected Party representation from a canonical Party object based on displayMask.
+ * Preserves minimum canonical Party label as an invariant outside the mask.
+ * Redacts/strips unpermitted PII (DOB, home address, email, phone, roles, sourceIdentifiers, etc.)
+ * so unpermitted properties are not serialized to read-only clients.
+ */
+export function buildPartyFieldProjection(party: any, displayMask?: string[], fallbackPartyLabel?: string): any {
+    if (!party || typeof party !== 'object') return party;
+
+    // Handle partyRef wrappers
+    if (party.ccPartyId) {
+        const rawResolved = party.ccParty?.data || party._resolvedData?.ccParty?.data;
+        if (rawResolved) {
+            const projectedData = buildPartyFieldProjection(rawResolved, displayMask, fallbackPartyLabel);
+            const norm = normalisePartyReadModel(rawResolved);
+            const label = fallbackPartyLabel || (norm ? getPartyLabel(norm) : `ID:${party.ccPartyId.slice(0, 8)}…`);
+            return {
+                ...party,
+                _resolvedData: {
+                    ...(party._resolvedData || {}),
+                    ccParty: {
+                        ...(party._resolvedData?.ccParty || {}),
+                        data: projectedData
+                    }
+                },
+                ccParty: {
+                    ...(party.ccParty || {}),
+                    data: projectedData
+                },
+                summary: getPartySummary(projectedData, displayMask),
+                partyLabel: label
+            };
+        }
+        return party;
+    }
+
+    if (!isPartyValue(party)) return party;
+
+    const norm = normalisePartyReadModel(party);
+    const canonicalLabel = fallbackPartyLabel || (norm ? getPartyLabel(norm) : null) || getPartyName(party) || getPartySummary(party);
+
+    const showField = (key: string) => isFieldPermittedByCatalogue(key, displayMask);
+
+    const projected: any = {
+        contactType: party.contactType || (party.partyType === 'ORGANISATION' ? 'CONTACT' : 'PERSON'),
+        partyType: party.partyType || null,
+        partySubType: party.partySubType || null,
+        displayName: canonicalLabel,
+    };
+
+    if (party.schemaVersion) projected.schemaVersion = party.schemaVersion;
+    if (party.id) projected.id = party.id;
+    if (party.ccPartyId) projected.ccPartyId = party.ccPartyId;
+
+    // Title / Forenames / Surname / OrganisationName / TeamName
+    if (showField('title') && party.title) projected.title = party.title;
+    else projected.title = null;
+
+    if (showField('forenames') && party.forenames) projected.forenames = party.forenames;
+    else projected.forenames = null;
+
+    if (showField('surname') && party.surname) projected.surname = party.surname;
+    else projected.surname = null;
+
+    if ((showField('organisationName') || showField('legalName')) && (party.organisationName || party.legalName)) {
+        projected.organisationName = party.organisationName || party.legalName;
+        projected.legalName = party.legalName || party.organisationName;
+    }
+
+    if (showField('teamName') && party.teamName) projected.teamName = party.teamName;
+
+    // Contact
+    if (showField('email') && party.email) projected.email = party.email;
+    else projected.email = null;
+
+    if (showField('phones') && Array.isArray(party.phones)) projected.phones = party.phones;
+    else projected.phones = [];
+
+    // Individual attributes
+    if (showField('nationality') && Array.isArray(party.nationality)) projected.nationality = party.nationality;
+    else projected.nationality = [];
+
+    if (showField('countryOfResidence') && party.countryOfResidence) projected.countryOfResidence = party.countryOfResidence;
+    else projected.countryOfResidence = null;
+
+    if (showField('placeOfBirth') && party.placeOfBirth) projected.placeOfBirth = party.placeOfBirth;
+    else projected.placeOfBirth = null;
+
+    if (showField('correspondenceAddress') && party.correspondenceAddress) projected.correspondenceAddress = party.correspondenceAddress;
+    else projected.correspondenceAddress = null;
+
+    if (showField('dateOfBirth') && party.dateOfBirth) {
+        const dob: any = {};
+        if (showField('dateOfBirth.year') && party.dateOfBirth.year) dob.year = party.dateOfBirth.year;
+        if (showField('dateOfBirth.month') && party.dateOfBirth.month) dob.month = party.dateOfBirth.month;
+        if (showField('dateOfBirth.day') && party.dateOfBirth.day) dob.day = party.dateOfBirth.day;
+        projected.dateOfBirth = Object.keys(dob).length > 0 ? dob : null;
+    } else {
+        projected.dateOfBirth = null;
+    }
+
+    // Organisation details
+    if (showField('incorporatedIn') && (party.incorporatedIn || party.jurisdiction)) {
+        projected.incorporatedIn = party.incorporatedIn || party.jurisdiction;
+    }
+    if (showField('registrationNumber') && (party.registrationNumber || party.registeredAs)) {
+        projected.registrationNumber = party.registrationNumber || party.registeredAs;
+    }
+    if (showField('legalForm') && (party.legalForm || party.legalFormId)) {
+        projected.legalForm = party.legalForm || party.legalFormId;
+    }
+    if (showField('lei') && party.lei) {
+        projected.lei = party.lei;
+    }
+
+    // Roles
+    if (showField('roles') && Array.isArray(party.roles)) {
+        projected.roles = party.roles.map((r: any, idx: number) => {
+            const roleProj: any = { company: r.company || null };
+            if (showField(`roles[${idx}].roleTitle`) || showField('role.roleTitle')) roleProj.roleTitle = r.roleTitle || null;
+            if (showField(`roles[${idx}].roleType`) || showField('role.roleType')) roleProj.roleType = r.roleType || null;
+            if (showField(`roles[${idx}].appointedOn`) || showField('role.appointedOn')) roleProj.appointedOn = r.appointedOn || null;
+            if (showField(`roles[${idx}].resignedOn`) || showField('role.resignedOn')) roleProj.resignedOn = r.resignedOn || null;
+            if (showField(`roles[${idx}].isActiveRole`) || showField('role.isActiveRole')) roleProj.isActiveRole = r.isActiveRole ?? null;
+            if (showField(`roles[${idx}].natureOfControl`) || showField('role.natureOfControl')) roleProj.natureOfControl = r.natureOfControl || [];
+            if (r.identityVerification) roleProj.identityVerification = r.identityVerification;
+            return roleProj;
+        });
+    } else {
+        projected.roles = [];
+    }
+
+    // Source Identifiers
+    if (showField('sourceIdentifiers') && Array.isArray(party.sourceIdentifiers)) {
+        projected.sourceIdentifiers = party.sourceIdentifiers;
+    } else {
+        projected.sourceIdentifiers = [];
+    }
+
+    // Status
+    projected.isActiveParty = party.isActiveParty ?? party.isActivePersonOrContact ?? null;
+    projected.isActivePersonOrContact = projected.isActiveParty;
+
+    return projected;
 }
 

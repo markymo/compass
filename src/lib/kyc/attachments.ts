@@ -3,6 +3,7 @@ import { ResolvedAttachment } from "@/lib/master-data/field-display-model";
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { CCPartyDocumentService } from "@/lib/documents/party/CCPartyDocumentService";
 import { extractCanonicalPartyIds, getPartyName } from "@/lib/master-data/party-value";
+import { isFieldPermittedByCatalogue } from "@/lib/master-data/party-display-catalogue";
 
 /**
  * Legacy mapper for purely field-derived attachments.
@@ -20,9 +21,13 @@ export function mapDerivedAttachments(derivedAttachments: DerivedValue[]): Resol
             currentDocumentCreatedAt: att.documentCreatedAt?.toISOString() || att.assertedAt.toISOString(),
             uploadedBy: att.documentUploadedBy ? { displayName: att.documentUploadedBy } : undefined,
             provenance: [{
-                type: 'FIELD',
-                fieldNo: (att as any).fieldNo || 0,
-                fieldAttachmentInstanceId: att.instanceId
+                type: 'FIELD_CLAIM',
+                claimId: att.claimId,
+                fieldNo: att.fieldNo,
+                assertedAt: att.assertedAt.toISOString(),
+                sourceType: att.sourceType,
+                sourceReference: att.sourceReference || null,
+                userName: att.documentUploadedBy || null
             }]
         }));
 }
@@ -35,19 +40,30 @@ export function mapDerivedAttachments(derivedAttachments: DerivedValue[]): Resol
 export async function resolveAmalgamatedAttachments(
     subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
     fieldNos: number[],
-    resolvedValuesMap: Map<number, DerivedValue | DerivedValue[] | null>
+    resolvedValuesMap: Map<number, DerivedValue | DerivedValue[] | null>,
+    fieldDefsMap?: Map<number, { allowAttachments?: boolean; profileConfig?: { displayMask?: string[] } }>
 ): Promise<Map<number, ResolvedAttachment[]>> {
     const result = new Map<number, ResolvedAttachment[]>();
     if (fieldNos.length === 0) return result;
 
-    // 1. Resolve direct field attachments
-    const fieldAttachmentsMap = await KycStateService.resolveAllAttachments(subject, fieldNos);
+    // 1. Resolve direct field attachments (only for fields where allowAttachments === true)
+    const directFieldNos = fieldDefsMap
+        ? fieldNos.filter(fNo => fieldDefsMap.get(fNo)?.allowAttachments !== false)
+        : fieldNos;
 
-    // 2. Extract ccPartyIds from the active field values
+    const fieldAttachmentsMap = directFieldNos.length > 0
+        ? await KycStateService.resolveAllAttachments(subject, directFieldNos)
+        : new Map<number, any[]>();
+
+    // 2. Extract ccPartyIds from the active field values (only if displayMask permits party.documents)
     const allPartyIds = new Set<string>();
     const fieldPartyIdMap = new Map<number, Set<string>>(); // fieldNo -> partyIds
     
     for (const fieldNo of fieldNos) {
+        const mask = fieldDefsMap?.get(fieldNo)?.profileConfig?.displayMask;
+        const permitsPartyDocs = isFieldPermittedByCatalogue('party.documents', mask);
+        if (!permitsPartyDocs) continue;
+
         const valueOrColl = resolvedValuesMap.get(fieldNo);
         if (!valueOrColl) continue;
         
@@ -55,7 +71,8 @@ export async function resolveAmalgamatedAttachments(
         const partyIdsForField = new Set<string>();
         
         for (const claim of claims) {
-            const extracted = extractCanonicalPartyIds(claim.value);
+            const targetVal = (claim && typeof claim === 'object' && 'value' in claim && claim.value !== undefined) ? claim.value : claim;
+            const extracted = extractCanonicalPartyIds(targetVal);
             extracted.forEach(id => {
                 allPartyIds.add(id);
                 partyIdsForField.add(id);
@@ -67,10 +84,12 @@ export async function resolveAmalgamatedAttachments(
     }
 
     // 3. Resolve active party documents
-    const partyDocsMap = await CCPartyDocumentService.resolvePartyDocumentsBatch(
-        Array.from(allPartyIds),
-        subject.clientLEId
-    );
+    const partyDocsMap = allPartyIds.size > 0
+        ? await CCPartyDocumentService.resolvePartyDocumentsBatch(
+            Array.from(allPartyIds),
+            subject.clientLEId
+        )
+        : new Map();
 
     // 4. Amalgamate and deduplicate per field
     for (const fieldNo of fieldNos) {
