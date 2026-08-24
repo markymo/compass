@@ -6,6 +6,7 @@ import { getFallbackPriority, USER_INPUT_PRIORITY } from "./source-priority-conf
 import { fetchProvenanceMap, resolveSourceCheckedAt } from "./provenance-enricher";
 
 export type DerivedValue = {
+    fieldNo?: number;
     value: any;
     claimId: string;
     status: ClaimStatus;

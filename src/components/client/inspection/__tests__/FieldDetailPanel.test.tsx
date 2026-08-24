@@ -994,7 +994,7 @@ describe('FieldDetailPanel - Multi-Value CanonicalScalarEditor Integration', () 
         // Edit existing date item -> uses input[type="date"]
         fireEvent.click(screen.getByTitle('Edit value'));
         await waitFor(() => {
-            const dateInputs = container.querySelectorAll('input[type="date"]');
+            const dateInputs = document.querySelectorAll('input[type="date"]');
             expect(dateInputs.length).toBeGreaterThan(0);
         });
     });

@@ -294,8 +294,9 @@ export async function createQuestionnaireSubmission(
                             const partyDocsMap = await CCPartyDocumentService.resolvePartyDocumentsBatch(partyIds, clientLEId);
                             for (const docs of Array.from(partyDocsMap.values())) {
                                 for (const d of docs) {
-                                    if (d.documentId && !documentIds.includes(d.documentId)) {
-                                        documentIds.push(d.documentId);
+                                    const docId = (d as any).documentId || (d as any).document?.id;
+                                    if (docId && !documentIds.includes(docId)) {
+                                        documentIds.push(docId);
                                     }
                                 }
                             }

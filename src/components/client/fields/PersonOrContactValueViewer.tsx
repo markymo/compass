@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Paperclip, FileText, Loader2, CheckCircle2, Database } from "lucide-react";
+import { Paperclip, FileText, Loader2, CheckCircle2, Database, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";

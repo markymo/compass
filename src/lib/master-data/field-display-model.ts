@@ -34,7 +34,8 @@ export interface FieldDisplayModel {
 
 export type AttachmentProvenance = 
     | { type: 'FIELD'; fieldNo: number; fieldAttachmentInstanceId: string }
-    | { type: 'PARTY'; partyId: string; partyName: string; partyDocumentInstanceId: string };
+    | { type: 'PARTY'; partyId: string; partyName: string; partyDocumentInstanceId: string }
+    | { type: 'FIELD_CLAIM'; claimId: string; fieldNo?: number; assertedAt: string; sourceType: string; sourceReference: string | null; userName: string | null };
 
 export interface ResolvedAttachment {
     documentId: string;

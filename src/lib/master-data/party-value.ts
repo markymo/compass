@@ -407,7 +407,7 @@ export function getPartyName(v: PartyValue | CCPartyData): string {
 
     // V1 / Legacy Support
     const pv = v as PartyValue;
-    if (pv.partyType === 'TEAM') {
+    if ((pv.partyType as string) === 'TEAM') {
         return (pv as any).teamName || pv.displayName || pv.organisationName || '';
     }
     if (pv.partyType === 'ORGANISATION' || pv.contactType === 'CONTACT') {
@@ -712,76 +712,77 @@ export function buildPartyFieldProjection(party: any, displayMask?: string[], fa
 
     const showField = (key: string) => isFieldPermittedByCatalogue(key, displayMask);
 
+    const p: any = party;
     const projected: any = {
-        contactType: party.contactType || (party.partyType === 'ORGANISATION' ? 'CONTACT' : 'PERSON'),
-        partyType: party.partyType || null,
-        partySubType: party.partySubType || null,
+        contactType: p.contactType || (p.partyType === 'ORGANISATION' ? 'CONTACT' : 'PERSON'),
+        partyType: p.partyType || null,
+        partySubType: p.partySubType || null,
         displayName: canonicalLabel,
     };
 
-    if (party.schemaVersion) projected.schemaVersion = party.schemaVersion;
-    if (party.id) projected.id = party.id;
-    if (party.ccPartyId) projected.ccPartyId = party.ccPartyId;
+    if (p.schemaVersion) projected.schemaVersion = p.schemaVersion;
+    if (p.id) projected.id = p.id;
+    if (p.ccPartyId) projected.ccPartyId = p.ccPartyId;
 
     // Title / Forenames / Surname / OrganisationName / TeamName
-    if (showField('title') && party.title) projected.title = party.title;
+    if (showField('title') && p.title) projected.title = p.title;
     else projected.title = null;
 
-    if (showField('forenames') && party.forenames) projected.forenames = party.forenames;
+    if (showField('forenames') && p.forenames) projected.forenames = p.forenames;
     else projected.forenames = null;
 
-    if (showField('surname') && party.surname) projected.surname = party.surname;
+    if (showField('surname') && p.surname) projected.surname = p.surname;
     else projected.surname = null;
 
-    if ((showField('organisationName') || showField('legalName')) && (party.organisationName || party.legalName)) {
-        projected.organisationName = party.organisationName || party.legalName;
-        projected.legalName = party.legalName || party.organisationName;
+    if ((showField('organisationName') || showField('legalName')) && (p.organisationName || p.legalName)) {
+        projected.organisationName = p.organisationName || p.legalName;
+        projected.legalName = p.legalName || p.organisationName;
     }
 
-    if (showField('teamName') && party.teamName) projected.teamName = party.teamName;
+    if (showField('teamName') && p.teamName) projected.teamName = p.teamName;
 
     // Contact
-    if (showField('email') && party.email) projected.email = party.email;
+    if (showField('email') && p.email) projected.email = p.email;
     else projected.email = null;
 
-    if (showField('phones') && Array.isArray(party.phones)) projected.phones = party.phones;
+    if (showField('phones') && Array.isArray(p.phones)) projected.phones = p.phones;
     else projected.phones = [];
 
     // Individual attributes
-    if (showField('nationality') && Array.isArray(party.nationality)) projected.nationality = party.nationality;
+    if (showField('nationality') && Array.isArray(p.nationality)) projected.nationality = p.nationality;
     else projected.nationality = [];
 
-    if (showField('countryOfResidence') && party.countryOfResidence) projected.countryOfResidence = party.countryOfResidence;
+    if (showField('countryOfResidence') && p.countryOfResidence) projected.countryOfResidence = p.countryOfResidence;
     else projected.countryOfResidence = null;
 
-    if (showField('placeOfBirth') && party.placeOfBirth) projected.placeOfBirth = party.placeOfBirth;
+    if (showField('placeOfBirth') && p.placeOfBirth) projected.placeOfBirth = p.placeOfBirth;
     else projected.placeOfBirth = null;
 
-    if (showField('correspondenceAddress') && party.correspondenceAddress) projected.correspondenceAddress = party.correspondenceAddress;
+    if (showField('correspondenceAddress') && p.correspondenceAddress) projected.correspondenceAddress = p.correspondenceAddress;
     else projected.correspondenceAddress = null;
 
-    if (showField('dateOfBirth') && party.dateOfBirth) {
+    if (showField('dateOfBirth') && p.dateOfBirth) {
         const dob: any = {};
-        if (showField('dateOfBirth.year') && party.dateOfBirth.year) dob.year = party.dateOfBirth.year;
-        if (showField('dateOfBirth.month') && party.dateOfBirth.month) dob.month = party.dateOfBirth.month;
-        if (showField('dateOfBirth.day') && party.dateOfBirth.day) dob.day = party.dateOfBirth.day;
+        if (showField('dateOfBirth.year') && p.dateOfBirth.year) dob.year = p.dateOfBirth.year;
+        if (showField('dateOfBirth.month') && p.dateOfBirth.month) dob.month = p.dateOfBirth.month;
+        if (showField('dateOfBirth.day') && p.dateOfBirth.day) dob.day = p.dateOfBirth.day;
         projected.dateOfBirth = Object.keys(dob).length > 0 ? dob : null;
     } else {
         projected.dateOfBirth = null;
     }
 
     // Organisation details
-    if (showField('incorporatedIn') && (party.incorporatedIn || party.jurisdiction)) {
-        projected.incorporatedIn = party.incorporatedIn || party.jurisdiction;
+    if (showField('incorporatedIn') && (p.incorporatedIn || p.jurisdiction)) {
+        projected.incorporatedIn = p.incorporatedIn || p.jurisdiction;
     }
-    if (showField('registrationNumber') && (party.registrationNumber || party.registeredAs)) {
-        projected.registrationNumber = party.registrationNumber || party.registeredAs;
+    if (showField('registrationNumber') && (p.registrationNumber || p.registeredAs)) {
+        projected.registrationNumber = p.registrationNumber || p.registeredAs;
     }
-    if (showField('legalForm') && (party.legalForm || party.legalFormId)) {
-        projected.legalForm = party.legalForm || party.legalFormId;
+    if (showField('legalForm') && (p.legalForm || p.legalFormId)) {
+        projected.legalForm = p.legalForm || p.legalFormId;
     }
-    if (showField('lei') && party.lei) {
-        projected.lei = party.lei;
+    if (showField('lei') && p.lei) {
+        projected.lei = p.lei;
     }
 
     // Roles
