@@ -1000,6 +1000,158 @@ describe('FieldDetailPanel - Multi-Value CanonicalScalarEditor Integration', () 
     });
 });
 
+describe('FieldDetailPanel - Multi-Value Repeating Party Save-for-Reuse Parity', () => {
+    beforeEach(() => {
+        cleanup();
+        vi.clearAllMocks();
+    });
+
+    it('1. repeating inline/source PARTY: renders "Save for reuse" button for unpromoted party rows', async () => {
+        vi.mocked(kycQuery.getFieldDetail).mockResolvedValueOnce({
+            fieldNo: 274,
+            fieldName: 'Persons of significant control (other)',
+            dataType: 'PARTY',
+            appDataType: 'PARTY',
+            isRepeating: true,
+            rows: [
+                {
+                    id: 'claim-source-party-1',
+                    instanceId: 'inst-1',
+                    value: { partyType: 'ORGANISATION', organisationName: 'Source Inline Corp' },
+                    source: 'USER_INPUT',
+                    timestamp: new Date('2026-08-01'),
+                    isPromotedToCCC: false,
+                    data: {
+                        organisationName: 'Source Inline Corp'
+                    }
+                }
+            ],
+            current: { value: [{ partyType: 'ORGANISATION', organisationName: 'Source Inline Corp' }], source: 'USER_INPUT' }
+        } as any);
+
+        render(
+            <FieldDetailPanel
+                open={true}
+                onOpenChange={() => {}}
+                clientLEId="le-123"
+                fieldNo={274}
+                fieldName="Persons of significant control (other)"
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('Source Inline Corp')).toBeTruthy();
+            expect(screen.getByText('Save for reuse')).toBeTruthy();
+        });
+    });
+
+    it('2. repeating CCParty reference ({ccPartyId: ...}): does NOT render "Save for reuse" button', async () => {
+        vi.mocked(kycQuery.getFieldDetail).mockResolvedValueOnce({
+            fieldNo: 274,
+            fieldName: 'Persons of significant control (other)',
+            dataType: 'PARTY',
+            appDataType: 'PARTY',
+            isRepeating: true,
+            rows: [
+                {
+                    id: 'claim-ref-party-1',
+                    instanceId: 'inst-2',
+                    value: { ccPartyId: '45e134dd-581b-4a09-814e-b57a0e1ab601' },
+                    source: 'USER_INPUT',
+                    timestamp: new Date('2026-08-01'),
+                    isPromotedToCCC: false,
+                    data: {
+                        ccPartyId: '45e134dd-581b-4a09-814e-b57a0e1ab601',
+                        _resolvedData: {
+                            ccParty: {
+                                data: {
+                                    id: '45e134dd-581b-4a09-814e-b57a0e1ab601',
+                                    partyType: 'ORGANISATION',
+                                    organisationName: 'Curated Parent Holding Ltd'
+                                }
+                            }
+                        }
+                    }
+                }
+            ],
+            current: { value: [{ ccPartyId: '45e134dd-581b-4a09-814e-b57a0e1ab601' }], source: 'USER_INPUT' }
+        } as any);
+
+        render(
+            <FieldDetailPanel
+                open={true}
+                onOpenChange={() => {}}
+                clientLEId="le-123"
+                fieldNo={274}
+                fieldName="Persons of significant control (other)"
+            />
+        );
+
+        await waitFor(() => {
+            // 3. Resolves and renders party data correctly
+            expect(screen.getByText('Curated Parent Holding Ltd')).toBeTruthy();
+        });
+
+        // 2. Save for reuse action button is NOT rendered for existing CCParty reference
+        expect(screen.queryByText('Save for reuse')).toBeNull();
+    });
+
+    it('4. preserves inline break link / delete confirmation behaviour for repeating party references', async () => {
+        vi.mocked(kycQuery.getFieldDetail).mockResolvedValueOnce({
+            fieldNo: 274,
+            fieldName: 'Persons of significant control (other)',
+            dataType: 'PARTY',
+            appDataType: 'PARTY',
+            isRepeating: true,
+            rows: [
+                {
+                    id: 'claim-ref-party-delete',
+                    instanceId: 'inst-3',
+                    value: { ccPartyId: '45e134dd-581b-4a09-814e-b57a0e1ab601' },
+                    source: 'USER_INPUT',
+                    timestamp: new Date('2026-08-01'),
+                    isPromotedToCCC: false,
+                    data: {
+                        ccPartyId: '45e134dd-581b-4a09-814e-b57a0e1ab601',
+                        _resolvedData: {
+                            ccParty: {
+                                data: {
+                                    id: '45e134dd-581b-4a09-814e-b57a0e1ab601',
+                                    partyType: 'ORGANISATION',
+                                    organisationName: 'Linked Holding Co'
+                                }
+                            }
+                        }
+                    }
+                }
+            ],
+            current: { value: [{ ccPartyId: '45e134dd-581b-4a09-814e-b57a0e1ab601' }], source: 'USER_INPUT' }
+        } as any);
+
+        render(
+            <FieldDetailPanel
+                open={true}
+                onOpenChange={() => {}}
+                clientLEId="le-123"
+                fieldNo={274}
+                fieldName="Persons of significant control (other)"
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTitle('Break link to party reference')).toBeTruthy();
+        });
+
+        // Click break link button
+        fireEvent.click(screen.getByTitle('Break link to party reference'));
+
+        await waitFor(() => {
+            expect(screen.getByText('Yes, break link')).toBeTruthy();
+        });
+    });
+});
+
+
 
 
 

@@ -1532,7 +1532,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                             : (rowCanonicalModel?.value?.kind === 'party' ? rowCanonicalModel.value.data : null);
 
                                                         const partyValForExpandable = resolvedRowPartyVal || ((parsedRowValue && typeof parsedRowValue === 'object' && (isPersonOrContactValue(parsedRowValue) || 'ccPartyId' in parsedRowValue)) 
-                                                            ? (parsedRowValue.ccParty?.data || parsedRowValue._resolvedData?.ccParty?.data || row?.data?.ccParty?.data || parsedRowValue)
+                                                            ? (parsedRowValue.ccParty?.data || parsedRowValue._resolvedData?.ccParty?.data || row?.data?.ccParty?.data || row?.data?._resolvedData?.ccParty?.data || parsedRowValue)
                                                             : null);
 
                                                         const addressValForExpandable = (parsedRowValue && typeof parsedRowValue === 'object' && (isAddressValue(parsedRowValue) || 'ccAddressId' in parsedRowValue))
@@ -1689,7 +1689,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                         layout="row"
                                                                                         displayMask={data?.profileConfig?.displayMask}
                                                                                         claimId={row.id}
-                                                                                        isPromotedToCCC={row.isPromotedToCCC}
+                                                                                        isPromotedToCCC={row.isPromotedToCCC || isPartyRefValue || rowCanonicalModel?.value?.kind === 'partyRef'}
                                                                                         isPromoting={isPromoting === row.id}
                                                                                         onSaveForReuse={handleSaveForReuse}
                                                                                     />
@@ -1701,7 +1701,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                         layout="detailed"
                                                                                         displayMask={data?.profileConfig?.displayMask}
                                                                                         claimId={row.id}
-                                                                                        isPromotedToCCC={row.isPromotedToCCC}
+                                                                                        isPromotedToCCC={row.isPromotedToCCC || isPartyRefValue || rowCanonicalModel?.value?.kind === 'partyRef'}
                                                                                         isPromoting={isPromoting === row.id}
                                                                                         onSaveForReuse={handleSaveForReuse}
                                                                                     />
