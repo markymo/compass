@@ -154,7 +154,7 @@ export async function inviteUser(payload: InvitePayload) {
     if (existingUser) {
         let assignedRole = payload.role;
         if (payload.fiEngagementId) {
-            if (assignedRole === "ORG_ADMIN" || assignedRole === "SUPPLIER_ADMIN") assignedRole = "RELATIONSHIP_ADMIN";
+            if (assignedRole === "ORG_ADMIN") assignedRole = "RELATIONSHIP_ADMIN";
             if (assignedRole === "ORG_MEMBER" || assignedRole === "SUPPLIER_CONTACT") assignedRole = "RELATIONSHIP_USER";
         }
 

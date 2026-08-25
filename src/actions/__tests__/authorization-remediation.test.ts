@@ -266,7 +266,7 @@ describe('Security Remediation — Authorization Gaps', () => {
     });
 
     describe('5. Supplier Dashboard & Relationship Summaries', () => {
-        it('allows SUPPLIER_ADMIN to get dashboard stats for their FI org', async () => {
+        it('allows ORG_ADMIN to get dashboard stats for their FI org', async () => {
             vi.mocked(getIdentity).mockResolvedValue({ userId: 'supplier-admin-1' } as any);
             prismaMock.membership.findMany.mockResolvedValue([
                 { organizationId: 'fi-org-1', fiEngagementId: null }

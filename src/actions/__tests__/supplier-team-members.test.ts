@@ -45,7 +45,7 @@ describe("Supplier Team Members Data Layer (getSupplierTeamMembers)", () => {
             .mockResolvedValueOnce([
                 {
                     organizationId: supplierOrgId,
-                    role: "SUPPLIER_ADMIN",
+                    role: "ORG_ADMIN",
                     createdAt: new Date("2026-01-01"),
                     user: { id: "user-1", name: "Jane Smith", email: "jane@riskbridge.com" },
                     fiEngagement: null
@@ -86,7 +86,7 @@ describe("Supplier Team Members Data Layer (getSupplierTeamMembers)", () => {
             .mockResolvedValueOnce([
                 {
                     organizationId: supplierOrgId,
-                    role: "SUPPLIER_ADMIN",
+                    role: "ORG_ADMIN",
                     createdAt: new Date("2026-01-01"),
                     user: { id: "user-1", name: "Jane Smith", email: "jane@riskbridge.com" }
                 }

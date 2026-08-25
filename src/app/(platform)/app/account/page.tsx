@@ -22,7 +22,7 @@ function PermissionBadge({ label }: { label: string }) {
     }
 
     let colorClasses = "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700";
-    if (["ORG_ADMIN", "ADMIN", "CLIENT_ADMIN", "LE_ADMIN", "SUPPLIER_ADMIN", "RELATIONSHIP_ADMIN"].includes(label)) {
+    if (["ORG_ADMIN", "ADMIN", "CLIENT_ADMIN", "LE_ADMIN", "RELATIONSHIP_ADMIN"].includes(label)) {
         colorClasses = "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800";
     }
 

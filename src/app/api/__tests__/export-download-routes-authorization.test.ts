@@ -464,7 +464,8 @@ describe('Export & Download API Routes Authorization Remediation', () => {
                 {
                     userId: SUPPLIER_TEMPLATE_USER_ID,
                     organizationId: FI_ORG_ID,
-                    role: 'SUPPLIER_ADMIN',
+                    role: 'ORG_ADMIN',
+                    organization: { types: ['FI', 'SUPPLIER'] }
                 }
             ] as any);
 

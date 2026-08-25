@@ -918,7 +918,6 @@ export interface SupplierTeamSummary {
 
 function formatSupplierRoleLabel(role: string): string {
     switch (role) {
-        case "SUPPLIER_ADMIN":
         case "ORG_ADMIN":
             return "Supplier Admin";
         case "ORG_MEMBER":
@@ -1009,7 +1008,7 @@ export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierT
             // Upgrade access scope to SUPPLIER if supplier-wide membership exists
             if (isSupplierWide) {
                 existing.accessScope = { kind: "SUPPLIER" };
-                if (m.role === "SUPPLIER_ADMIN" || m.role === "ORG_ADMIN") {
+                if (m.role === "ORG_ADMIN") {
                     existing.role = m.role;
                     existing.roleLabel = roleLabel;
                 }

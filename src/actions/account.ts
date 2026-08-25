@@ -287,7 +287,7 @@ export async function getUserPermissions() {
 
         for (const supplierOrg of sortedSupplierOrgs) {
             const explicitOrgRole = orgRoleMap.get(supplierOrg.id) || null;
-            const isSupplierAdmin = explicitOrgRole && ["SUPPLIER_ADMIN", "ORG_ADMIN", "ADMIN"].includes(explicitOrgRole);
+            const isSupplierAdmin = explicitOrgRole && ["ORG_ADMIN", "ADMIN"].includes(explicitOrgRole);
 
             // Fetch engagements for this FI
             const engagements = await prisma.fIEngagement.findMany({

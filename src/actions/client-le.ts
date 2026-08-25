@@ -47,11 +47,15 @@ export async function createLegalEntity(data: { name: string; jurisdiction: stri
     }
 
     try {
-        // Fetch Client Org name for AI Prompt
+        // Fetch Client Org name for AI Prompt and verify CLIENT type
         const clientOrg = await prisma.organization.findUnique({
             where: { id: data.clientOrgId },
-            select: { name: true }
+            select: { name: true, types: true }
         });
+
+        if (!clientOrg || !clientOrg.types.includes("CLIENT")) {
+            return { success: false, error: "Cannot create Legal Entities under a non-Client organization." };
+        }
 
         // Generate preliminary description using AI
         let aiDescription = null;

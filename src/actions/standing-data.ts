@@ -154,7 +154,40 @@ export async function getMasterFieldDocuments(leId: string, fieldKey: string) {
     }
 }
 
+import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
 import { MasterFieldAssignmentStatus } from "@prisma/client";
+
+// Helper for Auth
+async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
+    const identity = await getIdentity();
+    if (!identity?.userId) throw new Error("Unauthorized: No User");
+
+    const memberships = await prisma.membership.findMany({
+        where: { userId: identity.userId },
+        select: {
+            organizationId: true,
+            clientLEId: true,
+            fiEngagementId: true,
+            role: true,
+            clientLE: {
+                select: {
+                    isDeleted: true,
+                    status: true,
+                }
+            }
+        }
+    });
+
+    const user: UserWithMemberships = {
+        id: identity.userId,
+        memberships: memberships
+    };
+
+    const allowed = await can(user, action, context, prisma);
+    if (!allowed) throw new Error(`Unauthorized: Cannot perform ${action}`);
+
+    return { userId: identity.userId };
+}
 
 /**
  * Assign a Master Data field to a user within the ClientLE workspace.
@@ -169,10 +202,30 @@ export async function setMasterFieldAssignment(
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
 
+    // 1. Authorize caller for this ClientLE
     try {
+        await ensureAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId: leId });
+    } catch (e: any) {
+        return { success: false, error: "Unauthorized: You do not have permission to manage assignments for this Legal Entity." };
+    }
+
+    try {
+        // 2. Validate Assignee (if assigning/reassigning)
+        if (assignedToUserId) {
+            const assigneeMembership = await prisma.membership.findFirst({
+                where: {
+                    userId: assignedToUserId,
+                    clientLEId: leId
+                }
+            });
+            if (!assigneeMembership) {
+                return { success: false, error: "Invalid assignee: user is not a member of this Legal Entity." };
+            }
+        }
+
         const cleanNote = note !== undefined ? (note ? note.trim().slice(0, 1000) : null) : undefined;
         
-        // Find existing assignment to check reassignment status reset
+        // 3. Find existing assignment to check reassignment status reset
         const existing = await prisma.masterFieldAssignment.findUnique({
             where: {
                 clientLEId_fieldNo: {
@@ -236,8 +289,7 @@ export async function setMasterFieldAssignment(
 /**
  * Dedicated server action to change the work status (OPEN / DONE) of a Master Field assignment.
  * Enforces explicit work-status permissions:
- * - Current assignee may change status
- * - Assignment creator or authorized LE team member may change status
+ * - Caller must be an authorized team member of the ClientLE (LE_ADMIN or LE_USER)
  */
 export async function setMasterFieldAssignmentStatus(
     leId: string,
@@ -246,6 +298,13 @@ export async function setMasterFieldAssignmentStatus(
 ) {
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    // 1. Authorize caller on target ClientLE
+    try {
+        await ensureAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId: leId });
+    } catch (e: any) {
+        return { success: false, error: "Unauthorized: You do not have permission to update assignments for this Legal Entity." };
+    }
 
     try {
         const existing = await prisma.masterFieldAssignment.findUnique({
@@ -259,21 +318,6 @@ export async function setMasterFieldAssignmentStatus(
 
         if (!existing) {
             return { success: false, error: "Assignment not found" };
-        }
-
-        // Permission check: current assignee, assigner, or system/LE user
-        const isAssignee = existing.assignedToUserId === identity.userId;
-        const isAssigner = existing.assignedByUserId === identity.userId;
-
-        if (!isAssignee && !isAssigner) {
-            // Check if user has membership/LE access
-            const hasAccess = await prisma.clientLE.findFirst({
-                where: { id: leId },
-                select: { id: true }
-            });
-            if (!hasAccess) {
-                return { success: false, error: "Permission denied to update work status" };
-            }
         }
 
         await prisma.masterFieldAssignment.update({

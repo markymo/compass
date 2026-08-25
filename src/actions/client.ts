@@ -398,6 +398,15 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
         return { success: false, error: "Unauthorized: You do not have permission to create Legal Entities for this Organization." };
     }
 
+    // Defense-in-depth: Verify target organization has CLIENT type
+    const targetOrg = await prisma.organization.findUnique({
+        where: { id: targetOrgId },
+        select: { types: true }
+    });
+    if (!targetOrg || !targetOrg.types.includes("CLIENT")) {
+        return { success: false, error: "Cannot create Legal Entities under a non-Client organization." };
+    }
+
     // --- 1. Shared LegalEntity linkage & Per-Client CURRENT dossier duplicate check ---
     let legalEntityId: string | undefined = undefined;
     if (data.lei) {

@@ -6,6 +6,7 @@ import { LegalEntityEnrichmentService } from '@/services/legalEntityEnrichmentSe
 
 const { mockPrisma } = vi.hoisted(() => {
     const mockPrisma = {
+        organization: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
         clientLE: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn().mockResolvedValue([]), update: vi.fn(), create: vi.fn() },
         clientLEOwner: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn() },
         fIEngagement: { findMany: vi.fn(), updateMany: vi.fn() },
@@ -46,6 +47,7 @@ describe('Normal Delete and Re-creation — ClientLE', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         prismaMock.clientLEOwner.findMany.mockResolvedValue([]);
+        prismaMock.organization.findUnique.mockResolvedValue({ id: 'org-1', types: ['CLIENT'] });
     });
 
     describe('deleteClientLE', () => {
@@ -65,9 +67,9 @@ describe('Normal Delete and Re-creation — ClientLE', () => {
 
         it('soft-deletes ClientLE, engagements, and questionnaires when authorized by Org Admin', async () => {
             vi.mocked(getIdentity).mockResolvedValue({ userId: 'org-admin-1' } as any);
-            prismaMock.clientLEOwner.findMany.mockResolvedValue([{ partyId: 'org-1' }]);
+            prismaMock.clientLEOwner.findMany.mockResolvedValue([{ partyId: 'org-1', party: { types: ['CLIENT'] } }]);
             prismaMock.membership.findMany.mockResolvedValue([
-                { organizationId: 'org-1', role: 'ORG_ADMIN', clientLEId: null, fiEngagementId: null }
+                { organizationId: 'org-1', role: 'ORG_ADMIN', clientLEId: null, fiEngagementId: null, organization: { types: ['CLIENT'] } }
             ]);
             prismaMock.clientLE.findUnique.mockResolvedValue({ id: 'le-1' });
             prismaMock.fIEngagement.findMany.mockResolvedValue([{ id: 'eng-1' }]);
@@ -111,7 +113,7 @@ describe('Normal Delete and Re-creation — ClientLE', () => {
         it('creates a fresh ClientLE dossier when a soft-deleted record exists for the LEI', async () => {
             vi.mocked(getIdentity).mockResolvedValue({ userId: 'org-admin-1' } as any);
             prismaMock.membership.findMany.mockResolvedValue([
-                { organizationId: 'org-1', role: 'ORG_ADMIN', clientLEId: null, fiEngagementId: null }
+                { organizationId: 'org-1', role: 'ORG_ADMIN', clientLEId: null, fiEngagementId: null, organization: { types: ['CLIENT'] } }
             ]);
             prismaMock.legalEntity.findFirst.mockResolvedValue({ id: 'real-le-1', reference: '5493001KJTIIGC8Y1R12' });
             prismaMock.clientLE.findFirst.mockResolvedValue(null); // No active duplicate in org
