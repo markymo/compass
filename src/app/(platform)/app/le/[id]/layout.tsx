@@ -44,9 +44,9 @@ export default async function LegalEntityLayout({ children, params }: LayoutProp
     const identity = await getIdentity();
     const isSystemAdmin = identity?.userId ? await checkIsSystemAdmin(identity.userId) : false;
 
-    // Check ORG_Admin for Name Editing (Can be System Admin OR Client Admin of owner org)
-    let canEdit = isSystemAdmin;
-    if (!canEdit && identity?.userId && ownerId) {
+    // Check ORG_ADMIN of owner org for Name Editing
+    let canEdit = false;
+    if (identity?.userId && ownerId) {
         const membership = await prisma.membership.findFirst({
             where: {
                 userId: identity.userId,

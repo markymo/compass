@@ -400,4 +400,91 @@ describe('Permissions Engine - can()', () => {
             expect(result).toBe(false);
         });
     });
+
+    describe('10. Platform Administration — Explicit SYSTEM_ADMIN Capabilities', () => {
+        it('should ALLOW SYSTEM_ADMIN to execute all 5 platform-level administrative actions', async () => {
+            const sysAdmin = createUser([{ role: Role.SYSTEM_ADMIN, organizationId: 'sys-org' }]);
+
+            expect(await can(sysAdmin, Action.SYSTEM_MANAGE_PLATFORM, {}, mockPrisma)).toBe(true);
+            expect(await can(sysAdmin, Action.SYSTEM_MANAGE_TENANTS, {}, mockPrisma)).toBe(true);
+            expect(await can(sysAdmin, Action.SYSTEM_VIEW_TELEMETRY, {}, mockPrisma)).toBe(true);
+            expect(await can(sysAdmin, Action.SYSTEM_RESTORE, {}, mockPrisma)).toBe(true);
+            expect(await can(sysAdmin, Action.SYSTEM_HARD_DELETE, {}, mockPrisma)).toBe(true);
+        });
+
+        it('should DENY non-SYSTEM_ADMIN roles from executing platform-level actions', async () => {
+            const orgAdmin = createUser([{ role: Role.ORG_ADMIN, organizationId: 'org-1', organization: { types: ['CLIENT'] } }]);
+            const orgMember = createUser([{ role: Role.ORG_MEMBER, organizationId: 'org-1' }]);
+            const leAdmin = createUser([{ role: Role.LE_ADMIN, clientLEId: 'le-1' }]);
+            const relAdmin = createUser([{ role: Role.RELATIONSHIP_ADMIN, fiEngagementId: 'eng-1' }]);
+
+            for (const user of [orgAdmin, orgMember, leAdmin, relAdmin]) {
+                expect(await can(user, Action.SYSTEM_MANAGE_PLATFORM, {}, mockPrisma)).toBe(false);
+                expect(await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, mockPrisma)).toBe(false);
+                expect(await can(user, Action.SYSTEM_VIEW_TELEMETRY, {}, mockPrisma)).toBe(false);
+                expect(await can(user, Action.SYSTEM_RESTORE, {}, mockPrisma)).toBe(false);
+                expect(await can(user, Action.SYSTEM_HARD_DELETE, {}, mockPrisma)).toBe(false);
+            }
+        });
+    });
+
+    describe('11. Customer Operational Data Denial for Pure SYSTEM_ADMIN', () => {
+        it('should strictly DENY pure SYSTEM_ADMIN access to customer Master Data', async () => {
+            const sysAdmin = createUser([{ role: Role.SYSTEM_ADMIN, organizationId: 'sys-org' }]);
+
+            expect(await can(sysAdmin, Action.LE_VIEW_MASTER_DATA, { clientLEId: 'le-1' }, mockPrisma)).toBe(false);
+            expect(await can(sysAdmin, Action.LE_EDIT_MASTER_DATA, { clientLEId: 'le-1' }, mockPrisma)).toBe(false);
+            expect(await can(sysAdmin, Action.LE_SIGNOFF_MASTER_DATA, { clientLEId: 'le-1' }, mockPrisma)).toBe(false);
+        });
+
+        it('should strictly DENY pure SYSTEM_ADMIN access to relationship operational responses', async () => {
+            const sysAdmin = createUser([{ role: Role.SYSTEM_ADMIN, organizationId: 'sys-org' }]);
+
+            expect(await can(sysAdmin, Action.ENG_VIEW_RELEASED_DATA, { engagementId: 'eng-1' }, mockPrisma)).toBe(false);
+            expect(await can(sysAdmin, Action.ENG_EDIT_DRAFT_RESPONSES, { engagementId: 'eng-1' }, mockPrisma)).toBe(false);
+            expect(await can(sysAdmin, Action.ENG_SIGNOFF_RESPONSES, { engagementId: 'eng-1' }, mockPrisma)).toBe(false);
+        });
+
+        it('should strictly DENY pure SYSTEM_ADMIN tenant-scoped operations without explicit tenant role', async () => {
+            const sysAdmin = createUser([{ role: Role.SYSTEM_ADMIN, organizationId: 'sys-org' }]);
+
+            expect(await can(sysAdmin, Action.ORG_MANAGE_BILLING, { partyId: 'client-org-1' }, mockPrisma)).toBe(false);
+            expect(await can(sysAdmin, Action.QUESTIONNAIRE_CREATE, { partyId: 'fi-org-1' }, mockPrisma)).toBe(false);
+            expect(await can(sysAdmin, Action.QUESTIONNAIRE_UPDATE, { partyId: 'fi-org-1' }, mockPrisma)).toBe(false);
+            expect(await can(sysAdmin, Action.QUESTIONNAIRE_DELETE, { partyId: 'fi-org-1' }, mockPrisma)).toBe(false);
+        });
+
+        it('should enforce Dual-Role isolation: SYSTEM_ADMIN + LE_ADMIN on LE A allows A but denies B', async () => {
+            const dualUser = createUser([
+                { role: Role.SYSTEM_ADMIN, organizationId: 'sys-org' },
+                { role: Role.LE_ADMIN, clientLEId: 'le-a' }
+            ]);
+
+            // Allowed on LE A via explicit LE_ADMIN role
+            expect(await can(dualUser, Action.LE_VIEW_MASTER_DATA, { clientLEId: 'le-a' }, mockPrisma)).toBe(true);
+            expect(await can(dualUser, Action.LE_EDIT_MASTER_DATA, { clientLEId: 'le-a' }, mockPrisma)).toBe(true);
+
+            // Denied on LE B (no operational amplification)
+            expect(await can(dualUser, Action.LE_VIEW_MASTER_DATA, { clientLEId: 'le-b' }, mockPrisma)).toBe(false);
+            expect(await can(dualUser, Action.LE_EDIT_MASTER_DATA, { clientLEId: 'le-b' }, mockPrisma)).toBe(false);
+
+            // Still retains platform capabilities
+            expect(await can(dualUser, Action.SYSTEM_MANAGE_PLATFORM, {}, mockPrisma)).toBe(true);
+        });
+
+        it('should enforce Dual-Role isolation: SYSTEM_ADMIN + RELATIONSHIP_ADMIN on Eng X allows X but denies Y', async () => {
+            const dualUser = createUser([
+                { role: Role.SYSTEM_ADMIN, organizationId: 'sys-org' },
+                { role: Role.RELATIONSHIP_ADMIN, fiEngagementId: 'eng-x' }
+            ]);
+
+            // Allowed on Engagement X via explicit RELATIONSHIP_ADMIN role
+            expect(await can(dualUser, Action.ENG_VIEW_RELEASED_DATA, { engagementId: 'eng-x' }, mockPrisma)).toBe(true);
+            expect(await can(dualUser, Action.ENG_EDIT_DRAFT_RESPONSES, { engagementId: 'eng-x' }, mockPrisma)).toBe(true);
+
+            // Denied on Engagement Y
+            expect(await can(dualUser, Action.ENG_VIEW_RELEASED_DATA, { engagementId: 'eng-y' }, mockPrisma)).toBe(false);
+            expect(await can(dualUser, Action.ENG_EDIT_DRAFT_RESPONSES, { engagementId: 'eng-y' }, mockPrisma)).toBe(false);
+        });
+    });
 });

@@ -2,13 +2,13 @@
 
 import prisma from "@/lib/prisma";
 import { revalidatePath, unstable_noStore } from "next/cache";
-import { isSystemAdmin } from "./security";
 import { getIdentity } from "@/lib/auth";
 
 
 import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
 import { generateWorkingCopyTitle, normalizeCode } from "@/lib/questionnaires/reference-codes";
 import { cloneQuestionFields } from "@/lib/questionnaires/question-utils";
+import { isPlatformQuestionnaire } from "@/lib/questionnaires/questionnaire-ownership";
 // NEW CORE ENGINE HELPER
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
     const identity = await getIdentity();
@@ -51,7 +51,17 @@ export async function ensureQuestionNotReferenceSnapshot(questionId: string) {
 async function ensureQuestionnaireAccess(id: string, actionType: 'READ' | 'WRITE' | 'DELETE') {
     const q = await prisma.questionnaire.findUnique({
         where: { id },
-        select: { fiEngagementId: true, fiOrgId: true, kind: true, isGlobal: true, isTemplate: true }
+        select: {
+            id: true,
+            fiEngagementId: true,
+            fiOrgId: true,
+            ownerOrgId: true,
+            kind: true,
+            isGlobal: true,
+            isTemplate: true,
+            fiOrg: { select: { types: true } },
+            ownerOrg: { select: { types: true } }
+        }
     });
     if (!q) throw new Error("Questionnaire not found");
 
@@ -62,11 +72,20 @@ async function ensureQuestionnaireAccess(id: string, actionType: 'READ' | 'WRITE
     if (q.fiEngagementId) {
         let action: Action = Action.ENG_VIEW_RELEASED_DATA;
         if (actionType === 'WRITE') action = Action.ENG_EDIT_DRAFT_RESPONSES;
-        if (actionType === 'DELETE') action = Action.ENG_EDIT_DRAFT_RESPONSES; // We don't have ENG_DELETE_RESPONSES, maybe ENG_UPDATE? 
-        // Actually prompt says: "Use ENG_EDIT_DRAFT_RESPONSES or QUESTIONNAIRE_UPDATE for mutation/extraction/analyse"
+        if (actionType === 'DELETE') action = Action.ENG_EDIT_DRAFT_RESPONSES;
         await ensureAuthorization(action, { engagementId: q.fiEngagementId });
         return { q };
     } else {
+        // Positive Platform-Ownership Check:
+        // Platform-owned reference templates/snapshots are administered via Action.SYSTEM_MANAGE_PLATFORM
+        const isPlatform = await isPlatformQuestionnaire(q, prisma);
+        if (isPlatform) {
+            await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+            return { q };
+        }
+
+        // Tenant-owned questionnaire (Supplier or Client reusable template/draft):
+        // Strictly requires tenant-level questionnaire authorization (denies pure SYSTEM_ADMIN)
         let action: Action = Action.QUESTIONNAIRE_UPDATE;
         if (actionType === 'READ') action = Action.QUESTIONNAIRE_UPDATE; // Only Supplier Admins view templates
         if (actionType === 'DELETE') action = Action.QUESTIONNAIRE_DELETE;
@@ -343,7 +362,9 @@ export async function createCustomFieldDefinition(orgId: string, label: string, 
  * Creates a questionnaire manually with a list of questions.
  */
 export async function createManualQuestionnaire(data: { name: string, fiOrgId?: string, questions: string, isGlobal?: boolean, functionalCode?: string }) {
-    if (!(await isSystemAdmin())) {
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
         return { success: false, error: "Unauthorized" };
     }
 
@@ -427,7 +448,9 @@ export async function createManualQuestionnaire(data: { name: string, fiOrgId?: 
  * AI-powered question generation from a prompt.
  */
 export async function generateAIQuestions(prompt: string) {
-    if (!(await isSystemAdmin())) {
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
         return { success: false, error: "Unauthorized" };
     }
     return await generateQuestionnaireFromPrompt(prompt);
@@ -1325,9 +1348,13 @@ export async function cloneQuestionnaire(sourceId: string, newFIOrgId?: string, 
 
     const resolvedTargetFiId = targetFiId as string;
     
-    // Authorize creation in target FI
-    const sysAdmin = await isSystemAdmin();
-    if (!sysAdmin) {
+    // Authorize creation: System Org uses SYSTEM_MANAGE_PLATFORM, Tenant Org uses QUESTIONNAIRE_CREATE
+    const isTargetPlatform = await prisma.organization.findFirst({
+        where: { id: resolvedTargetFiId, types: { has: "SYSTEM" } }
+    });
+    if (isTargetPlatform) {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } else {
         await ensureAuthorization(Action.QUESTIONNAIRE_CREATE, { partyId: resolvedTargetFiId });
     }
 
@@ -1400,14 +1427,8 @@ export async function shareQuestionnaireLaterally(sourceQuestionnaireId: string,
         const clientLEId = source.fiEngagement?.clientLEId;
         if (!clientLEId) return { success: false, error: "Source context missing." };
 
-        // Verify user has access to this LE
-        const hasAccess = await prisma.membership.findFirst({
-            where: { userId, clientLEId, role: { in: ["ADMIN", "MEMBER"] } }
-        });
-
-        if (!hasAccess && !(await isSystemAdmin())) {
-            return { success: false, error: "Unauthorized to share on behalf of this Legal Entity" };
-        }
+        // Verify user has operational access to this LE
+        await ensureAuthorization(Action.LE_UPDATE, { clientLEId });
 
         // Validate targets belong to same LE
         const targets = await prisma.fIEngagement.findMany({

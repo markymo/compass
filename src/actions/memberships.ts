@@ -108,7 +108,7 @@ export async function updateUserPermission(data: UpdatePermissionData) {
     }
 }
 
-import { isSystemAdmin } from "./security";
+import { Action, can, UserWithMemberships } from "@/lib/auth/permissions";
 
 export async function updateMembershipRole(membershipId: string, role: string) {
     const identity = await getIdentity();
@@ -120,10 +120,16 @@ export async function updateMembershipRole(membershipId: string, role: string) {
     const orgIdToCheck = membership.organizationId;
     if (!orgIdToCheck) return { success: false, error: "Not an organization membership" };
 
-    const sysAdmin = await isSystemAdmin();
-    if (!sysAdmin) {
-        const m = await prisma.membership.findFirst({ where: { userId: identity.userId, organizationId: orgIdToCheck, role: "ORG_ADMIN" } });
-        if (!m) return { success: false, error: "Unauthorized" };
+    const memberships = await prisma.membership.findMany({
+        where: { userId: identity.userId },
+        select: { organizationId: true, clientLEId: true, fiEngagementId: true, role: true }
+    });
+    const user: UserWithMemberships = { id: identity.userId, memberships };
+
+    const isSysAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
+    if (!isSysAdmin) {
+        const canOrgManage = await can(user, Action.ORG_MANAGE_TEAM, { partyId: orgIdToCheck }, prisma);
+        if (!canOrgManage) return { success: false, error: "Unauthorized" };
     }
 
     await prisma.membership.update({
@@ -144,10 +150,16 @@ export async function removeMembership(membershipId: string) {
     const orgIdToCheck = membership.organizationId;
     if (!orgIdToCheck) return { success: false, error: "Not an organization membership" };
 
-    const sysAdmin = await isSystemAdmin();
-    if (!sysAdmin) {
-        const m = await prisma.membership.findFirst({ where: { userId: identity.userId, organizationId: orgIdToCheck, role: "ORG_ADMIN" } });
-        if (!m) return { success: false, error: "Unauthorized" };
+    const memberships = await prisma.membership.findMany({
+        where: { userId: identity.userId },
+        select: { organizationId: true, clientLEId: true, fiEngagementId: true, role: true }
+    });
+    const user: UserWithMemberships = { id: identity.userId, memberships };
+
+    const isSysAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
+    if (!isSysAdmin) {
+        const canOrgManage = await can(user, Action.ORG_MANAGE_TEAM, { partyId: orgIdToCheck }, prisma);
+        if (!canOrgManage) return { success: false, error: "Unauthorized" };
     }
 
     if (membership.userId === identity.userId && membership.role === "ORG_ADMIN") {

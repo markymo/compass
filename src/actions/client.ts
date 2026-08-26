@@ -184,12 +184,12 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
 
 
 
-// Check if user has ANY system admin membership (regardless of active context)
+// Check if user holds the explicit SYSTEM_ADMIN role
 export async function checkIsSystemAdmin(userId: string) {
     const membership = await prisma.membership.findFirst({
         where: {
             userId,
-            organization: { types: { has: "SYSTEM" } }
+            role: "SYSTEM_ADMIN"
         }
     });
     return !!membership;
@@ -1294,17 +1294,13 @@ export async function getClientDashboardData(clientId: string) {
 }
 
 // 12. Get Current User's Effective Role for an LE
-// Returns 'LE_ADMIN', 'LE_USER', 'ORG_ADMIN' (owner), 'SYSTEM_ADMIN', or null.
+// Returns 'LE_ADMIN', 'LE_USER', 'ORG_ADMIN' (owner), or null.
 export async function getCurrentUserLERole(leId: string): Promise<string | null> {
     const identity = await getIdentity();
     if (!identity?.userId) return null;
     const { userId } = identity;
 
-    // 1. System Admin override
-    const isSysAdmin = await checkIsSystemAdmin(userId);
-    if (isSysAdmin) return "SYSTEM_ADMIN";
-
-    // Soft-deleted ClientLE check: non-SysAdmins gain no roles on deleted ClientLEs
+    // Soft-deleted ClientLE check: non-members gain no roles on deleted ClientLEs
     const le = await prisma.clientLE.findUnique({
         where: { id: leId },
         select: { isDeleted: true }

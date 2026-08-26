@@ -216,10 +216,148 @@ describe('Export & Download API Routes Authorization Remediation', () => {
             expect(res.status).toBe(200);
         });
 
-        it('allows System Admin user (200)', async () => {
+        it('denies pure System Admin user on customer engagement questionnaire (403)', async () => {
             vi.mocked(getIdentity).mockResolvedValue({ userId: SYSADMIN_USER_ID } as any);
             vi.mocked(isSystemAdmin).mockResolvedValue(true);
             vi.mocked(resolveQuestionnaireContext).mockResolvedValue(mockQuestionnaireCtx);
+            vi.mocked(prisma.membership.findMany).mockResolvedValue([
+                {
+                    organizationId: 'sys-org',
+                    clientLEId: null,
+                    fiEngagementId: null,
+                    role: 'SYSTEM_ADMIN',
+                    clientLE: null
+                }
+            ] as any);
+
+            const res = await getQuestionnaireExportPdf(createReq(QUESTIONNAIRE_ID), { params: Promise.resolve({ id: QUESTIONNAIRE_ID }) });
+
+            expect(res.status).toBe(403);
+        });
+
+        it('denies pure System Admin user on unattached Supplier-owned questionnaire (403)', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: SYSADMIN_USER_ID } as any);
+            vi.mocked(isSystemAdmin).mockResolvedValue(true);
+            const supplierTemplateCtx = {
+                questionnaire: {
+                    id: QUESTIONNAIRE_ID,
+                    isDeleted: false,
+                    fiEngagementId: null,
+                    fiOrgId: FI_ORG_ID,
+                    title: 'Supplier DDQ',
+                    fiOrg: { types: ['SUPPLIER', 'FI'] },
+                    ownerOrg: { types: ['SUPPLIER', 'FI'] },
+                },
+                engagement: null,
+                clientLE: null,
+                clientLeId: null,
+                subjectLeId: null,
+            };
+            vi.mocked(resolveQuestionnaireContext).mockResolvedValue(supplierTemplateCtx as any);
+            vi.mocked(prisma.membership.findMany).mockResolvedValue([
+                {
+                    organizationId: 'sys-org',
+                    clientLEId: null,
+                    fiEngagementId: null,
+                    role: 'SYSTEM_ADMIN',
+                    clientLE: null
+                }
+            ] as any);
+
+            const res = await getQuestionnaireExportPdf(createReq(QUESTIONNAIRE_ID), { params: Promise.resolve({ id: QUESTIONNAIRE_ID }) });
+
+            expect(res.status).toBe(403);
+        });
+
+        it('allows Supplier ORG_ADMIN user on unattached Supplier-owned questionnaire (200)', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: SUPPLIER_TEMPLATE_USER_ID } as any);
+            vi.mocked(isSystemAdmin).mockResolvedValue(false);
+            const supplierTemplateCtx = {
+                questionnaire: {
+                    id: QUESTIONNAIRE_ID,
+                    isDeleted: false,
+                    fiEngagementId: null,
+                    fiOrgId: FI_ORG_ID,
+                    title: 'Supplier DDQ',
+                    fiOrg: { types: ['SUPPLIER', 'FI'] },
+                    ownerOrg: { types: ['SUPPLIER', 'FI'] },
+                },
+                engagement: null,
+                clientLE: null,
+                clientLeId: null,
+                subjectLeId: null,
+            };
+            vi.mocked(resolveQuestionnaireContext).mockResolvedValue(supplierTemplateCtx as any);
+            vi.mocked(prisma.membership.findMany).mockResolvedValue([
+                {
+                    organizationId: FI_ORG_ID,
+                    clientLEId: null,
+                    fiEngagementId: null,
+                    role: 'ORG_ADMIN',
+                    clientLE: null,
+                    organization: { types: ['SUPPLIER', 'FI'] }
+                }
+            ] as any);
+
+            const res = await getQuestionnaireExportPdf(createReq(QUESTIONNAIRE_ID), { params: Promise.resolve({ id: QUESTIONNAIRE_ID }) });
+
+            expect(res.status).toBe(200);
+        });
+
+        it('allows System Admin user on platform template questionnaire (200)', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: SYSADMIN_USER_ID } as any);
+            vi.mocked(isSystemAdmin).mockResolvedValue(true);
+            const templateCtx = {
+                questionnaire: {
+                    id: QUESTIONNAIRE_ID,
+                    isDeleted: false,
+                    fiEngagementId: null,
+                    fiOrgId: 'sys-org',
+                    title: 'Platform Standard DDQ',
+                    fiOrg: { types: ['SYSTEM'] },
+                    ownerOrg: { types: ['SYSTEM'] },
+                },
+                engagement: null,
+                clientLE: null,
+                clientLeId: null,
+                subjectLeId: null,
+            };
+            vi.mocked(resolveQuestionnaireContext).mockResolvedValue(templateCtx as any);
+            vi.mocked(prisma.membership.findMany).mockResolvedValue([
+                {
+                    organizationId: 'sys-org',
+                    clientLEId: null,
+                    fiEngagementId: null,
+                    role: 'SYSTEM_ADMIN',
+                    clientLE: null
+                }
+            ] as any);
+
+            const res = await getQuestionnaireExportPdf(createReq(QUESTIONNAIRE_ID), { params: Promise.resolve({ id: QUESTIONNAIRE_ID }) });
+
+            expect(res.status).toBe(200);
+        });
+
+        it('allows dual-role (System Admin + Client LE_ADMIN) on customer engagement questionnaire (200)', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: SYSADMIN_USER_ID } as any);
+            vi.mocked(isSystemAdmin).mockResolvedValue(true);
+            vi.mocked(resolveQuestionnaireContext).mockResolvedValue(mockQuestionnaireCtx);
+            vi.mocked(prisma.membership.findMany).mockResolvedValue([
+                {
+                    organizationId: 'sys-org',
+                    clientLEId: null,
+                    fiEngagementId: null,
+                    role: 'SYSTEM_ADMIN',
+                    clientLE: null
+                },
+                {
+                    organizationId: null,
+                    clientLEId: CLIENT_LE_ID,
+                    fiEngagementId: null,
+                    role: 'LE_ADMIN',
+                    clientLE: { isDeleted: false, status: 'ACTIVE' }
+                }
+            ] as any);
 
             const res = await getQuestionnaireExportPdf(createReq(QUESTIONNAIRE_ID), { params: Promise.resolve({ id: QUESTIONNAIRE_ID }) });
 
@@ -450,14 +588,73 @@ describe('Export & Download API Routes Authorization Remediation', () => {
             expect(res.status).toBe(200);
         });
 
-        it('allows authorized Supplier template user for FI Org template (200)', async () => {
-            vi.mocked(getIdentity).mockResolvedValue({ userId: SUPPLIER_TEMPLATE_USER_ID } as any);
+        it('denies pure System Admin user on unattached Supplier-owned template (403)', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: SYSADMIN_USER_ID } as any);
+            vi.mocked(isSystemAdmin).mockResolvedValue(true);
             vi.mocked(prisma.questionnaire.findUnique).mockResolvedValue({
                 id: QUESTIONNAIRE_ID,
                 fileContent: Buffer.from('Template PDF content'),
                 fileName: 'template.pdf',
                 fileType: 'application/pdf',
                 fiOrgId: FI_ORG_ID,
+                fiOrg: { types: ['FI', 'SUPPLIER'] },
+                ownerOrg: { types: ['FI', 'SUPPLIER'] },
+            } as any);
+
+            vi.mocked(prisma.membership.findMany).mockResolvedValue([
+                {
+                    organizationId: 'sys-org',
+                    clientLEId: null,
+                    fiEngagementId: null,
+                    role: 'SYSTEM_ADMIN',
+                    clientLE: null
+                }
+            ] as any);
+
+            const res = await getQuestionnaireDownload(createDlReq(QUESTIONNAIRE_ID), { params: Promise.resolve({ id: QUESTIONNAIRE_ID }) });
+
+            expect(res.status).toBe(403);
+        });
+
+        it('allows pure System Admin user on unattached Platform-owned template (200)', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: SYSADMIN_USER_ID } as any);
+            vi.mocked(isSystemAdmin).mockResolvedValue(true);
+            vi.mocked(prisma.questionnaire.findUnique).mockResolvedValue({
+                id: QUESTIONNAIRE_ID,
+                fileContent: Buffer.from('Platform Template PDF content'),
+                fileName: 'platform-template.pdf',
+                fileType: 'application/pdf',
+                fiOrgId: 'sys-org',
+                fiOrg: { types: ['SYSTEM'] },
+                ownerOrg: { types: ['SYSTEM'] },
+            } as any);
+
+            vi.mocked(prisma.membership.findMany).mockResolvedValue([
+                {
+                    organizationId: 'sys-org',
+                    clientLEId: null,
+                    fiEngagementId: null,
+                    role: 'SYSTEM_ADMIN',
+                    clientLE: null
+                }
+            ] as any);
+
+            const res = await getQuestionnaireDownload(createDlReq(QUESTIONNAIRE_ID), { params: Promise.resolve({ id: QUESTIONNAIRE_ID }) });
+
+            expect(res.status).toBe(200);
+        });
+
+        it('allows authorized Supplier template user for FI Org template (200)', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: SUPPLIER_TEMPLATE_USER_ID } as any);
+            vi.mocked(isSystemAdmin).mockResolvedValue(false);
+            vi.mocked(prisma.questionnaire.findUnique).mockResolvedValue({
+                id: QUESTIONNAIRE_ID,
+                fileContent: Buffer.from('Template PDF content'),
+                fileName: 'template.pdf',
+                fileType: 'application/pdf',
+                fiOrgId: FI_ORG_ID,
+                fiOrg: { types: ['FI', 'SUPPLIER'] },
+                ownerOrg: { types: ['FI', 'SUPPLIER'] },
             } as any);
 
             vi.mocked(prisma.membership.findMany).mockResolvedValue([
@@ -479,6 +676,15 @@ describe('Export & Download API Routes Authorization Remediation', () => {
         it('denies non-System-Admin user (403)', async () => {
             vi.mocked(getIdentity).mockResolvedValue({ userId: CLIENT_USER_ID } as any);
             vi.mocked(isSystemAdmin).mockResolvedValue(false);
+            vi.mocked(prisma.membership.findMany).mockResolvedValue([
+                {
+                    organizationId: 'client-org',
+                    clientLEId: CLIENT_LE_ID,
+                    fiEngagementId: null,
+                    role: 'LE_USER',
+                    clientLE: { isDeleted: false, status: 'ACTIVE' }
+                }
+            ] as any);
 
             const res = await getDebugLivePayloads();
 
@@ -488,6 +694,15 @@ describe('Export & Download API Routes Authorization Remediation', () => {
         it('allows System Admin user (200)', async () => {
             vi.mocked(getIdentity).mockResolvedValue({ userId: SYSADMIN_USER_ID } as any);
             vi.mocked(isSystemAdmin).mockResolvedValue(true);
+            vi.mocked(prisma.membership.findMany).mockResolvedValue([
+                {
+                    organizationId: 'sys-org',
+                    clientLEId: null,
+                    fiEngagementId: null,
+                    role: 'SYSTEM_ADMIN',
+                    clientLE: null
+                }
+            ] as any);
 
             const res = await getDebugLivePayloads();
 

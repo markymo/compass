@@ -4,13 +4,12 @@ import bcrypt from "bcryptjs";
 
 
 import prisma from "@/lib/prisma";
-import { isSystemAdmin } from "./admin";
+import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import { revalidatePath } from "next/cache";
 
-// Helper: Ensure System Admin
+// Helper: Ensure System Admin via Action.SYSTEM_MANAGE_TENANTS
 async function ensureAdmin() {
-    const isAdmin = await isSystemAdmin();
-    if (!isAdmin) throw new Error("Unauthorized");
+    await ensureAuthorization(Action.SYSTEM_MANAGE_TENANTS, {});
 }
 
 // 1. Search Clients for Selector

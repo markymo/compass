@@ -1,9 +1,9 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import { revalidatePath } from "next/cache";
 import { invalidateDefinitionCache } from "@/services/masterData/definitionService";
-import { isSystemAdmin } from "./admin";
 
 /**
  * toggleFieldActive: Toggles the active state of a master field definition.
@@ -515,10 +515,12 @@ export async function renameMasterDataCategory(
     displayName: string
 ): Promise<{ success: boolean; error?: string }> {
     try {
-        const admin = await isSystemAdmin();
-        if (!admin) {
-            return { success: false, error: "Unauthorized: platform admin required" };
-        }
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized: platform admin required" };
+    }
+
+    try {
 
         const trimmed = displayName.trim();
         if (!trimmed) {
@@ -648,10 +650,12 @@ export async function retireMasterDataCategory(
     options?: { forceHardDelete?: boolean }
 ): Promise<{ success: boolean; error?: string; hardDeleted?: boolean }> {
     try {
-        const admin = await isSystemAdmin();
-        if (!admin) {
-            return { success: false, error: "Unauthorized: platform admin required" };
-        }
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized: platform admin required" };
+    }
+
+    try {
 
         const reason = archiveReason.trim();
         if (!reason) {

@@ -57,7 +57,7 @@ export default function UserAdminPage() {
                             </TableHeader>
                             <TableBody>
                                 {users.map((u: any) => {
-                                    const isSystemAdmin = u.memberships.some((m: any) => m.orgType === "SYSTEM");
+                                    const isSystemAdmin = u.memberships.some((m: any) => m.role === "SYSTEM_ADMIN");
                                     return (
                                         <TableRow key={u.userId}>
                                             <TableCell className="font-medium align-top py-4">

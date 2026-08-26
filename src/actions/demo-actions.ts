@@ -1,7 +1,7 @@
 'use server';
 
-import { isSystemAdmin } from './security';
 import prisma from '@/lib/prisma';
+import { Action, ensureAuthorization } from '@/lib/auth/permissions';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import { getIdentity } from '@/lib/auth';
@@ -67,11 +67,13 @@ export async function restoreAdminSession() {
  */
 export async function generateImpersonationToken(targetUserId: string) {
     try {
-        const admin = await isSystemAdmin();
-        if (!admin) {
-            console.error("Unauthorized impersonation attempt.");
-            return { success: false, error: "Unauthorized: Only System Admins can impersonate." };
-        }
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        console.error("Unauthorized impersonation attempt.");
+        return { success: false, error: "Unauthorized: Only System Admins can impersonate." };
+    }
+
+    try {
 
         const targetUser = await prisma.user.findUnique({
             where: { id: targetUserId },
@@ -133,8 +135,12 @@ export async function generateImpersonationToken(targetUserId: string) {
  */
 export async function getDemoActors() {
     try {
-        const admin = await isSystemAdmin();
-        if (!admin) return [];
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return [];
+    }
+
+    try {
 
         return await prisma.user.findMany({
             where: { isDemoActor: true },

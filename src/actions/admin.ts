@@ -2,6 +2,7 @@
 import { put } from "@vercel/blob";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import { isSystemAdmin } from "./security";
 export { isSystemAdmin };
 import { DocumentService } from "@/lib/documents/DocumentService";
@@ -11,8 +12,11 @@ import { mapClientLEToAdminRow, AdminClientLEItem } from "@/types/admin-client-l
 
 // 2. Get All Users (for Admin Dashboard)
 export async function getAllUsers() {
-    const isAdmin = await isSystemAdmin();
-    if (!isAdmin) return [];
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_TENANTS, {});
+    } catch {
+        return [];
+    }
 
     // Fetch users and their primary/current org context (Party)
     // We fetch memberships that have an organizationId (Party scopes only for this view)
@@ -76,8 +80,11 @@ export async function getAllUsers() {
 // 3. Promote/Demote/Switch Org Type (Super Admin Action)
 export async function updateUserOrg(targetUserId: string, targetOrgId: string, force = false) {
     if (!force) {
-        const isAdmin = await isSystemAdmin();
-        if (!isAdmin) return { success: false, error: "Unauthorized" };
+        try {
+            await ensureAuthorization(Action.SYSTEM_MANAGE_TENANTS, {});
+        } catch {
+            return { success: false, error: "Unauthorized" };
+        }
     }
 
     // Move user to this org
@@ -131,10 +138,13 @@ export async function bootstrapSystemOrg() {
     }
     return sysOrg;
 }
-// 5. Get All Questionnaires (Admin)
+// 5. Get All Questionnaires (Admin Directory)
 export async function getAllQuestionnaires() {
-    const isAdmin = await isSystemAdmin();
-    if (!isAdmin) return [];
+    try {
+        await ensureAuthorization(Action.SYSTEM_VIEW_TELEMETRY, {});
+    } catch {
+        return [];
+    }
 
     return await prisma.questionnaire.findMany({
         where: {
@@ -168,10 +178,13 @@ export async function getAllQuestionnaires() {
     });
 }
 
-// 6. Save Uploaded Source Document directly to DB bytes
+// 6. Save Uploaded Source Document directly to DB bytes (Platform Asset)
 export async function uploadSourceDocument(formData: FormData) {
-    const isAdmin = await isSystemAdmin();
-    if (!isAdmin) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     const file = formData.get("file") as File;
     if (!file) return { success: false, error: "No file provided" };
@@ -214,8 +227,11 @@ export async function uploadSourceDocument(formData: FormData) {
 
 // 7. Get All Client Legal Entities (for Admin Directory)
 export async function getAllClientLEsForAdmin(): Promise<AdminClientLEItem[]> {
-    const isAdmin = await isSystemAdmin();
-    if (!isAdmin) return [];
+    try {
+        await ensureAuthorization(Action.SYSTEM_VIEW_TELEMETRY, {});
+    } catch {
+        return [];
+    }
 
     try {
         const clientLEs = await prisma.clientLE.findMany({
@@ -253,10 +269,13 @@ export async function getAllClientLEsForAdmin(): Promise<AdminClientLEItem[]> {
     }
 }
 
-// 8. Restore Client LE (System Admin Action)
+// 8. Restore Client LE (Platform Restore Action)
 export async function restoreClientLEFromAdmin(leId: string) {
-    const isAdmin = await isSystemAdmin();
-    if (!isAdmin) return { success: false, error: "Unauthorized: Only System Admins can restore legal entities." };
+    try {
+        await ensureAuthorization(Action.SYSTEM_RESTORE, {});
+    } catch {
+        return { success: false, error: "Unauthorized: Only System Admins can restore legal entities." };
+    }
 
     try {
         await restoreClientLECore(leId);

@@ -8,7 +8,7 @@ import { MasterSchemaDefinition } from "@/types/schema";
 import { Action, can } from "@/lib/auth/permissions";
 import { getMasterFieldDefinition, listAllMasterFields, listAllMasterGroupsWithItems } from "@/services/masterData/definitionService";
 import { getIdentity } from "@/lib/auth";
-import { getUserFIOrg, isSystemAdmin } from "./security";
+import { getUserFIOrg } from "./security";
 import { calculateEngagementMetrics, calculateQuestionnaireMetrics } from "@/lib/metrics-calc";
 import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -562,8 +562,6 @@ export async function getFullMasterData(clientLEId: string) {
     if (!identity?.userId) return { success: false, data: {} };
     const { userId } = identity;
 
-    const sysAdmin = await isSystemAdmin();
-
     // 1. Authorization check using central engine
     const memberships = await prisma.membership.findMany({
         where: { userId },
@@ -577,15 +575,16 @@ export async function getFullMasterData(clientLEId: string) {
     });
 
     const allowed = await can({ id: userId, memberships }, Action.LE_VIEW_MASTER_DATA, { clientLEId }, prisma);
-    if (!allowed && !sysAdmin) {
+    if (!allowed) {
         return { success: false, data: {} };
     }
 
-    // 2. Fetch ClientLE (link to LegalEntity), filtering deleted unless SysAdmin
+    // 2. Fetch ClientLE (link to LegalEntity), filtering deleted/archived
     const clientLE = await prisma.clientLE.findFirst({
         where: {
             id: clientLEId,
-            ...(sysAdmin ? {} : { isDeleted: false, status: { not: "ARCHIVED" } })
+            isDeleted: false,
+            status: { not: "ARCHIVED" }
         },
         include: {
             legalEntity: true,

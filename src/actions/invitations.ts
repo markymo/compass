@@ -5,7 +5,6 @@ import crypto from "crypto";
 import { getIdentity } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { Action, can } from "@/lib/auth/permissions";
-import { isSystemAdmin } from "@/actions/security";
 import { Resend } from "resend";
 import { render } from "@react-email/render";
 import { TeamInviteEmail } from "@/components/emails/team-invite-email";
@@ -82,13 +81,11 @@ export async function inviteUser(payload: InvitePayload) {
     }
 
     // 2. Authorise the inviter
-    // System admins can always invite
-    const sysAdmin = await isSystemAdmin();
+    const memberships = await prisma.membership.findMany({ where: { userId } });
+    const user = { id: userId, memberships };
+    const isPlatformAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
 
-    if (!sysAdmin) {
-        const memberships = await prisma.membership.findMany({ where: { userId } });
-        const user = { id: userId, memberships };
-
+    if (!isPlatformAdmin) {
         const authorised = await can(
             user,
             rule.requiredAction,
@@ -107,8 +104,8 @@ export async function inviteUser(payload: InvitePayload) {
             return { success: false, error: "Unauthorized: you do not have permission to invite with this role." };
         }
 
-        // Extra gate: only SYSTEM_ADMIN can grant ORG_ADMIN
-        if (payload.role === "ORG_ADMIN" && !sysAdmin) {
+        // Extra gate: only SYSTEM_MANAGE_TENANTS can grant ORG_ADMIN
+        if (payload.role === "ORG_ADMIN") {
             return { success: false, error: "Only internal admins can grant the Client Admin (ORG_ADMIN) role." };
         }
     }
@@ -351,13 +348,13 @@ export async function getPendingInvitations(organizationId: string) {
     const identity = await getIdentity();
     if (!identity?.userId) return [];
 
-    // Verify requester has manage rights
-    const sysAdmin = await isSystemAdmin();
-    if (!sysAdmin) {
-        const membership = await prisma.membership.findFirst({
-            where: { userId: identity.userId, organizationId, role: "ORG_ADMIN" },
-        });
-        if (!membership) return [];
+    // Verify requester has manage rights via Action.SYSTEM_MANAGE_TENANTS or Action.ORG_MANAGE_TEAM
+    const memberships = await prisma.membership.findMany({ where: { userId: identity.userId } });
+    const user = { id: identity.userId, memberships };
+    const isPlatformAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
+    if (!isPlatformAdmin) {
+        const canOrgManage = await can(user, Action.ORG_MANAGE_TEAM, { partyId: organizationId }, prisma);
+        if (!canOrgManage) return [];
     }
 
     // Fetch org-level invites and LE-level invites for ACTIVE LEs owned by this org
@@ -392,17 +389,11 @@ export async function getLEPendingInvitations(clientLEId: string) {
     const identity = await getIdentity();
     if (!identity?.userId) return [];
 
-    // Simple auth check similar to others
-    const sysAdmin = await isSystemAdmin();
-    if (!sysAdmin) {
-        const hasAccess = await can(
-            { id: identity.userId, memberships: await prisma.membership.findMany({ where: { userId: identity.userId } }) },
-            Action.LE_MANAGE_USERS,
-            { clientLEId },
-            prisma
-        );
-        if (!hasAccess) return [];
-    }
+    // Gated by explicit LE user management permission
+    const memberships = await prisma.membership.findMany({ where: { userId: identity.userId } });
+    const user = { id: identity.userId, memberships };
+    const hasAccess = await can(user, Action.LE_MANAGE_USERS, { clientLEId }, prisma);
+    if (!hasAccess) return [];
 
     // @ts-ignore
     return await (prisma.invitation.findMany as any)({
@@ -430,14 +421,15 @@ export async function revokeInvitation(invitationId: string) {
     if (!invite) return { success: false, error: "Not found" };
     if (invite.usedAt) return { success: false, error: "Cannot revoke a used invitation." };
 
-    // Auth: must be system admin OR the original inviter
-    const sysAdmin = await isSystemAdmin();
-    if (!sysAdmin && invite.createdByUserId !== userId) {
-        // Also allow ORG_ADMIN of the relevant org
+    // Auth: must have SYSTEM_MANAGE_TENANTS OR be the original inviter / tenant admin
+    const memberships = await prisma.membership.findMany({ where: { userId } });
+    const user = { id: userId, memberships };
+    const isPlatformAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
+    if (!isPlatformAdmin && invite.createdByUserId !== userId) {
         const orgIdToCheck = invite.organizationId ?? null;
         if (orgIdToCheck) {
-            const m = await prisma.membership.findFirst({ where: { userId, organizationId: orgIdToCheck, role: "ORG_ADMIN" } });
-            if (!m) return { success: false, error: "Unauthorized" };
+            const canOrgManage = await can(user, Action.ORG_MANAGE_TEAM, { partyId: orgIdToCheck }, prisma);
+            if (!canOrgManage) return { success: false, error: "Unauthorized" };
         } else {
             return { success: false, error: "Unauthorized" };
         }
@@ -462,12 +454,14 @@ export async function resendInvitation(invitationId: string) {
     if (invite.usedAt) return { success: false, error: "Cannot resend a used invitation." };
     if (invite.revokedAt) return { success: false, error: "Cannot resend a revoked invitation." };
 
-    const sysAdmin = await isSystemAdmin();
-    if (!sysAdmin && invite.createdByUserId !== identity.userId) {
+    const memberships = await prisma.membership.findMany({ where: { userId: identity.userId } });
+    const user = { id: identity.userId, memberships };
+    const isPlatformAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
+    if (!isPlatformAdmin && invite.createdByUserId !== identity.userId) {
         const orgIdToCheck = invite.organizationId ?? null;
         if (orgIdToCheck) {
-            const m = await prisma.membership.findFirst({ where: { userId: identity.userId, organizationId: orgIdToCheck, role: "ORG_ADMIN" } });
-            if (!m) return { success: false, error: "Unauthorized" };
+            const canOrgManage = await can(user, Action.ORG_MANAGE_TEAM, { partyId: orgIdToCheck }, prisma);
+            if (!canOrgManage) return { success: false, error: "Unauthorized" };
         } else {
             return { success: false, error: "Unauthorized" };
         }
@@ -492,12 +486,14 @@ export async function updateInvitationRole(invitationId: string, role: string) {
     if (!invite) return { success: false, error: "Not found" };
     if (invite.usedAt) return { success: false, error: "Cannot update a used invitation." };
 
-    const sysAdmin = await isSystemAdmin();
-    if (!sysAdmin && invite.createdByUserId !== identity.userId) {
+    const memberships = await prisma.membership.findMany({ where: { userId: identity.userId } });
+    const user = { id: identity.userId, memberships };
+    const isPlatformAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
+    if (!isPlatformAdmin && invite.createdByUserId !== identity.userId) {
         const orgIdToCheck = invite.organizationId ?? null;
         if (orgIdToCheck) {
-            const m = await prisma.membership.findFirst({ where: { userId: identity.userId, organizationId: orgIdToCheck, role: "ORG_ADMIN" } });
-            if (!m) return { success: false, error: "Unauthorized" };
+            const canOrgManage = await can(user, Action.ORG_MANAGE_TEAM, { partyId: orgIdToCheck }, prisma);
+            if (!canOrgManage) return { success: false, error: "Unauthorized" };
         } else {
             return { success: false, error: "Unauthorized" };
         }

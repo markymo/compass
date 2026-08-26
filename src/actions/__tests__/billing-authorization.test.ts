@@ -180,7 +180,7 @@ describe('Billing Authorization — updateLEBilling Security Tests', () => {
         expect(prismaMock.clientLE.update).not.toHaveBeenCalled();
     });
 
-    it('allows SYSTEM_ADMIN to update billing', async () => {
+    it('DENIES pure SYSTEM_ADMIN from updating tenant billing without owning ORG_ADMIN role', async () => {
         vi.mocked(getIdentity).mockResolvedValue({ userId: 'sysadmin-user', email: 'sysadmin@coparity.com' });
         prismaMock.membership.findMany.mockResolvedValue([
             {
@@ -188,6 +188,34 @@ describe('Billing Authorization — updateLEBilling Security Tests', () => {
                 clientLEId: null,
                 fiEngagementId: null,
                 role: Role.SYSTEM_ADMIN,
+                clientLE: null
+            }
+        ]);
+
+        const result = await updateLEBilling(LE_ID, { taxId: 'SYS_ADMIN_OVERRIDE' });
+
+        expect(result).toEqual({
+            success: false,
+            error: 'Unauthorized: You do not have permission to edit billing details.'
+        });
+        expect(prismaMock.clientLE.update).not.toHaveBeenCalled();
+    });
+
+    it('allows dual-role (SYSTEM_ADMIN + owning ORG_ADMIN) to update billing', async () => {
+        vi.mocked(getIdentity).mockResolvedValue({ userId: 'sysadmin-user', email: 'sysadmin@coparity.com' });
+        prismaMock.membership.findMany.mockResolvedValue([
+            {
+                organizationId: 'system-org',
+                clientLEId: null,
+                fiEngagementId: null,
+                role: Role.SYSTEM_ADMIN,
+                clientLE: null
+            },
+            {
+                organizationId: OWNING_ORG_ID,
+                clientLEId: null,
+                fiEngagementId: null,
+                role: Role.ORG_ADMIN,
                 clientLE: null
             }
         ]);

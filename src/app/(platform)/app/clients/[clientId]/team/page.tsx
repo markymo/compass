@@ -3,7 +3,6 @@ import prisma from "@/lib/prisma";
 import ClientTeamPage from "@/components/client/team-page-client";
 import { getPendingInvitations } from "@/actions/invitations";
 import { notFound } from "next/navigation";
-import { isSystemAdmin } from "@/actions/security";
 
 export default async function TeamPageWrapper({ params }: { params: Promise<{ clientId: string }> }) {
     // Await params for Next.js 15 compatibility
@@ -21,8 +20,6 @@ export default async function TeamPageWrapper({ params }: { params: Promise<{ cl
 
     if (!org) return notFound();
 
-    const sysAdmin = await isSystemAdmin();
-
     // 2. Server-side Authorization Guard
     const orgMembership = await prisma.membership.findFirst({
         where: {
@@ -32,7 +29,7 @@ export default async function TeamPageWrapper({ params }: { params: Promise<{ cl
     });
 
     const isOrgAdmin = orgMembership?.role === "ADMIN" || orgMembership?.role === "ORG_ADMIN";
-    const canManage = isOrgAdmin || sysAdmin;
+    const canManage = isOrgAdmin;
 
     // Check active LE memberships for LE-scoped users
     const userActiveLeMemberships = await prisma.membership.findMany({
@@ -48,13 +45,13 @@ export default async function TeamPageWrapper({ params }: { params: Promise<{ cl
     });
 
     const hasActiveLeAccess = userActiveLeMemberships.length > 0;
-    const isAuthorized = sysAdmin || !!orgMembership || hasActiveLeAccess;
+    const isAuthorized = !!orgMembership || hasActiveLeAccess;
 
     if (!isAuthorized) {
         return notFound();
     }
 
-    const isOrgLevelUser = sysAdmin || !!orgMembership;
+    const isOrgLevelUser = !!orgMembership;
 
     // 5. Fetch Client LEs for matrix view (filtering deleted/archived and scoping to user visibility)
     const leWhere: any = {

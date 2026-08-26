@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { getIdentity } from "@/lib/auth";
-import { checkIsSystemAdmin } from "@/actions/client";
+import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 
 // ============================================================================
 // Pulse Dashboard — Server Actions (System Admin Only)
@@ -12,14 +12,14 @@ const APP_ENV = process.env.APP_ENV || (process.env.NODE_ENV === "production" ? 
 
 /**
  * Get the Pulse dashboard data for the last N days.
- * System admin only.
+ * System admin only (authorized via Action.SYSTEM_VIEW_TELEMETRY).
  */
 export async function getPulseData(options?: { days?: number; includeAllEnvs?: boolean }) {
-    const identity = await getIdentity();
-    if (!identity?.userId) return { success: false, error: "Unauthorized" };
-
-    const isSysAdmin = await checkIsSystemAdmin(identity.userId);
-    if (!isSysAdmin) return { success: false, error: "System admin access required" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_VIEW_TELEMETRY, {});
+    } catch {
+        return { success: false, error: "System admin access required" };
+    }
 
     const days = options?.days ?? 30;
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);

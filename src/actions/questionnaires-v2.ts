@@ -9,7 +9,7 @@ import {
     formatYYMMDD
 } from "@/lib/questionnaires/reference-codes";
 import { bootstrapSystemOrg } from "./admin";
-import { isSystemAdmin } from "@/actions/security";
+import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import { revalidatePath } from "next/cache";
 
 import { QuestionnaireVisibility } from "@prisma/client";
@@ -64,7 +64,11 @@ export async function getQuestionnairesV2(): Promise<{
     referenceLibrary: QV2Row[];
     other: QV2Row[];
 }> {
-    if (!await isSystemAdmin()) return { workingCopies: [], referenceLibrary: [], other: [] };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { workingCopies: [], referenceLibrary: [], other: [] };
+    }
 
 
     const rows = await prisma.questionnaire.findMany({
@@ -87,7 +91,7 @@ export async function getQuestionnairesV2(): Promise<{
             createdAt: true,
             fileName: true,
             processingLogs: true,
-            fiOrg: { select: { name: true } },
+            fiOrg: { select: { name: true, types: true } },
             ownerOrgId: true,
             ownerOrg: { select: { name: true, types: true } },
             fiEngagement: {
@@ -115,13 +119,11 @@ export async function getQuestionnairesV2(): Promise<{
             }
         }
 
-        // isOnProOwned = true when:
-        // 1. isGlobal = true (system-level templates / forms)
-        // 2. OR ownerOrgId is the host FI (the platform owner)
-        
+        // Positively verified Platform Ownership:
+        // Requires an owning or host organisation with types containing "SYSTEM"
         const isOnProOwned =
             (r.ownerOrg?.types?.includes('SYSTEM') ?? false) ||
-            (r.ownerOrgId === null && r.isTemplate === true);
+            (r.fiOrg?.types?.includes('SYSTEM') ?? false);
 
         return {
             id: r.id,
@@ -336,7 +338,11 @@ async function computePublishPreview(workingCopyId: string) {
 export async function previewPublishReferenceSnapshot(
     workingCopyId: string,
 ): Promise<{ success: boolean; preview?: { sourceName: string; proposedReferenceCode: string; proposedSnapshotName: string; nextVersion: number; publishDateToken: string }; error?: string }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
     try {
         const preview = await computePublishPreview(workingCopyId);
         if (!preview) return { success: false, error: "Working copy not found" };
@@ -349,7 +355,11 @@ export async function previewPublishReferenceSnapshot(
 export async function addToReferenceLibrary(
     workingCopyId: string,
 ): Promise<{ success: boolean; referenceId?: string; snapshotName?: string; snapshotReferenceCode?: string; error?: string }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     const source = await prisma.questionnaire.findUnique({
         where: { id: workingCopyId, isDeleted: false },
@@ -445,7 +455,11 @@ export async function addToReferenceLibrary(
 export async function createWorkingCopy(
     referenceId: string,
 ): Promise<{ success: boolean; workingCopyId?: string; error?: string }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     const source = await prisma.questionnaire.findUnique({
         where: { id: referenceId, isDeleted: false, kind: "REFERENCE_SNAPSHOT" },
@@ -506,7 +520,11 @@ export async function updateReferenceSnapshotVisibility(
     snapshotId: string,
     visibility: QuestionnaireVisibility,
 ): Promise<{ success: boolean; error?: string }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     const source = await prisma.questionnaire.findUnique({
         where: { id: snapshotId, isDeleted: false },
@@ -561,7 +579,11 @@ export async function updateSharingState(
 export async function archiveWorkingCopy(
     workingCopyId: string,
 ): Promise<{ success: boolean; error?: string }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     const source = await prisma.questionnaire.findUnique({
         where: { id: workingCopyId, isDeleted: false },
@@ -591,7 +613,11 @@ export async function archiveWorkingCopy(
 export async function deleteWorkingCopy(
     workingCopyId: string,
 ): Promise<{ success: boolean; error?: string }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     const source = await prisma.questionnaire.findUnique({
         where: { id: workingCopyId, isDeleted: false },
@@ -620,7 +646,11 @@ export async function deleteWorkingCopy(
 export async function archiveReferenceSnapshot(
     snapshotId: string,
 ): Promise<{ success: boolean; error?: string }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     const source = await prisma.questionnaire.findUnique({
         where: { id: snapshotId, isDeleted: false },
@@ -650,7 +680,11 @@ export async function archiveReferenceSnapshot(
 export async function deleteReferenceSnapshot(
     snapshotId: string,
 ): Promise<{ success: boolean; error?: string; code?: string }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     const source = await prisma.questionnaire.findUnique({
         where: { id: snapshotId, isDeleted: false },

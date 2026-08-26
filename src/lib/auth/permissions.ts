@@ -51,6 +51,13 @@ export enum Action {
     QUESTIONNAIRE_CREATE = "questionnaire:create",
     QUESTIONNAIRE_UPDATE = "questionnaire:update",
     QUESTIONNAIRE_DELETE = "questionnaire:delete",
+
+    // Platform Administration Actions (System Admin Only)
+    SYSTEM_MANAGE_PLATFORM = "system:manage_platform",
+    SYSTEM_MANAGE_TENANTS = "system:manage_tenants",
+    SYSTEM_VIEW_TELEMETRY = "system:view_telemetry",
+    SYSTEM_RESTORE = "system:restore",
+    SYSTEM_HARD_DELETE = "system:hard_delete",
 }
 
 // Client-specific Org Admin actions (requires CLIENT in Organization.types when authorized via ORG_ADMIN)
@@ -69,6 +76,15 @@ export const SUPPLIER_ORG_ACTIONS = new Set<Action>([
     Action.QUESTIONNAIRE_DELETE,
 ]);
 
+// Platform Administration actions (strictly reserved for SYSTEM_ADMIN)
+export const SYSTEM_ACTIONS = new Set<Action>([
+    Action.SYSTEM_MANAGE_PLATFORM,
+    Action.SYSTEM_MANAGE_TENANTS,
+    Action.SYSTEM_VIEW_TELEMETRY,
+    Action.SYSTEM_RESTORE,
+    Action.SYSTEM_HARD_DELETE,
+]);
+
 export function isActionAllowedForOrgTypes(action: Action, orgTypes: string[]): boolean {
     if (CLIENT_ORG_ACTIONS.has(action)) {
         return orgTypes.includes("CLIENT");
@@ -81,8 +97,15 @@ export function isActionAllowedForOrgTypes(action: Action, orgTypes: string[]): 
 }
 
 // Role -> Permissions Mapping
-const ROLE_PERMISSIONS: Record<string, string[]> = {
-    [Role.SYSTEM_ADMIN]: ["*"],
+export const ROLE_PERMISSIONS: Record<string, string[]> = {
+    // System Administrator (Platform-Only, NO Customer Data)
+    [Role.SYSTEM_ADMIN]: [
+        Action.SYSTEM_MANAGE_PLATFORM,
+        Action.SYSTEM_MANAGE_TENANTS,
+        Action.SYSTEM_VIEW_TELEMETRY,
+        Action.SYSTEM_RESTORE,
+        Action.SYSTEM_HARD_DELETE,
+    ],
 
     // Org Level
     [Role.ORG_ADMIN]: [
@@ -197,8 +220,11 @@ export async function can(
     prisma: { clientLEOwner?: { findMany: Function }, fIEngagement?: { findUnique: Function }, clientLE?: { findUnique: Function }, organization?: { findUnique: Function } } & Record<string, any>
 ): Promise<boolean> {
 
-    // 1. System Admin Override
-    if (hasRole(user, Role.SYSTEM_ADMIN)) return true;
+    // 1. Platform / System Administration Action
+    // Explicit platform actions are strictly reserved for users holding the SYSTEM_ADMIN role.
+    if (SYSTEM_ACTIONS.has(action)) {
+        return hasRole(user, Role.SYSTEM_ADMIN);
+    }
 
     // 2. Engagement Boundary Check
     if (action.startsWith("eng:") && !context.engagementId) {
@@ -322,3 +348,51 @@ function checkPermission(role: string, action: Action): boolean {
     if (perms.includes("*")) return true;
     return perms.includes(action);
 }
+
+import { getIdentity } from "@/lib/auth";
+import prisma from "@/lib/prisma";
+
+/**
+ * Standardized server authorization guard.
+ * Resolves current user identity and memberships, evaluates `can(user, action, context)`,
+ * and throws an Error if unauthorized.
+ */
+export async function ensureAuthorization(
+    action: Action,
+    context: ValidationContext = {},
+    prismaClient: any = prisma
+): Promise<{ userId: string; user: UserWithMemberships }> {
+    const identity = await getIdentity();
+    if (!identity?.userId) throw new Error("Unauthorized: No User");
+    const { userId } = identity;
+
+    const memberships = await prismaClient.membership.findMany({
+        where: { userId },
+        select: {
+            organizationId: true,
+            clientLEId: true,
+            fiEngagementId: true,
+            role: true,
+            clientLE: {
+                select: {
+                    isDeleted: true,
+                    status: true,
+                }
+            },
+            organization: {
+                select: {
+                    types: true,
+                }
+            }
+        }
+    });
+
+    const user: UserWithMemberships = { id: userId, memberships };
+    const allowed = await can(user, action, context, prismaClient);
+    if (!allowed) {
+        throw new Error(`Unauthorized: Cannot perform ${action}`);
+    }
+
+    return { userId, user };
+}
+

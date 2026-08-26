@@ -943,12 +943,11 @@ export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierT
     });
 
     type UserMemRec = typeof userMemberships[number];
-    const isSystemAdmin = userMemberships.some((m: UserMemRec) => m.role === "SYSTEM_ADMIN");
     const isSupplierMember = userMemberships.some(
         (m: UserMemRec) => m.organizationId === fiOrgId || m.fiEngagement?.fiOrgId === fiOrgId
     );
 
-    if (!isSystemAdmin && !isSupplierMember) {
+    if (!isSupplierMember) {
         return { members: [], pendingInvitations: [] };
     }
 

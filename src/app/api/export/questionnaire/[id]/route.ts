@@ -11,7 +11,7 @@ import { resolveQuestionnaireContext } from "@/lib/kyc/engagement-context";
 import { resolveSystemTimezone } from "@/lib/date-utils";
 
 import { Action, can, UserWithMemberships } from "@/lib/auth/permissions";
-import { isSystemAdmin } from "@/actions/security";
+import { isPlatformQuestionnaire } from "@/lib/questionnaires/questionnaire-ownership";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> | { id: string } }) {
     try {
@@ -38,21 +38,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const { questionnaire, engagement, clientLE, subjectLeId, ownerScopeId, clientLeId: entityId } = ctx;
 
         // Authorize caller against underlying ClientLE / Engagement / Questionnaire
-        const sysAdmin = await isSystemAdmin();
-        let allowed = sysAdmin;
+        let allowed = false;
+
+        const memberships = await prisma.membership.findMany({
+            where: { userId },
+            select: {
+                organizationId: true,
+                clientLEId: true,
+                fiEngagementId: true,
+                role: true,
+                clientLE: { select: { isDeleted: true, status: true } }
+            }
+        });
+        const user: UserWithMemberships = { id: userId, memberships };
+
+        // Platform-owned template export allowed for System Admin (strictly verified as System Org asset)
+        const isPlatform = await isPlatformQuestionnaire(questionnaire, prisma);
+        if (isPlatform && !engagement && !entityId && !explicitEngagementId) {
+            allowed = await can(user, Action.SYSTEM_MANAGE_PLATFORM, {}, prisma);
+        }
 
         if (!allowed) {
-            const memberships = await prisma.membership.findMany({
-                where: { userId },
-                select: {
-                    organizationId: true,
-                    clientLEId: true,
-                    fiEngagementId: true,
-                    role: true,
-                    clientLE: { select: { isDeleted: true, status: true } }
-                }
-            });
-            const user: UserWithMemberships = { id: userId, memberships };
 
             if (entityId) {
                 allowed = await can(user, Action.LE_VIEW_MASTER_DATA, { clientLEId: entityId }, prisma);
@@ -70,7 +76,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        const user = await prisma.user.findUnique({ where: { id: userId } });
+        const userRecord = await prisma.user.findUnique({ where: { id: userId } });
 
         const questions = await prisma.question.findMany({
             where: { questionnaireId },
@@ -141,8 +147,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
         const exportId = uuidv4();
         const generatedAt = new Date().toISOString();
-        const generatedBy = user?.name || user?.email || identity?.userId || "System";
-        const timezone = resolveSystemTimezone(user?.preferences);
+        const generatedBy = userRecord?.name || userRecord?.email || identity?.userId || "System";
+        const timezone = resolveSystemTimezone(userRecord?.preferences);
 
         const qPdfElement = React.createElement(QuestionnairePDF, {
             title: questionnaire.name,

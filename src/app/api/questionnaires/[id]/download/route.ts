@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getIdentity } from "@/lib/auth";
 import { Action, can, UserWithMemberships } from "@/lib/auth/permissions";
-import { isSystemAdmin } from "@/actions/security";
+import { isPlatformQuestionnaire } from "@/lib/questionnaires/questionnaire-ownership";
 
 export async function GET(
     request: NextRequest,
@@ -26,7 +26,9 @@ export async function GET(
                     clientLEId: true,
                     clientLE: { select: { isDeleted: true, status: true } }
                 }
-            }
+            },
+            fiOrg: { select: { types: true } },
+            ownerOrg: { select: { types: true } }
         }
     });
 
@@ -35,8 +37,25 @@ export async function GET(
     }
 
     // Authorize access against engagement / LE / template
-    const sysAdmin = await isSystemAdmin();
-    let allowed = sysAdmin;
+    let allowed = false;
+
+    const memberships = await prisma.membership.findMany({
+        where: { userId },
+        select: {
+            organizationId: true,
+            clientLEId: true,
+            fiEngagementId: true,
+            role: true,
+            clientLE: { select: { isDeleted: true, status: true } }
+        }
+    });
+    const user: UserWithMemberships = { id: userId, memberships };
+
+    // Platform-owned templates can be downloaded by System Admin (strictly verified as System Org asset)
+    const isPlatform = await isPlatformQuestionnaire(questionnaire, prisma);
+    if (isPlatform && !questionnaire.fiEngagementId) {
+        allowed = await can(user, Action.SYSTEM_MANAGE_PLATFORM, {}, prisma);
+    }
 
     if (!allowed) {
         const memberships = await prisma.membership.findMany({

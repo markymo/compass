@@ -14,7 +14,6 @@ import { QuestionnairePDF } from "@/components/pdf/questionnaire-pdf";
 import { resolveExportAnswer } from "@/lib/export/export-answer-resolver";
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { Action, can, UserWithMemberships } from "@/lib/auth/permissions";
-import { isSystemAdmin } from "@/actions/security";
 import * as Sentry from "@sentry/nextjs";
 
 export async function POST(req: NextRequest) {
@@ -67,11 +66,9 @@ export async function POST(req: NextRequest) {
         }
 
         // Authorize caller against ClientLE & Engagement
-        const sysAdmin = await isSystemAdmin();
-        let allowed = sysAdmin;
+        let allowed = false;
 
-        if (!allowed) {
-            const memberships = await prisma.membership.findMany({
+        const memberships = await prisma.membership.findMany({
                 where: { userId },
                 select: {
                     organizationId: true,
@@ -89,7 +86,6 @@ export async function POST(req: NextRequest) {
             if (!allowed) {
                 allowed = await can(userWithMem, Action.ENG_VIEW_RELEASED_DATA, { engagementId: engagement.id }, prisma);
             }
-        }
 
         if (!allowed) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });

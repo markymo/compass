@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import prisma from '@/lib/prisma';
+import { getIdentity } from '@/lib/auth';
 import { getAllClientLEsForAdmin, restoreClientLEFromAdmin } from '../admin';
 import { isSystemAdmin } from '../security';
 import { restoreClientLECore, deleteClientLE, createClientLE } from '../client';
@@ -49,6 +50,10 @@ const prismaMock = prisma as any;
 describe('Admin ClientLE Soft-Delete Visibility & Restore Functionality', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(getIdentity).mockResolvedValue({ userId: 'sysadmin-1' } as any);
+        mockPrisma.membership.findMany.mockResolvedValue([
+            { organizationId: 'sys-org', clientLEId: null, fiEngagementId: null, role: 'SYSTEM_ADMIN', clientLE: null }
+        ] as any);
         prismaMock.clientLE.findUnique.mockImplementation(async ({ where }: any) => ({
             id: where.id,
             legalEntityId: 'real-le-1',
@@ -61,6 +66,9 @@ describe('Admin ClientLE Soft-Delete Visibility & Restore Functionality', () => 
     describe('getAllClientLEsForAdmin', () => {
         it('rejects non-system admin with empty array', async () => {
             vi.mocked(isSystemAdmin).mockResolvedValue(false);
+            mockPrisma.membership.findMany.mockResolvedValue([
+                { organizationId: 'client-org', clientLEId: 'le-1', fiEngagementId: null, role: 'LE_USER', clientLE: { isDeleted: false, status: 'ACTIVE' } }
+            ] as any);
 
             const result = await getAllClientLEsForAdmin();
 
@@ -70,6 +78,9 @@ describe('Admin ClientLE Soft-Delete Visibility & Restore Functionality', () => 
 
         it('returns both active and soft-deleted ClientLEs for System Admin', async () => {
             vi.mocked(isSystemAdmin).mockResolvedValue(true);
+            mockPrisma.membership.findMany.mockResolvedValue([
+                { organizationId: 'sys-org', clientLEId: null, fiEngagementId: null, role: 'SYSTEM_ADMIN', clientLE: null }
+            ] as any);
             prismaMock.clientLE.findMany.mockResolvedValue([
                 {
                     id: 'le-active',
@@ -110,6 +121,9 @@ describe('Admin ClientLE Soft-Delete Visibility & Restore Functionality', () => 
     describe('restoreClientLEFromAdmin authorization & execution', () => {
         it('rejects non-System Admin callers with Unauthorized error', async () => {
             vi.mocked(isSystemAdmin).mockResolvedValue(false);
+            mockPrisma.membership.findMany.mockResolvedValue([
+                { organizationId: 'client-org', clientLEId: 'le-1', fiEngagementId: null, role: 'LE_USER', clientLE: { isDeleted: false, status: 'ACTIVE' } }
+            ] as any);
 
             const result = await restoreClientLEFromAdmin('le-deleted');
 
@@ -122,6 +136,9 @@ describe('Admin ClientLE Soft-Delete Visibility & Restore Functionality', () => 
 
         it('allows System Admin to restore soft-deleted ClientLE, engagements, and questionnaires', async () => {
             vi.mocked(isSystemAdmin).mockResolvedValue(true);
+            mockPrisma.membership.findMany.mockResolvedValue([
+                { organizationId: 'sys-org', clientLEId: null, fiEngagementId: null, role: 'SYSTEM_ADMIN', clientLE: null }
+            ] as any);
             prismaMock.clientLE.update.mockResolvedValue({ id: 'le-deleted', isDeleted: false, status: 'ACTIVE' });
             prismaMock.fIEngagement.findMany.mockResolvedValue([{ id: 'eng-2' }]);
 

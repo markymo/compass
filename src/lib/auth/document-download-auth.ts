@@ -72,13 +72,7 @@ export async function canUserDownloadDocument(
         }))
     };
 
-    // 3. Check System Admin access
-    const isSysAdmin = memberships.some((m: UserMembershipRecord) => m.organization?.types?.includes("SYSTEM_ADMIN"));
-    if (isSysAdmin) {
-        return { allowed: true, document, status: 200 };
-    }
-
-    // 4. Check Client-side ownership access
+    // 3. Check Client-side ownership access
     if (document.clientLEId) {
         const canClientAccess = await can(user, Action.LE_VIEW_MASTER_DATA, { clientLEId: document.clientLEId }, prisma);
         if (canClientAccess) {
