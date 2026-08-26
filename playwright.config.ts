@@ -9,6 +9,8 @@ export default defineConfig({
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'https://dev.onpro.tech',
     headless: true,
+    trace: 'on-first-retry',
+    screenshot: 'only-on-failure',
   },
 
   projects: [
