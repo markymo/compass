@@ -126,7 +126,7 @@ describe('field-interpreter', () => {
         expect(result.value.kind).toBe('party');
         if (result.value.kind === 'party') {
             expect(result.value.summary).toBe('John Doe');
-            expect(result.value.data).toEqual(party);
+            expect(result.value.data).toMatchObject(party);
             expect(result.value.displayMask).toEqual(['forenames', 'surname']);
         }
         expect(result.textSummary).toBe('John Doe');

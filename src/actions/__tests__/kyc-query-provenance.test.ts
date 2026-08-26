@@ -27,6 +27,7 @@ vi.mock('@/lib/kyc/KycStateService', async (importOriginal) => {
                 claimId: 'claim_1'
             }),
             getAuthoritativeCollection: vi.fn().mockResolvedValue(null),
+            resolveAllAttachments: vi.fn().mockResolvedValue(new Map()),
         }
     };
 });

@@ -43,6 +43,14 @@ vi.mock('@/lib/auth', () => ({
     getIdentity: vi.fn().mockResolvedValue({ userId: 'test-user-id' }),
 }));
 
+vi.mock('@/lib/auth/permissions', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/lib/auth/permissions')>();
+    return {
+        ...actual,
+        can: vi.fn().mockResolvedValue(true),
+    };
+});
+
 vi.mock('@react-pdf/renderer', () => ({
     renderToStream: vi.fn().mockResolvedValue({
         pipe: vi.fn(),

@@ -147,7 +147,7 @@ describe('Admin ClientLE Soft-Delete Visibility & Restore Functionality', () => 
             expect(result).toEqual({ success: true });
             expect(prismaMock.clientLE.update).toHaveBeenCalledWith({
                 where: { id: 'le-deleted' },
-                data: { isDeleted: false, status: 'ACTIVE' }
+                data: { isDeleted: false }
             });
             expect(prismaMock.fIEngagement.updateMany).toHaveBeenCalledWith({
                 where: { clientLEId: 'le-deleted' },
@@ -170,7 +170,7 @@ describe('Admin ClientLE Soft-Delete Visibility & Restore Functionality', () => 
             expect(res).toEqual({ id: 'le-1', isDeleted: false, status: 'ACTIVE' });
             expect(prismaMock.clientLE.update).toHaveBeenCalledWith({
                 where: { id: 'le-1' },
-                data: { isDeleted: false, status: 'ACTIVE' }
+                data: { isDeleted: false }
             });
             expect(prismaMock.fIEngagement.updateMany).toHaveBeenCalledWith({
                 where: { clientLEId: 'le-1' },

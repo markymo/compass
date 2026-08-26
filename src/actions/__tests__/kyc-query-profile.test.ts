@@ -19,6 +19,7 @@ vi.mock('@/lib/kyc/KycStateService', async (importOriginal) => {
             resolveScopeId: vi.fn().mockResolvedValue('test-scope'),
             getAuthoritativeValue: vi.fn().mockResolvedValue(null),
             getAuthoritativeCollection: vi.fn().mockResolvedValue(null),
+            resolveAllAttachments: vi.fn().mockResolvedValue(new Map()),
         }
     };
 });

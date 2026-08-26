@@ -130,7 +130,9 @@ describe('Master Record Diagnostic Measurements', () => {
         (prisma.cCParty.findMany as any).mockImplementation(countQuery(async () => [{ id: 'party_1', data: { name: 'Acme Corp' } }]));
         (prisma.cCAddress.findMany as any).mockImplementation(countQuery(async () => []));
         (prisma.membership.findFirst as any).mockImplementation(countQuery(async () => ({ id: 'mem_1' })));
-        (prisma.membership.findMany as any).mockImplementation(countQuery(async () => []));
+        (prisma.membership.findMany as any).mockImplementation(countQuery(async () => [
+            { userId: 'user_perf_test', clientLEId: 'cle_perf_test', role: 'LE_ADMIN', clientLE: { isDeleted: false, status: 'ACTIVE' } }
+        ]));
         (prisma.$queryRaw as any).mockImplementation(countQuery(async () => []));
 
         vi.spyOn(definitionService, 'listAllMasterFields').mockResolvedValue(mockMasterFields as any);
