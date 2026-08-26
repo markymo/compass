@@ -38,6 +38,8 @@ export function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
         const les: OrgChild[] = ctx.legalEntities
             .filter((le: any) => le.clientName === client.name)
             .map((le: any) => {
+                const isOperational = le.role !== "ADMIN_VISIBILITY";
+
                 let leCommonQs: OrgChild[] = [];
                 if (le.commonQuestionnaires && le.commonQuestionnaires.length > 0) {
                     const groupMetrics = emptyMetrics();
@@ -52,7 +54,7 @@ export function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
                         id: `common-qs-${le.id}`,
                         leId: le.id,
                         name: "Common Questionnaires",
-                        href: `/app/le/${le.id}/relationships`,
+                        href: isOperational ? `/app/le/${le.id}/relationships` : "#",
                         metrics: groupMetrics,
                         v2Metrics: groupV2Metrics,
                     }];
@@ -77,7 +79,7 @@ export function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
                     leId: le.id,
                     name: le.name,
                     subtitle: le.role,
-                    href: `/app/le/${le.id}`,
+                    href: isOperational ? `/app/le/${le.id}` : "#",
                     metrics: le.metrics,
                     v2Metrics: le.v2Metrics || emptyQuestionStateMetrics(),
                     children: [...leCommonQs, ...leEngagements]
@@ -102,7 +104,7 @@ export function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
         const clientEngagementMap = new Map<string, typeof ctx.relationships>();
 
         ctx.relationships
-            .filter((r: any) => r.fiOrgId === fi.id)
+            .filter((r: any) => r.fiOrgId === fi.id && r.userIsSupplier)
             .forEach((r: any) => {
                 const clientId = r.clientId || r.clientName;
                 if (!clientEngagementMap.has(clientId)) {

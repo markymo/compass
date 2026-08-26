@@ -451,11 +451,15 @@ function NestedTreeRow({ item, level, orgType }: { item: OrgChild; level: number
                             )}
                         </div>
 
-                        <RowIcon type={item.type.toUpperCase()} />
-
-                        <Link href={item.href} className="truncate hover:underline hover:text-indigo-600 cursor-pointer text-[13.5px] font-medium text-slate-800" title={item.name}>
-                            {item.name}
-                        </Link>
+                        {item.href && item.href !== "#" ? (
+                            <Link href={item.href} className="truncate hover:underline hover:text-indigo-600 cursor-pointer text-[13.5px] font-medium text-slate-800" title={item.name}>
+                                {item.name}
+                            </Link>
+                        ) : (
+                            <span className="truncate text-[13.5px] font-medium text-slate-800" title={item.name}>
+                                {item.name}
+                            </span>
+                        )}
 
                         <RoleBadge role={item.subtitle || ""} />
                     </div>

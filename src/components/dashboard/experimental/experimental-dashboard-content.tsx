@@ -275,18 +275,28 @@ function ExperimentalTreeNode({ item, level }: { item: OrgChild; level: number }
                         )}
                     </div>
 
-                    <ExperimentalRowIcon type={item.type} isCQ={isCQ} />
-
-                    <Link
-                        href={item.href}
-                        className={cn(
-                            "truncate hover:underline hover:text-indigo-600 text-sm font-medium",
-                            isCQ ? "text-slate-900 font-semibold" : "text-slate-800"
-                        )}
-                        title={item.name}
-                    >
-                        {item.name}
-                    </Link>
+                    {item.href && item.href !== "#" ? (
+                        <Link
+                            href={item.href}
+                            className={cn(
+                                "truncate hover:underline hover:text-indigo-600 text-sm font-medium",
+                                isCQ ? "text-slate-900 font-semibold" : "text-slate-800"
+                            )}
+                            title={item.name}
+                        >
+                            {item.name}
+                        </Link>
+                    ) : (
+                        <span
+                            className={cn(
+                                "truncate text-sm font-medium",
+                                isCQ ? "text-slate-900 font-semibold" : "text-slate-800"
+                            )}
+                            title={item.name}
+                        >
+                            {item.name}
+                        </span>
+                    )}
 
                     {item.subtitle && (
                         <span className="text-xs text-slate-400 truncate hidden sm:inline">
