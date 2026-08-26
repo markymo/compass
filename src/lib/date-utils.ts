@@ -103,3 +103,23 @@ export function formatBusinessDate(
         return dateString;
     }
 }
+
+/**
+ * Short UK Date: DD/MM/YYYY
+ * Formats a Date or date string deterministically in UK locale ('en-GB') and UTC timezone.
+ * Prevents SSR / client hydration mismatches across environments.
+ * Example output: "20/08/2026"
+ */
+export function formatUKDate(
+    date: Date | string | number | null | undefined
+): string | null {
+    if (!date) return null;
+    try {
+        const d = new Date(date);
+        if (isNaN(d.getTime())) return null;
+        return d.toLocaleDateString('en-GB', { timeZone: 'UTC' });
+    } catch (e) {
+        return null;
+    }
+}
+

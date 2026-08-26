@@ -8,6 +8,7 @@ import { LEILookup } from "./lei-lookup";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { formatUKDate } from "@/lib/date-utils";
 
 interface EditableLEIProps {
     leId: string;
@@ -89,7 +90,7 @@ export function EditableLEI({ leId, initialLei, initialFetchedAt, officialName, 
                     <Pencil className="h-3 w-3 text-slate-300 opacity-0 group-hover/lei:opacity-100 transition-opacity" />
                     {lei && initialFetchedAt && (
                         <span className="text-[10px] text-slate-400 opacity-0 group-hover/lei:opacity-100 transition-opacity whitespace-nowrap">
-                            Verified {new Date(initialFetchedAt).toLocaleDateString()}
+                            Verified {formatUKDate(initialFetchedAt)}
                         </span>
                     )}
                 </div>
@@ -137,7 +138,7 @@ export function EditableLEI({ leId, initialLei, initialFetchedAt, officialName, 
 
             {lei && initialFetchedAt && (
                 <span className="text-xs text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                    Verified {new Date(initialFetchedAt).toLocaleDateString()}
+                    Verified {formatUKDate(initialFetchedAt)}
                 </span>
             )}
         </div>
