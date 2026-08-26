@@ -19,6 +19,7 @@
     "uat:seed": "ts-node -T -O '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' -r tsconfig-paths/register scripts/uat-seed.ts",
     "uat:auth": "playwright test e2e/auth.setup.ts --project=setup",
     "uat:permissions": "playwright test e2e/permissions --project=chromium",
+    "uat:smoke": "playwright test e2e/smoke/client-smoke.spec.ts --project=chromium",
     "gleif:generate-elf": "ts-node -O '{\"module\":\"commonjs\"}' scripts/generate-elf-codes.ts",
     "vercel:build": "node scripts/vercel-build.mjs",
     "test": "NODE_OPTIONS=\"--experimental-require-module\" vitest run --fileParallelism=false",
