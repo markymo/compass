@@ -51,12 +51,11 @@ export async function updateFieldManually(
         const clientLE = await prisma.clientLE.findUnique({
             where: { id: clientLEId }
         });
-        const subjectLeId = clientLE?.legalEntityId;
-        const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
-
-        if (!subjectLeId) {
-            return { success: false, message: "Could not resolve LegalEntity subject." };
+        if (!clientLE) {
+            return { success: false, message: "ClientLE not found." };
         }
+        const subjectLeId = clientLE.legalEntityId ?? null;
+        const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
 
         // 2. Map value to correct slot based on FieldDefinition
         const def = await getMasterFieldDefinition(fieldNo);
@@ -345,12 +344,9 @@ export async function removeMultiValueEntry(
 
         // 2. Resolve subject/scope
         const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
-        const subjectLeId = clientLE?.legalEntityId;
+        if (!clientLE) return { success: false, message: "ClientLE not found" };
+        const subjectLeId = clientLE.legalEntityId ?? null;
         const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
-
-        if (!subjectLeId) {
-            return { success: false, message: "Could not resolve subject." };
-        }
 
         // 3. Handle Graph Edge Deactivation
         if (graphBinding) {
@@ -433,12 +429,9 @@ export async function clearSingleValueEntry(
         }
 
         const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
-        const subjectLeId = clientLE?.legalEntityId;
+        if (!clientLE) return { success: false, message: "ClientLE not found" };
+        const subjectLeId = clientLE.legalEntityId ?? null;
         const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
-
-        if (!subjectLeId) {
-            return { success: false, message: "Could not resolve subject." };
-        }
 
         const tombstone = await FieldClaimService.emitTombstone(
             { subjectLeId, clientLEId },
@@ -539,13 +532,11 @@ export async function addCodeListEntry(
     // ── 4. Duplicate check — active rows only ───────────────────────────────
     // Tombstoned codes are not considered duplicates (user can re-add after removing).
     const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
-    const subjectLeId = clientLE?.legalEntityId;
-    if (!subjectLeId) {
-        return { success: false, message: 'Could not resolve legal entity.' };
-    }
+    if (!clientLE) return { success: false, message: 'ClientLE not found.' };
+    const subjectLeId = clientLE.legalEntityId ?? null;
 
     const activeRows = await KycStateService.getAuthoritativeCollection(
-        { subjectLeId },
+        { subjectLeId, clientLEId },
         fieldNo
     );
     const instanceId = `${sysConfig.instanceIdPrefix}${code.trim()}`;

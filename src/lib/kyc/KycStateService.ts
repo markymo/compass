@@ -337,7 +337,7 @@ export class KycStateService {
      * Derives the authoritative value for a single-value field.
      */
     static async getAuthoritativeValue(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
         fieldNo: number,
         ownerScopeId?: string,
         snapshotDate?: Date
@@ -471,7 +471,7 @@ export class KycStateService {
      * Derives a collection of values for a repeating field.
      */
     static async getAuthoritativeCollection(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
         fieldNo: number,
         ownerScopeId?: string,
         snapshotDate?: Date,
@@ -583,20 +583,27 @@ export class KycStateService {
      * Attachments do not use source priority or overrides. They are strictly temporal per instanceId.
      */
     static async getAuthoritativeAttachments(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
         fieldNo: number,
         snapshotDate?: Date
     ): Promise<DerivedValue[]> {
-        const { clientLEId, ...subjectFilter } = subject;
+        const whereClause: any = {
+            fieldNo,
+            claimRole: 'FILE_ATTACHMENT',
+            status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
+            assertedAt: snapshotDate ? { lte: snapshotDate } : undefined,
+        };
+
+        if (subject.clientLEId) {
+            whereClause.clientLEId = subject.clientLEId;
+        } else {
+            const { clientLEId, ...subjectFilter } = subject;
+            Object.assign(whereClause, subjectFilter);
+        }
+
         const claims = await prisma.fieldClaim.findMany({
             include: { evidence: true, attachmentDocument: { include: { uploadedBy: true } } },
-            where: {
-                fieldNo,
-                claimRole: 'FILE_ATTACHMENT',
-                ...subjectFilter,
-                status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
-                assertedAt: snapshotDate ? { lte: snapshotDate } : undefined,
-            },
+            where: whereClause,
             orderBy: [
                 { assertedAt: 'desc' },
                 { id: 'desc' }
@@ -639,21 +646,28 @@ export class KycStateService {
      * Groups by fieldNo and returns an array of attachments per field.
      */
     static async resolveAllAttachments(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
         fieldNos: number[]
     ): Promise<Map<number, DerivedValue[]>> {
         const result = new Map<number, DerivedValue[]>();
         if (fieldNos.length === 0) return result;
 
-        const { clientLEId, ...subjectFilter } = subject;
+        const whereClause: any = {
+            fieldNo: { in: fieldNos },
+            claimRole: 'FILE_ATTACHMENT',
+            status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
+        };
+
+        if (subject.clientLEId) {
+            whereClause.clientLEId = subject.clientLEId;
+        } else {
+            const { clientLEId, ...subjectFilter } = subject;
+            Object.assign(whereClause, subjectFilter);
+        }
+
         const allClaims = await prisma.fieldClaim.findMany({
             include: { evidence: true, attachmentDocument: { include: { uploadedBy: true } } },
-            where: {
-                fieldNo: { in: fieldNos },
-                claimRole: 'FILE_ATTACHMENT',
-                ...subjectFilter,
-                status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
-            },
+            where: whereClause,
             orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }],
         });
 
@@ -716,7 +730,7 @@ export class KycStateService {
      * tombstone rules, same effectiveTo filter.
      */
     static async resolveAllFields(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
         fieldDefs: Array<{
             fieldNo: number;
             isMultiValue: boolean;

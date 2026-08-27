@@ -17,8 +17,8 @@ export type AttachmentActionParams = {
 
 async function resolveSubject(clientLEId: string) {
     const le = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
-    if (!le?.legalEntityId) throw new Error('Could not resolve LegalEntity subject');
-    return { clientLEId, subjectLeId: le.legalEntityId };
+    if (!le) throw new Error('ClientLE not found');
+    return { clientLEId, subjectLeId: le.legalEntityId ?? null };
 }
 
 export async function addFieldAttachment(

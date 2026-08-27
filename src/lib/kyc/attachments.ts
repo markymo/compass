@@ -38,7 +38,7 @@ export function mapDerivedAttachments(derivedAttachments: DerivedValue[]): Resol
  * deduplicates them by documentId, and produces a deterministic provenance.
  */
 export async function resolveAmalgamatedAttachments(
-    subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+    subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
     fieldNos: number[],
     resolvedValuesMap: Map<number, DerivedValue | DerivedValue[] | null>,
     fieldDefsMap?: Map<number, { allowAttachments?: boolean; profileConfig?: { displayMask?: string[] } }>

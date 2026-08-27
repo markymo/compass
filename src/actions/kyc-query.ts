@@ -46,7 +46,7 @@ export async function resolveMasterData(
     const clientLE = await prisma.clientLE.findUnique({
         where: { id: leId }
     });
-    const subjectLeId = clientLE?.legalEntityId;
+    const subjectLeId = clientLE?.legalEntityId ?? null;
     const ownerScopeId = await KycStateService.resolveScopeId(leId);
 
     for (const q of questions) {
@@ -56,7 +56,7 @@ export async function resolveMasterData(
         if (q.masterQuestionGroupId) {
             try {
                 const group = await getMasterFieldGroup(q.masterQuestionGroupId);
-                if (subjectLeId) {
+                if (clientLE) {
                     for (const item of group.items) {
                         const fieldNo = item.fieldNo;
                         const def = await getMasterFieldDefinition(fieldNo);
@@ -116,7 +116,7 @@ export async function resolveMasterData(
             }
         }
         // B. Handle Single Field Mapping
-        else if (q.masterFieldNo && subjectLeId) {
+        else if (q.masterFieldNo && clientLE) {
             const def = await getMasterFieldDefinition(q.masterFieldNo);
             if (def.isMultiValue) {
                 const cfg = getComplexFieldConfig(q.masterFieldNo);
@@ -796,7 +796,7 @@ export async function getFieldDetail(
 
     // --- Master Question Group Path ---
     if (masterQuestionGroupId) {
-        let subjectLeId = entityId;
+        let subjectLeId: string | null = entityId;
         let ownerScopeId: string | undefined = undefined;
 
         if (entityType === 'CLIENT_LE') {
@@ -804,11 +804,23 @@ export async function getFieldDetail(
                 where: { id: entityId },
                 include: { registryReferences: { include: { authority: true } } }
             });
-            subjectLeId = clientLE?.legalEntityId || "";
+            if (!clientLE) {
+                return {
+                    fieldNo: 0,
+                    fieldName: "Unknown Group / Missing Subject",
+                    isRepeating: false,
+                    dataType: "JSON",
+                    current: null,
+                    assignment: null,
+                    history: [],
+                    candidates: [],
+                    notes: "ClientLE missing. Data cannot be resolved.",
+                    description: undefined
+                };
+            }
+            subjectLeId = clientLE.legalEntityId ?? null;
             ownerScopeId = (await KycStateService.resolveScopeId(entityId)) || undefined;
-        }
-
-        if (!subjectLeId) {
+        } else if (!subjectLeId) {
             return {
                 fieldNo: 0,
                 fieldName: "Unknown Group / Missing Subject",
@@ -1145,18 +1157,31 @@ export async function getFieldDetail(
     const def = await getMasterFieldDefinition(fieldNo);
 
     // 0. Resolve Subject and Scope
-    let subjectLeId = entityId;
+    let subjectLeId: string | null = entityId;
     let ownerScopeId: string | undefined = undefined;
 
     if (entityType === 'CLIENT_LE') {
         const clientLE = await prisma.clientLE.findUnique({
             where: { id: entityId }
         });
-        subjectLeId = clientLE?.legalEntityId || "";
+        if (!clientLE) {
+            return {
+                fieldNo,
+                fieldName: def?.fieldName || "Unknown Field",
+                isRepeating: def?.isMultiValue || false,
+                dataType: def?.appDataType || 'string',
+                current: null,
+                assignment: null,
+                history: [],
+                candidates: [],
+                notes: "ClientLE missing. Data cannot be resolved.",
+                description: def?.description || undefined,
+                profileConfig: (def as any)?.profileConfig || undefined
+            };
+        }
+        subjectLeId = clientLE.legalEntityId ?? null;
         ownerScopeId = (await KycStateService.resolveScopeId(entityId)) || undefined;
-    }
-
-    if (!subjectLeId) {
+    } else if (!subjectLeId) {
         return {
             fieldNo,
             fieldName: def?.fieldName || "Unknown Field",
@@ -1347,11 +1372,12 @@ export async function getFieldDetail(
 
     // 2b. Compute isUserCurated for repeating fields (single lightweight query).
     // True if the user has ever made any add or remove action on this collection,
-    // meaning any USER_INPUT claim (value or tombstone) exists for (subjectLeId, fieldNo).
+    // meaning any USER_INPUT claim (value or tombstone) exists for (dossier/subject, fieldNo).
     let isUserCurated: boolean | undefined;
-    if (def?.isMultiValue && subjectLeId) {
+    const claimSubjectWhere = entityType === 'CLIENT_LE' ? { clientLEId: entityId } : { subjectLeId };
+    if (def?.isMultiValue) {
         const userAction = await prisma.fieldClaim.findFirst({
-            where: { subjectLeId, fieldNo, sourceType: 'USER_INPUT', claimRole: 'VALUE' },
+            where: { ...claimSubjectWhere, fieldNo, sourceType: 'USER_INPUT', claimRole: 'VALUE' },
             select: { id: true }
         });
         isUserCurated = !!userAction;
@@ -1363,7 +1389,7 @@ export async function getFieldDetail(
         where: {
             fieldNo,
             claimRole: 'VALUE',
-            subjectLeId: subjectLeId,
+            ...claimSubjectWhere,
             OR: [
                 { ownerScopeId: null },
                 { ownerScopeId: ownerScopeId }
@@ -1696,7 +1722,7 @@ export async function getFieldDetail(
         resolvedValuesMap.set(fieldNo, { value: result.current.value } as any);
     }
     const fieldDefMap = def ? new Map([[fieldNo, { allowAttachments: def.allowAttachments, profileConfig: (def as any).profileConfig }]]) : undefined;
-    const amalgamatedAttachmentsMap = await resolveAmalgamatedAttachments({ subjectLeId }, [fieldNo], resolvedValuesMap, fieldDefMap);
+    const amalgamatedAttachmentsMap = await resolveAmalgamatedAttachments({ subjectLeId: subjectLeId || undefined, clientLEId: entityType === 'CLIENT_LE' ? entityId : undefined }, [fieldNo], resolvedValuesMap, fieldDefMap);
     
     const metadataForDisplay = {
         fieldNo: result.fieldNo ?? 0,
