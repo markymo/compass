@@ -8,6 +8,7 @@ import { Resend } from "resend";
 import { render } from "@react-email/render";
 import { SupplierInviteEmail } from "@/components/emails/supplier-invite-email";
 import crypto from "crypto";
+import { getAppBaseUrl } from "@/lib/env";
 
 // Removed top-level initialization to prevent errors during module import if API key is missing.
 
@@ -86,7 +87,8 @@ export async function inviteSupplier(
 
         // 6. Send Email via Resend
         // NOTE: We send the raw `token` (the key), not the hash.
-        const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/invite/${token}`;
+        const baseUrl = await getAppBaseUrl();
+        const inviteLink = `${baseUrl}/invite/${token}`;
 
         const emailHtml = await render(SupplierInviteEmail({
             inviterName: 'OnPro User', // TODO: Get real name

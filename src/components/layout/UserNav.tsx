@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import {
     DropdownMenu,
@@ -14,8 +15,21 @@ import { Button } from "@/components/ui/button";
 
 export function UserNav() {
     const { data: session } = useSession();
+    const [mounted, setMounted] = useState(false);
 
-    if (!session?.user) return null;
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!mounted || !session?.user) {
+        return (
+            <Button variant="ghost" className="relative h-8 w-8 rounded-full" disabled aria-label="User navigation">
+                <Avatar className="h-8 w-8">
+                    <AvatarFallback className="text-slate-400">U</AvatarFallback>
+                </Avatar>
+            </Button>
+        );
+    }
 
     return (
         <DropdownMenu>

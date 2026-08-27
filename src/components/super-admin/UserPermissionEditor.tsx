@@ -232,6 +232,9 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
                                                                 value={org.id}
                                                                 onSelect={() => {
                                                                     setSelectedOrg(org);
+                                                                    if (org.type === "SYSTEM") {
+                                                                        setAddRole("SYSTEM_ADMIN");
+                                                                    }
                                                                     setOrgSearchOpen(false);
                                                                 }}
                                                             >
@@ -257,6 +260,7 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
                                         <SelectContent>
                                             <SelectItem value="ORG_MEMBER">Member (Standard)</SelectItem>
                                             <SelectItem value="ORG_ADMIN">Admin (Full Control)</SelectItem>
+                                            <SelectItem value="SYSTEM_ADMIN">System Admin</SelectItem>
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -369,6 +373,7 @@ function OrganizationCard({ membership, onUpdateClientRole, onUpdateLERole, load
                                     <SelectContent>
                                         <SelectItem value="ORG_MEMBER">Member (Standard)</SelectItem>
                                         <SelectItem value="ORG_ADMIN">Client Admin</SelectItem>
+                                        <SelectItem value="SYSTEM_ADMIN">System Admin</SelectItem>
                                         <SelectItem value="NONE" className="text-red-600">Remove Access</SelectItem>
                                     </SelectContent>
                                 </Select>

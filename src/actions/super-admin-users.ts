@@ -20,7 +20,7 @@ export async function searchClients(query: string) {
     const clients = await prisma.organization.findMany({
         where: {
             name: { contains: query, mode: "insensitive" },
-            types: { hasSome: ["CLIENT", "FI"] }
+            types: { hasSome: ["CLIENT", "FI", "SYSTEM"] }
         },
         take: 10,
         orderBy: { name: 'asc' }

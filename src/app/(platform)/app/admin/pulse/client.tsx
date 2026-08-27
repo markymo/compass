@@ -55,6 +55,7 @@ export function PulseClient({ data: initialData }: { data: PulseData }) {
     const [data, setData] = useState<PulseData>(initialData);
     const [showAllEnvs, setShowAllEnvs] = useState(false);
     const [hideDemoActors, setHideDemoActors] = useState(true);
+    const [showAllLEs, setShowAllLEs] = useState(false);
     const [loading, setLoading] = useState(false);
     const [expandedUser, setExpandedUser] = useState<string | null>(null);
 
@@ -278,7 +279,7 @@ export function PulseClient({ data: initialData }: { data: PulseData }) {
                     {data.leHealth.length === 0 && (
                         <p className="text-slate-400 text-sm">No active Legal Entities.</p>
                     )}
-                    {data.leHealth.map((le: any) => {
+                    {(showAllLEs ? data.leHealth : data.leHealth.slice(0, 5)).map((le: any) => {
                         const statusConfig: Record<string, { icon: React.ReactNode; label: string; color: string; border: string }> = {
                             active: {
                                 icon: <Flame className="h-4 w-4" />,
@@ -350,6 +351,27 @@ export function PulseClient({ data: initialData }: { data: PulseData }) {
                             </div>
                         );
                     })}
+
+                    {data.leHealth.length > 5 && (
+                        <div className="text-center pt-2">
+                            <button
+                                onClick={() => setShowAllLEs(!showAllLEs)}
+                                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 transition-colors text-sm font-medium text-slate-600 shadow-sm"
+                            >
+                                {showAllLEs ? (
+                                    <>
+                                        <ChevronUp className="h-4 w-4" />
+                                        Show Top 5 Legal Entities
+                                    </>
+                                ) : (
+                                    <>
+                                        <ChevronDown className="h-4 w-4" />
+                                        Show All {data.leHealth.length} Legal Entities
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </section>
         </div>

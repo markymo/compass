@@ -77,8 +77,9 @@ export default async function TeamPageWrapper({ params }: { params: Promise<{ cl
         orderBy: { name: 'asc' }
     });
 
-    // 3. Fetch Active Users (filtering out memberships on soft-deleted/archived LEs)
+    // 3. Fetch Active Users (filtering out demo users & memberships on soft-deleted/archived LEs)
     const memberWhere: any = {
+        user: { isDemoActor: false },
         OR: [
             { organizationId: clientId },
             {
@@ -114,6 +115,7 @@ export default async function TeamPageWrapper({ params }: { params: Promise<{ cl
 
     activeMembers.forEach((m: any) => {
         if (m.clientLE && m.clientLE.isDeleted) return;
+        if (m.user?.isDemoActor) return;
 
         if (!userMap.has(m.userId)) {
             userMap.set(m.userId, {

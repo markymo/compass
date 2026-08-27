@@ -65,3 +65,33 @@ export function isPublicSiteEnabled(): boolean {
   );
 }
 
+/**
+ * Resolves the application base URL dynamically.
+ * In a request context (Server Action / Server Component), it uses the incoming HTTP request host headers,
+ * ensuring dev.onpro.tech, onpro.tech, preview PR branches, and localhost generate accurate links.
+ */
+export async function getAppBaseUrl(): Promise<string> {
+  try {
+    const { headers } = await import("next/headers");
+    const reqHeaders = await headers();
+    const host = reqHeaders.get("x-forwarded-host") || reqHeaders.get("host");
+    if (host) {
+      const proto = reqHeaders.get("x-forwarded-proto") || (host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https");
+      return `${proto}://${host}`;
+    }
+  } catch {
+    // Outside request context (e.g. background job, CLI)
+  }
+
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+  }
+  if (process.env.VERCEL_BRANCH_URL) {
+    return `https://${process.env.VERCEL_BRANCH_URL}`;
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  return "http://localhost:3000";
+}
+

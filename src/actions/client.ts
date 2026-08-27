@@ -1187,7 +1187,15 @@ export async function getClientDashboardData(clientId: string) {
                         }
                     },
                     memberships: {
+                        where: { user: { isDemoActor: false } },
                         include: { user: true }
+                    },
+                    invitations: {
+                        where: {
+                            usedAt: null,
+                            revokedAt: null,
+                            expiresAt: { gt: new Date() }
+                        }
                     }
                 },
                 orderBy: { createdAt: 'desc' },
@@ -1235,7 +1243,15 @@ export async function getClientDashboardData(clientId: string) {
                                 }
                             },
                             memberships: {
+                                where: { user: { isDemoActor: false } },
                                 include: { user: true }
+                            },
+                            invitations: {
+                                where: {
+                                    usedAt: null,
+                                    revokedAt: null,
+                                    expiresAt: { gt: new Date() }
+                                }
                             }
                         }
                     }
@@ -1351,7 +1367,8 @@ export async function getLEUsers(leId: string): Promise<LEUser[]> {
     const memberships = await prisma.membership.findMany({
         where: {
             clientLEId: leId,
-            role: { in: ["LE_ADMIN", "LE_USER"] }
+            role: { in: ["LE_ADMIN", "LE_USER"] },
+            user: { isDemoActor: false }
         },
         include: { user: true }
     });

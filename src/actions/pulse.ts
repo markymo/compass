@@ -237,9 +237,20 @@ export async function getPulseData(options?: { days?: number; includeAllEnvs?: b
                             : "cold",
             };
         }).sort((a: any, b: any) => {
-            // Sort: cold first (most concerning), then cooling, then active
-            const statusOrder = { no_activity: 0, cold: 1, cooling: 2, active: 3 };
-            return (statusOrder[a.status as keyof typeof statusOrder] || 0) - (statusOrder[b.status as keyof typeof statusOrder] || 0);
+            // Option B: Sort by recency of activity (most recent first, nulls at bottom)
+            if (a.lastActivity && b.lastActivity) {
+                const diff = new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime();
+                if (diff !== 0) return diff;
+            } else if (a.lastActivity) {
+                return -1;
+            } else if (b.lastActivity) {
+                return 1;
+            }
+            // Secondary sort: total events desc, then name asc
+            if (b.totalEvents !== a.totalEvents) {
+                return b.totalEvents - a.totalEvents;
+            }
+            return a.name.localeCompare(b.name);
         });
 
         // ====================================================================

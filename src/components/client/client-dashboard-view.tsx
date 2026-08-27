@@ -6,6 +6,7 @@ import { Landmark, ArrowRight, Shield, User } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { CreateLEDialog } from "./create-le-dialog";
+import { ManageLETeamDialog } from "./manage-le-team-dialog";
 import { AccessDebugInfo } from "@/components/dev/AccessDebugInfo";
 import { JurisdictionBadge } from "@/components/ui/jurisdiction-badge";
 
@@ -56,6 +57,9 @@ export function ClientDashboardView({
                         <div className="grid gap-3">
                             {les.map((le: any) => {
                                 const isAccessible = le.myPermissions?.canEnter;
+                                const memberCount = le.memberships?.length || 0;
+                                const inviteCount = le.pendingInvitesCount || (le.invitations?.length || 0);
+
                                 const CardComponent = (
                                     <Card className={`border-slate-200 shadow-sm transition-all ${isAccessible ? 'hover:shadow-md hover:border-indigo-200 cursor-pointer group' : 'opacity-75 bg-slate-50'}`}>
                                         <CardContent className="p-4 sm:p-5 flex flex-col md:flex-row gap-6 md:items-center">
@@ -71,32 +75,69 @@ export function ClientDashboardView({
                                                 </p>
                                             </div>
 
-                                            {le.memberships && le.memberships.length > 0 && (
-                                                <div className="w-full md:w-auto md:min-w-[220px] flex flex-col gap-1.5 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6">
-                                                    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-1 hidden md:block">Access</div>
-                                                    {le.memberships.map((m: any) => {
-                                                        const roleName = m.role || 'Unknown';
-                                                        const displayRole = roleName.replace(/_/g, ' ');
-                                                        const isAdmin = roleName.includes('ADMIN');
-
-                                                        return (
-                                                            <div key={m.id} className="flex items-center gap-2 text-sm text-slate-600 w-full">
-                                                                {isAdmin ? (
-                                                                    <Shield className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-                                                                ) : (
-                                                                    <User className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                                                )}
-                                                                <span className="font-medium truncate flex-1 min-w-0 text-xs sm:text-sm" title={m.user.name || m.user.email}>
-                                                                    {m.user.name || m.user.email}
-                                                                </span>
-                                                                <span className={`text-[10px] px-1.5 py-0.5 rounded-full border shrink-0 uppercase ${isAdmin ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
-                                                                    {displayRole}
-                                                                </span>
-                                                            </div>
-                                                        );
-                                                    })}
+                                            {/* Access Area with Manage Team action */}
+                                            <div className="w-full md:w-auto md:min-w-[240px] flex flex-col gap-2 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
+                                                        Access
+                                                    </div>
+                                                    {permissions.canManageOrg && (
+                                                        <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                                                            <ManageLETeamDialog
+                                                                clientLEId={le.id}
+                                                                clientLEName={le.displayName || le.name}
+                                                                orgId={org.id}
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </div>
-                                            )}
+
+                                                <div className="space-y-1.5">
+                                                    <div className="text-xs font-semibold text-slate-700">
+                                                        {memberCount > 0 ? (
+                                                            <>
+                                                                {memberCount} {memberCount === 1 ? "user" : "users"}
+                                                                {inviteCount > 0 ? ` · ${inviteCount} invited` : ""}
+                                                            </>
+                                                        ) : inviteCount > 0 ? (
+                                                            <>No active users · {inviteCount} invited</>
+                                                        ) : (
+                                                            <span className="text-slate-400 font-normal italic">No users assigned</span>
+                                                        )}
+                                                    </div>
+
+                                                    {memberCount > 0 && (
+                                                        <div className="space-y-1">
+                                                            {le.memberships.slice(0, 2).map((m: any) => {
+                                                                const roleName = m.role || 'Unknown';
+                                                                const displayRole = roleName.replace(/_/g, ' ');
+                                                                const isAdmin = roleName.includes('ADMIN');
+
+                                                                return (
+                                                                    <div key={m.id} className="flex items-center gap-2 text-xs text-slate-600 w-full">
+                                                                        {isAdmin ? (
+                                                                            <Shield className="h-3 w-3 text-indigo-500 shrink-0" />
+                                                                        ) : (
+                                                                            <User className="h-3 w-3 text-slate-400 shrink-0" />
+                                                                        )}
+                                                                        <span className="truncate flex-1 min-w-0" title={m.user.name || m.user.email}>
+                                                                            {m.user.name || m.user.email}
+                                                                        </span>
+                                                                        <span className={`text-[9px] px-1.5 py-0.5 rounded border shrink-0 uppercase font-medium ${isAdmin ? 'bg-indigo-50 text-indigo-600 border-indigo-100' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
+                                                                            {displayRole}
+                                                                        </span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                            {memberCount > 2 && (
+                                                                <div className="text-[10px] text-slate-400 italic">
+                                                                    +{memberCount - 2} more user{memberCount - 2 === 1 ? "" : "s"}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
 
                                             {isAccessible && (
                                                 <div className="hidden md:flex pl-2 items-center justify-center">

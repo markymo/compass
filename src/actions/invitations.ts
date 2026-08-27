@@ -11,6 +11,8 @@ import { TeamInviteEmail } from "@/components/emails/team-invite-email";
 import { recordActivity, LEActivityType } from "@/lib/le-activity";
 import { logActivity } from "./logging";
 import { BRAND } from "@/config/brand";
+import { getAppBaseUrl } from "@/lib/env";
+import { z } from "zod";
 
 // ============================================================================
 // Types
@@ -67,6 +69,12 @@ export async function inviteUser(payload: InvitePayload) {
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     const { userId } = identity;
 
+    // 0. Validate Email Format
+    const emailValidation = z.string().trim().email("Please enter a valid email address.").safeParse(payload.email);
+    if (!emailValidation.success) {
+        return { success: false, error: emailValidation.error.issues[0].message };
+    }
+
     // 1. Validate exactly one scope
     const scopeType = getScopeType(payload);
     if (!scopeType) {
@@ -110,11 +118,12 @@ export async function inviteUser(payload: InvitePayload) {
         }
     }
 
-    // 3. Duplicate invite check
+    // 3. Duplicate invite check (active pending only: usedAt null, revokedAt null, expiresAt > now)
     const dupeWhere: any = {
         sentToEmail: payload.email,
         usedAt: null,
         revokedAt: null,
+        expiresAt: { gt: new Date() },
         // @ts-ignore: Prisma cache lag — new fields
         ...(payload.organizationId ? { organizationId: payload.organizationId } : {}),
         // @ts-ignore
@@ -185,12 +194,13 @@ export async function inviteUser(payload: InvitePayload) {
         }
 
         // Determine Redirect URL for the email
-        let dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app`;
-        if (payload.organizationId) dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app/clients/${payload.organizationId}`;
-        else if (payload.clientLEId) dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app/le/${payload.clientLEId}`;
+        const baseUrl = await getAppBaseUrl();
+        let dashboardUrl = `${baseUrl}/app`;
+        if (payload.organizationId) dashboardUrl = `${baseUrl}/app/clients/${payload.organizationId}`;
+        else if (payload.clientLEId) dashboardUrl = `${baseUrl}/app/le/${payload.clientLEId}`;
         else if (payload.fiEngagementId) {
             const eng = await prisma.fIEngagement.findUnique({ where: { id: payload.fiEngagementId }, select: { fiOrgId: true } });
-            dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app/s/${eng?.fiOrgId}`;
+            dashboardUrl = `${baseUrl}/app/s/${eng?.fiOrgId}`;
         }
 
         try {
@@ -278,8 +288,8 @@ export async function inviteUser(payload: InvitePayload) {
     });
 
     // 7. Send invitation email via Resend
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-    const acceptUrl = `${baseUrl.replace(/\/$/, '')}/invite/${rawToken}`;
+    const baseUrl = await getAppBaseUrl();
+    const acceptUrl = `${baseUrl}/invite/${rawToken}`;
 
     try {
         // Resolve human-readable scope label and inviter name for the email
@@ -421,18 +431,25 @@ export async function revokeInvitation(invitationId: string) {
     if (!invite) return { success: false, error: "Not found" };
     if (invite.usedAt) return { success: false, error: "Cannot revoke a used invitation." };
 
-    // Auth: must have SYSTEM_MANAGE_TENANTS OR be the original inviter / tenant admin
+    // Auth: must have SYSTEM_MANAGE_TENANTS OR be the original inviter / authorized admin via permissions engine
     const memberships = await prisma.membership.findMany({ where: { userId } });
     const user = { id: userId, memberships };
     const isPlatformAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
+
     if (!isPlatformAdmin && invite.createdByUserId !== userId) {
-        const orgIdToCheck = invite.organizationId ?? null;
-        if (orgIdToCheck) {
-            const canOrgManage = await can(user, Action.ORG_MANAGE_TEAM, { partyId: orgIdToCheck }, prisma);
-            if (!canOrgManage) return { success: false, error: "Unauthorized" };
-        } else {
-            return { success: false, error: "Unauthorized" };
+        let authorized = false;
+        if (invite.organizationId) {
+            authorized = await can(user, Action.ORG_MANAGE_TEAM, { partyId: invite.organizationId }, prisma);
+        } else if (invite.clientLEId) {
+            authorized = await can(user, Action.LE_MANAGE_USERS, { clientLEId: invite.clientLEId }, prisma);
+            if (!authorized) {
+                const owner = await prisma.clientLEOwner.findFirst({ where: { clientLEId: invite.clientLEId, endAt: null } });
+                if (owner) {
+                    authorized = await can(user, Action.ORG_MANAGE_TEAM, { partyId: owner.partyId }, prisma);
+                }
+            }
         }
+        if (!authorized) return { success: false, error: "Unauthorized" };
     }
 
     await prisma.invitation.update({
@@ -441,6 +458,11 @@ export async function revokeInvitation(invitationId: string) {
     });
 
     if (invite.organizationId) revalidatePath(`/app/clients/${invite.organizationId}/team`);
+    if (invite.clientLEId) {
+        const owner = await prisma.clientLEOwner.findFirst({ where: { clientLEId: invite.clientLEId, endAt: null } });
+        if (owner) revalidatePath(`/app/clients/${owner.partyId}`);
+        revalidatePath(`/app/le/${invite.clientLEId}`);
+    }
     return { success: true };
 }
 
@@ -457,18 +479,24 @@ export async function resendInvitation(invitationId: string) {
     const memberships = await prisma.membership.findMany({ where: { userId: identity.userId } });
     const user = { id: identity.userId, memberships };
     const isPlatformAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
+
     if (!isPlatformAdmin && invite.createdByUserId !== identity.userId) {
-        const orgIdToCheck = invite.organizationId ?? null;
-        if (orgIdToCheck) {
-            const canOrgManage = await can(user, Action.ORG_MANAGE_TEAM, { partyId: orgIdToCheck }, prisma);
-            if (!canOrgManage) return { success: false, error: "Unauthorized" };
-        } else {
-            return { success: false, error: "Unauthorized" };
+        let authorized = false;
+        if (invite.organizationId) {
+            authorized = await can(user, Action.ORG_MANAGE_TEAM, { partyId: invite.organizationId }, prisma);
+        } else if (invite.clientLEId) {
+            authorized = await can(user, Action.LE_MANAGE_USERS, { clientLEId: invite.clientLEId }, prisma);
+            if (!authorized) {
+                const owner = await prisma.clientLEOwner.findFirst({ where: { clientLEId: invite.clientLEId, endAt: null } });
+                if (owner) {
+                    authorized = await can(user, Action.ORG_MANAGE_TEAM, { partyId: owner.partyId }, prisma);
+                }
+            }
         }
+        if (!authorized) return { success: false, error: "Unauthorized" };
     }
 
-    // Usually we would dispatch an email here. We can stub it or call sendInvitationEmail if it's available.
-    // For now we'll update the expiration date to refresh it.
+    // Update the expiration date to refresh it (7 days)
     await prisma.invitation.update({
         where: { id: invitationId },
         data: { expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
