@@ -117,18 +117,18 @@ function ExperimentalOrgCard({ org }: { org: OrgNode }) {
     const hasChildren = org.children && org.children.length > 0;
 
     return (
-        <Card variant="structural" className={cn("shadow-xs overflow-hidden border bg-white", meta.borderColor)}>
+        <Card variant="structural" className={cn("shadow-xs overflow-hidden border bg-card text-card-foreground", meta.borderColor)}>
             <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
                 {/* 1. Section Header Row (Rendered ONCE per organization section) */}
-                <div className="flex items-center justify-between px-4 pt-3.5 pb-2 bg-slate-100/60 dark:bg-zinc-800/40 border-b border-slate-200/70 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                <div className="flex items-center justify-between px-4 pt-3.5 pb-2 bg-muted/60 border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
                     <div className="flex items-center gap-2 min-w-0">
                         {hasChildren ? (
                             <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-slate-200/60 rounded-md shrink-0">
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-muted rounded-md shrink-0">
                                     {isOpen ? (
-                                        <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
+                                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                                     ) : (
-                                        <ChevronRight className="h-3.5 w-3.5 text-slate-500" />
+                                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                                     )}
                                 </Button>
                             </CollapsibleTrigger>
@@ -146,15 +146,15 @@ function ExperimentalOrgCard({ org }: { org: OrgNode }) {
                     <div className="flex flex-col text-right shrink-0 space-y-1">
                         {/* Tier 1: Category Titles */}
                         <div className="grid grid-cols-[80px_324px] gap-2 text-[10px] font-bold uppercase tracking-wider">
-                            <span className="pr-3 border-r border-slate-200/80 text-slate-400">Questions</span>
-                            <span className="text-center text-slate-500 dark:text-zinc-400 border-b border-slate-200/80 pb-0.5">Answers</span>
+                            <span className="pr-3 border-r border-border text-muted-foreground">Questions</span>
+                            <span className="text-center text-muted-foreground border-b border-border pb-0.5">Answers</span>
                         </div>
 
                         {/* Tier 2: Sub-column Labels */}
-                        <div className="grid grid-cols-[80px_80px_80px_75px_85px] gap-2 text-[11px] font-semibold text-slate-500 uppercase tracking-wider items-center">
-                            <div className="pr-3 border-r border-slate-200/80 justify-end flex">
+                        <div className="grid grid-cols-[80px_80px_80px_75px_85px] gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider items-center">
+                            <div className="pr-3 border-r border-border justify-end flex">
                                 <StandardTooltip content="Total Questions / Questionnaires Count (e.g. 54/3 = 54 questions across 3 questionnaires)">
-                                    <span className="font-bold text-slate-700 dark:text-zinc-300">
+                                    <span className="font-bold text-foreground">
                                         Total
                                     </span>
                                 </StandardTooltip>
@@ -168,18 +168,18 @@ function ExperimentalOrgCard({ org }: { org: OrgNode }) {
                 </div>
 
                 {/* 2. Org Summary Row (Org-level summary totals span multiple LEs, so metrics remain non-clickable) */}
-                <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-slate-100">
+                <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border text-card-foreground">
                     <div className="flex items-center gap-2.5 min-w-0 pl-8">
                         {org.orgType === "SUPPLIER" ? (
-                            <Link href={`/app/s/${org.id}`} className="font-semibold text-sm text-slate-900 hover:text-teal-700 truncate">
+                            <Link href={`/app/s/${org.id}`} className="font-semibold text-sm text-foreground hover:text-teal-500 truncate">
                                 Organisation Totals
                             </Link>
                         ) : org.orgType === "CLIENT" ? (
-                            <Link href={`/app/clients/${org.id}`} className="font-semibold text-sm text-slate-900 hover:text-indigo-700 truncate">
+                            <Link href={`/app/clients/${org.id}`} className="font-semibold text-sm text-foreground hover:text-indigo-500 truncate">
                                 Organisation Totals
                             </Link>
                         ) : (
-                            <span className="font-semibold text-sm text-slate-900 truncate">Organisation Totals</span>
+                            <span className="font-semibold text-sm text-foreground truncate">Organisation Totals</span>
                         )}
                     </div>
 
@@ -189,7 +189,7 @@ function ExperimentalOrgCard({ org }: { org: OrgNode }) {
 
                 {hasChildren && (
                     <CollapsibleContent>
-                        <div className="divide-y divide-slate-100 bg-white">
+                        <div className="divide-y divide-border bg-card text-card-foreground">
                             {org.children.map((child) => (
                                 <ExperimentalTreeNode key={child.id} item={child} level={1} />
                             ))}
@@ -250,9 +250,9 @@ function ExperimentalTreeNode({ item, level }: { item: OrgChild; level: number }
         <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
             <div
                 className={cn(
-                    "flex items-center justify-between px-4 py-2.5 hover:bg-slate-50/60 transition-colors",
-                    level > 1 && "bg-slate-50/20",
-                    isCQ && "bg-slate-50/40"
+                    "flex items-center justify-between px-4 py-2.5 hover:bg-muted/40 transition-colors",
+                    level > 1 && "bg-muted/20 text-card-foreground",
+                    isCQ && "bg-muted/30 text-card-foreground"
                 )}
             >
                 <div
@@ -262,11 +262,11 @@ function ExperimentalTreeNode({ item, level }: { item: OrgChild; level: number }
                     <div className="w-6 flex justify-center shrink-0">
                         {hasChildren ? (
                             <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 p-0 hover:bg-slate-200/60 shrink-0">
+                                <Button variant="ghost" size="icon" className="h-6 w-6 p-0 hover:bg-muted shrink-0">
                                     {isOpen ? (
-                                        <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
+                                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                                     ) : (
-                                        <ChevronRight className="h-3.5 w-3.5 text-slate-500" />
+                                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                                     )}
                                 </Button>
                             </CollapsibleTrigger>
@@ -279,8 +279,8 @@ function ExperimentalTreeNode({ item, level }: { item: OrgChild; level: number }
                         <Link
                             href={item.href}
                             className={cn(
-                                "truncate hover:underline hover:text-indigo-600 text-sm font-medium",
-                                isCQ ? "text-slate-900 font-semibold" : "text-slate-800"
+                                "truncate hover:underline hover:text-indigo-500 text-sm font-medium",
+                                isCQ ? "text-foreground font-semibold" : "text-foreground"
                             )}
                             title={item.name}
                         >

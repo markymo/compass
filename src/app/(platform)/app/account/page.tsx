@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Shield, User, Bell, Home, Key, ExternalLink, Sparkles, Factory, Building2, Landmark, Gavel } from "lucide-react";
+import { useTheme } from "next-themes";
+import { Loader2, Shield, User, Bell, Home, Key, ExternalLink, Sparkles, Factory, Building2, Landmark, Gavel, Sun, Moon, Laptop } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -15,6 +16,63 @@ import { usePreferences } from "@/components/providers/user-preferences-provider
 import { StandardPageHeader } from "@/components/layout/StandardPageHeader";
 import { useBreadcrumbs } from "@/context/breadcrumb-context";
 import { cn } from "@/lib/utils";
+
+function ThemeSettingsControl() {
+    const { theme, setTheme } = useTheme();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    if (!mounted) {
+        return <div className="h-10 w-full animate-pulse bg-muted rounded-md" />;
+    }
+
+    return (
+        <div className="grid grid-cols-3 gap-3">
+            <button
+                type="button"
+                onClick={() => setTheme("system")}
+                className={cn(
+                    "flex flex-col items-center justify-center p-3 rounded-lg border text-sm font-medium transition-all gap-2 cursor-pointer",
+                    theme === "system"
+                        ? "border-primary bg-accent text-accent-foreground shadow-sm"
+                        : "border-border bg-card text-muted-foreground hover:bg-muted"
+                )}
+            >
+                <Laptop className="h-5 w-5" />
+                <span>System</span>
+            </button>
+            <button
+                type="button"
+                onClick={() => setTheme("light")}
+                className={cn(
+                    "flex flex-col items-center justify-center p-3 rounded-lg border text-sm font-medium transition-all gap-2 cursor-pointer",
+                    theme === "light"
+                        ? "border-primary bg-accent text-accent-foreground shadow-sm"
+                        : "border-border bg-card text-muted-foreground hover:bg-muted"
+                )}
+            >
+                <Sun className="h-5 w-5" />
+                <span>Light</span>
+            </button>
+            <button
+                type="button"
+                onClick={() => setTheme("dark")}
+                className={cn(
+                    "flex flex-col items-center justify-center p-3 rounded-lg border text-sm font-medium transition-all gap-2 cursor-pointer",
+                    theme === "dark"
+                        ? "border-primary bg-accent text-accent-foreground shadow-sm"
+                        : "border-border bg-card text-muted-foreground hover:bg-muted"
+                )}
+            >
+                <Moon className="h-5 w-5" />
+                <span>Dark</span>
+            </button>
+        </div>
+    );
+}
 
 function PermissionBadge({ label }: { label: string }) {
     if (!label || label === "—") {
@@ -209,6 +267,20 @@ export default function AccountSettingsPage() {
                                     Not configured
                                 </div>
                             </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Appearance & Theme */}
+                    <Card className="overflow-hidden rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-sm py-0 gap-0">
+                        <CardHeader className="p-6 pb-4">
+                            <div className="flex items-center gap-2">
+                                <Sun className="h-5 w-5 text-amber-500" />
+                                <CardTitle>Appearance & Theme</CardTitle>
+                            </div>
+                            <CardDescription>Choose how OnPro looks on your device.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="px-6 pb-6">
+                            <ThemeSettingsControl />
                         </CardContent>
                     </Card>
 

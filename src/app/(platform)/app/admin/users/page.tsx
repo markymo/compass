@@ -62,8 +62,8 @@ export default function UserAdminPage() {
                                         <TableRow key={u.userId}>
                                             <TableCell className="font-medium align-top py-4">
                                                 <div className="flex flex-col gap-1">
-                                                    <div className="flex items-center gap-2">
-                                                        <User className="w-4 h-4 text-slate-400" />
+                                                    <div className="flex items-center gap-2 text-foreground">
+                                                        <User className="w-4 h-4 text-muted-foreground" />
                                                         {u.email}
                                                     </div>
                                                     {isSystemAdmin && (
@@ -83,11 +83,11 @@ export default function UserAdminPage() {
                                                             >
                                                                 {m.orgType}
                                                             </Badge>
-                                                            <span className="font-medium text-slate-700">{m.orgName}</span>
-                                                            <span className="text-slate-400 text-xs">({m.role})</span>
+                                                            <span className="font-medium text-secondary-foreground">{m.orgName}</span>
+                                                            <span className="text-muted-foreground text-xs">({m.role})</span>
                                                         </div>
                                                     ))}
-                                                    {u.memberships.length === 0 && <span className="text-slate-400 italic">No memberships</span>}
+                                                    {u.memberships.length === 0 && <span className="text-muted-foreground italic">No memberships</span>}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-right align-top py-4">

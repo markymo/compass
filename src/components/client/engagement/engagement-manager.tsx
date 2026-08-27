@@ -315,13 +315,13 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-xl font-semibold text-slate-900">Supplier Relationships</h2>
+                    <h2 className="text-xl font-semibold text-foreground">Supplier Relationships</h2>
                 </div>
                 <Button 
                     variant="outline" 
                     size="sm" 
                     onClick={() => handleOpenAddChange(true)} 
-                    className="h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 w-fit"
+                    className="h-7 text-xs px-2 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-700 dark:hover:text-indigo-300 w-fit"
                     title="Add Supplier Relationship"
                 >
                     <Plus className="h-3 w-3 mr-1" />
@@ -330,39 +330,39 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
             </div>
 
             <Dialog open={isAdding} onOpenChange={handleOpenAddChange}>
-                <DialogContent className="sm:max-w-lg p-0 overflow-hidden bg-white">
-                    <DialogHeader className="px-5 pt-5 pb-3 border-b border-slate-100">
-                        <DialogTitle className="text-lg font-bold text-slate-900">Add Supplier Relationship</DialogTitle>
-                        <DialogDescription className="text-xs text-slate-500">
+                <DialogContent className="sm:max-w-lg p-0 overflow-hidden bg-card text-card-foreground border-border">
+                    <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
+                        <DialogTitle className="text-lg font-bold text-foreground">Add Supplier Relationship</DialogTitle>
+                        <DialogDescription className="text-xs text-muted-foreground">
                             Search for a financial institution to add a relationship to this legal entity.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="p-0">
-                        <Command className="rounded-none border-0" shouldFilter={false}>
-                            <div className="flex items-center border-b border-slate-100 px-4 overflow-hidden">
-                                <Search className="h-4 w-4 shrink-0 text-slate-400 mr-2" />
+                        <Command className="rounded-none border-0 bg-card text-card-foreground" shouldFilter={false}>
+                            <div className="flex items-center border-b border-border px-4 overflow-hidden">
+                                <Search className="h-4 w-4 shrink-0 text-muted-foreground mr-2" />
                                 <CommandInput
                                     placeholder="Search financial institutions..."
                                     autoFocus
                                     value={searchQuery}
                                     onValueChange={handleSearchValueChange}
-                                    className="border-0 focus:ring-0 shadow-none px-0 h-12 text-base"
+                                    className="border-0 focus:ring-0 shadow-none px-0 h-12 text-base text-foreground bg-transparent"
                                 />
-                                {isSearching && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-400 ml-2" />}
+                                {isSearching && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground ml-2" />}
                             </div>
                             <CommandList className="max-h-[260px] min-h-[120px] p-2">
                                 {!searchQuery.trim() ? (
-                                    <div className="py-10 px-4 text-center text-xs text-slate-400">
+                                    <div className="py-10 px-4 text-center text-xs text-muted-foreground">
                                         Type an institution name to search matching organizations.
                                     </div>
                                 ) : isSearching ? (
-                                    <div className="py-10 px-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
+                                    <div className="py-10 px-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
                                         <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
                                         Searching institutions...
                                     </div>
                                 ) : searchResults.length === 0 ? (
                                     <CommandEmpty className="py-8 px-4 text-center">
-                                        <p className="text-sm text-slate-500">
+                                        <p className="text-sm text-muted-foreground">
                                             No financial institutions found matching &quot;{searchQuery}&quot;.
                                         </p>
                                     </CommandEmpty>
@@ -385,26 +385,26 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                 className={cn(
                                                     "py-3 px-3 rounded-md flex items-center justify-between transition-colors",
                                                     isAlreadyAdded
-                                                        ? "opacity-60 cursor-not-allowed bg-slate-50/80"
-                                                        : "cursor-pointer hover:bg-slate-100"
+                                                        ? "opacity-60 cursor-not-allowed bg-muted/80"
+                                                        : "cursor-pointer hover:bg-muted"
                                                 )}
                                             >
                                                 <div className="flex items-center min-w-0 flex-1 mr-3">
-                                                    <Building2 className="mr-3 h-4 w-4 text-slate-400 shrink-0" />
+                                                    <Building2 className="mr-3 h-4 w-4 text-muted-foreground shrink-0" />
                                                     <div className="flex flex-col flex-1 min-w-0">
-                                                        <span className="font-medium text-slate-900 truncate">{framework.label}</span>
+                                                        <span className="font-medium text-foreground truncate">{framework.label}</span>
                                                         {framework.description && (
-                                                            <span className="text-xs text-slate-500 truncate">{framework.description}</span>
+                                                            <span className="text-xs text-muted-foreground truncate">{framework.description}</span>
                                                         )}
                                                     </div>
                                                 </div>
                                                 {isAlreadyAdded ? (
-                                                    <div className="flex items-center gap-1 text-xs text-slate-500 font-medium shrink-0 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                                                        <Check className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                                                    <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium shrink-0 bg-muted px-2 py-0.5 rounded border border-border">
+                                                        <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                                                         <span>Already added</span>
                                                     </div>
                                                 ) : (
-                                                    <Plus className="h-4 w-4 text-slate-400 shrink-0" />
+                                                    <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
                                                 )}
                                             </CommandItem>
                                         );
@@ -419,39 +419,39 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
             {engagements.length > 0 ? (
                 <div className="flex flex-col gap-3">
                     {/* --- 2-Tier Header Row --- */}
-                    <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-slate-200 bg-slate-50/80 rounded-t-md border-x border-t", DASHBOARD_GRID_V2)}>
+                    <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-border bg-muted/80 text-foreground rounded-t-md border-x border-t", DASHBOARD_GRID_V2)}>
                         {/* 1. Entity */}
                         <div className="flex items-center gap-2 pr-4 pl-1">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-11">Supplier Relationships</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-11">Supplier Relationships</span>
                         </div>
 
                         {/* 2. Anchor (Total) */}
                         <div className="text-center pb-0.5">
-                            <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Total</span>
+                            <span className="text-[10px] font-bold text-secondary-foreground uppercase tracking-wider">Total</span>
                         </div>
 
                         {/* 3. Sourcing Group */}
-                        <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Data Sourcing</span>
+                        <div className="flex flex-col border-l border-border pl-4 h-full">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Data Sourcing</span>
                             <div className="flex justify-between pr-4 items-end">
-                                <span className="text-[10px] font-bold text-sky-600 uppercase">Mapped</span>
+                                <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase">Mapped</span>
                             </div>
                         </div>
 
                         {/* 4. Completion Group */}
-                        <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Completion</span>
+                        <div className="flex flex-col border-l border-border pl-4 h-full">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Completion</span>
                             <div className="flex justify-between pr-4 items-end">
-                                <span className="text-[10px] font-bold text-amber-600 uppercase">Answered</span>
+                                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase">Answered</span>
                             </div>
                         </div>
 
                         {/* 5. Workflow Group */}
-                        <div className="flex flex-col border-l border-slate-200 pl-3 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sign-Off & Actions</span>
+                        <div className="flex flex-col border-l border-border pl-3 h-full">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Sign-Off & Actions</span>
                             <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-bold text-indigo-600 uppercase min-w-[28px] text-center">Approved</span>
-                                <span className="text-[10px] font-bold text-emerald-600 uppercase min-w-[28px] text-center">Released</span>
+                                <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase min-w-[28px] text-center">Approved</span>
+                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase min-w-[28px] text-center">Released</span>
                             </div>
                         </div>
                     </div>
@@ -472,60 +472,60 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                         const qCount = questionnaires.length || 0;
 
                         return (
-                            <AccordionItem key={eng.id} id={`engagement-${eng.id}`} value={eng.id} className="border border-slate-200 rounded-md bg-white shadow-sm overflow-hidden data-[state=open]:border-indigo-200 transition-colors">
-                                <div className="flex items-start justify-between pr-3 hover:bg-slate-50 transition-colors">
+                            <AccordionItem key={eng.id} id={`engagement-${eng.id}`} value={eng.id} className="border border-border rounded-md bg-card text-card-foreground shadow-sm overflow-hidden data-[state=open]:border-indigo-500/50 transition-colors">
+                                <div className="flex items-start justify-between pr-3 hover:bg-muted/50 transition-colors">
                                     <AccordionPrimitive.Header className="flex flex-1">
                                         <AccordionPrimitive.Trigger className="flex flex-1 items-center gap-3 px-4 py-3 text-left hover:no-underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/20 [&[data-state=open]>svg]:rotate-90">
-                                            <ChevronRight className="h-4 w-4 text-slate-400 shrink-0 transition-transform duration-200" />
+                                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200" />
                                             <div className={cn("hidden md:grid items-center w-full text-left", DASHBOARD_GRID_V2)}>
                                                 {/* Col 1: Entity */}
                                                 <div className="flex items-center gap-3 overflow-hidden pr-4">
-                                                    <div className="h-8 w-8 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                        <Building2 className="h-4 w-4 text-emerald-600" />
+                                                    <div className="h-8 w-8 rounded bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center shrink-0 border border-emerald-200/50 dark:border-emerald-800/50">
+                                                        <Building2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                                                     </div>
                                                     <div className="min-w-0 flex-1">
                                                         <div className="flex items-center gap-2">
-                                                            <h3 className="font-bold text-[15px] text-slate-900 truncate">
+                                                            <h3 className="font-bold text-[15px] text-foreground truncate">
                                                                 {orgName}
                                                             </h3>
                                                             <Badge variant="outline" className={cn(
                                                                 "text-[9px] uppercase font-bold px-1.5 py-0 h-4",
-                                                                eng.status === 'INVITED' ? "bg-blue-50 text-blue-700 border-blue-200" :
-                                                                    "bg-slate-100 text-slate-600 border-slate-200"
+                                                                eng.status === 'INVITED' ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800" :
+                                                                    "bg-muted text-muted-foreground border-border"
                                                             )}>
                                                                 {eng.status === 'PREPARATION' ? 'DRAFT' : eng.status}
                                                             </Badge>
                                                         </div>
-                                                        <span className="text-xs text-slate-400">Supplier Relationship</span>
+                                                        <span className="text-xs text-muted-foreground">Supplier Relationship</span>
                                                     </div>
                                                 </div>
 
                                                 {/* Col 2: Total Items */}
-                                                <div className="text-center font-bold text-slate-700 text-[15px]">
+                                                <div className="text-center font-bold text-foreground text-[15px]">
                                                     {eng.metrics?.total || 0}
                                                 </div>
 
                                                 {/* Col 3: Data Sourcing */}
-                                                <div className="border-l border-slate-100 pl-4 flex flex-col justify-center h-full text-sky-500">
-                                                    {eng.metrics && <MicroChart value={eng.metrics.mapped} total={eng.metrics.total} colorClass="text-sky-500" emptyClass="bg-slate-100" numeratorLabel="Mapped" denominatorLabel="Unmapped" />}
+                                                <div className="border-l border-border pl-4 flex flex-col justify-center h-full text-sky-500">
+                                                    {eng.metrics && <MicroChart value={eng.metrics.mapped} total={eng.metrics.total} colorClass="text-sky-500 dark:text-sky-400" emptyClass="bg-muted" numeratorLabel="Mapped" denominatorLabel="Unmapped" />}
                                                 </div>
 
                                                 {/* Col 4: Completion */}
-                                                <div className="border-l border-slate-100 pl-4 flex flex-col justify-center h-full text-amber-500">
-                                                    {eng.metrics && <MicroChart value={eng.metrics.answered} total={eng.metrics.total} colorClass="text-amber-500" emptyClass="bg-slate-100" numeratorLabel="Answered" denominatorLabel="Blank" />}
+                                                <div className="border-l border-border pl-4 flex flex-col justify-center h-full text-amber-500">
+                                                    {eng.metrics && <MicroChart value={eng.metrics.answered} total={eng.metrics.total} colorClass="text-amber-500 dark:text-amber-400" emptyClass="bg-muted" numeratorLabel="Answered" denominatorLabel="Blank" />}
                                                 </div>
 
                                                 {/* Col 5: Sign-Off */}
-                                                <div className="border-l border-slate-100 pl-3 pr-1 flex items-center justify-between h-full">
+                                                <div className="border-l border-border pl-3 pr-1 flex items-center justify-between h-full">
                                                     {eng.metrics && (
                                                         <div className="flex items-center gap-2 shrink-0">
                                                             <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
-                                                                <span className={cn("text-[13px] font-bold font-mono", eng.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{eng.metrics.approved}</span>
-                                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Approved</span>
+                                                                <span className={cn("text-[13px] font-bold font-mono", eng.metrics.approved > 0 ? "text-indigo-600 dark:text-indigo-400" : "text-muted-foreground/50")}>{eng.metrics.approved}</span>
+                                                                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Approved</span>
                                                             </div>
                                                             <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
-                                                                <span className={cn("text-[13px] font-bold font-mono", eng.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{eng.metrics.released}</span>
-                                                                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Released</span>
+                                                                <span className={cn("text-[13px] font-bold font-mono", eng.metrics.released > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/50")}>{eng.metrics.released}</span>
+                                                                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Released</span>
                                                             </div>
                                                         </div>
                                                     )}
@@ -536,18 +536,18 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                             <div className="md:hidden flex flex-col text-left w-full gap-3">
                                                 <div className="flex items-center justify-between min-w-0 pr-2">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="h-8 w-8 rounded bg-emerald-50 flex items-center justify-center shrink-0">
-                                                            <Building2 className="h-4 w-4 text-emerald-600" />
+                                                        <div className="h-8 w-8 rounded bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center shrink-0">
+                                                            <Building2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                                                         </div>
-                                                        <h3 className="font-bold text-base text-slate-900 truncate">
+                                                        <h3 className="font-bold text-base text-foreground truncate">
                                                             {orgName}
                                                         </h3>
                                                     </div>
                                                     <div className="flex flex-wrap items-center gap-2">
                                                         <Badge variant="outline" className={cn(
                                                             "text-[10px] uppercase font-bold px-1.5 py-0",
-                                                            eng.status === 'INVITED' ? "bg-blue-50 text-blue-700 border-blue-200" :
-                                                                "bg-slate-100 text-slate-600 border-slate-200"
+                                                            eng.status === 'INVITED' ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800" :
+                                                                "bg-muted text-muted-foreground border-border"
                                                         )}>
                                                             {eng.status === 'PREPARATION' ? 'DRAFT' : eng.status}
                                                         </Badge>
@@ -555,7 +555,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                 </div>
                                                 {eng.metrics && (
                                                     <div className="w-full pr-2">
-                                                        <ProgressTracker metrics={eng.metrics} variant={"v2" as any} className="w-full bg-slate-50/50" />
+                                                        <ProgressTracker metrics={eng.metrics} variant={"v2" as any} className="w-full bg-muted/50" />
                                                     </div>
                                                 )}
                                             </div>
@@ -564,13 +564,13 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                     
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-slate-400 mt-3">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground mt-3">
                                                 <MoreVertical className="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuItem
-                                                className="text-red-600 focus:text-red-600 focus:bg-red-50 cursor-pointer"
+                                                className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
                                                 onClick={() => handleDelete({ id: eng.id, name: orgName })}
                                             >
                                                 <Trash2 className="mr-2 h-4 w-4" />
@@ -580,7 +580,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                     </DropdownMenu>
                                 </div>
 
-                                <AccordionContent className="border-t border-slate-100 bg-white pb-2 pt-0 px-0">
+                                <AccordionContent className="border-t border-border bg-card text-card-foreground pb-2 pt-0 px-0">
                                     {(() => {
                                         const engExpandedSections = expandedSections[eng.id] !== undefined ? expandedSections[eng.id] : ["overview"];
                                         
@@ -589,17 +589,17 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                 type="multiple" 
                                                 value={engExpandedSections} 
                                                 onValueChange={(val) => handleSectionsAccordionChange(eng.id, val)} 
-                                                className="w-full divide-y divide-slate-200"
+                                                className="w-full divide-y divide-border"
                                             >
                                                 {/* Section 1: Overview */}
                                                 <AccordionItem value="overview" className="border-0">
-                                                    <AccordionPrimitive.Header className="flex items-center justify-between px-4 py-2.5 bg-slate-50/50 hover:bg-slate-100/60 transition-colors group cursor-pointer border-b border-transparent">
+                                                    <AccordionPrimitive.Header className="flex items-center justify-between px-4 py-2.5 bg-muted/50 hover:bg-muted transition-colors group cursor-pointer border-b border-transparent">
                                                         <AccordionPrimitive.Trigger className="flex flex-1 items-center gap-3 py-1 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/20 rounded-sm [&[data-state=open]>svg]:rotate-90">
-                                                            <ChevronRight className="h-4 w-4 text-slate-400 shrink-0 transition-transform duration-200" />
-                                                            <span className="font-semibold text-sm text-slate-800">Overview</span>
+                                                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200" />
+                                                            <span className="font-semibold text-sm text-foreground">Overview</span>
                                                         </AccordionPrimitive.Trigger>
                                                     </AccordionPrimitive.Header>
-                                                    <AccordionContent className="pl-7 sm:pl-9 pr-4 py-3 border-t border-slate-100 bg-white">
+                                                    <AccordionContent className="pl-7 sm:pl-9 pr-4 py-3 border-t border-border bg-card text-card-foreground">
                                                          <RelationshipOverviewSection 
                                                              orgName={orgName || "Supplier"}
                                                              createdAt={eng.createdAt}
@@ -612,11 +612,11 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
 
                                                 {/* Section 2: Questionnaires */}
                                                 <AccordionItem value="questionnaires" className="border-0">
-                                                    <AccordionPrimitive.Header className="flex items-center justify-between px-4 py-2.5 bg-slate-50/50 hover:bg-slate-100/60 transition-colors group cursor-pointer border-b border-transparent">
+                                                    <AccordionPrimitive.Header className="flex items-center justify-between px-4 py-2.5 bg-muted/50 hover:bg-muted transition-colors group cursor-pointer border-b border-transparent">
                                                         <AccordionPrimitive.Trigger className="flex flex-1 items-center gap-3 py-1 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/20 rounded-sm [&[data-state=open]>svg]:rotate-90">
-                                                            <ChevronRight className="h-4 w-4 text-slate-400 shrink-0 transition-transform duration-200" />
-                                                            <span className="font-semibold text-sm text-slate-800">Questionnaires</span>
-                                                            <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0">{qCount}</Badge>
+                                                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200" />
+                                                            <span className="font-semibold text-sm text-foreground">Questionnaires</span>
+                                                            <Badge variant="secondary" className="bg-muted text-muted-foreground text-[10px] font-bold uppercase tracking-wider px-1.5 py-0">{qCount}</Badge>
                                                         </AccordionPrimitive.Trigger>
                                                         <div onClick={(e) => e.stopPropagation()} className="shrink-0 z-10 pr-2">
                                                             <Popover 
@@ -627,14 +627,14 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                 }}
                                                             >
                                                                 <PopoverTrigger asChild>
-                                                                    <Button variant="outline" size="sm" className="h-7 text-xs px-2 text-slate-700 border-slate-200 hover:bg-slate-100">
+                                                                    <Button variant="outline" size="sm" className="h-7 text-xs px-2 text-foreground border-border hover:bg-muted">
                                                                         <Plus className="h-3 w-3 mr-1" />
                                                                         Add
                                                                     </Button>
                                                                 </PopoverTrigger>
-                                                                <PopoverContent className="w-[300px] p-0" align="end" onClick={(e) => e.stopPropagation()}>
-                                                                    <Command>
-                                                                        <CommandInput placeholder="Search available questionnaires..." />
+                                                                <PopoverContent className="w-[300px] p-0 bg-card text-card-foreground border-border" align="end" onClick={(e) => e.stopPropagation()}>
+                                                                    <Command className="bg-card text-card-foreground">
+                                                                        <CommandInput placeholder="Search available questionnaires..." className="text-foreground bg-transparent" />
                                                                         <CommandList>
                                                                             <CommandEmpty>
                                                                                 {isLoadingAvailable[eng.id] ? "Loading..." : "No questionnaires found."}
@@ -649,16 +649,16 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                                             e.preventDefault();
                                                                                             handleAddQuestionnaire(eng.id, snapshot.id, snapshot.name);
                                                                                         }}
-                                                                                        className="flex flex-col items-start py-3 cursor-pointer"
+                                                                                        className="flex flex-col items-start py-3 cursor-pointer hover:bg-muted"
                                                                                         disabled={isAddingQ === snapshot.id}
                                                                                     >
                                                                                         <div className="flex items-center w-full">
                                                                                             <FileText className="mr-2 h-4 w-4 text-indigo-500 shrink-0" />
-                                                                                            <span className="font-medium truncate flex-1">{snapshot.name}</span>
+                                                                                            <span className="font-medium truncate flex-1 text-foreground">{snapshot.name}</span>
                                                                                             {isAddingQ === snapshot.id && <Loader2 className="ml-2 h-4 w-4 animate-spin text-indigo-500" />}
                                                                                         </div>
                                                                                         {snapshot.referenceCode && (
-                                                                                            <span className="text-[10px] text-slate-400 mt-1 ml-6">{snapshot.referenceCode}</span>
+                                                                                            <span className="text-[10px] text-muted-foreground mt-1 ml-6">{snapshot.referenceCode}</span>
                                                                                         )}
                                                                                     </CommandItem>
                                                                                 ))}
@@ -669,23 +669,23 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                             </Popover>
                                                         </div>
                                                     </AccordionPrimitive.Header>
-                                                    <AccordionContent className="pl-7 sm:pl-9 pr-4 py-3 border-t border-slate-100 bg-white">
+                                                    <AccordionContent className="pl-7 sm:pl-9 pr-4 py-3 border-t border-border bg-card text-card-foreground">
                                                         {qCount > 0 ? (
-                                                            <div className="divide-y divide-slate-100">
+                                                            <div className="divide-y divide-border">
                                                                 {questionnaires.map((q: any) => (
-                                                                    <div key={q.id} className="py-2.5 hover:bg-slate-50/60 transition-colors group/card">
+                                                                    <div key={q.id} className="py-2.5 hover:bg-muted/60 transition-colors group/card">
                                                                         <div className={cn("hidden md:grid items-center gap-2", DASHBOARD_GRID_V2)}>
                                                                             {/* Col 1: Name */}
                                                                             <div className="flex items-center gap-3 overflow-hidden pr-4 pl-2">
-                                                                                <FileText className="h-4 w-4 text-slate-400 shrink-0" />
+                                                                                <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                                                                                 <div className="min-w-0 flex-1">
                                                                                     <div className="flex items-center gap-2">
                                                                                         <div className="flex flex-col">
-                                                                                            <span className="font-medium text-[13.5px] text-slate-800 truncate group-hover/card:text-indigo-600 transition-colors" title={q.name}>{q.name}</span>
-                                                                                            {q.referenceCode && <span className="text-[10px] text-slate-400 font-mono tracking-tight">{q.referenceCode}</span>}
+                                                                                            <span className="font-medium text-[13.5px] text-foreground truncate group-hover/card:text-indigo-600 dark:group-hover/card:text-indigo-400 transition-colors" title={q.name}>{q.name}</span>
+                                                                                            {q.referenceCode && <span className="text-[10px] text-muted-foreground font-mono tracking-tight">{q.referenceCode}</span>}
                                                                                         </div>
                                                                                         {q.status === 'DIGITIZING' && (
-                                                                                            <Badge variant="outline" className="w-fit text-[9px] h-[16px] py-0 bg-indigo-50 text-indigo-600 border-indigo-200 animate-pulse">
+                                                                                            <Badge variant="outline" className="w-fit text-[9px] h-[16px] py-0 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 animate-pulse">
                                                                                                 Digitizing
                                                                                             </Badge>
                                                                                         )}
@@ -694,31 +694,31 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                             </div>
 
                                                                             {/* Col 2: Total */}
-                                                                            <div className="text-center font-bold text-slate-600 text-[14px]">
+                                                                            <div className="text-center font-bold text-foreground text-[14px]">
                                                                                 {q.metrics?.total || 0}
                                                                             </div>
 
                                                                             {/* Col 3: Data Sourcing */}
-                                                                            <div className="border-l border-slate-100 pl-4 flex flex-col justify-center h-full text-sky-500">
-                                                                                {q.metrics && <MicroChart value={q.metrics.mapped} total={q.metrics.total} colorClass="text-sky-500" emptyClass="bg-slate-100" numeratorLabel="Mapped" denominatorLabel="Unmapped" />}
+                                                                            <div className="border-l border-border pl-4 flex flex-col justify-center h-full text-sky-500">
+                                                                                {q.metrics && <MicroChart value={q.metrics.mapped} total={q.metrics.total} colorClass="text-sky-500 dark:text-sky-400" emptyClass="bg-muted" numeratorLabel="Mapped" denominatorLabel="Unmapped" />}
                                                                             </div>
 
                                                                             {/* Col 4: Completion */}
-                                                                            <div className="border-l border-slate-100 pl-4 flex flex-col justify-center h-full text-amber-500">
-                                                                                {q.metrics && <MicroChart value={q.metrics.answered} total={q.metrics.total} colorClass="text-amber-500" emptyClass="bg-slate-100" numeratorLabel="Answered" denominatorLabel="Blank" />}
+                                                                            <div className="border-l border-border pl-4 flex flex-col justify-center h-full text-amber-500">
+                                                                                {q.metrics && <MicroChart value={q.metrics.answered} total={q.metrics.total} colorClass="text-amber-500 dark:text-amber-400" emptyClass="bg-muted" numeratorLabel="Answered" denominatorLabel="Blank" />}
                                                                             </div>
 
                                                                              {/* Col 5: Sign-Off & Action */}
-                                                                             <div className="border-l border-slate-100 pl-3 pr-1 flex items-center justify-between h-full">
+                                                                             <div className="border-l border-border pl-3 pr-1 flex items-center justify-between h-full">
                                                                                  {q.metrics && (
                                                                                      <div className="flex items-center gap-2 shrink-0">
                                                                                          <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
-                                                                                             <span className={cn("text-[13px] font-bold font-mono", q.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{q.metrics.approved}</span>
-                                                                                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Approved</span>
+                                                                                             <span className={cn("text-[13px] font-bold font-mono", q.metrics.approved > 0 ? "text-indigo-600 dark:text-indigo-400" : "text-muted-foreground/50")}>{q.metrics.approved}</span>
+                                                                                             <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Approved</span>
                                                                                          </div>
                                                                                          <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
-                                                                                             <span className={cn("text-[13px] font-bold font-mono", q.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{q.metrics.released}</span>
-                                                                                             <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Released</span>
+                                                                                             <span className={cn("text-[13px] font-bold font-mono", q.metrics.released > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/50")}>{q.metrics.released}</span>
+                                                                                             <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Released</span>
                                                                                          </div>
                                                                                      </div>
                                                                                  )}
@@ -729,7 +729,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                                                  variant="ghost" 
                                                                                                  size="sm"
                                                                                                  onClick={() => handleRemoveQuestionnaire(eng.id, q.id, q.name)}
-                                                                                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2 text-xs"
+                                                                                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 h-7 px-2 text-xs"
                                                                                                  disabled={isRemoving === q.id}
                                                                                              >
                                                                                                  {isRemoving === q.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Yes"}
@@ -738,7 +738,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                                                  variant="ghost" 
                                                                                                  size="sm"
                                                                                                  onClick={() => setConfirmRemoveId(null)}
-                                                                                                 className="text-slate-500 hover:text-slate-700 hover:bg-slate-100 h-7 px-2 text-xs"
+                                                                                                 className="text-muted-foreground hover:text-foreground hover:bg-muted h-7 px-2 text-xs"
                                                                                                  disabled={isRemoving === q.id}
                                                                                              >
                                                                                                  No
@@ -750,7 +750,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                                                  variant="ghost"
                                                                                                  size="sm"
                                                                                                  onClick={() => setApprovalTarget({ relationshipId: eng.id, questionnaireId: q.id })}
-                                                                                                 className="h-7 text-xs text-indigo-600 hover:bg-indigo-50 px-2 flex items-center gap-1 font-medium shrink-0"
+                                                                                                 className="h-7 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 px-2 flex items-center gap-1 font-medium shrink-0"
                                                                                                  title="Approve Questionnaire"
                                                                                              >
                                                                                                  <ShieldCheck className="h-3.5 w-3.5" />
@@ -758,7 +758,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                                              </Button>
                                                                                              <Link 
                                                                                                  href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(orgName || "Unknown")}&q=${encodeURIComponent(q.name)}`}
-                                                                                                 className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors shrink-0"
+                                                                                                 className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
                                                                                                  title="Review questionnaire"
                                                                                              >
                                                                                                  <ArrowUpRight className="h-4 w-4" />
@@ -766,7 +766,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                                              <Button 
                                                                                                  variant="ghost" 
                                                                                                  size="icon" 
-                                                                                                 className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 shrink-0"
+                                                                                                 className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                                                                                                  onClick={() => setConfirmRemoveId(q.id)}
                                                                                                  title="Remove Questionnaire"
                                                                                              >
@@ -780,20 +780,20 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                         {/* Mobile View */}
                                                                         <div className="md:hidden flex flex-col gap-3">
                                                                             <div className="flex items-center gap-3 pr-4 pl-2">
-                                                                                <FileText className="h-4 w-4 text-slate-400 shrink-0" />
+                                                                                <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                                                                                 <div className="min-w-0 flex-1">
                                                                                     <div className="flex items-center justify-between w-full">
-                                                                                        <span className="font-medium text-[13.5px] text-slate-800 truncate transition-colors">{q.name}</span>
+                                                                                        <span className="font-medium text-[13.5px] text-foreground truncate transition-colors">{q.name}</span>
                                                                                         <div className="shrink-0">
                                                                                             {confirmRemoveId === q.id ? (
                                                                                                 <div className="flex items-center gap-1">
                                                                                                     <Button variant="ghost" size="sm" onClick={() => handleRemoveQuestionnaire(eng.id, q.id, q.name)} className="text-red-600 h-6 px-2 text-xs" disabled={isRemoving === q.id}>Yes</Button>
-                                                                                                    <Button variant="ghost" size="sm" onClick={() => setConfirmRemoveId(null)} className="text-slate-500 h-6 px-2 text-xs" disabled={isRemoving === q.id}>No</Button>
+                                                                                                    <Button variant="ghost" size="sm" onClick={() => setConfirmRemoveId(null)} className="text-muted-foreground h-6 px-2 text-xs" disabled={isRemoving === q.id}>No</Button>
                                                                                                 </div>
                                                                                             ) : (
                                                                                                 <div className="flex items-center gap-1">
-                                                                                                    <Link href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(orgName || "Unknown")}&q=${encodeURIComponent(q.name)}`} className="h-6 w-6 inline-flex items-center justify-center rounded-md text-slate-400"><ArrowUpRight className="h-3 w-3" /></Link>
-                                                                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400" onClick={() => setConfirmRemoveId(q.id)}><Trash2 className="h-3 w-3" /></Button>
+                                                                                                    <Link href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(orgName || "Unknown")}&q=${encodeURIComponent(q.name)}`} className="h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground"><ArrowUpRight className="h-3 w-3" /></Link>
+                                                                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={() => setConfirmRemoveId(q.id)}><Trash2 className="h-3 w-3" /></Button>
                                                                                                 </div>
                                                                                             )}
                                                                                         </div>
@@ -801,14 +801,14 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                                 </div>
                                                                             </div>
                                                                             {q.metrics && (
-                                                                                <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-slate-50/50" />
+                                                                                <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-muted/50" />
                                                                             )}
                                                                         </div>
                                                                     </div>
                                                                 ))}
                                                             </div>
                                                         ) : (
-                                                            <div className="text-sm text-slate-500 py-3">
+                                                            <div className="text-sm text-muted-foreground py-3">
                                                                 No questionnaires assigned to this relationship yet.
                                                             </div>
                                                         )}
@@ -817,14 +817,14 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
 
                                                 {/* Section 3: Documents */}
                                                 <AccordionItem value="documents" className="border-0">
-                                                    <AccordionPrimitive.Header className="flex items-center justify-between px-4 py-2.5 bg-slate-50/50 hover:bg-slate-100/60 transition-colors group cursor-pointer border-b border-transparent">
+                                                    <AccordionPrimitive.Header className="flex items-center justify-between px-4 py-2.5 bg-muted/50 hover:bg-muted transition-colors group cursor-pointer border-b border-transparent">
                                                         <AccordionPrimitive.Trigger className="flex flex-1 items-center gap-3 py-1 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/20 rounded-sm [&[data-state=open]>svg]:rotate-90">
-                                                            <ChevronRight className="h-4 w-4 text-slate-400 shrink-0 transition-transform duration-200" />
-                                                            <span className="font-semibold text-sm text-slate-800">Documents</span>
-                                                            <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0">{docCount}</Badge>
+                                                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200" />
+                                                            <span className="font-semibold text-sm text-foreground">Documents</span>
+                                                            <Badge variant="secondary" className="bg-muted text-muted-foreground text-[10px] font-bold uppercase tracking-wider px-1.5 py-0">{docCount}</Badge>
                                                         </AccordionPrimitive.Trigger>
                                                     </AccordionPrimitive.Header>
-                                                    <AccordionContent className="pl-7 sm:pl-9 pr-4 py-3 border-t border-slate-100 bg-white">
+                                                    <AccordionContent className="pl-7 sm:pl-9 pr-4 py-3 border-t border-border bg-card text-card-foreground">
                                                         {engExpandedSections.includes("documents") && (
                                                             <InlineDocumentManager engagementId={eng.id} />
                                                         )}
@@ -833,19 +833,19 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
 
                                                 {/* Section 4: Output */}
                                                 <AccordionItem value="output" className="border-0">
-                                                    <AccordionPrimitive.Header className="flex items-center justify-between px-4 py-2.5 bg-slate-50/50 hover:bg-slate-100/60 transition-colors group cursor-pointer border-b border-transparent">
+                                                    <AccordionPrimitive.Header className="flex items-center justify-between px-4 py-2.5 bg-muted/50 hover:bg-muted transition-colors group cursor-pointer border-b border-transparent">
                                                         <AccordionPrimitive.Trigger className="flex flex-1 items-center gap-3 py-1 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/20 rounded-sm [&[data-state=open]>svg]:rotate-90">
-                                                            <ChevronRight className="h-4 w-4 text-slate-400 shrink-0 transition-transform duration-200" />
-                                                            <span className="font-semibold text-sm text-slate-800">Output</span>
+                                                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200" />
+                                                            <span className="font-semibold text-sm text-foreground">Output</span>
                                                             <Badge variant="outline" className={cn(
                                                                 "text-[10px] font-bold uppercase tracking-wider px-1.5 py-0",
-                                                                eng.status === 'PREPARATION' ? "bg-slate-100 text-slate-600 border-slate-200" : "bg-amber-50 text-amber-700 border-amber-200"
+                                                                eng.status === 'PREPARATION' ? "bg-muted text-muted-foreground border-border" : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
                                                             )}>
                                                                 {eng.status === 'PREPARATION' ? 'Draft' : 'Pending'}
                                                             </Badge>
                                                         </AccordionPrimitive.Trigger>
                                                     </AccordionPrimitive.Header>
-                                                    <AccordionContent className="pl-7 sm:pl-9 pr-4 py-3 border-t border-slate-100 bg-white">
+                                                    <AccordionContent className="pl-7 sm:pl-9 pr-4 py-3 border-t border-border bg-card text-card-foreground">
                                                         {engExpandedSections.includes("output") && (
                                                             <InlineOutputBuilder engagementId={eng.id} questionnaires={eng.questionnaires || []} commonQuestionnaires={commonQuestionnaires} />
                                                         )}
@@ -854,14 +854,14 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
 
                                                 {/* Section 5: Team */}
                                                 <AccordionItem value="team" className="border-0">
-                                                    <AccordionPrimitive.Header className="flex items-center justify-between px-4 py-2.5 bg-slate-50/50 hover:bg-slate-100/60 transition-colors group cursor-pointer border-b border-transparent">
+                                                    <AccordionPrimitive.Header className="flex items-center justify-between px-4 py-2.5 bg-muted/50 hover:bg-muted transition-colors group cursor-pointer border-b border-transparent">
                                                         <AccordionPrimitive.Trigger className="flex flex-1 items-center gap-3 py-1 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/20 rounded-sm [&[data-state=open]>svg]:rotate-90">
-                                                            <ChevronRight className="h-4 w-4 text-slate-400 shrink-0 transition-transform duration-200" />
-                                                            <span className="font-semibold text-sm text-slate-800">Team</span>
-                                                            <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0">{teamCount}</Badge>
+                                                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200" />
+                                                            <span className="font-semibold text-sm text-foreground">Team</span>
+                                                            <Badge variant="secondary" className="bg-muted text-muted-foreground text-[10px] font-bold uppercase tracking-wider px-1.5 py-0">{teamCount}</Badge>
                                                         </AccordionPrimitive.Trigger>
                                                     </AccordionPrimitive.Header>
-                                                    <AccordionContent className="pl-7 sm:pl-9 pr-4 py-3 border-t border-slate-100 bg-white">
+                                                    <AccordionContent className="pl-7 sm:pl-9 pr-4 py-3 border-t border-border bg-card text-card-foreground">
                                                         {engExpandedSections.includes("team") && (
                                                             <InlineTeamManager engagementId={eng.id} orgName={orgName || "Unknown"} />
                                                         )}
@@ -878,8 +878,8 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                 </div>
             ) : (
                 !isAdding && (
-                    <div className="text-center py-20 bg-slate-50 rounded-md border-2 border-dashed border-slate-200">
-                        <p className="text-slate-500">No active relationships found.</p>
+                    <div className="text-center py-20 bg-card text-card-foreground rounded-md border-2 border-dashed border-border">
+                        <p className="text-muted-foreground">No active relationships found.</p>
                         <Button 
                             onClick={() => handleOpenAddChange(true)} 
                             className="mt-3 bg-indigo-600 hover:bg-indigo-700 text-white" 

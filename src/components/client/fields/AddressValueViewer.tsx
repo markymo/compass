@@ -64,8 +64,8 @@ export function AddressValueViewer({
 
     if (layout === "compact") {
         return (
-            <span className="inline-flex items-center gap-1.5 text-sm text-slate-900 font-medium">
-                <span>{getAddressSummary(addr) || <span className="text-slate-400 italic">Empty</span>}</span>
+            <span className="inline-flex items-center gap-1.5 text-sm text-foreground font-medium">
+                <span>{getAddressSummary(addr) || <span className="text-muted-foreground italic">Empty</span>}</span>
                 {renderActionButton()}
             </span>
         );
@@ -75,34 +75,34 @@ export function AddressValueViewer({
     const countryLabel = addr.countryName || getCountryName(addr.countryCode) || addr.rawCountry || addr.countryCode;
 
     return (
-        <div className="grid grid-cols-1 gap-3.5 bg-slate-50/50 p-4 rounded-xl border border-slate-100 text-sm font-sans mt-2 shadow-inner">
-            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-2">
+        <div className="grid grid-cols-1 gap-3.5 bg-muted/40 p-4 rounded-xl border border-border text-sm font-sans mt-2 shadow-inner">
+            <div className="flex items-start justify-between gap-3 border-b border-border pb-2">
                 <div>
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Address</span>
-                    <span className="text-slate-900 font-medium whitespace-pre-line leading-relaxed">
-                        {lines.length > 0 ? lines.join("\n") : <span className="text-slate-400 italic">—</span>}
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">Address</span>
+                    <span className="text-foreground font-medium whitespace-pre-line leading-relaxed">
+                        {lines.length > 0 ? lines.join("\n") : <span className="text-muted-foreground italic">—</span>}
                     </span>
                 </div>
                 {renderActionButton()}
             </div>
-            <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-2">
+            <div className="grid grid-cols-2 gap-4 border-b border-border pb-2">
                 <div>
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Locality</span>
-                    <span className="text-slate-900 font-medium">{addr.locality || <span className="text-slate-400 italic">—</span>}</span>
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">Locality</span>
+                    <span className="text-foreground font-medium">{addr.locality || <span className="text-muted-foreground italic">—</span>}</span>
                 </div>
                 <div>
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Region</span>
-                    <span className="text-slate-900 font-medium">{addr.region || <span className="text-slate-400 italic">—</span>}</span>
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">Region</span>
+                    <span className="text-foreground font-medium">{addr.region || <span className="text-muted-foreground italic">—</span>}</span>
                 </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
                 <div>
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Postcode</span>
-                    <span className="text-slate-900 font-medium">{addr.postalCode || <span className="text-slate-400 italic">—</span>}</span>
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">Postcode</span>
+                    <span className="text-foreground font-medium">{addr.postalCode || <span className="text-muted-foreground italic">—</span>}</span>
                 </div>
                 <div>
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">Country</span>
-                    <span className="text-slate-900 font-medium">{countryLabel || <span className="text-slate-400 italic">—</span>}</span>
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-1">Country</span>
+                    <span className="text-foreground font-medium">{countryLabel || <span className="text-muted-foreground italic">—</span>}</span>
                 </div>
             </div>
         </div>

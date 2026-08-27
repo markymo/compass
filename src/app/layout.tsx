@@ -10,6 +10,7 @@ import { Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { DevFeedbackGate } from "@/components/dev/dev-feedback-gate";
 import { StagingBanner } from "@/components/dev/staging-banner";
+import { ThemeProvider } from "@/components/providers/theme-provider";
 import { UserPreferencesProvider } from "@/components/providers/user-preferences-provider";
 
 const outfit = Outfit({
@@ -82,18 +83,25 @@ export default function RootLayout({
           "antialiased min-h-screen bg-background text-foreground font-sans"
         )}
       >
-        <AuthSessionProvider>
-          <UserPreferencesProvider>
-            <StagingBanner />
-            <Suspense fallback={null}>
-              <UsageTracker />
-            </Suspense>
-            {children}
-            <Toaster />
-            <DevFeedbackGate />
-            <SpeedInsights />
-          </UserPreferencesProvider>
-        </AuthSessionProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AuthSessionProvider>
+            <UserPreferencesProvider>
+              <StagingBanner />
+              <Suspense fallback={null}>
+                <UsageTracker />
+              </Suspense>
+              {children}
+              <Toaster />
+              <DevFeedbackGate />
+              <SpeedInsights />
+            </UserPreferencesProvider>
+          </AuthSessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

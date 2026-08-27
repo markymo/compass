@@ -44,9 +44,9 @@ export function DueDateBadge({ date, effectiveDate, source, level, id, label }: 
     const isInherited = level !== 'LE' && !date && effectiveDate;
 
     const getStatusColor = (d: Date) => {
-        if (isPast(d) && !isToday(d)) return "text-red-700 bg-red-50 border-red-200 shadow-sm";
-        if (isBefore(d, addDays(new Date(), 7))) return "text-amber-700 bg-amber-50 border-amber-200 shadow-sm";
-        return "text-slate-700 bg-white border-slate-200 shadow-sm";
+        if (isPast(d) && !isToday(d)) return "text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-800 shadow-sm";
+        if (isBefore(d, addDays(new Date(), 7))) return "text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 shadow-sm";
+        return "text-foreground bg-card border-border shadow-sm";
     };
 
     const getWhimsyLabel = (d: Date) => {
@@ -90,8 +90,8 @@ export function DueDateBadge({ date, effectiveDate, source, level, id, label }: 
                     variant="outline"
                     size="sm"
                     className={cn(
-                        "h-8 gap-2 px-3 font-normal bg-white hover:bg-slate-50 border shadow-sm",
-                        activeDate ? getStatusColor(activeDate) : "text-slate-500 border-dashed"
+                        "h-8 gap-2 px-3 font-normal bg-card hover:bg-muted text-card-foreground border-border shadow-sm transition-colors",
+                        activeDate ? getStatusColor(activeDate) : "text-muted-foreground border-dashed border-border"
                     )}
                 >
                     {activeDate ? (
@@ -102,7 +102,7 @@ export function DueDateBadge({ date, effectiveDate, source, level, id, label }: 
                                 {getWhimsyLabel(activeDate)}
                             </span>
                             {level !== 'LE' && (
-                                <span className="flex items-center gap-1 ml-1 px-1 py-0.5 rounded bg-white/50 border border-black/5">
+                                <span className="flex items-center gap-1 ml-1 px-1 py-0.5 rounded bg-muted border border-border">
                                     {isOverridden ? (
                                         <User className="h-2.5 w-2.5" />
                                     ) : (
@@ -120,12 +120,12 @@ export function DueDateBadge({ date, effectiveDate, source, level, id, label }: 
                     )}
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-64 p-4 space-y-4" align="start">
+            <PopoverContent className="w-64 p-4 space-y-4 bg-card text-card-foreground border-border shadow-xl" align="start">
                 <div className="space-y-2">
-                    <h4 className="font-medium text-sm">
+                    <h4 className="font-medium text-sm text-foreground">
                         {level === 'LE' ? "Entity Due Date" : level === 'RELATIONSHIP' ? "Relationship Deadline" : "Instance Deadline"}
                     </h4>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                         {level === 'LE'
                             ? "Sets the default deadline for all relationships and questionnaires."
                             : "Inherited from parent unless overridden here."
@@ -137,7 +137,7 @@ export function DueDateBadge({ date, effectiveDate, source, level, id, label }: 
                     <div className="flex items-center gap-2">
                         <input
                             type="date"
-                            className="flex-1 min-w-0 px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
+                            className="flex-1 min-w-0 px-3 py-2 text-sm border border-border bg-muted/50 text-foreground rounded-md focus:ring-2 focus:ring-indigo-500 outline-none"
                             value={draftDate}
                             onChange={(e) => setDraftDate(e.target.value)}
                             onKeyDown={(e) => {
@@ -162,7 +162,7 @@ export function DueDateBadge({ date, effectiveDate, source, level, id, label }: 
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="w-full text-xs text-red-600 hover:text-red-700 hover:bg-red-50 h-8"
+                            className="w-full text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-950/40 h-8"
                             onClick={handleClear}
                             disabled={isPending}
                         >
@@ -172,9 +172,9 @@ export function DueDateBadge({ date, effectiveDate, source, level, id, label }: 
                     )}
 
                     {isInherited && (
-                        <div className="flex items-start gap-2 p-2 bg-blue-50 rounded border border-blue-100 italic">
-                            <Info className="h-3 w-3 text-blue-500 shrink-0 mt-0.5" />
-                            <p className="text-[10px] text-blue-700">
+                        <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-950/40 rounded border border-blue-100 dark:border-blue-800 italic">
+                            <Info className="h-3 w-3 text-blue-500 dark:text-blue-400 shrink-0 mt-0.5" />
+                            <p className="text-[10px] text-blue-700 dark:text-blue-300">
                                 Currently inheriting <strong>{format(activeDate!, "MMM dd")}</strong> from {(source as string) === 'LE' ? 'Legal Entity' : 'Relationship'}.
                             </p>
                         </div>

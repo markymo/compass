@@ -175,8 +175,8 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-xl font-semibold text-slate-900">Common Questionnaires</h2>
-                    <p className="text-sm text-slate-500 mt-1">Core questionnaires shared across all of your suppliers.</p>
+                    <h2 className="text-xl font-semibold text-foreground">Common Questionnaires</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Core questionnaires shared across all of your suppliers.</p>
                 </div>
                 
                 <Popover
@@ -187,7 +187,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                     }}
                 >
                     <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 w-fit">
+                        <Button variant="outline" size="sm" className="h-7 text-xs px-2 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-700 dark:hover:text-indigo-300 w-fit">
                             <Plus className="h-3 w-3 mr-1" />
                             Add
                         </Button>
@@ -199,97 +199,97 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
             {linked.length > 0 ? (
                 <div className="flex flex-col gap-3">
                     {/* --- 2-Tier Header Row --- */}
-                    <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-slate-200 bg-slate-50/80 rounded-t-md border-x border-t", DASHBOARD_GRID_V2)}>
+                    <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-border bg-muted/80 text-foreground rounded-t-md border-x border-t", DASHBOARD_GRID_V2)}>
                         {/* 1. Entity */}
                         <div className="flex items-center gap-2 pr-4 pl-1">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-7">Questionnaire</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-7">Questionnaire</span>
                         </div>
 
                         {/* 2. Anchor (Total) */}
                         <div className="text-center pb-0.5">
-                            <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Total</span>
+                            <span className="text-[10px] font-bold text-secondary-foreground uppercase tracking-wider">Total</span>
                         </div>
 
                         {/* 3. Sourcing Group */}
-                        <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Data Sourcing</span>
+                        <div className="flex flex-col border-l border-border pl-4 h-full">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Data Sourcing</span>
                             <div className="flex justify-between pr-4 items-end">
-                                <span className="text-[10px] font-bold text-sky-600 uppercase">Mapped</span>
+                                <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase">Mapped</span>
                             </div>
                         </div>
 
                         {/* 4. Completion Group */}
-                        <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Completion</span>
+                        <div className="flex flex-col border-l border-border pl-4 h-full">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Completion</span>
                             <div className="flex justify-between pr-4 items-end">
-                                <span className="text-[10px] font-bold text-amber-600 uppercase">Answered</span>
+                                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase">Answered</span>
                             </div>
                         </div>
 
                         {/* 5. Workflow Group */}
-                        <div className="flex flex-col border-l border-slate-200 pl-3 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sign-Off & Actions</span>
+                        <div className="flex flex-col border-l border-border pl-3 h-full">
+                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Sign-Off & Actions</span>
                             <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-bold text-indigo-600 uppercase min-w-[28px] text-center">Approved</span>
-                                <span className="text-[10px] font-bold text-emerald-600 uppercase min-w-[28px] text-center">Released</span>
+                                <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase min-w-[28px] text-center">Approved</span>
+                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase min-w-[28px] text-center">Released</span>
                             </div>
                         </div>
                     </div>
 
                     <div className="grid gap-3">
                         {linked.map((q: any) => (
-                            <div key={q.id} className="p-3 rounded-md border border-slate-200 bg-white shadow-sm hover:border-indigo-300 transition-colors group/card">
+                            <div key={q.id} className="p-3 rounded-md border border-border bg-card text-card-foreground shadow-sm hover:border-indigo-500/50 transition-colors group/card">
                                 <div className={cn("hidden md:grid items-center gap-2", DASHBOARD_GRID_V2)}>
                                     {/* Col 1: Name and Badges */}
                                     <div className="flex items-center gap-3 overflow-hidden pr-4 pl-4">
-                                        <FileText className="h-4 w-4 text-slate-400 shrink-0" />
+                                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2">
                                                 <div className="flex flex-col">
-                                                    <span className="font-medium text-[13.5px] text-slate-800 truncate group-hover/card:text-indigo-600 transition-colors" title={q.name}>{q.name}</span>
-                                                    {q.referenceCode && <span className="text-[10px] text-slate-400 font-mono tracking-tight">{q.referenceCode}</span>}
+                                                    <span className="font-medium text-[13.5px] text-foreground truncate group-hover/card:text-indigo-600 dark:group-hover/card:text-indigo-400 transition-colors" title={q.name}>{q.name}</span>
+                                                    {q.referenceCode && <span className="text-[10px] text-muted-foreground font-mono tracking-tight">{q.referenceCode}</span>}
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Col 2: Total */}
-                                    <div className="text-center font-bold text-slate-600 text-[14px]">
+                                    <div className="text-center font-bold text-foreground text-[14px]">
                                         {q.metrics?.total || 0}
                                     </div>
 
                                     {/* Col 3: Data Sourcing */}
-                                    <div className="border-l border-slate-100 pl-4 flex flex-col justify-center h-full text-sky-500">
-                                        {q.metrics && <MicroChart value={q.metrics.mapped} total={q.metrics.total} colorClass="text-sky-500" emptyClass="bg-slate-100" numeratorLabel="Mapped" denominatorLabel="Unmapped" />}
+                                    <div className="border-l border-border pl-4 flex flex-col justify-center h-full text-sky-500">
+                                        {q.metrics && <MicroChart value={q.metrics.mapped} total={q.metrics.total} colorClass="text-sky-500 dark:text-sky-400" emptyClass="bg-muted" numeratorLabel="Mapped" denominatorLabel="Unmapped" />}
                                     </div>
 
                                     {/* Col 4: Completion */}
-                                    <div className="border-l border-slate-100 pl-4 flex flex-col justify-center h-full text-amber-500">
-                                        {q.metrics && <MicroChart value={q.metrics.answered} total={q.metrics.total} colorClass="text-amber-500" emptyClass="bg-slate-100" numeratorLabel="Answered" denominatorLabel="Blank" />}
+                                    <div className="border-l border-border pl-4 flex flex-col justify-center h-full text-amber-500">
+                                        {q.metrics && <MicroChart value={q.metrics.answered} total={q.metrics.total} colorClass="text-amber-500 dark:text-amber-400" emptyClass="bg-muted" numeratorLabel="Answered" denominatorLabel="Blank" />}
                                     </div>
 
                                     {/* Col 5: Sign-Off and Actions */}
-                                    <div className="border-l border-slate-100 pl-3 pr-1 flex items-center justify-between h-full">
+                                    <div className="border-l border-border pl-3 pr-1 flex items-center justify-between h-full">
                                         {q.metrics ? (
                                             <div className="flex items-center gap-2 shrink-0">
                                                 <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
-                                                    <span className={cn("text-[13px] font-bold font-mono", q.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{q.metrics.approved}</span>
-                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Approved</span>
+                                                    <span className={cn("text-[13px] font-bold font-mono", q.metrics.approved > 0 ? "text-indigo-600 dark:text-indigo-400" : "text-muted-foreground/50")}>{q.metrics.approved}</span>
+                                                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Approved</span>
                                                 </div>
                                                 <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
-                                                    <span className={cn("text-[13px] font-bold font-mono", q.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{q.metrics.released}</span>
-                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Released</span>
+                                                    <span className={cn("text-[13px] font-bold font-mono", q.metrics.released > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/50")}>{q.metrics.released}</span>
+                                                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Released</span>
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="text-xs text-slate-500 italic pr-2">No data</div>
+                                            <div className="text-xs text-muted-foreground italic pr-2">No data</div>
                                         )}
                                         <div className="shrink-0 flex items-center gap-1 pl-2">
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => setApprovalQuestionnaireId(q.id)}
-                                                className="h-7 text-xs text-indigo-600 hover:bg-indigo-50 px-2 flex items-center gap-1 font-medium shrink-0"
+                                                className="h-7 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 px-2 flex items-center gap-1 font-medium shrink-0"
                                                 title="Approve Common Questionnaire"
                                             >
                                                 <ShieldCheck className="h-3.5 w-3.5" />
@@ -297,7 +297,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                             </Button>
                                             <Link 
                                                 href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`}
-                                                className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors shrink-0"
+                                                className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
                                                 title="Review in Question Bank"
                                             >
                                                 <ArrowRight className="h-4 w-4" />
@@ -305,7 +305,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                             <Button 
                                                 variant="ghost" 
                                                 size="icon" 
-                                                className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 shrink-0"
+                                                className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                                                 onClick={() => setRemoveTarget({ id: q.id, name: q.name })}
                                                 title="Remove Common Questionnaire"
                                             >
@@ -319,29 +319,29 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                 <div className="md:hidden flex flex-col gap-3">
                                     <div className="flex items-center justify-between gap-3">
                                         <div className="flex items-center gap-3">
-                                            <div className="h-8 w-8 rounded bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
+                                            <div className="h-8 w-8 rounded bg-muted text-muted-foreground flex items-center justify-center shrink-0">
                                                 <FileText className="h-4 w-4" />
                                             </div>
                                             <div className="flex flex-col gap-0.5 min-w-0">
-                                                <h3 className="font-semibold text-sm text-slate-900 leading-none truncate">{q.name}</h3>
+                                                <h3 className="font-semibold text-sm text-foreground leading-none truncate">{q.name}</h3>
                                                 <div className="flex items-center gap-2 mt-0.5">
                                                     {q.referenceCode && (
-                                                        <span className="text-[10px] text-slate-500 shrink-0">{q.referenceCode}</span>
+                                                        <span className="text-[10px] text-muted-foreground shrink-0">{q.referenceCode}</span>
                                                     )}
                                                 </div>
                                             </div>
                                         </div>
                                         <div className="shrink-0 flex items-center gap-1">
-                                            <Link href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`} className="h-8 w-8 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-slate-600">
+                                            <Link href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`} className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground">
                                                 <ArrowRight className="h-4 w-4" />
                                             </Link>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-600" onClick={() => setRemoveTarget({ id: q.id, name: q.name })}>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setRemoveTarget({ id: q.id, name: q.name })}>
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </div>
                                     </div>
                                     {q.metrics && (
-                                        <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-slate-50/50" />
+                                        <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-muted/50" />
                                     )}
                                 </div>
                             </div>
@@ -349,9 +349,9 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                     </div>
                 </div>
             ) : (
-                 <div className="text-center py-10 bg-slate-50 rounded-md border border-dashed border-slate-200">
-                     <p className="font-medium text-slate-700">No Common Questionnaires added yet.</p>
-                     <p className="text-sm text-slate-500 mt-1 mb-4">Use the + Add button to search and add standard questionnaires.</p>
+                 <div className="text-center py-10 bg-card text-card-foreground rounded-md border border-dashed border-border">
+                     <p className="font-medium text-foreground">No Common Questionnaires added yet.</p>
+                     <p className="text-sm text-muted-foreground mt-1 mb-4">Use the + Add button to search and add standard questionnaires.</p>
                      <Popover
                          open={activePopover === 'empty'}
                          onOpenChange={(val) => {
@@ -360,7 +360,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                          }}
                      >
                          <PopoverTrigger asChild>
-                             <Button variant="outline" size="sm" className="h-8 text-xs px-3 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                             <Button variant="outline" size="sm" className="h-8 text-xs px-3 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-700 dark:hover:text-indigo-300">
                                  <Plus className="h-3.5 w-3.5 mr-1.5" />
                                  Add Questionnaire
                              </Button>

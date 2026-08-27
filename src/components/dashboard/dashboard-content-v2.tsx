@@ -135,24 +135,24 @@ function OrgCard({ org }: { org: OrgNode }) {
     const engagements = org.children.filter((c: any) => c.type === "engagement");
 
     return (
-        <Card variant="structural" className={`${meta.borderColor} shadow-sm transition-all border`}>
+        <Card variant="structural" className={`${meta.borderColor} shadow-sm transition-all border bg-card text-card-foreground`}>
             <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
-                <CardHeader className="pb-3 bg-white">
+                <CardHeader className="pb-3 bg-card text-card-foreground">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                             <CollapsibleTrigger asChild>
                                 <Button variant="ghost" size="sm" className="p-0 h-auto hover:bg-transparent">
                                     {isOpen
-                                        ? <ChevronDown className="h-5 w-5 text-slate-400" />
-                                        : <ChevronRight className="h-5 w-5 text-slate-400" />}
+                                        ? <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                                        : <ChevronRight className="h-5 w-5 text-muted-foreground" />}
                                 </Button>
                             </CollapsibleTrigger>
-                            <div className="p-2.5 rounded-xl border border-white" style={{ backgroundColor: meta.soft }}>
+                            <div className="p-2.5 rounded-xl border border-border" style={{ backgroundColor: meta.soft }}>
                                 <Icon className="h-5 w-5" style={{ color: meta.primary }} />
                             </div>
                             <div>
                                 <div className="flex items-center gap-2.5">
-                                    <CardTitle className="text-lg">{org.name}</CardTitle>
+                                    <CardTitle className="text-lg text-foreground">{org.name}</CardTitle>
                                     <Badge variant="outline" className="text-[10px] h-5 font-medium border" style={{ backgroundColor: meta.soft, color: meta.primary, borderColor: `${meta.primary}20` }}>
                                         {meta.label}
                                     </Badge>
@@ -169,9 +169,9 @@ function OrgCard({ org }: { org: OrgNode }) {
                 </CardHeader>
 
                 <CollapsibleContent>
-                    <CardContent className="pt-0 pb-4 bg-white rounded-b-md">
+                    <CardContent className="pt-0 pb-4 bg-card text-card-foreground rounded-b-md">
                         {org.children.length === 0 ? (
-                            <div className="text-sm text-muted-foreground italic py-4 text-center border-t border-dashed border-slate-200 mt-1">
+                            <div className="text-sm text-muted-foreground italic py-4 text-center border-t border-dashed border-border mt-1">
                                 No items yet
                             </div>
                         ) : (
@@ -249,7 +249,7 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
             <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
                 {/* 2-Tier Header Row */}
                 <div className={cn(
-                    "hidden md:grid items-end px-4 pt-4 pb-2 bg-slate-50 border-b border-slate-200",
+                    "hidden md:grid items-end px-4 pt-4 pb-2 bg-muted/50 border-b border-border text-foreground",
                     DASHBOARD_GRID_V2
                 )}>
                     {/* 1. Entity Col Header */}
@@ -258,122 +258,122 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
                             {org.orgType === "SUPPLIER" ? (
                                 <Link href={`/app/s/${org.id}`} className="flex items-center gap-2 hover:underline group/org px-1">
                                     <Building2 className="h-5 w-5 shrink-0 transition-colors" style={{ color: "#0F766E" }} />
-                                    <h2 className="text-[17px] font-bold text-slate-900 truncate group-hover/org:text-[#0F766E] transition-colors tracking-tight">{org.name}</h2>
+                                    <h2 className="text-[17px] font-bold text-foreground truncate group-hover/org:text-[#0F766E] transition-colors tracking-tight">{org.name}</h2>
                                 </Link>
                             ) : org.orgType === "CLIENT" ? (
                                 <Link href={`/app/clients/${org.id}`} className="flex items-center gap-2 hover:underline group/org px-1">
                                     <Factory className="h-5 w-5 shrink-0 transition-colors" style={{ color: "#4338CA" }} />
-                                    <h2 className="text-[17px] font-bold text-slate-900 truncate group-hover/org:text-[#4338CA] transition-colors tracking-tight">{org.name}</h2>
+                                    <h2 className="text-[17px] font-bold text-foreground truncate group-hover/org:text-[#4338CA] transition-colors tracking-tight">{org.name}</h2>
                                 </Link>
                             ) : (
                                 <div className="flex items-center gap-2 px-1">
                                     <Building2 className="h-5 w-5 shrink-0" style={{ color: "#0F766E" }} />
-                                    <h2 className="text-[17px] font-bold text-slate-900 truncate tracking-tight">{org.name}</h2>
+                                    <h2 className="text-[17px] font-bold text-foreground truncate tracking-tight">{org.name}</h2>
                                 </div>
                             )}
                             <RoleBadge role={org.role} />
                         </div>
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-[28px]">Entity Relationships</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-[28px]">Entity Relationships</span>
                     </div>
 
                     {/* 2. Anchor (Total) */}
                     <div className="text-center pb-0.5">
-                        <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Total</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Total</span>
                     </div>
 
                     {/* 3. Sourcing Group */}
-                    <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Data Sourcing</span>
+                    <div className="flex flex-col border-l border-border pl-4 h-full">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-[2px]">Data Sourcing</span>
                         <div className="flex justify-between pr-4 items-end">
-                            <span className="text-[10px] font-bold text-sky-600 uppercase">Mapped</span>
+                            <span className="text-[10px] font-bold text-sky-500 dark:text-sky-400 uppercase">Mapped</span>
                         </div>
                     </div>
                     
                     {/* 4. Completion Group */}
-                    <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Completion</span>
+                    <div className="flex flex-col border-l border-border pl-4 h-full">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-[2px]">Completion</span>
                         <div className="flex justify-between pr-4 items-end">
-                            <span className="text-[10px] font-bold text-amber-600 uppercase">Answered</span>
+                            <span className="text-[10px] font-bold text-amber-500 dark:text-amber-400 uppercase">Answered</span>
                         </div>
                     </div>
 
                     {/* 5. Workflow Group */}
-                    <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-[2px]">Sign-Off</span>
+                    <div className="flex flex-col border-l border-border pl-4 h-full">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-[2px]">Sign-Off</span>
                         <div className="flex justify-between pr-2 items-end">
-                            <span className="text-[10px] font-bold text-indigo-600 uppercase">Approved</span>
-                            <span className="text-[10px] font-bold text-emerald-600 uppercase">Released</span>
+                            <span className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase">Approved</span>
+                            <span className="text-[10px] font-bold text-emerald-500 dark:text-emerald-400 uppercase">Released</span>
                         </div>
                     </div>
                 </div>
 
                 {/* Organization Anchor Row */}
                 <div className={cn(
-                    "hidden md:grid items-center px-4 py-3 bg-white border-b border-slate-100",
+                    "hidden md:grid items-center px-4 py-3 bg-card border-b border-border text-card-foreground",
                     DASHBOARD_GRID_V2
                 )}>
                     <div className="flex items-center gap-2 overflow-hidden">
                         <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-slate-100 rounded-md shrink-0">
-                                {isOpen ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
+                            <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-muted rounded-md shrink-0">
+                                {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                             </Button>
                         </CollapsibleTrigger>
-                        <span className="font-semibold text-[13.5px] text-slate-600 truncate cursor-pointer hover:text-slate-900 transition-colors" onClick={() => setIsOpen(!isOpen)}>
+                        <span className="font-semibold text-[13.5px] text-secondary-foreground truncate cursor-pointer hover:text-foreground transition-colors" onClick={() => setIsOpen(!isOpen)}>
                             Organisation Totals
                         </span>
                     </div>
 
                     <>
                         {/* Anchor Total */}
-                        <div className="text-center font-bold text-slate-700 text-[15px]">
+                        <div className="text-center font-bold text-foreground text-[15px]">
                             {org.metrics.total}
                         </div>
 
                         {/* Chart: Sourcing */}
-                        <div className="border-l border-slate-100 pl-4 flex items-center h-full text-sky-500">
-                            <MicroChart value={org.metrics.mapped} total={org.metrics.total} colorClass="text-sky-500" emptyClass="bg-slate-100" numeratorLabel="Mapped" denominatorLabel="Unmapped" />
+                        <div className="border-l border-border pl-4 flex items-center h-full text-sky-500">
+                            <MicroChart value={org.metrics.mapped} total={org.metrics.total} colorClass="text-sky-500 dark:text-sky-400" emptyClass="bg-muted" numeratorLabel="Mapped" denominatorLabel="Unmapped" />
                         </div>
 
                         {/* Chart: Completion */}
-                        <div className="border-l border-slate-100 pl-4 flex items-center h-full text-amber-500">
-                            <MicroChart value={org.metrics.answered} total={org.metrics.total} colorClass="text-amber-500" emptyClass="bg-slate-100" numeratorLabel="Answered" denominatorLabel="Blank" />
+                        <div className="border-l border-border pl-4 flex items-center h-full text-amber-500">
+                            <MicroChart value={org.metrics.answered} total={org.metrics.total} colorClass="text-amber-500 dark:text-amber-400" emptyClass="bg-muted" numeratorLabel="Answered" denominatorLabel="Blank" />
                         </div>
 
                         {/* Sign-off Fractions */}
-                        <div className="border-l border-slate-100 pl-4 pr-1 flex items-center justify-between h-full">
+                        <div className="border-l border-border pl-4 pr-1 flex items-center justify-between h-full">
                              <div className="flex items-baseline gap-0.5">
-                                 <span className={cn("text-[13px] font-bold font-mono", org.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{org.metrics.approved}</span>
+                                 <span className={cn("text-[13px] font-bold font-mono", org.metrics.approved > 0 ? "text-indigo-500 dark:text-indigo-400" : "text-muted-foreground/40")}>{org.metrics.approved}</span>
                              </div>
                              <div className="flex items-baseline gap-0.5">
-                                 <span className={cn("text-[13px] font-bold font-mono", org.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{org.metrics.released}</span>
+                                 <span className={cn("text-[13px] font-bold font-mono", org.metrics.released > 0 ? "text-emerald-500 dark:text-emerald-400" : "text-muted-foreground/40")}>{org.metrics.released}</span>
                              </div>
                         </div>
                     </>
                 </div>
 
                 {/* Mobile Client Header */}
-                <div className="md:hidden px-4 py-3 bg-white border-b border-slate-200">
+                <div className="md:hidden px-4 py-3 bg-card border-b border-border text-card-foreground">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <CollapsibleTrigger asChild>
                                 <Button variant="ghost" size="sm" className="p-0 h-auto hover:bg-transparent">
-                                    {isOpen ? <ChevronDown className="h-4 w-4 text-slate-400" /> : <ChevronRight className="h-4 w-4 text-slate-400" />}
+                                    {isOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
                                 </Button>
                             </CollapsibleTrigger>
                             {org.orgType === "SUPPLIER" ? (
                                 <Link href={`/app/s/${org.id}`} className="flex items-center gap-2 hover:underline">
                                     <Building2 className="h-4 w-4" style={{ color: "#0F766E" }} />
-                                    <span className="font-bold text-[15px] text-slate-900">{org.name}</span>
+                                    <span className="font-bold text-[15px] text-foreground">{org.name}</span>
                                 </Link>
                             ) : org.orgType === "CLIENT" ? (
                                 <Link href={`/app/clients/${org.id}`} className="flex items-center gap-2 hover:underline">
                                     <Factory className="h-4 w-4" style={{ color: "#4338CA" }} />
-                                    <span className="font-bold text-[15px] text-slate-900">{org.name}</span>
+                                    <span className="font-bold text-[15px] text-foreground">{org.name}</span>
                                 </Link>
                             ) : (
                                 <div className="flex items-center gap-2">
                                     <Building2 className="h-4 w-4" style={{ color: "#64748b" }} />
-                                    <span className="font-bold text-[15px] text-slate-900">{org.name}</span>
+                                    <span className="font-bold text-[15px] text-foreground">{org.name}</span>
                                 </div>
                             )}
                         </div>
@@ -382,7 +382,7 @@ function ClientOrgCard({ org }: { org: OrgNode }) {
                 </div>
 
                 <CollapsibleContent>
-                    <div className="divide-y divide-slate-50 bg-white">
+                    <div className="divide-y divide-border bg-card text-card-foreground">
                         {org.children.map((child: any) => (
                             <NestedTreeRow key={child.id} item={child} level={1} orgType={org.orgType} />
                         ))}
@@ -428,10 +428,10 @@ function NestedTreeRow({ item, level, orgType }: { item: OrgChild; level: number
     return (
         <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
             <div className={cn(
-                "group hover:bg-slate-50/50 transition-colors",
-                level === 1 && "bg-white",
-                level === 2 && "bg-slate-50/30",
-                level > 2 && "bg-slate-50"
+                "group hover:bg-muted/40 transition-colors",
+                level === 1 && "bg-card text-card-foreground",
+                level === 2 && "bg-muted/20 text-card-foreground",
+                level > 2 && "bg-muted/40 text-card-foreground"
             )}>
                 <div className={cn(
                     "flex flex-wrap items-center gap-2 p-3 md:px-4 md:py-[10px] md:grid md:gap-0",
@@ -442,8 +442,8 @@ function NestedTreeRow({ item, level, orgType }: { item: OrgChild; level: number
                         <div className="w-8 flex justify-center shrink-0">
                             {hasChildren ? (
                                 <CollapsibleTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 p-0 hover:bg-slate-200 shrink-0">
-                                        {isOpen ? <ChevronDown className="h-3.5 w-3.5 text-slate-500" /> : <ChevronRight className="h-3.5 w-3.5 text-slate-500" />}
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 p-0 hover:bg-muted shrink-0">
+                                        {isOpen ? <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />}
                                     </Button>
                                 </CollapsibleTrigger>
                             ) : (
@@ -452,11 +452,11 @@ function NestedTreeRow({ item, level, orgType }: { item: OrgChild; level: number
                         </div>
 
                         {item.href && item.href !== "#" ? (
-                            <Link href={item.href} className="truncate hover:underline hover:text-indigo-600 cursor-pointer text-[13.5px] font-medium text-slate-800" title={item.name}>
+                            <Link href={item.href} className="truncate hover:underline hover:text-indigo-500 cursor-pointer text-[13.5px] font-medium text-foreground" title={item.name}>
                                 {item.name}
                             </Link>
                         ) : (
-                            <span className="truncate text-[13.5px] font-medium text-slate-800" title={item.name}>
+                            <span className="truncate text-[13.5px] font-medium text-foreground" title={item.name}>
                                 {item.name}
                             </span>
                         )}
@@ -470,24 +470,24 @@ function NestedTreeRow({ item, level, orgType }: { item: OrgChild; level: number
                         ) : (
                             <>
                                 {/* Total Label */}
-                                <div className="text-center font-bold text-slate-700 text-sm">
+                                <div className="text-center font-bold text-foreground text-sm">
                                     {item.metrics.total}
                                 </div>
                                 {/* Mapped Chart */}
-                                <div className="border-l border-slate-100 pl-4 flex items-center h-full text-sky-500 opacity-90">
-                                    <MicroChart value={item.metrics.mapped} total={item.metrics.total} colorClass="text-sky-500" emptyClass="bg-slate-100" numeratorLabel="Mapped" denominatorLabel="Unmapped" />
+                                <div className="border-l border-border pl-4 flex items-center h-full text-sky-500 opacity-90">
+                                    <MicroChart value={item.metrics.mapped} total={item.metrics.total} colorClass="text-sky-500 dark:text-sky-400" emptyClass="bg-muted" numeratorLabel="Mapped" denominatorLabel="Unmapped" />
                                 </div>
                                 {/* Answered Chart */}
-                                <div className="border-l border-slate-100 pl-4 flex items-center h-full text-amber-500 opacity-90">
-                                    <MicroChart value={item.metrics.answered} total={item.metrics.total} colorClass="text-amber-500" emptyClass="bg-slate-100" numeratorLabel="Answered" denominatorLabel="Blank" />
+                                <div className="border-l border-border pl-4 flex items-center h-full text-amber-500 opacity-90">
+                                    <MicroChart value={item.metrics.answered} total={item.metrics.total} colorClass="text-amber-500 dark:text-amber-400" emptyClass="bg-muted" numeratorLabel="Answered" denominatorLabel="Blank" />
                                 </div>
                                 {/* Signoff Fractions */}
-                                <div className="border-l border-slate-100 pl-4 pr-1 flex items-center justify-between h-full opacity-90">
+                                <div className="border-l border-border pl-4 pr-1 flex items-center justify-between h-full opacity-90">
                                     <div className="flex items-baseline gap-0.5">
-                                        <span className={cn("text-xs font-bold font-mono", item.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{item.metrics.approved}</span>
+                                        <span className={cn("text-xs font-bold font-mono", item.metrics.approved > 0 ? "text-indigo-500 dark:text-indigo-400" : "text-muted-foreground/40")}>{item.metrics.approved}</span>
                                     </div>
                                     <div className="flex items-baseline gap-0.5">
-                                        <span className={cn("text-xs font-bold font-mono", item.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{item.metrics.released}</span>
+                                        <span className={cn("text-xs font-bold font-mono", item.metrics.released > 0 ? "text-emerald-500 dark:text-emerald-400" : "text-muted-foreground/40")}>{item.metrics.released}</span>
                                     </div>
                                 </div>
                             </>

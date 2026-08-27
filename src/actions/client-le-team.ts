@@ -8,7 +8,7 @@ export type TeamMemberLEAssignment = {
     userId: string;
     email: string;
     name?: string | null;
-    orgRole: string; // e.g. "Org Admin" | "Org Member" | "LE Member" | "Invited"
+    orgRole: string; // e.g. "Org Admin" | "Org Member" | "LE User" | "Invited"
     leRole: "LE_ADMIN" | "LE_USER" | "NONE";
     isCurrentUser?: boolean;
     isPendingInvite?: boolean;
@@ -64,7 +64,7 @@ export async function getClientLETeamAssignments(clientLEId: string, orgId: stri
             if (!m.user) return;
             const existing = userMap.get(m.userId);
 
-            let derivedRole = "LE Member";
+            let derivedRole = "LE User";
             if (m.organizationId === orgId) {
                 derivedRole = (m.role === "ORG_ADMIN" || m.role === "ADMIN") ? "Org Admin" : "Org Member";
             }

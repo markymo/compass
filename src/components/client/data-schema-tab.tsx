@@ -396,23 +396,23 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
         } catch (e) {
             toast.error("An unexpected error occurred while refreshing the registry.");
         } finally {
-setIsRefreshingRegistry(false);
+            setIsRefreshingRegistry(false);
         }
     };
 
     return (
         <div className="space-y-8">
             {/* External Sources — compact full-width bar at the top */}
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-4">
+            <div className="rounded-xl border border-border bg-card text-card-foreground shadow-sm p-4">
                 <div className="mb-3">
-                    <h2 className="text-base font-semibold text-slate-800">External Sources</h2>
+                    <h2 className="text-base font-semibold text-foreground">External Sources</h2>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* GLEIF Source */}
-                    <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-slate-100 bg-slate-50/50">
+                    <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-muted/50 text-card-foreground">
                         <div className="flex items-center gap-3 min-w-0">
-                            <div className="h-10 w-10 rounded-lg bg-orange-50 flex items-center justify-center shrink-0 overflow-hidden border border-orange-200/80 p-1">
+                            <div className="h-10 w-10 rounded-lg bg-orange-50 dark:bg-orange-950/40 flex items-center justify-center shrink-0 overflow-hidden border border-orange-200/80 dark:border-orange-800/80 p-1">
                                 <img 
                                     src="https://www.gleif.org/assets/build/img/logo/gleif-logo-new.svg" 
                                     alt="GLEIF Logo" 
@@ -420,12 +420,12 @@ setIsRefreshingRegistry(false);
                                 />
                             </div>
                             <div className="min-w-0">
-                                <div className="font-medium text-sm text-slate-800 truncate" title="Global LEI Index (GLEIF)">
+                                <div className="font-medium text-sm text-foreground truncate" title="Global LEI Index (GLEIF)">
                                     Global LEI Index (GLEIF)
                                 </div>
-                                <div className="text-xs text-slate-500 truncate">
+                                <div className="text-xs text-muted-foreground truncate">
                                     {lastRefreshed
-                                        ? <>Last synced: <span className="font-medium text-slate-700">{formatSystemDateTime(lastRefreshed, (session?.user as any)?.timezone || 'UTC')}</span></>
+                                        ? <>Last synced: <span className="font-medium text-secondary-foreground">{formatSystemDateTime(lastRefreshed, (session?.user as any)?.timezone || 'UTC')}</span></>
                                         : "Never synced"}
                                 </div>
                             </div>
@@ -444,22 +444,22 @@ setIsRefreshingRegistry(false);
 
                     {/* National Registry Source */}
                     {nationalRegistryData && (
-                        <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-slate-100 bg-slate-50/50">
+                        <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-border bg-muted/50 text-card-foreground">
                             <div className="flex items-center gap-3 min-w-0">
-                                <div className="h-10 w-10 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-900/50 p-1">
+                                <div className="h-10 w-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-900/50 p-1">
                                     {nationalRegistryData.authorityName.includes("Companies House") ? (
                                         <img src="/images/Companies_House.png" alt="Companies House" className="h-7 w-auto object-contain scale-125" />
                                     ) : (
-                                        <Building2 className="h-5 w-5 text-emerald-600" />
+                                        <Building2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                                     )}
                                 </div>
                                 <div className="min-w-0">
-                                    <div className="font-medium text-sm text-slate-800 truncate" title={`${nationalRegistryData.authorityName} - ${nationalRegistryData.localRegistrationNumber}`}>
+                                    <div className="font-medium text-sm text-foreground truncate" title={`${nationalRegistryData.authorityName} - ${nationalRegistryData.localRegistrationNumber}`}>
                                         {nationalRegistryData.authorityName} - {nationalRegistryData.localRegistrationNumber}
                                     </div>
-                                    <div className="text-xs text-slate-500 truncate">
+                                    <div className="text-xs text-muted-foreground truncate">
                                         {nationalRegistryData.lastSyncSucceededAt
-                                            ? <>Last synced: <span className="font-medium text-slate-700">{formatSystemDateTime(nationalRegistryData.lastSyncSucceededAt, (session?.user as any)?.timezone || 'UTC')}</span></>
+                                            ? <>Last synced: <span className="font-medium text-secondary-foreground">{formatSystemDateTime(nationalRegistryData.lastSyncSucceededAt, (session?.user as any)?.timezone || 'UTC')}</span></>
                                             : "Never synced"}
                                         {nationalRegistryData.lastSyncStatus === "FAILED" && <span className="ml-2 text-red-500 font-medium">Sync Failed</span>}
                                     </div>
@@ -609,18 +609,18 @@ setIsRefreshingRegistry(false);
                 <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-3">
                     {/* Search */}
                     <div className="relative w-full sm:w-64 md:w-72">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                             placeholder="Search fields..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="pl-9 pr-8 bg-white border-slate-200 focus-visible:ring-slate-400 text-sm"
+                            className="pl-9 pr-8 bg-card border-border focus-visible:ring-ring text-sm text-foreground"
                         />
                         {search && (
                             <button
                                 type="button"
                                 onClick={() => setSearch("")}
-                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100 transition-colors"
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-muted transition-colors"
                                 title="Clear search"
                             >
                                 <X className="h-3.5 w-3.5" />
@@ -630,7 +630,7 @@ setIsRefreshingRegistry(false);
 
                     {/* Primary Filter: Category */}
                     <Select value={catFilter} onValueChange={(v) => updateQuery("category", v)}>
-                        <SelectTrigger className="w-full sm:w-auto min-w-[150px] bg-white border-slate-200 text-sm">
+                        <SelectTrigger className="w-full sm:w-auto min-w-[150px] bg-card border-border text-sm text-foreground">
                             <SelectValue placeholder="All Categories" />
                         </SelectTrigger>
                         <SelectContent>
@@ -645,7 +645,7 @@ setIsRefreshingRegistry(false);
 
                     {/* Primary Filter: Status */}
                     <Select value={popFilter} onValueChange={(v) => updateQuery("status", v)}>
-                        <SelectTrigger className="w-full sm:w-auto min-w-[140px] bg-white border-slate-200 text-sm">
+                        <SelectTrigger className="w-full sm:w-auto min-w-[140px] bg-card border-border text-sm text-foreground">
                             <span className="flex items-center gap-2">
                                 {popFilter === 'POPULATED' ? (
                                     <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
@@ -669,12 +669,12 @@ setIsRefreshingRegistry(false);
                                 variant="outline" 
                                 size="default" 
                                 className={cn(
-                                    "w-full sm:w-auto bg-white border-slate-200 text-sm font-normal flex items-center justify-between sm:justify-start gap-2",
-                                    moreFiltersCount > 0 && "border-indigo-200 bg-indigo-50/30 font-medium text-indigo-950"
+                                    "w-full sm:w-auto bg-card border-border text-sm font-normal text-foreground flex items-center justify-between sm:justify-start gap-2 hover:bg-muted",
+                                    moreFiltersCount > 0 && "border-indigo-200 dark:border-indigo-800 bg-indigo-50/30 dark:bg-indigo-950/30 font-medium text-indigo-950 dark:text-indigo-200"
                                 )}
                             >
                                 <span className="flex items-center gap-2">
-                                    <SlidersHorizontal className="h-3.5 w-3.5 text-slate-500" />
+                                    <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                                     <span>More filters</span>
                                 </span>
                                 {moreFiltersCount > 0 && (
@@ -911,7 +911,7 @@ setIsRefreshingRegistry(false);
                                     tabIndex={0}
                                     role="button"
                                     aria-label={`Toggle ${group.displayName} category`}
-                                    className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 cursor-pointer hover:bg-slate-100/50 transition-colors group/header focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+                                    className="pb-4 border-b border-border bg-muted/50 cursor-pointer hover:bg-muted transition-colors group/header focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                     onClick={() => toggleCategory(group.id)}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' || e.key === ' ') {
@@ -921,15 +921,15 @@ setIsRefreshingRegistry(false);
                                     }}
                                 >
                                     <div className="flex items-center justify-between">
-                                        <CardTitle className="flex items-center gap-2 text-lg text-slate-900">
-                                            <Icon className="h-5 w-5 text-slate-500" />
+                                        <CardTitle className="flex items-center gap-2 text-lg text-foreground">
+                                            <Icon className="h-5 w-5 text-muted-foreground" />
                                             {group.displayName}
                                         </CardTitle>
-                                        <div className="flex items-center gap-3 text-slate-500">
+                                        <div className="flex items-center gap-3 text-muted-foreground">
                                             <span className="text-sm font-medium hidden sm:inline-block">
                                                 {group.fields.length}{group.fields.length !== (categoryList.find((c: any) => c.id === group.id)?.fields.length || 0) ? ` of ${categoryList.find((c: any) => c.id === group.id)?.fields.length || 0}` : ''} fields
                                             </span>
-                                            {collapsedCategories.has(group.id) ? <ChevronDown className="h-5 w-5 group-hover/header:text-slate-800 transition-colors" /> : <ChevronUp className="h-5 w-5 group-hover/header:text-slate-800 transition-colors" />}
+                                            {collapsedCategories.has(group.id) ? <ChevronDown className="h-5 w-5 group-hover/header:text-foreground transition-colors" /> : <ChevronUp className="h-5 w-5 group-hover/header:text-foreground transition-colors" />}
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -972,7 +972,7 @@ setIsRefreshingRegistry(false);
                                 tabIndex={0}
                                 role="button"
                                 aria-label="Toggle Uncategorized category"
-                                className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 cursor-pointer hover:bg-slate-100/50 transition-colors group/header focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none"
+                                className="pb-4 border-b border-border bg-muted/50 cursor-pointer hover:bg-muted transition-colors group/header focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                 onClick={() => toggleCategory("UNCATEGORIZED")}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter' || e.key === ' ') {
@@ -982,15 +982,15 @@ setIsRefreshingRegistry(false);
                                 }}
                             >
                                 <div className="flex items-center justify-between">
-                                    <CardTitle className="flex items-center gap-2 text-lg">
-                                        <FileText className="h-5 w-5 text-slate-500" />
+                                    <CardTitle className="flex items-center gap-2 text-lg text-foreground">
+                                        <FileText className="h-5 w-5 text-muted-foreground" />
                                         Uncategorized
                                     </CardTitle>
-                                    <div className="flex items-center gap-3 text-slate-500">
+                                    <div className="flex items-center gap-3 text-muted-foreground">
                                         <span className="text-sm font-medium hidden sm:inline-block">
                                             {filteredUncategorized.length}{filteredUncategorized.length !== uncategorizedFields.length ? ` of ${uncategorizedFields.length}` : ''} fields
                                         </span>
-                                        {collapsedCategories.has("UNCATEGORIZED") ? <ChevronDown className="h-5 w-5 group-hover/header:text-slate-800 transition-colors" /> : <ChevronUp className="h-5 w-5 group-hover/header:text-slate-800 transition-colors" />}
+                                        {collapsedCategories.has("UNCATEGORIZED") ? <ChevronDown className="h-5 w-5 group-hover/header:text-foreground transition-colors" /> : <ChevronUp className="h-5 w-5 group-hover/header:text-foreground transition-colors" />}
                                     </div>
                                 </div>
                             </CardHeader>
@@ -1027,10 +1027,10 @@ setIsRefreshingRegistry(false);
                     )}
 
                     {totalVisible === 0 && (
-                        <div className="py-20 text-center bg-white rounded-xl border border-dashed border-slate-300 animate-in fade-in duration-300">
-                            <AlertCircle className="h-10 w-10 text-slate-200 mx-auto mb-3" />
-                            <h3 className="text-lg font-medium text-slate-900">No matching fields</h3>
-                            <p className="text-slate-500 mt-1">Try adjusting your filters or search terms.</p>
+                        <div className="py-20 text-center bg-card text-card-foreground rounded-xl border border-dashed border-border animate-in fade-in duration-300">
+                            <AlertCircle className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
+                            <h3 className="text-lg font-medium text-foreground">No matching fields</h3>
+                            <p className="text-muted-foreground mt-1">Try adjusting your filters or search terms.</p>
                             <Button
                                 variant="link"
                                 onClick={() => { setSearch(""); router.replace(pathname, { scroll: false }); }}
@@ -1095,13 +1095,13 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
         <div className="group transition-all duration-200">
             <div className="flex items-center justify-between mb-1">
                 <div className="flex flex-col">
-                    <label className="text-sm font-medium text-slate-700">
+                    <label className="text-sm font-medium text-secondary-foreground">
                         {label}
                     </label>
                     {description && (
                         <ExpandableText
                             text={description}
-                            textClassName="text-[10px] text-slate-400 italic font-normal"
+                            textClassName="text-[10px] text-muted-foreground italic font-normal"
                         />
                     )}
                 </div>
@@ -1116,18 +1116,18 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                                             className={cn(
                                                 "text-[10px] font-medium flex items-center gap-1.5 py-0.5 px-2 transition-all",
                                                 assignment.status === 'DONE'
-                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                    : "bg-indigo-50 text-indigo-700 border-indigo-200/80"
+                                                    ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
+                                                    : "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200/80 dark:border-indigo-800"
                                             )}
                                         >
-                                            <Avatar className="h-3.5 w-3.5 border border-indigo-200">
-                                                <AvatarFallback className={cn("text-[8px] font-bold", assignment.status === 'DONE' ? "bg-emerald-100 text-emerald-800" : "bg-indigo-100 text-indigo-800")}>
+                                            <Avatar className="h-3.5 w-3.5 border border-indigo-200 dark:border-indigo-800">
+                                                <AvatarFallback className={cn("text-[8px] font-bold", assignment.status === 'DONE' ? "bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200" : "bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200")}>
                                                     {(assignment.assignedUser.name || assignment.assignedUser.email || "U").substring(0, 2).toUpperCase()}
                                                 </AvatarFallback>
                                             </Avatar>
                                             <span>{assignment.assignedUser.name || assignment.assignedUser.email}</span>
                                             {assignment.status === 'DONE' ? (
-                                                <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />
+                                                <CheckCircle2 className="h-3 w-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
                                             ) : (
                                                 assignment.note && <FileText className="h-3 w-3 text-indigo-500 shrink-0" />
                                             )}
@@ -1153,7 +1153,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                                     <TooltipTrigger asChild>
                                         <Badge
                                             variant="outline"
-                                            className="text-[10px] bg-indigo-50/40 text-indigo-600 border-indigo-200/50 font-medium"
+                                            className="text-[10px] bg-indigo-50/40 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border-indigo-200/50 dark:border-indigo-800 font-medium"
                                         >
                                             CF: {group.label}
                                         </Badge>
@@ -1169,7 +1169,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                             <TooltipProvider delayDuration={150}>
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 hover:bg-slate-100 transition-colors cursor-default">
+                                        <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground hover:bg-muted/80 transition-colors cursor-default">
                                             <ClipboardList className="h-3 w-3 mr-1" />
                                             {mappingStats.questions}
                                         </Badge>
@@ -1186,13 +1186,13 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                             </TooltipProvider>
                         )}
 
-                        <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 group-hover:bg-blue-50 group-hover:text-blue-600 group-hover:border-blue-200 transition-colors">
+                        <Badge variant="outline" className="text-[10px] bg-muted text-muted-foreground group-hover:bg-indigo-50 dark:group-hover:bg-indigo-950/50 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:border-indigo-200 dark:group-hover:border-indigo-800 transition-colors">
                             Field {fieldNo}
                         </Badge>
                     </div>
                 )}
                 {isCustom && (
-                    <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-600 border-purple-200">
+                    <Badge variant="outline" className="text-[10px] bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800">
                         Custom
                     </Badge>
                 )}
@@ -1203,9 +1203,9 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                 role={onClick ? "button" : undefined}
                 aria-label={onClick ? `Inspect field ${fieldNo}: ${label}` : undefined}
                 className={cn(
-                    "flex p-3 bg-slate-50 rounded-md border border-slate-100 transition-all w-full focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:outline-none",
+                    "flex p-3 bg-muted/40 text-card-foreground rounded-md border border-border transition-all w-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
                     isRepeatingParty && isArrayValue ? "flex-col gap-3" : "items-center justify-between",
-                    onClick && "cursor-pointer hover:border-blue-200 hover:bg-white hover:shadow-sm"
+                    onClick && "cursor-pointer hover:border-indigo-500/50 hover:bg-card hover:shadow-sm"
                 )}
                 onClick={onClick}
                 onKeyDown={(e) => {
@@ -1219,7 +1219,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                     <>
                         <div className="flex justify-between items-start w-full">
                             <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">{value.length} Items</span>
+                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{value.length} Items</span>
                                 {canonicalDisplayModel?.allowAttachments && (
                                     <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                                         <FieldAttachments 
@@ -1241,7 +1241,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                                             <TooltipTrigger asChild>
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); onClick(); }}
-                                                    className="p-1 rounded-md text-slate-400 opacity-0 group-hover:opacity-100 hover:text-slate-700 hover:bg-slate-200/50 transition-all focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0"
+                                                    className="p-1 rounded-md text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground hover:bg-muted transition-all focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring shrink-0"
                                                     aria-label={`Open details for ${label}`}
                                                     aria-haspopup="dialog"
                                                 >
@@ -1257,7 +1257,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                             </div>
                         </div>
                         <div className="flex flex-col gap-2 w-full">
-                            <div className="flex flex-col w-full divide-y divide-slate-100 border border-slate-200 rounded-md bg-white shadow-sm overflow-hidden">
+                            <div className="flex flex-col w-full divide-y divide-border border border-border rounded-md bg-card text-card-foreground shadow-sm overflow-hidden">
                                 {(() => {
                                     if (canonicalDisplayModel?.value.kind === 'collection') {
                                         return canonicalDisplayModel.value.items.slice(0, 18).map((item, idx) => (

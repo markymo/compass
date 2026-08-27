@@ -103,8 +103,8 @@ function NavLink({ item, depth = 0, isCollapsed = false }: { item: NavItem; dept
                         "flex w-full items-center rounded-lg py-2 text-sm font-medium transition-colors",
                         isCollapsed ? "justify-center px-0" : "gap-3 px-3",
                         (active || childActive)
-                            ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white"
-                            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50",
+                            ? "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 font-semibold"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
                     )}
                     title={isCollapsed ? item.title : undefined}
                 >
@@ -113,14 +113,14 @@ function NavLink({ item, depth = 0, isCollapsed = false }: { item: NavItem; dept
                     {!isCollapsed && <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />}
                 </button>
                 {expanded && !isCollapsed && (
-                    <div className="ml-4 mt-1 space-y-0.5 border-l border-slate-200 pl-3 dark:border-slate-700">
+                    <div className="ml-4 mt-1 space-y-0.5 border-l border-border pl-3">
                         <Link
                             href={item.href}
                             className={cn(
                                 "flex items-center gap-2.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
                                 active && !childActive
-                                    ? "bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300"
-                                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-800/50"
+                                    ? "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                             )}
                         >
                             Overview
@@ -141,8 +141,8 @@ function NavLink({ item, depth = 0, isCollapsed = false }: { item: NavItem; dept
                 "flex items-center rounded-lg text-sm font-medium transition-colors",
                 isCollapsed ? "justify-center py-2 px-0" : cn("px-3", depth > 0 ? "py-1.5 gap-2.5 text-xs" : "py-2 gap-3"),
                 active
-                    ? "bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-300"
-                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/50",
+                    ? "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 font-semibold"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
             title={isCollapsed ? item.title : undefined}
         >
@@ -164,7 +164,7 @@ export function AdminSidebar({ initialCollapsed = false }: { initialCollapsed?: 
 
     return (
         <aside 
-            className="shrink-0 border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-zinc-900 transition-all duration-300 overflow-x-hidden"
+            className="shrink-0 border-r border-border bg-card text-card-foreground transition-all duration-300 overflow-x-hidden"
             style={{ 
                 width: isCollapsed ? '64px' : '224px',
                 minWidth: isCollapsed ? '64px' : '224px',
@@ -180,7 +180,7 @@ export function AdminSidebar({ initialCollapsed = false }: { initialCollapsed?: 
                     </div>
                     <button 
                         onClick={handleToggleCollapse}
-                        className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors shrink-0"
+                        className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors shrink-0"
                         title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={cn("transition-transform duration-300", isCollapsed ? "rotate-180" : "")}>
@@ -194,7 +194,7 @@ export function AdminSidebar({ initialCollapsed = false }: { initialCollapsed?: 
                     ))}
                 </nav>
 
-                <div className={cn("mt-6 mb-2 flex items-center gap-2 pt-6 border-t border-slate-200 dark:border-slate-800", isCollapsed ? "justify-center" : "px-3")}>
+                <div className={cn("mt-6 mb-2 flex items-center gap-2 pt-6 border-t border-border", isCollapsed ? "justify-center" : "px-3")}>
                     <Zap className="h-4 w-4 text-indigo-500 fill-indigo-500/20 shrink-0" />
                     {!isCollapsed && <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">RDD&apos;s Shortcuts</span>}
                 </div>

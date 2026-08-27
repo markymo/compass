@@ -74,8 +74,8 @@ export function HeaderNavList({ items }: HeaderNavListProps) {
                             className={cn(
                                 "group inline-flex items-center gap-2.5 py-4 border-b-2 font-semibold text-sm transition-all duration-200 ease-in-out whitespace-nowrap shrink-0",
                                 active
-                                    ? cn("text-slate-900 dark:text-slate-100", activeBorderClass)
-                                    : "border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300 dark:text-zinc-500 dark:hover:text-zinc-100",
+                                    ? cn("text-foreground", activeBorderClass)
+                                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-border",
                                 item.alignRight && "ml-auto"
                             )}
                             aria-current={active ? "page" : undefined}
@@ -83,7 +83,7 @@ export function HeaderNavList({ items }: HeaderNavListProps) {
                             {Icon && (
                                 <Icon className={cn(
                                     "h-4 w-4 transition-colors",
-                                    active ? "text-slate-700 dark:text-slate-300" : "text-slate-400 group-hover:text-slate-600 dark:text-zinc-600 dark:group-hover:text-zinc-400"
+                                    active ? "text-foreground" : "text-muted-foreground group-hover:text-foreground"
                                 )} />
                             )}
                             <span>{item.label}</span>
@@ -93,7 +93,7 @@ export function HeaderNavList({ items }: HeaderNavListProps) {
             </nav>
 
             {/* Fade background to indicate scroll availability on mobile */}
-            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white dark:from-zinc-950 to-transparent pointer-events-none md:hidden" />
+            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-card to-transparent pointer-events-none md:hidden" />
         </div>
     );
 }
