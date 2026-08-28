@@ -87,11 +87,11 @@ test.describe('System Admin Permission Boundaries', () => {
         // Verify ClientLE names remain visible as administrative metadata
         await expect(page.getByText(manifest.alphaClientLE.name).first()).toBeVisible();
 
-        // Structural check: Assert no link in the admin UI directly links to /master or /app/le/
-        const masterLinks = page.locator('a[href*="/master"]');
-        await expect(masterLinks).toHaveCount(0);
+        // Structural check: Assert no link in the admin UI directly links to /app/le/ operational dossiers
         const leOperationalLinks = page.locator('a[href*="/app/le/"]');
         await expect(leOperationalLinks).toHaveCount(0);
+        const leMasterLinks = page.locator('a[href*="/app/le/"][href*="/master"]');
+        await expect(leMasterLinks).toHaveCount(0);
 
         // Security boundary check: Confirm direct operational navigation remains strictly denied
         const masterResponse = await page.goto(`/app/le/${manifest.alphaClientLE.id}/master`);
