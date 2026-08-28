@@ -8,14 +8,12 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
         test.setTimeout(60000);
 
         const manifest = loadUATManifest();
-        const timestamp = Date.now();
-        const uniqueName = `HORNSEA 1 LIMITED E2E ${timestamp}`;
 
         // 1. Direct Navigate to Client Org Dashboard
         await page.goto(`/app/clients/${manifest.clientOrgA.id}`);
         await expect(page).toHaveURL(new RegExp(`/app/clients/${manifest.clientOrgA.id}`));
 
-        // 2. Open Add Legal Entity Modal & Search GLEIF
+        // 2. Open Add Legal Entity Modal & Search GLEIF for Hornsea
         const addLeBtn = page.getByRole('button', { name: 'Add Legal Entity' }).first();
         await expect(addLeBtn).toBeVisible({ timeout: 15000 });
         await addLeBtn.click();
@@ -24,16 +22,12 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
         await expect(searchInput).toBeVisible({ timeout: 10000 });
         await searchInput.fill('Hornsea');
 
+        // Select HORNSEA 1 LIMITED result from GLEIF lookup (populates LEI & GLEIF payload)
         const gleifItem = page.getByRole('button', { name: 'HORNSEA 1 LIMITED' }).or(page.locator('button').filter({ hasText: /Hornsea/i })).first();
         await expect(gleifItem).toBeVisible({ timeout: 15000 });
         await gleifItem.click();
 
-        // Set a unique timestamped name to prevent name collision with leftover entities
-        const nameInput = page.locator('input[placeholder="Acme Corp Ltd"]').or(page.getByLabel('Entity Name')).first();
-        if (await nameInput.isVisible()) {
-            await nameInput.fill(uniqueName);
-        }
-
+        // Ensure Jurisdiction field is populated if empty
         const jurisdictionInput = page.locator('input[placeholder*="UK, Delaware"]').or(page.getByLabel('Jurisdiction')).first();
         if (await jurisdictionInput.isVisible()) {
             const currentJurisdiction = await jurisdictionInput.inputValue();
@@ -42,7 +36,7 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
             }
         }
 
-        // 3. Create Entity & Set Team Access
+        // 3. Create Entity (with LEI retained so bootstrapEntity enriches Field 3 Legal Name)
         const createBtn = page.getByRole('button', { name: 'Create Legal Entity' }).first();
         await expect(createBtn).toBeEnabled({ timeout: 10000 });
         await createBtn.click();
@@ -61,7 +55,7 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
         await finishBtn.click();
 
         // 4. Open Newly Created Entity & Navigate to "Master Record" tab
-        const leItem = page.getByText(uniqueName).first();
+        const leItem = page.getByText(/HORNSEA 1 LIMITED/i).last();
         await expect(leItem).toBeVisible({ timeout: 15000 });
         await leItem.click();
 
@@ -89,7 +83,7 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
         console.log(actualRowText?.trim());
         console.log('========================================\n');
 
-        // Assert Field 3 row text content
+        // Assert Field 3 row text content contains "Hornsea"
         await expect(field3Row).toContainText(/Hornsea/i);
 
         // 7. Teardown: Open Actions Menu & Delete Entity
