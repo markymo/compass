@@ -79,18 +79,18 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
             await masterSearch.fill('Legal Name');
         }
 
-        // 6. Directly inspect the rendered Field 3 card on the Master Record table (NO drawer needed!)
-        const field3Card = page.locator('div').filter({ hasText: 'Field 3' }).or(page.getByText(/Legal Name|Legal name/i)).first();
-        await expect(field3Card).toBeVisible({ timeout: 15000 });
+        // 6. Target specifically the Field 3 row element (div.group containing 'Field 3')
+        const field3Row = page.locator('div.group').filter({ hasText: 'Field 3' }).first();
+        await expect(field3Row).toBeVisible({ timeout: 15000 });
 
-        // Print actual rendered value to console for diagnostic visibility
-        const actualField3Text = await field3Card.textContent();
-        console.log('\n--- MASTER RECORD FIELD 3 INSPECTION ---');
-        console.log('Rendered Field 3 Text:', actualField3Text?.trim());
-        console.log('----------------------------------------\n');
+        const actualRowText = await field3Row.textContent();
+        console.log('\n========================================');
+        console.log('EXACT FIELD 3 ROW TEXT DISPLAYED:');
+        console.log(actualRowText?.trim());
+        console.log('========================================\n');
 
-        // Assert Field 3 contains expected "Hornsea" text
-        await expect(field3Card).toContainText(/Hornsea/i);
+        // Assert Field 3 row text content
+        await expect(field3Row).toContainText(/Hornsea/i);
 
         // 7. Teardown: Open Actions Menu & Delete Entity
         const menuButton = page.locator('button[aria-haspopup="menu"]').or(page.getByRole('button', { name: /actions|more|settings/i })).first();
