@@ -4,16 +4,42 @@ import { loadUATManifest, PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture
 test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
     test.use({ storageState: PERSONA_STORAGE_STATES.clientOrgAdminA });
 
-    test('Full E2E Visual Lifecycle: Create Hornsea Entity -> Verify Legal Name Master Data -> Delete', async ({ page }) => {
-        test.setTimeout(60000);
+    test('Full E2E Visual Lifecycle: Delete Existing -> Create Hornsea GLEIF Entity -> Verify Source Data Propagation -> Teardown', async ({ page }) => {
+        test.setTimeout(90000);
 
         const manifest = loadUATManifest();
 
-        // 1. Direct Navigate to Client Org Dashboard
+        // ---------------------------------------------------------------------
+        // STEP 1: PRE-TEST CLEANUP - Delete any pre-existing Hornsea entities
+        // ---------------------------------------------------------------------
         await page.goto(`/app/clients/${manifest.clientOrgA.id}`);
         await expect(page).toHaveURL(new RegExp(`/app/clients/${manifest.clientOrgA.id}`));
 
-        // 2. Open Add Legal Entity Modal & Search GLEIF for Hornsea
+        const existingHornseaLink = page.getByText(/HORNSEA 1 LIMITED/i).first();
+        if (await existingHornseaLink.isVisible({ timeout: 3000 }).catch(() => false)) {
+            console.log('\n[Setup Cleanup] Found pre-existing HORNSEA 1 LIMITED. Deleting to ensure a fresh creation test...');
+            await existingHornseaLink.click();
+            await page.waitForURL(/\/app\/le\/[a-zA-Z0-9-]+/);
+
+            const menuButton = page.locator('button[aria-haspopup="menu"]').or(page.getByRole('button', { name: /actions|more|settings/i })).first();
+            if (await menuButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+                await menuButton.click();
+                const deleteText = page.getByText('Delete').first();
+                if (await deleteText.isVisible({ timeout: 2000 }).catch(() => false)) {
+                    await deleteText.click();
+                    const confirmBtn = page.getByRole('button', { name: 'Delete' }).first();
+                    if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+                        await confirmBtn.click();
+                    }
+                }
+            }
+            // Return to Client Org Dashboard
+            await page.goto(`/app/clients/${manifest.clientOrgA.id}`);
+        }
+
+        // ---------------------------------------------------------------------
+        // STEP 2: FRESH CREATION - Open Add Legal Entity Modal & Search GLEIF
+        // ---------------------------------------------------------------------
         const addLeBtn = page.getByRole('button', { name: 'Add Legal Entity' }).first();
         await expect(addLeBtn).toBeVisible({ timeout: 15000 });
         await addLeBtn.click();
@@ -36,37 +62,30 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
             }
         }
 
-        // 3. Create Entity & Handle Duplicate Protection
+        // ---------------------------------------------------------------------
+        // STEP 3: SUBMIT CREATION & TRIGGER SOURCE DATA BOOTSTRAP
+        // ---------------------------------------------------------------------
         const createBtn = page.getByRole('button', { name: 'Create Legal Entity' }).first();
         await expect(createBtn).toBeEnabled({ timeout: 10000 });
         await createBtn.click();
 
-        // Handle duplicate detection if entity already exists in org from previous run
-        const duplicateError = page.getByText(/already exists in your organisation/i);
-        if (await duplicateError.isVisible({ timeout: 3000 }).catch(() => false)) {
-            console.log('\n[Notice] HORNSEA 1 LIMITED already exists in organization. Closing modal and using existing dossier.');
-            const closeBtn = page.getByRole('button', { name: 'Close' }).or(page.locator('button[aria-label="Close"]')).first();
-            if (await closeBtn.isVisible()) {
-                await closeBtn.click();
-            }
-        } else {
-            // Wait for Step 2 modal to finish loading team members
-            await expect(page.getByText('Loading team members...')).not.toBeVisible({ timeout: 15000 }).catch(() => {});
+        // Wait for Step 2 modal to finish loading team members
+        await expect(page.getByText('Loading team members...')).not.toBeVisible({ timeout: 15000 }).catch(() => {});
 
-            // Optional: click Admin access button if present, otherwise proceed
-            const setAdminBtn = page.getByRole('button', { name: /Set .* access to Admin/i }).first();
-            if (await setAdminBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-                await setAdminBtn.click();
-            }
-
-            // Click Finish setup to submit saveClientLEPermissions
-            const finishBtn = page.getByRole('button', { name: 'Finish setup' }).first();
-            if (await finishBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-                await finishBtn.click();
-            }
+        // Grant Admin access to current user in Step 2 UI modal
+        const setAdminBtn = page.getByRole('button', { name: /Set .* access to Admin/i }).first();
+        if (await setAdminBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+            await setAdminBtn.click();
         }
 
-        // 4. Open Newly Created or Existing Entity & Navigate to "Master Record" tab
+        // Click Finish setup to save permissions
+        const finishBtn = page.getByRole('button', { name: 'Finish setup' }).first();
+        await expect(finishBtn).toBeVisible({ timeout: 15000 });
+        await finishBtn.click();
+
+        // ---------------------------------------------------------------------
+        // STEP 4: OPEN DOSSIER & NAVIGATE TO MASTER RECORD TAB
+        // ---------------------------------------------------------------------
         const leItem = page.getByText(/HORNSEA 1 LIMITED/i).last();
         await expect(leItem).toBeVisible({ timeout: 15000 });
         await leItem.click();
@@ -79,26 +98,29 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
 
         await expect(page).toHaveURL(/\/master/);
 
-        // 5. Search / Filter Master Record for Field 3 (Legal Name)
+        // ---------------------------------------------------------------------
+        // STEP 5: VERIFY PROPAGATION OF SOURCE DATA TO FIELD 3 (LEGAL NAME)
+        // ---------------------------------------------------------------------
         const masterSearch = page.locator('input[placeholder*="Search master fields"]').or(page.getByRole('textbox', { name: /Search/i })).first();
         if (await masterSearch.isVisible({ timeout: 5000 }).catch(() => false)) {
             await masterSearch.fill('Legal Name');
         }
 
-        // 6. Target specifically the Field 3 row element (div.group containing 'Field 3')
         const field3Row = page.locator('div.group').filter({ hasText: 'Field 3' }).first();
         await expect(field3Row).toBeVisible({ timeout: 15000 });
 
         const actualRowText = await field3Row.textContent();
         console.log('\n========================================');
-        console.log('EXACT FIELD 3 ROW TEXT DISPLAYED:');
+        console.log('MASTER RECORD FIELD 3 (LEGAL NAME) PROPAGATED SOURCE VALUE:');
         console.log(actualRowText?.trim());
         console.log('========================================\n');
 
-        // Assert Field 3 row text content contains "Hornsea"
+        // Assert Field 3 row contains propagated source data "Hornsea"
         await expect(field3Row).toContainText(/Hornsea/i);
 
-        // 7. Teardown: Open Actions Menu & Delete Entity
+        // ---------------------------------------------------------------------
+        // STEP 6: TEARDOWN - CLEAN UP CREATED DOSSIER AT END OF TEST
+        // ---------------------------------------------------------------------
         const menuButton = page.locator('button[aria-haspopup="menu"]').or(page.getByRole('button', { name: /actions|more|settings/i })).first();
         if (await menuButton.isVisible({ timeout: 3000 }).catch(() => false)) {
             await menuButton.click();
