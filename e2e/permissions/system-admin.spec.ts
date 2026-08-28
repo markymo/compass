@@ -78,6 +78,10 @@ test.describe('System Admin Permission Boundaries', () => {
         // Verify admin organization surface loads
         await expect(page.getByRole('heading', { level: 1 })).toContainText(manifest.clientOrgA.name);
 
+        // Verify Archive / Unarchive controls are NOT present (ONP-81)
+        await expect(page.getByRole('button', { name: /Archive Organization/i })).not.toBeVisible();
+        await expect(page.getByRole('button', { name: /Unarchive Organization/i })).not.toBeVisible();
+
         // Check if Legal Entities tab exists and switch to it
         const entitiesTabBtn = page.getByRole('button', { name: /Legal Entities/i }).or(page.getByText('Legal Entities')).first();
         if (await entitiesTabBtn.isVisible()) {
