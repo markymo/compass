@@ -47,16 +47,16 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
         await expect(createBtn).toBeEnabled({ timeout: 10000 });
         await createBtn.click();
 
-        // Wait for Step 2 modal to finish loading team members so handleSave populates LE_ADMIN role
+        // Wait for Step 2 modal to finish loading team members
         await expect(page.getByText('Loading team members...')).not.toBeVisible({ timeout: 15000 }).catch(() => {});
-        await page.waitForTimeout(1000);
 
+        // Explicitly grant Admin access to current user in Step 2 UI modal
         const setAdminBtn = page.getByRole('button', { name: /Set .* access to Admin/i }).first();
-        if (await setAdminBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-            await setAdminBtn.click();
-        }
+        await expect(setAdminBtn).toBeVisible({ timeout: 10000 });
+        await setAdminBtn.click();
 
-        const finishBtn = page.getByRole('button', { name: /Finish setup|Done|Skip for now/i }).first();
+        // Click Finish setup to submit saveClientLEPermissions
+        const finishBtn = page.getByRole('button', { name: 'Finish setup' }).first();
         await expect(finishBtn).toBeVisible({ timeout: 15000 });
         await finishBtn.click();
 
