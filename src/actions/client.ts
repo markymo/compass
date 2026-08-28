@@ -1065,31 +1065,6 @@ export async function deleteEngagementByClient(engagementId: string) {
     }
 }
 
-export async function archiveClientLE(leId: string) {
-    try {
-        await ensureAuthorization(Action.LE_ARCHIVE, { clientLEId: leId });
-    } catch (e) {
-        return { success: false, error: "Unauthorized" };
-    }
-
-    const identity = await getIdentity();
-    if (!identity?.userId) return { success: false, error: "Unauthorized" };
-    const { userId } = identity;
-
-    try {
-        await prisma.clientLE.update({
-            where: { id: leId },
-            data: { status: "ARCHIVED" } // Assuming string status field
-        });
-        revalidatePath("/app");
-        return { success: true };
-    } catch (e) {
-        return { success: false, error: "Failed to archive entity" };
-    }
-}
-
-
-
 // 9. Search Financial Institutions
 export async function searchFIs(query: string) {
     const identity = await getIdentity();

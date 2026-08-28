@@ -136,4 +136,23 @@ describe('Normal Delete and Re-creation — ClientLE', () => {
             expect(prismaMock.clientLE.create).toHaveBeenCalled();
         });
     });
+
+    describe('MVP Lifecycle Governance — No Archive Action', () => {
+        it('does not export archiveClientLE server action', async () => {
+            const clientModule = await import('../client');
+            expect((clientModule as any).archiveClientLE).toBeUndefined();
+        });
+
+        it('does not offer Archive Entity control in ClientLEActions UI', async () => {
+            const fs = await import('fs');
+            const path = await import('path');
+            const componentSource = fs.readFileSync(
+                path.resolve(__dirname, '../../components/client/client-le-actions.tsx'),
+                'utf8'
+            );
+            expect(componentSource).not.toContain('Archive Entity');
+            expect(componentSource).not.toContain('archiveClientLE');
+            expect(componentSource).not.toContain('ConfirmArchiveDialog');
+        });
+    });
 });
