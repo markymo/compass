@@ -202,4 +202,25 @@ test.describe('LIFE-02 — Admin Organisation Relationships Lifecycle (ONP-72)',
 
         await freshContext.close();
     });
+
+    test('3. Live baseline verification: Barclays organization displays only active engagements', async ({ page }) => {
+        const barclays = await prisma.organization.findFirst({ where: { name: 'Barclays' } });
+        if (!barclays) return;
+
+        await page.goto(`/app/admin/organizations/${barclays.id}`);
+        await expect(page.getByRole('heading', { name: 'Barclays' })).toBeVisible({ timeout: 15000 });
+
+        const relTab = page.getByRole('button', { name: 'Relationships' });
+        await relTab.click();
+
+        // Active engagements must remain visible
+        await expect(page.getByText('BRITISH LIVER TRUST').first()).toBeVisible({ timeout: 10000 });
+        await expect(page.getByText('FUSION UK FINCO LIMITED').first()).toBeVisible();
+        await expect(page.getByText('ZZOOMM PLC').first()).toBeVisible();
+
+        // Historical soft-deleted engagements must NOT appear
+        await expect(page.getByText('TotalEnergies SE')).not.toBeVisible();
+        await expect(page.getByText('ABERDEEN GROUP PLC')).not.toBeVisible();
+        await expect(page.getByText('TEST S.R.L.')).not.toBeVisible();
+    });
 });
