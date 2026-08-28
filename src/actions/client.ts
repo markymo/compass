@@ -497,28 +497,6 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
 
     const newLE = creationResult.data!;
 
-    // Auto-grant LE_ADMIN membership to entity creator
-    try {
-        await prisma.membership.upsert({
-            where: {
-                userId_clientLEId: {
-                    userId,
-                    clientLEId: newLE.id
-                }
-            },
-            create: {
-                userId,
-                clientLEId: newLE.id,
-                role: "LE_ADMIN"
-            },
-            update: {
-                role: "LE_ADMIN"
-            }
-        });
-    } catch (e) {
-        console.error("[createClientLE] Auto-membership grant failed", e);
-    }
-
     // Fire and forget (or await) the enrichment bootstrap
     try {
         await LegalEntityEnrichmentService.bootstrapEntity(newLE.id);
