@@ -267,7 +267,7 @@ test.describe('LIFE-01 — ClientLE Lifecycle Visibility Regression (ONP-82, ONP
 
         // 3. Verify current dossier B opens correctly and renders Master Record
         await page.goto(`/app/le/${fixtureLEIdB}/master`);
-        await expect(page.getByText('Master Record')).toBeVisible({ timeout: 15000 });
+        await expect(page.getByRole('heading', { name: 'Master Record' })).toBeVisible({ timeout: 15000 });
         await expect(page.getByText(FIXTURE_NAME_B).first()).toBeVisible();
 
         // 4. Verify reload preserves B visible and A absent

@@ -164,6 +164,12 @@ export async function getOrganizationDetails(orgId: string) {
                 },
             },
             engagements: {
+                where: {
+                    isDeleted: false,
+                    clientLE: {
+                        isDeleted: false
+                    }
+                },
                 select: {
                     id: true,
                     status: true,
