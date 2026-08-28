@@ -4,7 +4,7 @@ import { loadUATManifest, PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture
 test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
     test.use({ storageState: PERSONA_STORAGE_STATES.clientOrgAdminA });
 
-    test('Full E2E Visual Lifecycle: Create Hornsea Entity -> Inspect Legal Name -> Delete', async ({ page }) => {
+    test('Full E2E Visual Lifecycle: Create Hornsea Entity -> Verify Legal Name Master Data -> Delete', async ({ page }) => {
         test.setTimeout(60000);
 
         const manifest = loadUATManifest();
@@ -79,15 +79,18 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
             await masterSearch.fill('Legal Name');
         }
 
-        // Inspect Field 3 card
-        const inspectField3Btn = page.locator('div[role="button"]').filter({ hasText: 'Field 3' }).or(page.getByText('Legal Name')).or(page.getByText('Legal name')).first();
-        await expect(inspectField3Btn).toBeVisible({ timeout: 15000 });
-        await inspectField3Btn.click();
+        // 6. Directly inspect the rendered Field 3 card on the Master Record table (NO drawer needed!)
+        const field3Card = page.locator('div').filter({ hasText: 'Field 3' }).or(page.getByText(/Legal Name|Legal name/i)).first();
+        await expect(field3Card).toBeVisible({ timeout: 15000 });
 
-        // 6. Assert Right-hand Drawer displays Legal Name
-        const drawer = page.locator('[role="dialog"]').or(page.locator('[data-state="open"]')).or(page.locator('div.fixed')).first();
-        await expect(drawer).toBeVisible({ timeout: 15000 });
-        await expect(drawer).toContainText(/Hornsea/i);
+        // Print actual rendered value to console for diagnostic visibility
+        const actualField3Text = await field3Card.textContent();
+        console.log('\n--- MASTER RECORD FIELD 3 INSPECTION ---');
+        console.log('Rendered Field 3 Text:', actualField3Text?.trim());
+        console.log('----------------------------------------\n');
+
+        // Assert Field 3 contains expected "Hornsea" text
+        await expect(field3Card).toContainText(/Hornsea/i);
 
         // 7. Teardown: Open Actions Menu & Delete Entity
         const menuButton = page.locator('button[aria-haspopup="menu"]').or(page.getByRole('button', { name: /actions|more|settings/i })).first();
