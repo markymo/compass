@@ -278,4 +278,48 @@ describe('RegistryMappingEngine', () => {
         const candidates = await RegistryMappingEngine.mapEnrichmentRun('run-001');
         expect(candidates).toEqual([]);
     });
+
+    // T11 ─ RA000585 resolves to mappingSourceKey COMPANIES_HOUSE and loads canonical set
+    it('T11: RA000585 resolves to mappingSourceKey COMPANIES_HOUSE and loads ONLY canonical COMPANIES_HOUSE mappings', async () => {
+        const run = makeRun({
+            registrationAuthorityId: 'RA000585',
+            sourcePayloads: [makePayload('COMPANY_PROFILE', {
+                company_name: 'HORNSEA 1 LIMITED',
+                previous_company_names: [{ name: 'HERON WIND LIMITED', effective_from: '2011-05-19', ceased_on: '2017-11-22' }]
+            })],
+        });
+
+        prismaMock.enrichmentRun.findUnique.mockResolvedValue(run);
+        prismaMock.registryAuthority.findUnique.mockResolvedValue({ id: 'RA000585', mappingSourceKey: 'COMPANIES_HOUSE' });
+        prismaMock.masterFieldDefinition.findUnique.mockResolvedValue({ isMultiValue: true });
+
+        // Mock findMany on sourceFieldMapping to check exact query arguments
+        prismaMock.sourceFieldMapping.findMany.mockImplementation(async (args: any) => {
+            // Verify query looks for COMPANIES_HOUSE
+            const orClauses = args.where.OR;
+            expect(orClauses).toEqual(expect.arrayContaining([
+                { sourceReference: 'COMPANIES_HOUSE' },
+                { sourceReference: null }
+            ]));
+
+            return [
+                makeMapping({
+                    sourceType: 'REGISTRATION_AUTHORITY',
+                    sourceReference: 'COMPANIES_HOUSE',
+                    sourcePath: 'previous_company_names',
+                    targetFieldNo: 5,
+                    transformType: 'TO_NAME_HISTORY_LIST',
+                    priority: 100
+                })
+            ];
+        });
+
+        const candidates = await RegistryMappingEngine.mapEnrichmentRun('run-001');
+        expect(candidates).toHaveLength(1);
+        expect(candidates[0].fieldNo).toBe(5);
+        expect(candidates[0].sourceKey).toBe('COMPANIES_HOUSE');
+        expect(Array.isArray(candidates[0].value)).toBe(true);
+        expect((candidates[0].value as any[])[0].name).toBe('HERON WIND LIMITED');
+    });
 });
+

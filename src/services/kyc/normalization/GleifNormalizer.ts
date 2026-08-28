@@ -153,6 +153,7 @@ export async function mapGleifPayloadToFieldCandidates(payload: any, evidenceId:
                     value: transformed.value,
                     rowKeys: transformed.rowKeys,
                     source: 'GLEIF',
+                    syncMode: mapping.syncMode || 'UPSERT_ONLY',
                     evidenceId,
                     confidence
                 });

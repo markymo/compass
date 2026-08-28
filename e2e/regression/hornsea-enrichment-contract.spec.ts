@@ -307,6 +307,41 @@ test.describe('Hornsea 1 Live Enrichment Deep Master Data Contract Suite', () =>
         console.log('========================================\n');
     });
 
+    test('Hornsea 1 Live Enrichment Idempotency: Re-enrichment does not accumulate duplicate claims or alter Field 5 resolved state', async () => {
+        expect(createdClientLEId, 'ClientLE must be created from previous test').toBeDefined();
+
+        // 1. Record baseline state
+        const baselineClaims = await prisma.fieldClaim.findMany({
+            where: { clientLEId: createdClientLEId }
+        });
+        const baselineF5Claims = baselineClaims.filter(c => c.fieldNo === 5 && !c.supersedesId);
+        const allFields = await listAllMasterFields();
+        const baselineResolved = await KycStateService.resolveAllFields({ clientLEId: createdClientLEId }, allFields, testOrgId);
+        const baselineF5Val = baselineResolved[5]?.value;
+
+        console.log(`[Hornsea Idempotency] Baseline total claims: ${baselineClaims.length}, Field 5 claims: ${baselineF5Claims.length}`);
+
+        // 2. Trigger re-enrichment through the supported bootstrap path
+        const reEnrichResult = await LegalEntityEnrichmentService.bootstrapEntity(createdClientLEId);
+        expect(reEnrichResult.success, 'Re-enrichment bootstrap must succeed').toBe(true);
+
+        // 3. Query refreshed state
+        const refreshedClaims = await prisma.fieldClaim.findMany({
+            where: { clientLEId: createdClientLEId }
+        });
+        const refreshedF5Claims = refreshedClaims.filter(c => c.fieldNo === 5 && !c.supersedesId);
+        const refreshedResolved = await KycStateService.resolveAllFields({ clientLEId: createdClientLEId }, allFields, testOrgId);
+        const refreshedF5Val = refreshedResolved[5]?.value;
+
+        console.log(`[Hornsea Idempotency] Refreshed total claims: ${refreshedClaims.length}, Field 5 claims: ${refreshedF5Claims.length}`);
+
+        // 4. Assertions:
+        // - Field 5 must not accumulate duplicate claims
+        expect(refreshedF5Claims.length, 'Field 5 claims count must remain stable across re-enrichment').toBe(baselineF5Claims.length);
+        // - Field 5 resolved value must remain identical
+        expect(JSON.stringify(refreshedF5Val), 'Field 5 resolved value must match baseline').toBe(JSON.stringify(baselineF5Val));
+    });
+
     test.afterAll(async () => {
         await prisma.$disconnect();
     });

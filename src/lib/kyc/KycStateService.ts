@@ -517,12 +517,18 @@ export class KycStateService {
         // Pre-load mapping priorities once for the entire collection
         const priorityMap = await this.preloadMappingPriorities(claims, fieldNo);
 
-        // Group by collectionId and instanceId
-        const itemGroups: Record<string, FieldClaim[]> = {};
-        for (const c of claims) {
-            const key = `${c.collectionId || 'default'}:${c.instanceId || 'default'}`;
-            if (!itemGroups[key]) itemGroups[key] = [];
-            itemGroups[key].push(c);
+        // Group by collectionId and instanceId (or collection-configured groupClaims partitioner)
+        const config = COLLECTION_FIELD_CONFIG[fieldNo];
+        let itemGroups: Record<string, FieldClaim[]>;
+        if (config?.groupClaims) {
+            itemGroups = config.groupClaims(claims);
+        } else {
+            itemGroups = {};
+            for (const c of claims) {
+                const key = `${c.collectionId || 'default'}:${c.instanceId || 'default'}`;
+                if (!itemGroups[key]) itemGroups[key] = [];
+                itemGroups[key].push(c);
+            }
         }
 
         const resultsWithOrder: { derived: DerivedValue; oldestAssertedAt: number; oldestId: string }[] = [];
@@ -566,7 +572,6 @@ export class KycStateService {
         //
         // Tombstones are already excluded above; this filter only touches rows
         // that have a non-null effectiveTo on the winning claim.
-        const config = COLLECTION_FIELD_CONFIG[fieldNo];
         if (config?.filterByEffectiveDate) {
             const evaluationDate = snapshotDate ?? new Date();
             return results.filter(row => {

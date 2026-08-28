@@ -29,16 +29,42 @@ export function formatDate(raw: string | null | undefined): string | null {
     }
 }
 
+export function humanizeNameType(rawType?: string | null): string | null {
+    if (!rawType || typeof rawType !== 'string') return null;
+    const clean = rawType.trim();
+    if (!clean) return null;
+    switch (clean.toUpperCase()) {
+        case 'PREVIOUS_LEGAL_NAME':
+            return 'Previous legal name';
+        case 'TRADING_OR_OPERATING_NAME':
+            return 'Trading / Operating name';
+        case 'OTHER':
+            return 'Other name';
+        default:
+            return clean.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+    }
+}
+
 export function formatNameHistoryRow(row: any): StructuredValueFormatResult {
     const primary = row.name ?? '(unnamed)';
 
     const from = formatDate(row.effectiveFrom);
     const to   = formatDate(row.effectiveTo);
+    const typeLabel = humanizeNameType(row.nameType || row.type);
+
+    let datePart: string | null = null;
+    if (from && to)   datePart = `${from} → ${to}`;
+    else if (from)    datePart = `From ${from}`;
+    else if (to)      datePart = `Until ${to}`;
 
     let secondary: string | null = null;
-    if (from && to)   secondary = `${from} → ${to}`;
-    else if (from)    secondary = `From ${from}`;
-    else if (to)      secondary = `Until ${to}`;
+    if (datePart && typeLabel) {
+        secondary = `${datePart} · ${typeLabel}`;
+    } else if (datePart) {
+        secondary = datePart;
+    } else if (typeLabel) {
+        secondary = typeLabel;
+    }
 
     return { handled: true, primary, secondary };
 }

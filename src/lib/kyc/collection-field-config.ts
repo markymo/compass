@@ -51,6 +51,89 @@ export interface CollectionFieldConfig {
      * Set to false for "all-time history" collection fields.
      */
     filterByEffectiveDate: boolean;
+
+    /**
+     * Optional custom collection claim partitioner.
+     * When provided, KycStateService uses this to group competing claims for
+     * winner selection instead of standard collectionId:instanceId grouping.
+     */
+    groupClaims?: (claims: any[]) => Record<string, any[]>;
+}
+
+/**
+ * Semantic reconciliation partitioner for Field 5 (NAME_HISTORY).
+ *
+ * Rules:
+ *  1. Group claims by normalized previous legal name.
+ *  2. Within a name, distinguish genuinely separate historical date periods
+ *     (e.g., from_2000_to_2005 vs from_2010_to_2015).
+ *  3. Undated claims (such as GLEIF otherNames where dates are absent) merge into
+ *     the dated period group (or default undated group) so higher-priority
+ *     dated claims (e.g. Companies House) cleanly supersede them without creating duplicates.
+ */
+export function groupNameHistoryClaims(claims: any[]): Record<string, any[]> {
+    const byName: Record<string, any[]> = {};
+    for (const c of claims) {
+        const val = c.valueJson;
+        const rawName = (val && typeof val === 'object' && val.name) ? val.name : (c.valueText || '');
+        const normName = String(rawName).trim().toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
+        const nameKey = normName || (c.instanceId || 'unknown');
+        if (!byName[nameKey]) byName[nameKey] = [];
+        byName[nameKey].push(c);
+    }
+
+    const itemGroups: Record<string, any[]> = {};
+
+    for (const nameKey in byName) {
+        const nameClaims = byName[nameKey];
+
+        const datedClaims: any[] = [];
+        const undatedClaims: any[] = [];
+
+        for (const c of nameClaims) {
+            const from = c.effectiveFrom
+                ? (c.effectiveFrom instanceof Date ? c.effectiveFrom.toISOString().slice(0, 10) : String(c.effectiveFrom).slice(0, 10))
+                : (c.valueJson?.effectiveFrom ? String(c.valueJson.effectiveFrom).slice(0, 10) : null);
+            const to = c.effectiveTo
+                ? (c.effectiveTo instanceof Date ? c.effectiveTo.toISOString().slice(0, 10) : String(c.effectiveTo).slice(0, 10))
+                : (c.valueJson?.effectiveTo ? String(c.valueJson.effectiveTo).slice(0, 10) : null);
+
+            if (from || to) {
+                datedClaims.push({ claim: c, from, to });
+            } else {
+                undatedClaims.push(c);
+            }
+        }
+
+        if (datedClaims.length === 0) {
+            // All claims for this name lack dates; group them together under the normalized name
+            const groupKey = `NAME_HISTORY:${nameKey}:undated`;
+            itemGroups[groupKey] = undatedClaims;
+        } else {
+            // Partition by distinct historical date period
+            const periodMap: Record<string, any[]> = {};
+            for (const item of datedClaims) {
+                const pKey = `from_${item.from || 'none'}_to_${item.to || 'none'}`;
+                if (!periodMap[pKey]) periodMap[pKey] = [];
+                periodMap[pKey].push(item.claim);
+            }
+
+            const periodKeys = Object.keys(periodMap);
+            for (const pKey of periodKeys) {
+                const groupKey = `NAME_HISTORY:${nameKey}:${pKey}`;
+                itemGroups[groupKey] = periodMap[pKey];
+            }
+
+            // Undated claims (e.g. from GLEIF) merge into the first/primary dated period group
+            // to allow source priority to supersede rather than emitting duplicate rows
+            if (undatedClaims.length > 0) {
+                const primaryGroupKey = `NAME_HISTORY:${nameKey}:${periodKeys[0]}`;
+                itemGroups[primaryGroupKey].push(...undatedClaims);
+            }
+        }
+    }
+
+    return itemGroups;
 }
 
 /**
@@ -86,7 +169,10 @@ function buildCollectionFieldConfig(): Record<number, CollectionFieldConfig> {
     for (const fieldNo of complexFieldNos) {
         const derived = deriveCollectionConfig(fieldNo);
         if (derived) {
-            result[fieldNo] = derived;
+            result[fieldNo] = {
+                ...derived,
+                groupClaims: fieldNo === 5 ? groupNameHistoryClaims : undefined,
+            };
         }
     }
 

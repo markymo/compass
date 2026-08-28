@@ -3,9 +3,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function seedUKMappings() {
-    const RA_IDS = ['RA000585', 'RA000586', 'RA000587']; // UK Companies House variants
-
-    console.log(`[Seed] Bootstrapping Mapping Pack for UK Companies House variants...`);
+    console.log(`[Seed] Bootstrapping Mapping Pack for UK Companies House (canonical sourceReference: COMPANIES_HOUSE)...`);
     console.log(`[Seed] Strategy: upsert-only (additive/idempotent). No rows will be deleted.`);
 
     const mappings = [
@@ -72,12 +70,14 @@ async function seedUKMappings() {
 
         // PREVIOUS LEGAL NAMES (Field 5 — isMultiValue: true)
         {
-            sourcePath: 'previous_names',
+            sourcePath: 'previous_company_names',
             targetFieldNo: 5, // Previous Legal Names
             mappingScope: 'RAW_PAYLOAD',
             payloadSubtype: 'COMPANY_PROFILE',
-            transformType: 'DIRECT',
-            notes: 'UK Previous Legal Names (array of objects; DIRECT extracts .name from each)'
+            transformType: 'TO_NAME_HISTORY_LIST',
+            syncMode: 'SNAPSHOT_SYNC',
+            priority: 100,
+            notes: 'UK Previous Legal Names (array of objects; TO_NAME_HISTORY_LIST extracts name and date range from each)'
         },
 
         // PERSONS WITH SIGNIFICANT CONTROL (Field 64 — isMultiValue: true)
@@ -113,18 +113,18 @@ async function seedUKMappings() {
         }
     ];
 
-    const ALL_RA_IDS = ['COMPANIES_HOUSE', 'RA000585', 'RA000586', 'RA000587'];
+    const ALL_MAPPING_SOURCE_KEYS = ['COMPANIES_HOUSE'];
 
     let created = 0;
     let updated = 0;
     let alreadyExisting = 0;
 
-    for (const RA_ID of ALL_RA_IDS) {
+    for (const sourceRef of ALL_MAPPING_SOURCE_KEYS) {
         for (const m of mappings) {
             const whereKey = {
                 sourceType_sourceReference_mappingScope_payloadSubtype_sourcePath_targetFieldNo: {
                     sourceType: 'REGISTRATION_AUTHORITY',
-                    sourceReference: RA_ID,
+                    sourceReference: sourceRef,
                     mappingScope: m.mappingScope,
                     payloadSubtype: m.payloadSubtype,
                     sourcePath: m.sourcePath,
@@ -142,11 +142,13 @@ async function seedUKMappings() {
                     transformType: (m as any).transformType || 'DIRECT',
                     transformConfig: (m as any).transformConfig || undefined,
                     filterConfig: (m as any).filterConfig || undefined,
+                    syncMode: (m as any).syncMode || 'UPSERT_ONLY',
+                    priority: (m as any).priority ?? 100,
                     notes: m.notes
                 },
                 create: {
                     sourceType: 'REGISTRATION_AUTHORITY',
-                    sourceReference: RA_ID,
+                    sourceReference: sourceRef,
                     mappingScope: m.mappingScope,
                     payloadSubtype: m.payloadSubtype,
                     sourcePath: m.sourcePath,
@@ -155,23 +157,26 @@ async function seedUKMappings() {
                     transformType: (m as any).transformType || 'DIRECT',
                     transformConfig: (m as any).transformConfig || undefined,
                     filterConfig: (m as any).filterConfig || undefined,
+                    syncMode: (m as any).syncMode || 'UPSERT_ONLY',
                     notes: m.notes,
-                    priority: 10
+                    priority: (m as any).priority ?? 100
                 }
             });
 
             if (!existing) {
                 created++;
-                console.log(`  [CREATED] ${RA_ID} | F${m.targetFieldNo} | ${m.sourcePath}`);
+                console.log(`  [CREATED] ${sourceRef} | F${m.targetFieldNo} | ${m.sourcePath}`);
             } else {
                 const transformChanged = existing.transformType !== ((m as any).transformType || 'DIRECT');
+                const syncModeChanged = existing.syncMode !== ((m as any).syncMode || 'UPSERT_ONLY');
+                const priorityChanged = existing.priority !== ((m as any).priority ?? 100);
                 const notesChanged = existing.notes !== m.notes;
-                if (transformChanged || notesChanged) {
+                if (transformChanged || syncModeChanged || priorityChanged || notesChanged) {
                     updated++;
-                    console.log(`  [UPDATED] ${RA_ID} | F${m.targetFieldNo} | ${m.sourcePath}`);
+                    console.log(`  [UPDATED] ${sourceRef} | F${m.targetFieldNo} | ${m.sourcePath}`);
                 } else {
                     alreadyExisting++;
-                    console.log(`  [EXISTS]  ${RA_ID} | F${m.targetFieldNo} | ${m.sourcePath}`);
+                    console.log(`  [EXISTS]  ${sourceRef} | F${m.targetFieldNo} | ${m.sourcePath}`);
                 }
             }
         }
