@@ -1,56 +1,59 @@
 import { test, expect } from '@playwright/test';
 import { loadUATManifest, PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture';
+import prisma from '../../src/lib/prisma';
 
 test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
     test.use({ storageState: PERSONA_STORAGE_STATES.clientOrgAdminA });
 
-    test('Full E2E Visual Lifecycle: Check/Delete Hornsea -> Create GLEIF Entity & Grant Admin -> Verify Legal Name', async ({ page }) => {
-        test.setTimeout(90000);
+    test.beforeAll(async () => {
+        const manifest = loadUATManifest();
+        try {
+            const hornseaLEs = await prisma.clientLE.findMany({
+                where: {
+                    OR: [
+                        { name: { contains: 'HORNSEA', mode: 'insensitive' } },
+                        { lei: '2138002S3XGZ38WN5Q72' }
+                    ],
+                    owners: { some: { partyId: manifest.clientOrgA.id } }
+                },
+                select: { id: true }
+            });
+
+            const leIds = hornseaLEs.map(h => h.id);
+
+            if (leIds.length > 0) {
+                // End active ownership links in ClientLEOwner
+                await prisma.clientLEOwner.updateMany({
+                    where: { clientLEId: { in: leIds } },
+                    data: { endAt: new Date() }
+                });
+
+                // Soft-delete and archive ClientLE records
+                await prisma.clientLE.updateMany({
+                    where: { id: { in: leIds } },
+                    data: { isDeleted: true, status: 'ARCHIVED' }
+                });
+                console.log(`\n[beforeAll Cleanup] Successfully cleared ${leIds.length} pre-existing Hornsea entities and ownership links.\n`);
+            }
+        } catch (e) {
+            console.error('[beforeAll Cleanup] DB cleanup error:', e);
+        }
+    });
+
+    test('Full E2E Visual Lifecycle: Create Hornsea GLEIF Entity -> Grant Admin Access -> Verify Legal Name -> Teardown', async ({ page }) => {
+        test.setTimeout(60000);
 
         const manifest = loadUATManifest();
         const clientOrgId = manifest.clientOrgA.id;
 
         // ---------------------------------------------------------------------
-        // 1. LOG IN / NAVIGATE TO CLIENT ORG DASHBOARD
+        // 1. NAVIGATE TO CLIENT ORG DASHBOARD
         // ---------------------------------------------------------------------
         await page.goto(`/app/clients/${clientOrgId}`);
         await expect(page).toHaveURL(new RegExp(`/app/clients/${clientOrgId}`));
 
         // ---------------------------------------------------------------------
-        // 2. CHECK IF "HORNSEA 1 LIMITED" EXISTS -> DELETE IT VIA UI IF PRESENT
-        // ---------------------------------------------------------------------
-        const existingHornseaLink = page.getByRole('link', { name: /HORNSEA 1 LIMITED/i }).or(page.getByText(/HORNSEA 1 LIMITED/i)).first();
-        if (await existingHornseaLink.isVisible({ timeout: 3000 }).catch(() => false)) {
-            console.log('\n[UI Cleanup] Found existing Hornsea 1 Limited entity on dashboard. Deleting via UI...');
-            await existingHornseaLink.click();
-            await page.waitForURL(/\/app\/le\/[a-zA-Z0-9-]+/);
-
-            const menuButton = page.locator('button[aria-haspopup="menu"]').or(page.getByRole('button', { name: /actions|more|settings/i })).first();
-            if (await menuButton.isVisible({ timeout: 5000 }).catch(() => false)) {
-                await menuButton.click();
-
-                const deleteMenuItem = page.getByRole('menuitem', { name: /Delete/i }).or(page.getByText('Delete')).first();
-                if (await deleteMenuItem.isVisible({ timeout: 5000 }).catch(() => false)) {
-                    await deleteMenuItem.click();
-
-                    const alertDialog = page.locator('[role="alertdialog"]').or(page.locator('[role="dialog"]')).first();
-                    if (await alertDialog.isVisible({ timeout: 5000 }).catch(() => false)) {
-                        const confirmDeleteBtn = alertDialog.getByRole('button', { name: 'Delete' }).first();
-                        if (await confirmDeleteBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-                            await confirmDeleteBtn.click();
-                            await page.waitForURL(/\/app/, { timeout: 10000 }).catch(() => {});
-                        }
-                    }
-                }
-            }
-
-            // Return to Client Org Dashboard
-            await page.goto(`/app/clients/${clientOrgId}`);
-            await expect(page).toHaveURL(new RegExp(`/app/clients/${clientOrgId}`));
-        }
-
-        // ---------------------------------------------------------------------
-        // 3. CREATE ENTITY VIA UI (ADD LEGAL ENTITY -> SEARCH GLEIF)
+        // 2. OPEN ADD LEGAL ENTITY MODAL & SEARCH GLEIF FOR HORNSEA
         // ---------------------------------------------------------------------
         const addLeBtn = page.getByRole('button', { name: 'Add Legal Entity' }).first();
         await expect(addLeBtn).toBeVisible({ timeout: 15000 });
@@ -72,6 +75,9 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
             }
         }
 
+        // ---------------------------------------------------------------------
+        // 3. CREATE LEGAL ENTITY & TRIGGER SOURCE DATA BOOTSTRAP
+        // ---------------------------------------------------------------------
         const createBtn = page.getByRole('button', { name: 'Create Legal Entity' }).first();
         await expect(createBtn).toBeEnabled({ timeout: 10000 });
         await createBtn.click();
@@ -115,7 +121,7 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
 
         const actualRowText = await field3Row.textContent();
         console.log('\n========================================');
-        console.log('MASTER RECORD FIELD 3 (LEGAL NAME) VALUE:');
+        console.log('MASTER RECORD FIELD 3 (LEGAL NAME) PROPAGATED SOURCE VALUE:');
         console.log(actualRowText?.trim());
         console.log('========================================\n');
 
