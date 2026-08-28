@@ -5,44 +5,47 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
     test.use({ storageState: PERSONA_STORAGE_STATES.clientOrgAdminA });
 
     test('Full E2E Visual Lifecycle: Delete Existing -> Create Hornsea GLEIF Entity -> Verify Source Data Propagation -> Teardown', async ({ page }) => {
-        test.setTimeout(90000);
+        test.setTimeout(120000);
 
         const manifest = loadUATManifest();
 
         // ---------------------------------------------------------------------
-        // STEP 1: PRE-TEST CLEANUP - Delete any pre-existing Hornsea entities
+        // STEP 1: PRE-TEST CLEANUP - Delete ALL pre-existing Hornsea entities
         // ---------------------------------------------------------------------
         await page.goto(`/app/clients/${manifest.clientOrgA.id}`);
         await expect(page).toHaveURL(new RegExp(`/app/clients/${manifest.clientOrgA.id}`));
 
-        const existingHornseaLink = page.getByText(/HORNSEA 1 LIMITED/i).first();
-        if (await existingHornseaLink.isVisible({ timeout: 3000 }).catch(() => false)) {
-            console.log('\n[Setup Cleanup] Found pre-existing HORNSEA 1 LIMITED. Deleting to ensure a fresh creation test...');
-            await existingHornseaLink.click();
+        while (true) {
+            const existingLink = page.getByText(/HORNSEA/i).first();
+            if (!(await existingLink.isVisible({ timeout: 2000 }).catch(() => false))) {
+                break;
+            }
+
+            console.log('\n[Setup Cleanup] Found pre-existing Hornsea entity. Deleting to ensure a completely clean organization...');
+            await existingLink.click();
             await page.waitForURL(/\/app\/le\/[a-zA-Z0-9-]+/);
 
             const menuButton = page.locator('button[aria-haspopup="menu"]').or(page.getByRole('button', { name: /actions|more|settings/i })).first();
-            if (await menuButton.isVisible({ timeout: 5000 }).catch(() => false)) {
+            if (await menuButton.isVisible({ timeout: 3000 }).catch(() => false)) {
                 await menuButton.click();
-
                 const deleteMenuItem = page.getByRole('menuitem', { name: /Delete/i }).or(page.getByText('Delete')).first();
-                if (await deleteMenuItem.isVisible({ timeout: 5000 }).catch(() => false)) {
+                if (await deleteMenuItem.isVisible({ timeout: 2000 }).catch(() => false)) {
                     await deleteMenuItem.click();
-
                     const alertDialog = page.locator('[role="alertdialog"]').or(page.locator('[role="dialog"]')).first();
-                    if (await alertDialog.isVisible({ timeout: 5000 }).catch(() => false)) {
-                        const confirmDeleteBtn = alertDialog.getByRole('button', { name: 'Delete' }).first();
-                        if (await confirmDeleteBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
-                            await confirmDeleteBtn.click();
+                    if (await alertDialog.isVisible({ timeout: 2000 }).catch(() => false)) {
+                        const confirmBtn = alertDialog.getByRole('button', { name: 'Delete' }).first();
+                        if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+                            await confirmBtn.click();
                             await page.waitForURL(/\/app/, { timeout: 10000 }).catch(() => {});
                         }
                     }
                 }
             }
-            // Return to Client Org Dashboard
             await page.goto(`/app/clients/${manifest.clientOrgA.id}`);
             await expect(page).toHaveURL(new RegExp(`/app/clients/${manifest.clientOrgA.id}`));
         }
+
+        console.log('[Setup Cleanup] Organization is completely clean. Starting fresh creation lifecycle...');
 
         // ---------------------------------------------------------------------
         // STEP 2: FRESH CREATION - Open Add Legal Entity Modal & Search GLEIF
