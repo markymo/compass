@@ -36,7 +36,11 @@ test('Full E2E Visual Lifecycle: Create Hornsea 1 Limited -> Inspect Legal Name 
 
   // 3. Create Entity & Set Team Access
   await page.getByRole('button', { name: 'Create Legal Entity' }).click();
-  
+
+  // Wait for Step 2 modal to finish loading team members so handleSave populates LE_ADMIN role
+  await expect(page.getByText('Loading team members...')).not.toBeVisible({ timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(1000);
+
   const setAdminBtn = page.getByRole('button', { name: /Set .* access to Admin/i }).first();
   if (await setAdminBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
     await setAdminBtn.click();
