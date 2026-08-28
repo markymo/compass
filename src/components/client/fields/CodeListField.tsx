@@ -22,6 +22,7 @@ import { useState, useMemo } from 'react';
 import { Trash2, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { showActionErrorToast } from '@/components/ui/copyable-error-toast';
 import { addCodeListEntry } from '@/actions/kyc-manual-update';
 import { removeMultiValueEntry } from '@/actions/kyc-manual-update';
 import { CodeListPickerPopover } from './CodeListPickerPopover';
@@ -142,7 +143,7 @@ export function CodeListField({
             if (result.success) {
                 onMutate();
             } else {
-                toast.error(result.message ?? 'Could not add code.');
+                showActionErrorToast(result, 'Could not add code.');
             }
         } catch (e: any) {
             toast.error(e.message ?? 'Unexpected error adding code.');
@@ -164,7 +165,7 @@ export function CodeListField({
                 setDeletingId(null);
                 onMutate();
             } else {
-                toast.error(result.message ?? 'Could not remove code.');
+                showActionErrorToast(result, 'Could not remove code.');
             }
         } catch (e: any) {
             toast.error(e.message ?? 'Unexpected error removing code.');

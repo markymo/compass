@@ -11,6 +11,7 @@ import { addFieldAttachment, removeFieldAttachment, replaceFieldAttachment } fro
 import { getUploadIntentStatus } from '@/actions/upload-intent';
 import { MAX_FILE_SIZE, ALLOWED_MIME_TYPES, validateDocumentFile } from '@/lib/documents/upload-constants';
 import { toast } from 'sonner';
+import { showActionErrorToast } from '@/components/ui/copyable-error-toast';
 import { useRouter } from 'next/navigation';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Library, Upload } from 'lucide-react';
@@ -84,28 +85,35 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
                     // Now perform the actual attachment claim mutation.
                     try {
                         const idempotencyKey = crypto.randomUUID();
+                        let actionRes;
                         if (opType === 'replace' && targetInstanceId) {
-                            await replaceFieldAttachment({
+                            actionRes = await replaceFieldAttachment({
                                 clientLEId,
                                 fieldNo,
                                 instanceId: targetInstanceId,
                                 attachmentDocumentId: res.attachment.documentId,
                                 idempotencyKey
                             });
-                            toast.success('Attachment replaced successfully');
                         } else {
-                            await addFieldAttachment({
+                            actionRes = await addFieldAttachment({
                                 clientLEId,
                                 fieldNo,
                                 attachmentDocumentId: res.attachment.documentId,
                                 idempotencyKey
                             });
-                            toast.success('Document attached successfully');
                         }
-                        
-                        resetState();
-                        router.refresh();
-                        onChange?.();
+
+                        if (actionRes.success) {
+                            toast.success(opType === 'replace' ? 'Attachment replaced successfully' : 'Document attached successfully');
+                            resetState();
+                            router.refresh();
+                            onChange?.();
+                        } else {
+                            setOpState('FAILED');
+                            const errMsg = ('message' in actionRes ? actionRes.message : undefined) || 'Failed to attach document';
+                            setErrorMsg(errMsg);
+                            showActionErrorToast(actionRes, 'Failed to attach document');
+                        }
                     } catch (actionErr: any) {
                         setOpState('FAILED');
                         setErrorMsg(actionErr.message || 'Failed to attach document to the field');
@@ -187,28 +195,35 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
 
         try {
             const idempotencyKey = crypto.randomUUID();
+            let actionRes;
             if (mode.type === 'REPLACE') {
-                await replaceFieldAttachment({
+                actionRes = await replaceFieldAttachment({
                     clientLEId,
                     fieldNo,
                     instanceId: mode.instanceId,
                     attachmentDocumentId: doc.id,
                     idempotencyKey
                 });
-                toast.success('Attachment replaced successfully');
             } else {
-                await addFieldAttachment({
+                actionRes = await addFieldAttachment({
                     clientLEId,
                     fieldNo,
                     attachmentDocumentId: doc.id,
                     idempotencyKey
                 });
-                toast.success('Document attached successfully');
             }
-            
-            resetState();
-            router.refresh();
-            onChange?.();
+
+            if (actionRes.success) {
+                toast.success(mode.type === 'REPLACE' ? 'Attachment replaced successfully' : 'Document attached successfully');
+                resetState();
+                router.refresh();
+                onChange?.();
+            } else {
+                setOpState('FAILED');
+                const errMsg = ('message' in actionRes ? actionRes.message : undefined) || 'Failed to attach document';
+                setErrorMsg(errMsg);
+                showActionErrorToast(actionRes, 'Failed to attach document');
+            }
         } catch (actionErr: any) {
             setOpState('FAILED');
             setErrorMsg(actionErr.message || 'Failed to attach document to the field');
@@ -280,10 +295,14 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
     const handleRemove = async (instanceId: string) => {
         setRemovingInstanceId(instanceId);
         try {
-            await removeFieldAttachment({ clientLEId, fieldNo, instanceId, idempotencyKey: crypto.randomUUID() });
-            toast.success('Attachment removed');
-            router.refresh();
-            onChange?.();
+            const res = await removeFieldAttachment({ clientLEId, fieldNo, instanceId, idempotencyKey: crypto.randomUUID() });
+            if (res.success) {
+                toast.success('Attachment removed');
+                router.refresh();
+                onChange?.();
+            } else {
+                showActionErrorToast(res as any, 'Failed to remove attachment');
+            }
         } catch (error) {
             console.error('Failed to remove attachment:', error);
             toast.error('Failed to remove attachment');

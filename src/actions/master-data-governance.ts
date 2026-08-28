@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import { revalidatePath } from "next/cache";
 import { invalidateDefinitionCache } from "@/services/masterData/definitionService";
+import { ActionDomainError, handleActionError } from "@/lib/action-error-handler";
 
 /**
  * toggleFieldActive: Toggles the active state of a master field definition.
@@ -481,10 +482,10 @@ export async function getAvailableFieldsForGroup(
 export async function renameCustomField(
     customFieldId: string,
     newLabel: string
-): Promise<{ success: boolean; error?: string }> {
+) {
     try {
         if (!newLabel.trim()) {
-            return { success: false, error: "Label cannot be empty" };
+            throw new ActionDomainError("Label cannot be empty");
         }
 
         await prisma.customFieldDefinition.update({
@@ -493,13 +494,15 @@ export async function renameCustomField(
         });
 
         revalidatePath("/app/admin/master-data", "layout");
-        // Revalidate workbench pages broadly
         revalidatePath("/app/le", "layout");
 
         return { success: true };
     } catch (e) {
-        console.error("[renameCustomField] Error:", e);
-        return { success: false, error: String(e) };
+        return handleActionError(e, {
+            operation: "Rename custom field",
+            fallbackMessage: "We couldn’t rename this field.",
+            context: { customFieldId }
+        });
     }
 }
 
@@ -797,15 +800,15 @@ export async function checkCustomFieldDependencies(fieldId: string): Promise<Dep
 }
 
 export async function softDeleteCustomField(fieldId: string) {
-    const check = await checkCustomFieldDependencies(fieldId);
-    if (!check.canDelete) {
-        return { success: false, error: "Cannot delete field with active dependencies" };
-    }
-
-    const field = await prisma.customFieldDefinition.findUnique({ where: { id: fieldId } });
-    if (!field) return { success: false, error: "Field not found" };
-
     try {
+        const check = await checkCustomFieldDependencies(fieldId);
+        if (!check.canDelete) {
+            throw new ActionDomainError("Cannot delete field with active dependencies");
+        }
+
+        const field = await prisma.customFieldDefinition.findUnique({ where: { id: fieldId } });
+        if (!field) throw new ActionDomainError("Field not found");
+
         await prisma.customFieldDefinition.update({
             where: { id: fieldId },
             data: {
@@ -816,7 +819,10 @@ export async function softDeleteCustomField(fieldId: string) {
         revalidatePath("/app/admin/master-data", "layout");
         return { success: true };
     } catch (e) {
-        console.error("[softDeleteCustomField] Error:", e);
-        return { success: false, error: "Failed to delete custom field" };
+        return handleActionError(e, {
+            operation: "Delete custom field",
+            fallbackMessage: "We couldn’t delete this custom field.",
+            context: { customFieldId: fieldId }
+        });
     }
 }

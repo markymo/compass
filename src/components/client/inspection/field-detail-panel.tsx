@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
+import { showActionErrorToast } from "@/components/ui/copyable-error-toast";
 import Link from "next/link";
 import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon, Pencil, Check, Trash2, Plus, Lock, Save, Link2Off, ArrowRightLeft, ChevronDown, ChevronRight, ArrowUpRight, HelpCircle, Building2 } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
@@ -551,6 +552,8 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 if (data) {
                     setData({ ...data, userNote: noteText });
                 }
+            } else {
+                showActionErrorToast(res as any, "Failed to save note");
             }
         } catch (e) {
             console.error("Failed to save note:", e);
@@ -572,7 +575,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     onUpdate(data?.candidates.find(c => c.id === claimId)?.value, "USER_INPUT", new Date());
                 }
             } else {
-                toast.error(res.message || "Failed to save claim for reuse");
+                showActionErrorToast(res as any, "Failed to save claim for reuse");
             }
         } catch (e) {
             console.error("Promote error:", e);
@@ -653,7 +656,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 // Re-focus the add input
                 setTimeout(() => newEntryInputRef.current?.focus(), 100);
             } else {
-                toast.error(res.message || "Failed to add entry");
+                showActionErrorToast(res as any, "Failed to add entry");
             }
         } catch (e) {
             toast.error("An error occurred");
@@ -695,7 +698,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                 }
             } else {
-                toast.error((res as any).message || (res as any).error || "Failed to update field");
+                showActionErrorToast(res as any, "Failed to update field");
             }
         } catch (e) {
             console.error("Graph node selection error:", e);
@@ -756,7 +759,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                 }
             } else {
-                toast.error(res.message || "Failed to remove entry");
+                showActionErrorToast(res as any, "Failed to remove entry");
             }
         } catch (e) {
             toast.error("An error occurred");
@@ -780,7 +783,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                 }
             } else {
-                toast.error(res.message || "Failed to clear value");
+                showActionErrorToast(res as any, "Failed to clear value");
             }
         } catch (e) {
             toast.error("An error occurred");
@@ -951,7 +954,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                 }
             } else {
-                toast.error((result as any).message || "Update failed");
+                showActionErrorToast(result as any, "Update failed");
             }
         } catch (error) {
             console.error("Save error:", error);
@@ -975,7 +978,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                 }
             } else {
-                toast.error((result as any).message || "Apply failed");
+                showActionErrorToast(result as any, "Apply failed");
             }
         } catch (error) {
             console.error("Apply error:", error);

@@ -201,3 +201,50 @@ describe('Party Eligibility Validation in kyc-manual-update', () => {
     });
 });
 
+describe('ONP-6 Master Write Error Boundary & Discrimination', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        // @ts-ignore
+        prisma.clientLE.findUnique.mockResolvedValue({ id: 'le-123', legalEntityId: 'le-abc', customData: {} });
+    });
+
+    it('sanitizes raw Prisma/PostgreSQL database exceptions into unexpected failure with errorRef', async () => {
+        const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
+        // @ts-ignore
+        getMasterFieldDefinition.mockResolvedValue({ fieldNo: 1, appDataType: 'TEXT' });
+
+        // Simulate Prisma DB exception (e.g. UTF-8 NUL byte rejection 0x00)
+        vi.mocked(FieldClaimService.assertClaim).mockRejectedValueOnce(
+            new Error('Invalid byte sequence for encoding "UTF8": 0x00 at prisma.fieldClaim.create()')
+        );
+
+        const result = await applyManualOverride('le-123', 1, 'bad\0value', 'test');
+
+        expect(result.success).toBe(false);
+        expect((result as any).kind).toBe('unexpected');
+        expect(result.message).toBe("We couldn’t save this field.");
+        expect((result as any).errorRef).toMatch(/^ERR-[0-9A-F]{12}$/);
+        expect(result.message).not.toContain('prisma');
+        expect(result.message).not.toContain('0x00');
+        expect(result.message).not.toContain('UTF8');
+    });
+
+    it('preserves intentional ActionDomainErrors as kind: domain without errorRef', async () => {
+        const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
+        // @ts-ignore
+        getMasterFieldDefinition.mockResolvedValue({
+            fieldNo: 1,
+            appDataType: 'PARTY',
+            profileConfig: { partyPopulationPolicy: 'SYSTEM_ONLY' }
+        });
+
+        const result = await applyManualOverride('le-123', 1, 'value', 'test');
+
+        expect(result.success).toBe(false);
+        expect((result as any).kind).toBe('domain');
+        expect(result.message).toContain('locked to authoritative sources');
+        expect((result as any).errorRef).toBeUndefined();
+    });
+});
+
+

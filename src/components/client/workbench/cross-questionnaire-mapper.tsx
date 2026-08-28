@@ -55,6 +55,7 @@ import { FieldDetailPanel } from "../inspection/field-detail-panel";
 import { GroupAnswerRenderer } from "../engagement/group-answer-renderer";
 import type { GroupFieldData } from "../engagement/group-answer-renderer";
 import { toast } from "sonner";
+import { showActionErrorToast } from "@/components/ui/copyable-error-toast";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -1176,7 +1177,7 @@ function QuestionCard({
                 onInlineEdit(editValue, "USER_INPUT", new Date());
                 toast.success("Value updated");
             } else {
-                toast.error(res.message || "Update failed");
+                showActionErrorToast(res, "Update failed");
             }
         } catch (err) {
             toast.error("Update failed");
@@ -1899,7 +1900,7 @@ function QuestionTableRow({
                 onInlineEdit(editValue, "USER_INPUT", new Date());
                 toast.success("Value updated");
             } else {
-                toast.error(res.message || "Update failed");
+                showActionErrorToast(res, "Update failed");
             }
         } catch (err) {
             toast.error("Update failed");
