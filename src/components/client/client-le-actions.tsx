@@ -53,7 +53,7 @@ export function ClientLEActions({ leId, leName }: ClientLEActionsProps) {
 
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" disabled={isLoading} className="h-8 w-8 text-slate-400 hover:text-slate-600">
+                    <Button variant="ghost" size="icon" disabled={isLoading} aria-label="Entity actions" className="h-8 w-8 text-slate-400 hover:text-slate-600">
                         <MoreVertical className="h-4 w-4" />
                     </Button>
                 </DropdownMenuTrigger>
