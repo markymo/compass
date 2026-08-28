@@ -839,9 +839,7 @@ export function QuestionnaireManager({ questionnaire: initialQ, masterFields, li
                                                         </td>
                                                         <td className="px-4 py-2 text-slate-500">
                                                             {child.fiEngagement?.clientLE ? (
-                                                                <Link href={`/app/le/${child.fiEngagement.clientLE.id}`} className="hover:underline hover:text-indigo-600">
-                                                                    {child.fiEngagement.clientLE.name}
-                                                                </Link>
+                                                                <span>{child.fiEngagement.clientLE.name}</span>
                                                             ) : "—"}
                                                         </td>
                                                         <td className="px-4 py-2 text-slate-500">

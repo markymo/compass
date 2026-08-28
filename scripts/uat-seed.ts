@@ -47,7 +47,7 @@ export interface UATSeedResult {
     };
 }
 
-export async function seedUAT(prismaClient?: PrismaClient): Promise<UATSeedResult> {
+export async function seedUAT(prismaClient?: PrismaClient | any, options?: { manifestPath?: string }): Promise<UATSeedResult> {
     // ── 1. ENVIRONMENT SAFETY GATES ──────────────────────────────────────────
     if (process.env.UAT_SEED_ALLOWED !== 'true') {
         throw new Error('Refusing to seed UAT: UAT_SEED_ALLOWED=true environment variable is required.');
@@ -218,6 +218,25 @@ export async function seedUAT(prismaClient?: PrismaClient): Promise<UATSeedResul
             }
         });
 
+        const deletedLE = await prisma.clientLE.upsert({
+            where: { shortCode: 'uat_cle_deleted' },
+            update: {
+                name: 'UAT Deleted Limited',
+                lei: null,
+                gleifData: Prisma.DbNull,
+                nationalRegistryData: Prisma.DbNull,
+                status: 'ARCHIVED',
+                isDeleted: true
+            },
+            create: {
+                name: 'UAT Deleted Limited',
+                shortCode: 'uat_cle_deleted',
+                lei: null,
+                status: 'ARCHIVED',
+                isDeleted: true
+            }
+        });
+
         // ── 4. CLIENT LE OWNERSHIP ───────────────────────────────────────────
         console.log('🔗 Converging ClientLE Ownership...');
 
@@ -246,6 +265,25 @@ export async function seedUAT(prismaClient?: PrismaClient): Promise<UATSeedResul
                     startAt: new Date(),
                     endAt: null
                 }
+            });
+        }
+
+        let deletedOwner = await prisma.clientLEOwner.findFirst({
+            where: { clientLEId: deletedLE.id, partyId: clientOrgA.id }
+        });
+        if (!deletedOwner) {
+            deletedOwner = await prisma.clientLEOwner.create({
+                data: {
+                    clientLEId: deletedLE.id,
+                    partyId: clientOrgA.id,
+                    startAt: new Date(Date.now() - 86400000),
+                    endAt: new Date()
+                }
+            });
+        } else if (!deletedOwner.endAt) {
+            await prisma.clientLEOwner.update({
+                where: { id: deletedOwner.id },
+                data: { endAt: new Date() }
             });
         }
 
@@ -307,6 +345,72 @@ export async function seedUAT(prismaClient?: PrismaClient): Promise<UATSeedResul
             await prisma.fieldClaim.update({
                 where: { id: betaClaim.id },
                 data: { valueText: 'UAT Beta Limited' }
+            });
+        }
+
+        // FieldClaim for Deleted LE (Legal Name)
+        let deletedClaim = await prisma.fieldClaim.findFirst({
+            where: {
+                clientLEId: deletedLE.id,
+                fieldNo: 3,
+                claimRole: 'VALUE',
+                status: 'ASSERTED'
+            }
+        });
+        if (!deletedClaim) {
+            deletedClaim = await prisma.fieldClaim.create({
+                data: {
+                    fieldNo: 3,
+                    clientLEId: deletedLE.id,
+                    ownerScopeId: clientOrgA.id,
+                    claimRole: 'VALUE',
+                    status: 'ASSERTED',
+                    valueText: 'UAT Deleted Limited',
+                    sourceType: 'USER_INPUT',
+                    assertedAt: new Date()
+                }
+            });
+        } else if (deletedClaim.valueText !== 'UAT Deleted Limited') {
+            await prisma.fieldClaim.update({
+                where: { id: deletedClaim.id },
+                data: { valueText: 'UAT Deleted Limited' }
+            });
+        }
+
+        // ── 5B. REFERENCE LIBRARY QUESTIONNAIRE ──────────────────────────────
+        console.log('📚 Converging Reference-Library Questionnaire...');
+        let refQuestionnaire = await prisma.questionnaire.findFirst({
+            where: { referenceCode: 'UAT_REF_QUESTIONNAIRE_V1' }
+        });
+        if (!refQuestionnaire) {
+            refQuestionnaire = await prisma.questionnaire.create({
+                data: {
+                    name: 'UAT Reference Questionnaire',
+                    referenceCode: 'UAT_REF_QUESTIONNAIRE_V1',
+                    kind: 'REFERENCE_SNAPSHOT',
+                    functionalCode: 'UATREF',
+                    isTemplate: true,
+                    visibility: 'GLOBAL',
+                    status: 'ACTIVE',
+                    isDeleted: false,
+                    fiOrgId: systemOrg.id,
+                    ownerOrgId: systemOrg.id
+                }
+            });
+        } else {
+            refQuestionnaire = await prisma.questionnaire.update({
+                where: { id: refQuestionnaire.id },
+                data: {
+                    name: 'UAT Reference Questionnaire',
+                    kind: 'REFERENCE_SNAPSHOT',
+                    functionalCode: 'UATREF',
+                    isTemplate: true,
+                    visibility: 'GLOBAL',
+                    status: 'ACTIVE',
+                    isDeleted: false,
+                    fiOrgId: systemOrg.id,
+                    ownerOrgId: systemOrg.id
+                }
             });
         }
 
@@ -535,6 +639,8 @@ export async function seedUAT(prismaClient?: PrismaClient): Promise<UATSeedResul
             supplierOrgA: { id: supplierOrgA.id, shortCode: supplierOrgA.shortCode, name: supplierOrgA.name },
             alphaClientLE: { id: alphaLE.id, shortCode: alphaLE.shortCode, name: alphaLE.name },
             betaClientLE: { id: betaLE.id, shortCode: betaLE.shortCode, name: betaLE.name },
+            deletedClientLE: { id: deletedLE.id, shortCode: deletedLE.shortCode, name: deletedLE.name },
+            referenceQuestionnaire: { id: refQuestionnaire.id, referenceCode: refQuestionnaire.referenceCode, name: refQuestionnaire.name },
             relationshipAlpha: { id: relAlpha.id },
             relationshipBeta: { id: relBeta.id },
             actors: Object.fromEntries(
@@ -553,7 +659,11 @@ export async function seedUAT(prismaClient?: PrismaClient): Promise<UATSeedResul
         if (!fs.existsSync(manifestDir)) {
             fs.mkdirSync(manifestDir, { recursive: true });
         }
-        const manifestPath = path.join(manifestDir, 'fixture.json');
+        const manifestPath = options?.manifestPath || path.join(manifestDir, 'fixture.json');
+        const targetDir = path.dirname(manifestPath);
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
         fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2), 'utf-8');
 
         const result: UATSeedResult = {
@@ -561,11 +671,11 @@ export async function seedUAT(prismaClient?: PrismaClient): Promise<UATSeedResul
             manifestPath,
             counts: {
                 organizations: 3, // uat_client_org_a, uat_client_org_b, uat_supplier_org_a (excluding reused system org)
-                clientLEs: 2,
+                clientLEs: 3,
                 relationships: 2,
                 users: 9,
                 memberships: 9,
-                fieldClaims: 2
+                fieldClaims: 3
             },
             verification: {
                 alphaDisplayName,

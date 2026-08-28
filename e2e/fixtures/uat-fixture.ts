@@ -1,5 +1,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import dotenv from 'dotenv';
+
+const envUatLocal = path.resolve(process.cwd(), '.env.uat.local');
+if (fs.existsSync(envUatLocal)) {
+    dotenv.config({ path: envUatLocal, override: true });
+} else {
+    dotenv.config();
+}
 
 export interface UATManifestActor {
     email: string;
@@ -16,6 +24,8 @@ export interface UATManifest {
     supplierOrgA: { id: string; shortCode: string; name: string };
     alphaClientLE: { id: string; shortCode: string; name: string };
     betaClientLE: { id: string; shortCode: string; name: string };
+    deletedClientLE?: { id: string; shortCode: string; name: string };
+    referenceQuestionnaire?: { id: string; referenceCode: string; name: string };
     relationshipAlpha: { id: string };
     relationshipBeta: { id: string };
     actors: {

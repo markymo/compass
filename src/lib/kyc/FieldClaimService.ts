@@ -1,7 +1,7 @@
 import prisma from "@/lib/prisma";
 import { getMasterFieldDefinition } from "@/services/masterData/definitionService";
 import { ClaimStatus, SourceType, FieldClaim } from "@prisma/client";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
 
 export type AssertClaimInput = {
     fieldNo: number;
@@ -281,7 +281,7 @@ export class FieldClaimService {
         idempotencyKey?: string
     ): Promise<FieldClaim> {
         await this.validateDocumentExists(attachmentDocumentId, subject.clientLEId);
-        const instanceId = uuidv4();
+        const instanceId = randomUUID();
         return await this.assertClaim({
             fieldNo,
             ...subject,

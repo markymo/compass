@@ -135,7 +135,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 onOpenChange(false);
                 router.refresh();
             } else {
-                toast.error(res.error || "Failed to delete field");
+                toast.error(('message' in res && res.message) || ('error' in res && (res as any).error) || "Failed to delete field");
             }
         } catch (e) {
             toast.error("An error occurred");
@@ -1355,7 +1355,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                         setData(refreshed);
                                                     } else {
-                                                        toast.error(res.error || "Rename failed");
+                                                        toast.error(('message' in res && res.message) || ('error' in res && (res as any).error) || "Rename failed");
                                                     }
                                                     setIsRenamingSaving(false);
                                                 }
@@ -1380,7 +1380,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                     const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                     setData(refreshed);
                                                 } else {
-                                                    toast.error(res.error || "Rename failed");
+                                                    toast.error(('message' in res && res.message) || ('error' in res && (res as any).error) || "Rename failed");
                                                 }
                                                 setIsRenamingSaving(false);
                                             }}

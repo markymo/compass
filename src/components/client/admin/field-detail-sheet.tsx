@@ -195,7 +195,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                 onOpenChange(false);
                 router.refresh();
             } else {
-                toast.error(res.error || "Failed to delete field");
+                toast.error(('message' in res && res.message) || ('error' in res && (res as any).error) || "Failed to delete field");
             }
         } catch (e) {
             toast.error("An error occurred");

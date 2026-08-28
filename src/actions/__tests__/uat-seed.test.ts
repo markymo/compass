@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { seedUAT } from '../../../scripts/uat-seed';
 import * as fs from 'fs';
+import * as path from 'path';
+import * as os from 'os';
 
 describe('Deterministic Synthetic UAT Seed & Environment Guards', () => {
     const originalEnv = { ...process.env };
@@ -190,12 +192,17 @@ describe('Deterministic Synthetic UAT Seed & Environment Guards', () => {
                 },
                 clientLEOwner: {
                     findFirst: vi.fn(async ({ where }: any) => {
-                        return mockOwnerStore.find((o) => o.clientLEId === where.clientLEId && o.partyId === where.partyId && o.endAt === where.endAt) || null;
+                        return mockOwnerStore.find((o) => o.clientLEId === where.clientLEId && o.partyId === where.partyId && (where.endAt === undefined || o.endAt === where.endAt)) || null;
                     }),
                     create: vi.fn(async ({ data }: any) => {
                         const rec = { id: `owner-${mockOwnerStore.length + 1}`, ...data };
                         mockOwnerStore.push(rec);
                         return rec;
+                    }),
+                    update: vi.fn(async ({ where, data }: any) => {
+                        const existing = mockOwnerStore.find((o) => o.id === where.id);
+                        if (existing) Object.assign(existing, data);
+                        return existing;
                     })
                 },
                 fieldClaim: {
@@ -211,6 +218,17 @@ describe('Deterministic Synthetic UAT Seed & Environment Guards', () => {
                         const existing = mockClaimStore.find((c) => c.id === where.id);
                         if (existing) Object.assign(existing, data);
                         return existing;
+                    })
+                },
+                questionnaire: {
+                    findFirst: vi.fn(async ({ where }: any) => {
+                        return null;
+                    }),
+                    create: vi.fn(async ({ data }: any) => {
+                        return { id: 'q-ref-1', ...data };
+                    }),
+                    update: vi.fn(async ({ where, data }: any) => {
+                        return { id: where.id, ...data };
                     })
                 },
                 fIEngagement: {
@@ -265,10 +283,12 @@ describe('Deterministic Synthetic UAT Seed & Environment Guards', () => {
                 }
             };
 
-            const result = await seedUAT(mockPrisma);
+            const tempManifestPath = path.join(os.tmpdir(), `uat-test-manifest-${Date.now()}.json`);
+            const result = await seedUAT(mockPrisma, { manifestPath: tempManifestPath });
 
             expect(result.success).toBe(true);
-            expect(result.counts.clientLEs).toBe(2);
+            expect(result.counts.clientLEs).toBe(3);
+            expect(result.counts.fieldClaims).toBe(3);
             expect(result.counts.users).toBe(9);
             expect(result.counts.memberships).toBe(9);
             expect(result.verification.alphaDisplayName).toBe('UAT Alpha Limited');

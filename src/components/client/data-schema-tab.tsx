@@ -1092,7 +1092,11 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
     const isArrayValue = Array.isArray(value) && value.length > 0;
 
     return (
-        <div className="group transition-all duration-200">
+        <div 
+            className="group transition-all duration-200"
+            data-testid={!isCustom ? `master-field-${fieldNo}` : undefined}
+            data-field-no={!isCustom ? fieldNo : undefined}
+        >
             <div className="flex items-center justify-between mb-1">
                 <div className="flex flex-col">
                     <label className="text-sm font-medium text-secondary-foreground">

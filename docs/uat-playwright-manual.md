@@ -167,3 +167,9 @@ npx playwright show-trace test-results/<failed-test-dir>/trace.zip
    ```
 2. **Requirement-Style Test Names**: E.g. `LE_ADMIN Alpha cannot open Beta Master Data`.
 3. **Use Manifest & Storage States**: Consume `loadUATManifest()` and `PERSONA_STORAGE_STATES` from `e2e/fixtures/uat-fixture.ts`. Do not hardcode database UUIDs.
+
+---
+
+## Related Documentation
+
+* **Playwright Regression & Golden Entity Guide**: See [`docs/playwright-regression-guide.md`](file:///opt/code/coparity/docs/playwright-regression-guide.md) for detailed guidelines on the 2-tier live enrichment regression architecture (`e2e/regression/*.spec.ts`), blank canvas setup, and debugging.

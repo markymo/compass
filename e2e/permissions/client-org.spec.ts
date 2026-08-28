@@ -73,6 +73,31 @@ test.describe('Client Organisation Permission Boundaries', () => {
                 expect([200, 403, 404]).toContain(response.status());
             }
         });
+
+        test('Client ORG_ADMIN cannot access a ClientLE belonging to another organisation', async ({ page }) => {
+            /**
+             * WHY (AUTH-01 / ONP-77):
+             * Multi-tenant boundary: Client ORG_ADMIN in Org A must never access
+             * ClientLE operational data belonging to Org B via direct URL.
+             *
+             * EXPECT:
+             * /app/le/<beta>/master is denied and UAT Beta Limited Master Data is not exposed.
+             *
+             * IF THIS FAILS:
+             * Check multi-tenant ClientLE authorization and ORG_ADMIN boundaries.
+             */
+            const manifest = loadUATManifest();
+            const response = await page.goto(`/app/le/${manifest.betaClientLE.id}/master`);
+
+            // Assert Master Data values/tabs are not exposed
+            await expect(page.getByText('Master Record')).not.toBeVisible();
+            await expect(page.getByRole('tab', { name: 'Master Data' })).not.toBeVisible();
+            await expect(page.getByText(manifest.betaClientLE.name, { exact: true })).not.toBeVisible();
+
+            if (response) {
+                expect([200, 403, 404]).toContain(response.status());
+            }
+        });
     });
 
     test.describe('Client ORG_MEMBER', () => {

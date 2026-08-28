@@ -3,7 +3,7 @@
 import prisma from "@/lib/prisma";
 import { isSystemAdmin } from "./admin";
 import { revalidatePath } from "next/cache";
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 
 import { generateShortCode, makeUnique, normalizeDomain } from "@/lib/org-short-code";
 
@@ -195,7 +195,7 @@ export async function addMemberToOrg(orgId: string, email: string, role: "ORG_AD
         if (!user) {
             user = await prisma.user.create({
                 data: {
-                    id: `invite_${uuidv4()}`,
+                    id: `invite_${randomUUID()}`,
                     email: email
                 }
             });
