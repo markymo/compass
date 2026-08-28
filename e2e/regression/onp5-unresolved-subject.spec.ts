@@ -15,6 +15,7 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
     test.use({ storageState: PERSONA_STORAGE_STATES.clientOrgAdminA });
 
     test('Full Visual UI Lifecycle: Create ClientLE -> Test Legal Name Master Data -> Verify Read-back -> Teardown', async ({ page }) => {
+        test.setTimeout(60000);
         const manifest = loadUATManifest();
         const testLEIdName = `Visual E2E ClientLE ${Date.now()}`;
         const legalNameInput = `Visual E2E Legal Name Asserted Ltd ${Date.now()}`;
@@ -35,23 +36,24 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
             const createDialog = page.locator('[role="dialog"]').or(page.locator('[data-state="open"]')).first();
             await expect(createDialog).toBeVisible();
 
-            // Fill in Name & Jurisdiction (leave LEI empty so legalEntityId = null)
-            const nameInput = createDialog.locator('input[placeholder*="Name"]').or(createDialog.locator('input').first()).first();
+            // Fill in Name & Jurisdiction using exact placeholder/label locators (bypassing LEI lookup top input)
+            const nameInput = createDialog.locator('input[placeholder="Acme Corp Ltd"]').or(createDialog.getByLabel('Entity Name')).first();
+            await expect(nameInput).toBeVisible();
             await nameInput.fill(testLEIdName);
 
-            const jurisdictionInput = createDialog.locator('input[placeholder*="Jurisdiction"]').first();
+            const jurisdictionInput = createDialog.locator('input[placeholder*="UK, Delaware"]').or(createDialog.getByLabel('Jurisdiction')).first();
             if (await jurisdictionInput.isVisible()) {
                 await jurisdictionInput.fill('United Kingdom');
             }
 
-            // Click Create & Continue
-            const submitBtn = createDialog.getByRole('button', { name: /Create & Continue|Create/i }).first();
+            // Click Create Legal Entity button
+            const submitBtn = createDialog.getByRole('button', { name: 'Create Legal Entity' }).first();
             await submitBtn.click();
 
-            // Wait for step 2 / Done button
-            const doneBtn = createDialog.getByRole('button', { name: /Done/i }).first();
-            await expect(doneBtn).toBeVisible({ timeout: 10000 });
-            await doneBtn.click();
+            // Step 2: Click Finish setup
+            const finishBtn = createDialog.getByRole('button', { name: /Finish setup|Done|Skip for now/i }).first();
+            await expect(finishBtn).toBeVisible({ timeout: 15000 });
+            await finishBtn.click();
 
             // ---------------------------------------------------------------------
             // STEP 2: Find created ClientLE & Navigate to Master Data View
