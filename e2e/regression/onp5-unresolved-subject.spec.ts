@@ -1,55 +1,36 @@
 import { test, expect } from '@playwright/test';
 import { loadUATManifest, PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture';
+import prisma from '../../src/lib/prisma';
 
 test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
     test.use({ storageState: PERSONA_STORAGE_STATES.clientOrgAdminA });
 
+    test.beforeAll(async () => {
+        const manifest = loadUATManifest();
+        try {
+            await prisma.clientLE.updateMany({
+                where: {
+                    name: { contains: 'HORNSEA', mode: 'insensitive' },
+                    owners: { some: { partyId: manifest.clientOrgA.id } }
+                },
+                data: { isDeleted: true, status: 'ARCHIVED' }
+            });
+            console.log('\n[beforeAll Cleanup] Successfully soft-deleted pre-existing Hornsea entities in DB for clean test state.\n');
+        } catch (e) {
+            console.error('[beforeAll Cleanup] DB cleanup note:', e);
+        }
+    });
+
     test('Full E2E Visual Lifecycle: Delete Existing -> Create Hornsea GLEIF Entity -> Verify Source Data Propagation -> Teardown', async ({ page }) => {
-        test.setTimeout(120000);
+        test.setTimeout(60000);
 
         const manifest = loadUATManifest();
 
-        // ---------------------------------------------------------------------
-        // STEP 1: PRE-TEST CLEANUP - Delete ALL pre-existing Hornsea entities
-        // ---------------------------------------------------------------------
+        // 1. Direct Navigate to Client Org Dashboard
         await page.goto(`/app/clients/${manifest.clientOrgA.id}`);
         await expect(page).toHaveURL(new RegExp(`/app/clients/${manifest.clientOrgA.id}`));
 
-        while (true) {
-            const existingLink = page.getByText(/HORNSEA/i).first();
-            if (!(await existingLink.isVisible({ timeout: 2000 }).catch(() => false))) {
-                break;
-            }
-
-            console.log('\n[Setup Cleanup] Found pre-existing Hornsea entity. Deleting to ensure a completely clean organization...');
-            await existingLink.click();
-            await page.waitForURL(/\/app\/le\/[a-zA-Z0-9-]+/);
-
-            const menuButton = page.locator('button[aria-haspopup="menu"]').or(page.getByRole('button', { name: /actions|more|settings/i })).first();
-            if (await menuButton.isVisible({ timeout: 3000 }).catch(() => false)) {
-                await menuButton.click();
-                const deleteMenuItem = page.getByRole('menuitem', { name: /Delete/i }).or(page.getByText('Delete')).first();
-                if (await deleteMenuItem.isVisible({ timeout: 2000 }).catch(() => false)) {
-                    await deleteMenuItem.click();
-                    const alertDialog = page.locator('[role="alertdialog"]').or(page.locator('[role="dialog"]')).first();
-                    if (await alertDialog.isVisible({ timeout: 2000 }).catch(() => false)) {
-                        const confirmBtn = alertDialog.getByRole('button', { name: 'Delete' }).first();
-                        if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-                            await confirmBtn.click();
-                            await page.waitForURL(/\/app/, { timeout: 10000 }).catch(() => {});
-                        }
-                    }
-                }
-            }
-            await page.goto(`/app/clients/${manifest.clientOrgA.id}`);
-            await expect(page).toHaveURL(new RegExp(`/app/clients/${manifest.clientOrgA.id}`));
-        }
-
-        console.log('[Setup Cleanup] Organization is completely clean. Starting fresh creation lifecycle...');
-
-        // ---------------------------------------------------------------------
-        // STEP 2: FRESH CREATION - Open Add Legal Entity Modal & Search GLEIF
-        // ---------------------------------------------------------------------
+        // 2. Open Add Legal Entity Modal & Search GLEIF for Hornsea
         const addLeBtn = page.getByRole('button', { name: 'Add Legal Entity' }).first();
         await expect(addLeBtn).toBeVisible({ timeout: 15000 });
         await addLeBtn.click();
@@ -72,9 +53,7 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
             }
         }
 
-        // ---------------------------------------------------------------------
-        // STEP 3: SUBMIT CREATION & TRIGGER SOURCE DATA BOOTSTRAP
-        // ---------------------------------------------------------------------
+        // 3. Create Entity & Trigger Source Data Bootstrap
         const createBtn = page.getByRole('button', { name: 'Create Legal Entity' }).first();
         await expect(createBtn).toBeEnabled({ timeout: 10000 });
         await createBtn.click();
@@ -93,9 +72,7 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
         await expect(finishBtn).toBeVisible({ timeout: 15000 });
         await finishBtn.click();
 
-        // ---------------------------------------------------------------------
-        // STEP 4: OPEN DOSSIER & NAVIGATE TO MASTER RECORD TAB
-        // ---------------------------------------------------------------------
+        // 4. Open Newly Created Entity & Navigate to "Master Record" tab
         const leItem = page.getByText(/HORNSEA 1 LIMITED/i).last();
         await expect(leItem).toBeVisible({ timeout: 15000 });
         await leItem.click();
@@ -108,14 +85,13 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
 
         await expect(page).toHaveURL(/\/master/);
 
-        // ---------------------------------------------------------------------
-        // STEP 5: VERIFY PROPAGATION OF SOURCE DATA TO FIELD 3 (LEGAL NAME)
-        // ---------------------------------------------------------------------
+        // 5. Search / Filter Master Record for Field 3 (Legal Name)
         const masterSearch = page.locator('input[placeholder*="Search master fields"]').or(page.getByRole('textbox', { name: /Search/i })).first();
         if (await masterSearch.isVisible({ timeout: 5000 }).catch(() => false)) {
             await masterSearch.fill('Legal Name');
         }
 
+        // 6. Inspect Field 3 Row Element
         const field3Row = page.locator('div.group').filter({ hasText: 'Field 3' }).first();
         await expect(field3Row).toBeVisible({ timeout: 15000 });
 
@@ -128,9 +104,7 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
         // Assert Field 3 row contains propagated source data "Hornsea"
         await expect(field3Row).toContainText(/Hornsea/i);
 
-        // ---------------------------------------------------------------------
-        // STEP 6: TEARDOWN - CLEAN UP CREATED DOSSIER AT END OF TEST
-        // ---------------------------------------------------------------------
+        // 7. Teardown: Open Actions Menu & Delete Entity
         const menuButton = page.locator('button[aria-haspopup="menu"]').or(page.getByRole('button', { name: /actions|more|settings/i })).first();
         if (await menuButton.isVisible({ timeout: 3000 }).catch(() => false)) {
             await menuButton.click();
