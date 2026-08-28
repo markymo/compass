@@ -47,7 +47,9 @@ test('Full E2E Visual Lifecycle: Create Hornsea 1 Limited -> Inspect Legal Name 
   await finishBtn.click();
 
   // 4. Open Created Entity & Inspect Field 3 (Legal Name)
-  await page.getByRole('link', { name: /HORNSEA 1 LIMITED/i }).first().click();
+  const leLink = page.getByRole('link', { name: /HORNSEA 1 LIMITED/i }).last();
+  await expect(leLink).toBeVisible({ timeout: 10000 });
+  await leLink.click();
   await page.getByRole('button', { name: 'Inspect field 3: Legal name' }).click();
 
   // 5. Assert Legal Name contains expected text
