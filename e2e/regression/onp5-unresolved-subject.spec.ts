@@ -22,19 +22,26 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
             await page.waitForURL(/\/app\/le\/[a-zA-Z0-9-]+/);
 
             const menuButton = page.locator('button[aria-haspopup="menu"]').or(page.getByRole('button', { name: /actions|more|settings/i })).first();
-            if (await menuButton.isVisible({ timeout: 3000 }).catch(() => false)) {
+            if (await menuButton.isVisible({ timeout: 5000 }).catch(() => false)) {
                 await menuButton.click();
-                const deleteText = page.getByText('Delete').first();
-                if (await deleteText.isVisible({ timeout: 2000 }).catch(() => false)) {
-                    await deleteText.click();
-                    const confirmBtn = page.getByRole('button', { name: 'Delete' }).first();
-                    if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-                        await confirmBtn.click();
+
+                const deleteMenuItem = page.getByRole('menuitem', { name: /Delete/i }).or(page.getByText('Delete')).first();
+                if (await deleteMenuItem.isVisible({ timeout: 5000 }).catch(() => false)) {
+                    await deleteMenuItem.click();
+
+                    const alertDialog = page.locator('[role="alertdialog"]').or(page.locator('[role="dialog"]')).first();
+                    if (await alertDialog.isVisible({ timeout: 5000 }).catch(() => false)) {
+                        const confirmDeleteBtn = alertDialog.getByRole('button', { name: 'Delete' }).first();
+                        if (await confirmDeleteBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+                            await confirmDeleteBtn.click();
+                            await page.waitForURL(/\/app/, { timeout: 10000 }).catch(() => {});
+                        }
                     }
                 }
             }
             // Return to Client Org Dashboard
             await page.goto(`/app/clients/${manifest.clientOrgA.id}`);
+            await expect(page).toHaveURL(new RegExp(`/app/clients/${manifest.clientOrgA.id}`));
         }
 
         // ---------------------------------------------------------------------
@@ -124,12 +131,15 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
         const menuButton = page.locator('button[aria-haspopup="menu"]').or(page.getByRole('button', { name: /actions|more|settings/i })).first();
         if (await menuButton.isVisible({ timeout: 3000 }).catch(() => false)) {
             await menuButton.click();
-            const deleteText = page.getByText('Delete').first();
-            if (await deleteText.isVisible({ timeout: 2000 }).catch(() => false)) {
-                await deleteText.click();
-                const confirmBtn = page.getByRole('button', { name: 'Delete' }).first();
-                if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-                    await confirmBtn.click();
+            const deleteMenuItem = page.getByRole('menuitem', { name: /Delete/i }).or(page.getByText('Delete')).first();
+            if (await deleteMenuItem.isVisible({ timeout: 2000 }).catch(() => false)) {
+                await deleteMenuItem.click();
+                const alertDialog = page.locator('[role="alertdialog"]').or(page.locator('[role="dialog"]')).first();
+                if (await alertDialog.isVisible({ timeout: 2000 }).catch(() => false)) {
+                    const confirmBtn = alertDialog.getByRole('button', { name: 'Delete' }).first();
+                    if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+                        await confirmBtn.click();
+                    }
                 }
             }
         }
