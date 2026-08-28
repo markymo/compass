@@ -27,6 +27,14 @@ test.describe('Client Legal Entity Permission Boundaries', () => {
             await page.goto(`/app/le/${manifest.alphaClientLE.id}/master`);
             await expect(page).toHaveURL(new RegExp(`/app/le/${manifest.alphaClientLE.id}/master`));
             await expect(page.getByText('UAT Alpha Limited').first()).toBeVisible();
+
+            // Verify ClientLE Actions dropdown offers Delete and does NOT offer Archive Entity
+            const actionsTrigger = page.locator('button:has(svg.lucide-more-vertical)');
+            if (await actionsTrigger.isVisible()) {
+                await actionsTrigger.click();
+                await expect(page.getByRole('menuitem', { name: /Delete/i })).toBeVisible();
+                await expect(page.getByRole('menuitem', { name: /Archive/i })).not.toBeVisible();
+            }
         });
 
         test('LE_ADMIN Alpha cannot open Beta Master Data', async ({ page }) => {
