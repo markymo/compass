@@ -407,7 +407,7 @@ export class KycWriteService {
                     instanceId: rowId,
                     collectionId: expectedCollectionId ?? null,
                 },
-                select: { id: true, valueJson: true, sourceType: true, valuePersonId: true, valueLeId: true, valueAddressId: true },
+                select: { id: true, valueJson: true, valueText: true, sourceType: true, valuePersonId: true, valueLeId: true, valueAddressId: true },
                 orderBy: { assertedAt: 'desc' }
             });
 
@@ -422,13 +422,17 @@ export class KycWriteService {
                     return true;
                 }
 
-                if (existingDerived && valuesAreCanonicallyEqual(existingDerived.value, value)) {
+                const existingInstanceValue = existingInstance.valueJson ?? existingInstance.valueText;
+                const isMatch = (existingDerived && valuesAreCanonicallyEqual(existingDerived.value, value)) ||
+                                valuesAreCanonicallyEqual(existingInstanceValue, value);
+
+                if (isMatch) {
                     const incomingSourceType = (provenance.source as any) === 'USER_INPUT' ? 'USER_INPUT'
                         : (provenance.source as any) === 'GLEIF' ? 'GLEIF'
                         : (provenance.source as any) === 'REGISTRATION_AUTHORITY' ? 'REGISTRATION_AUTHORITY'
                         : 'SYSTEM_DERIVED';
                         
-                    if (existingDerived.sourceType === incomingSourceType) {
+                    if (existingInstance.sourceType === incomingSourceType || existingDerived?.sourceType === incomingSourceType) {
                         if (clientLEId) {
                             await this.performEdgeWriteback(
                                 fieldNo,
@@ -442,8 +446,6 @@ export class KycWriteService {
                         console.log(`[KycWriteService] Idempotency: instanceId="${rowId}" collectionId="${expectedCollectionId}" already has an identical authoritative value claim for Field ${fieldNo}. Skipping claim write.`);
                         return true;
                     }
-                } else if (!isTombstone && !existingDerived) {
-                     // Failsafe
                 }
             }
         } else {

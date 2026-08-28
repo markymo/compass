@@ -834,12 +834,18 @@ export class KycStateService {
             const priorityMap = priorityMapByField.get(def.fieldNo) ?? new Map();
 
             if (def.isMultiValue) {
-                // Group by (collectionId, instanceId) — mirrors getAuthoritativeCollection
-                const itemGroups: Record<string, FieldClaim[]> = {};
-                for (const c of claims) {
-                    const key = `${c.collectionId ?? 'default'}:${c.instanceId ?? 'default'}`;
-                    if (!itemGroups[key]) itemGroups[key] = [];
-                    itemGroups[key].push(c);
+                // Group by collectionId and instanceId (or collection-configured groupClaims partitioner)
+                const config = COLLECTION_FIELD_CONFIG[def.fieldNo];
+                let itemGroups: Record<string, FieldClaim[]>;
+                if (config?.groupClaims) {
+                    itemGroups = config.groupClaims(claims);
+                } else {
+                    itemGroups = {};
+                    for (const c of claims) {
+                        const key = `${c.collectionId ?? 'default'}:${c.instanceId ?? 'default'}`;
+                        if (!itemGroups[key]) itemGroups[key] = [];
+                        itemGroups[key].push(c);
+                    }
                 }
 
                 const collectionWithOrder: { derived: DerivedValue; oldestAssertedAt: number; oldestId: string }[] = [];
@@ -868,7 +874,6 @@ export class KycStateService {
                 const collection = collectionWithOrder.map(c => c.derived);
 
                 // Effective-date post-filter (mirrors getAuthoritativeCollection)
-                const config = COLLECTION_FIELD_CONFIG[def.fieldNo];
                 const filtered = config?.filterByEffectiveDate
                     ? collection.filter(row => !row.effectiveTo || row.effectiveTo > now)
                     : collection;

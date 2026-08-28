@@ -260,16 +260,18 @@ test.describe('Hornsea 1 Live Enrichment Deep Master Data Contract Suite', () =>
         expect(naturesOfControl.some((n: string) => n.includes('75-to-100-percent')), 'PSC must have 75-100% control').toBe(true);
 
         // Field 5 (Previous Legal Name)
-        const previousNames = getFieldVal(5);
-        expect(Array.isArray(previousNames), 'Field 5 (Previous legal name) must be an array').toBe(true);
-        const heronWind = previousNames.find((n: any) =>
-            (typeof n === 'string' && n.includes('HERON WIND LIMITED')) ||
-            (typeof n === 'object' && n.name === 'HERON WIND LIMITED')
-        );
-        expect(heronWind, 'Field 5 must include previous name HERON WIND LIMITED').toBeDefined();
-        if (typeof heronWind === 'object') {
-            expect(heronWind.effectiveTo, 'Previous name effectiveTo date must match Companies House').toBe('2017-11-22');
-        }
+        const previousNameEntries = (resolvedMap.get(5) as any[]) || [];
+        expect(Array.isArray(previousNameEntries), 'Field 5 (Previous legal name) must be an array').toBe(true);
+        const heronWindEntry = previousNameEntries.find((e: any) => {
+            const val = e?.value;
+            const name = typeof val === 'string' ? val : (val?.name || '');
+            return name.includes('HERON WIND LIMITED');
+        });
+        expect(heronWindEntry, 'Field 5 must include previous name HERON WIND LIMITED').toBeDefined();
+        const effectiveTo = heronWindEntry?.effectiveTo
+            ? (heronWindEntry.effectiveTo instanceof Date ? heronWindEntry.effectiveTo.toISOString().slice(0, 10) : String(heronWindEntry.effectiveTo).slice(0, 10))
+            : heronWindEntry?.value?.effectiveTo;
+        expect(effectiveTo, 'Previous name effectiveTo date must match Companies House').toBe('2017-11-22');
 
         // --- Category D: Industry Classification (UK SIC Code List) ---
         const sicField = getFieldVal(20);

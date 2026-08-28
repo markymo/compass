@@ -134,9 +134,10 @@ test.describe('Hornsea 1 End-to-End Master Record UI Lifecycle Regression', () =
         // Wait for modal dismissal (durable state change, immune to ephemeral toast auto-dismiss timeouts)
         await expect(page.locator('[role="dialog"]')).not.toBeVisible({ timeout: 20000 });
 
-        // ---------------------------------------------------------------------
-        // 4. NAVIGATE TO DOSSIER & OPEN MASTER RECORD TAB
-        // ---------------------------------------------------------------------
+        // Ensure fresh client list
+        await page.goto(`/app/clients/${testOrgId}`);
+        await page.waitForLoadState('networkidle');
+
         const hornseaLink = page.locator('a[href*="/app/le/"]').filter({ hasText: /HORNSEA 1 LIMITED/i }).first();
         await expect(hornseaLink).toBeVisible({ timeout: 20000 });
         await hornseaLink.click();
