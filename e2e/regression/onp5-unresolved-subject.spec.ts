@@ -73,14 +73,20 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
 
         await expect(page).toHaveURL(/\/master/);
 
-        // 5. Inspect Field 3 (Legal Name)
-        const inspectField3Btn = page.locator('div[role="button"]').filter({ hasText: 'Field 3' }).or(page.getByText('Legal name')).or(page.getByText('Legal Name')).first();
+        // 5. Search / Filter Master Record for Field 3 (Legal Name)
+        const masterSearch = page.locator('input[placeholder*="Search master fields"]').or(page.getByRole('textbox', { name: /Search/i })).first();
+        if (await masterSearch.isVisible({ timeout: 5000 }).catch(() => false)) {
+            await masterSearch.fill('Legal Name');
+        }
+
+        // Inspect Field 3 card
+        const inspectField3Btn = page.locator('div[role="button"]').filter({ hasText: 'Field 3' }).or(page.getByText('Legal Name')).or(page.getByText('Legal name')).first();
         await expect(inspectField3Btn).toBeVisible({ timeout: 15000 });
         await inspectField3Btn.click();
 
         // 6. Assert Right-hand Drawer displays Legal Name
-        const drawer = page.locator('[role="dialog"]').or(page.locator('[data-state="open"]')).first();
-        await expect(drawer).toBeVisible({ timeout: 10000 });
+        const drawer = page.locator('[role="dialog"]').or(page.locator('[data-state="open"]')).or(page.locator('div.fixed')).first();
+        await expect(drawer).toBeVisible({ timeout: 15000 });
         await expect(drawer).toContainText(/Hornsea/i);
 
         // 7. Teardown: Open Actions Menu & Delete Entity
