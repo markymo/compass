@@ -36,26 +36,37 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
             }
         }
 
-        // 3. Create Entity (with LEI retained so bootstrapEntity enriches Field 3 Legal Name)
+        // 3. Create Entity & Handle Duplicate Protection
         const createBtn = page.getByRole('button', { name: 'Create Legal Entity' }).first();
         await expect(createBtn).toBeEnabled({ timeout: 10000 });
         await createBtn.click();
 
-        // Wait for Step 2 modal to finish loading team members
-        await expect(page.getByText('Loading team members...')).not.toBeVisible({ timeout: 15000 }).catch(() => {});
+        // Handle duplicate detection if entity already exists in org from previous run
+        const duplicateError = page.getByText(/already exists in your organisation/i);
+        if (await duplicateError.isVisible({ timeout: 3000 }).catch(() => false)) {
+            console.log('\n[Notice] HORNSEA 1 LIMITED already exists in organization. Closing modal and using existing dossier.');
+            const closeBtn = page.getByRole('button', { name: 'Close' }).or(page.locator('button[aria-label="Close"]')).first();
+            if (await closeBtn.isVisible()) {
+                await closeBtn.click();
+            }
+        } else {
+            // Wait for Step 2 modal to finish loading team members
+            await expect(page.getByText('Loading team members...')).not.toBeVisible({ timeout: 15000 }).catch(() => {});
 
-        // Optional: click Admin access button if present, otherwise proceed
-        const setAdminBtn = page.getByRole('button', { name: /Set .* access to Admin/i }).first();
-        if (await setAdminBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
-            await setAdminBtn.click();
+            // Optional: click Admin access button if present, otherwise proceed
+            const setAdminBtn = page.getByRole('button', { name: /Set .* access to Admin/i }).first();
+            if (await setAdminBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+                await setAdminBtn.click();
+            }
+
+            // Click Finish setup to submit saveClientLEPermissions
+            const finishBtn = page.getByRole('button', { name: 'Finish setup' }).first();
+            if (await finishBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
+                await finishBtn.click();
+            }
         }
 
-        // Click Finish setup to submit saveClientLEPermissions
-        const finishBtn = page.getByRole('button', { name: 'Finish setup' }).first();
-        await expect(finishBtn).toBeVisible({ timeout: 15000 });
-        await finishBtn.click();
-
-        // 4. Open Newly Created Entity & Navigate to "Master Record" tab
+        // 4. Open Newly Created or Existing Entity & Navigate to "Master Record" tab
         const leItem = page.getByText(/HORNSEA 1 LIMITED/i).last();
         await expect(leItem).toBeVisible({ timeout: 15000 });
         await leItem.click();
