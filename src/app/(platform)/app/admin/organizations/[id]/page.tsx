@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { getOrganizationDetails, updateOrganization, archiveOrganization, unarchiveOrganization } from "@/actions/org";
+import { getOrganizationDetails, updateOrganization } from "@/actions/org";
 import { inviteUser, getPendingInvitations } from "@/actions/invitations";
 import { createLegalEntity } from "@/actions/client-le";
 import { getQuestionnaires, createQuestionnaire, startBackgroundExtraction } from "@/actions/questionnaire";
@@ -11,13 +11,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, UserPlus, Mail, FileText, Upload, Plus, Pen, Check, X, Trash2, ArchiveRestore, Clock, Building, CheckCircle2, AlertCircle, Shield, Eye, Info } from "lucide-react";
+import { Loader2, ArrowLeft, UserPlus, Mail, FileText, Upload, Plus, Pen, Check, X, Trash2, Clock, Building, CheckCircle2, AlertCircle, Shield, Eye, Info } from "lucide-react";
 import Link from "next/link";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { ConfirmArchiveDialog } from "@/components/shared/confirm-dialogs";
 import { ClientLETable } from "@/components/admin/ClientLETable";
 import { mapClientLEToAdminRow } from "@/types/admin-client-le";
 
@@ -82,11 +81,6 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
     // Edit State
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState("");
-
-    // Archive / Unarchive State
-    const [archiveOpen, setArchiveOpen] = useState(false);
-    const [unarchiveOpen, setUnarchiveOpen] = useState(false);
-    const [isArchiving, setIsArchiving] = useState(false);
 
     async function handleSaveName() {
         if (!org || !editName.trim()) return;
@@ -265,66 +259,9 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                             {org.types.map((t: string) => (
                                 <Badge key={t} variant="secondary">{t}</Badge>
                             ))}
-                            {org.status === "ARCHIVED" && (
-                                <Badge variant="destructive">ARCHIVED</Badge>
-                            )}
                         </h1>
                     )}
                     <p className="text-muted-foreground text-sm">ID: {org.id}</p>
-                </div>
-
-                <div className="ml-auto">
-                    {org.status === "ARCHIVED" ? (
-                        <>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setUnarchiveOpen(true)}
-                            >
-                                <ArchiveRestore className="w-4 h-4 mr-2" />
-                                Unarchive Organization
-                            </Button>
-                            <ConfirmArchiveDialog
-                                open={unarchiveOpen}
-                                onOpenChange={setUnarchiveOpen}
-                                title="Unarchive Organization?"
-                                description="Are you sure you want to unarchive this organization? All associated Legal Entities will also be unarchived."
-                                isLoading={isArchiving}
-                                onConfirm={async () => {
-                                    setIsArchiving(true);
-                                    await unarchiveOrganization(org.id);
-                                    await loadData(org.id);
-                                    toast.success("Organization Unarchived");
-                                    setIsArchiving(false);
-                                }}
-                            />
-                        </>
-                    ) : (
-                        <>
-                            <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => setArchiveOpen(true)}
-                            >
-                                <Trash2 className="w-4 h-4 mr-2" />
-                                Archive Organization
-                            </Button>
-                            <ConfirmArchiveDialog
-                                open={archiveOpen}
-                                onOpenChange={setArchiveOpen}
-                                title="Archive Organization?"
-                                description="Are you sure you want to archive this organization? All associated Legal Entities will also be archived and hidden from primary workflows."
-                                isLoading={isArchiving}
-                                onConfirm={async () => {
-                                    setIsArchiving(true);
-                                    await archiveOrganization(org.id);
-                                    await loadData(org.id);
-                                    toast.success("Organization Archived");
-                                    setIsArchiving(false);
-                                }}
-                            />
-                        </>
-                    )}
                 </div>
             </div>
 

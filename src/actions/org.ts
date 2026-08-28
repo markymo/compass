@@ -303,82 +303,8 @@ export async function updateOrgShortCode(orgId: string, shortCode: string | null
         }
     }
 }
-// 6. Archive Organization (Admin Only)
-export async function archiveOrganization(orgId: string) {
-    const isAdmin = await isSystemAdmin();
-    if (!isAdmin) return { success: false, error: "Unauthorized" };
 
-    try {
-        // Archive the Org
-        await prisma.organization.update({
-            where: { id: orgId },
-            data: { status: "ARCHIVED" }
-        });
-
-        // Optionally Archive all Owned LEs?
-        // Let's cascade conceptually (frontend filtering) or explicitly?
-        // Explicitly is safer for queries.
-        // Find owned LEs
-        const owned = await prisma.clientLEOwner.findMany({
-            where: { partyId: orgId, endAt: null },
-            include: { clientLE: true }
-        });
-
-        const leIds = owned.map((o: any) => o.clientLEId);
-
-        if (leIds.length > 0) {
-            await prisma.clientLE.updateMany({
-                where: { id: { in: leIds } },
-                data: { status: "ARCHIVED" }
-            });
-        }
-
-        revalidatePath(`/app/admin/organizations/${orgId}`);
-        revalidatePath("/app/admin/organizations");
-        return { success: true };
-    } catch (e) {
-        console.error(e);
-        return { success: false, error: "Failed to archive organization" };
-    }
-}
-
-// 7. Unarchive Organization (Admin Only)
-export async function unarchiveOrganization(orgId: string) {
-    const isAdmin = await isSystemAdmin();
-    if (!isAdmin) return { success: false, error: "Unauthorized" };
-
-    try {
-        // Unarchive the Org
-        await prisma.organization.update({
-            where: { id: orgId },
-            data: { status: "ACTIVE" }
-        });
-
-        // Unarchive all Owned LEs
-        const owned = await prisma.clientLEOwner.findMany({
-            where: { partyId: orgId, endAt: null },
-            include: { clientLE: true }
-        });
-
-        const leIds = owned.map((o: any) => o.clientLEId);
-
-        if (leIds.length > 0) {
-            await prisma.clientLE.updateMany({
-                where: { id: { in: leIds } },
-                data: { status: "ACTIVE" }
-            });
-        }
-
-        revalidatePath(`/app/admin/organizations/${orgId}`);
-        revalidatePath("/app/admin/organizations");
-        return { success: true };
-    } catch (e) {
-        console.error(e);
-        return { success: false, error: "Failed to unarchive organization" };
-    }
-}
-
-// 8a. Check if Organization can be safely deleted (Admin Only)
+// 6a. Check if Organization can be safely deleted (Admin Only)
 //
 // Read-only check — does NOT delete. Checks ALL Prisma relations.
 export async function checkOrgDeletable(orgId: string): Promise<{
