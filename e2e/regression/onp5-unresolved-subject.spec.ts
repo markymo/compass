@@ -4,8 +4,11 @@ test.use({
   storageState: 'playwright/.auth/client-org-admin-a.json'
 });
 
-test('Full E2E Visual Lifecycle: Create Hornsea 1 Limited -> Inspect Legal Name -> Delete', async ({ page }) => {
+test('Full E2E Visual Lifecycle: Create Hornsea Entity -> Inspect Legal Name -> Delete', async ({ page }) => {
   test.setTimeout(60000);
+
+  const timestamp = Date.now();
+  const uniqueName = `HORNSEA 1 LIMITED E2E ${timestamp}`;
 
   // 1. Navigate & Open Org Dashboard
   await page.goto('https://dev.onpro.tech/');
@@ -17,13 +20,10 @@ test('Full E2E Visual Lifecycle: Create Hornsea 1 Limited -> Inspect Legal Name 
   await page.getByRole('textbox', { name: 'Start typing company name...' }).fill('Hornsea');
   await page.getByRole('button', { name: 'HORNSEA 1 LIMITED' }).click();
 
-  // Ensure Entity Name & Jurisdiction fields are populated (handleCreate requires both name & jurisdiction)
+  // Set a unique name so leftover entities from previous runs never collide
   const nameInput = page.locator('input[placeholder="Acme Corp Ltd"]').or(page.getByLabel('Entity Name')).first();
   if (await nameInput.isVisible()) {
-    const currentName = await nameInput.inputValue();
-    if (!currentName.trim()) {
-      await nameInput.fill('HORNSEA 1 LIMITED');
-    }
+    await nameInput.fill(uniqueName);
   }
 
   const jurisdictionInput = page.locator('input[placeholder*="UK, Delaware"]').or(page.getByLabel('Jurisdiction')).first();
@@ -50,9 +50,11 @@ test('Full E2E Visual Lifecycle: Create Hornsea 1 Limited -> Inspect Legal Name 
   await expect(finishBtn).toBeVisible({ timeout: 15000 });
   await finishBtn.click();
 
-  // 4. Open Created Entity & Inspect Field 3 (Legal Name)
-  const leLink = page.getByRole('link', { name: /HORNSEA 1 LIMITED/i }).last();
-  await expect(leLink).toBeVisible({ timeout: 10000 });
+  // 4. Open Newly Created Entity & Inspect Field 3 (Legal Name)
+  const leLink = page.getByRole('link', { name: uniqueName }).first();
+  await expect(leLink).toBeVisible({ timeout: 15000 });
+  await leLink.click();
+
   const inspectField3Btn = page.locator('div[role="button"][aria-label*="Inspect field 3"]').or(page.getByRole('button', { name: /Inspect field 3/i })).or(page.getByText(/Legal Name/i)).first();
   await expect(inspectField3Btn).toBeVisible({ timeout: 15000 });
   await inspectField3Btn.click();
