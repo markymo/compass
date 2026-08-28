@@ -61,9 +61,21 @@ test.describe('ONP-5 Unresolved Subject Full UI Lifecycle Suite', () => {
         await finishBtn.click();
 
         // 4. Open Newly Created Entity & Inspect Field 3 (Legal Name)
-        const leLink = page.getByRole('link', { name: uniqueName }).first();
-        await expect(leLink).toBeVisible({ timeout: 15000 });
-        await leLink.click();
+        const leItem = page.getByText(uniqueName).first();
+        await expect(leItem).toBeVisible({ timeout: 15000 });
+        await leItem.click();
+
+        // Navigate to Master Data surface if on overview page
+        await page.waitForURL(/\/app\/le\/[a-zA-Z0-9-]+/);
+        if (!page.url().includes('/master')) {
+            const masterTab = page.getByRole('link', { name: /Master Data/i }).first();
+            if (await masterTab.isVisible({ timeout: 5000 }).catch(() => false)) {
+                await masterTab.click();
+            } else {
+                await page.goto(`${page.url().replace(/\/$/, '')}/master`);
+            }
+        }
+        await expect(page).toHaveURL(/\/master/);
 
         const inspectField3Btn = page.locator('div[role="button"][aria-label*="Inspect field 3"]').or(page.getByRole('button', { name: /Inspect field 3/i })).or(page.getByText(/Legal Name/i)).first();
         await expect(inspectField3Btn).toBeVisible({ timeout: 15000 });
