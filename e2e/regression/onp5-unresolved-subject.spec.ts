@@ -17,6 +17,23 @@ test('Full E2E Visual Lifecycle: Create Hornsea 1 Limited -> Inspect Legal Name 
   await page.getByRole('textbox', { name: 'Start typing company name...' }).fill('Hornsea');
   await page.getByRole('button', { name: 'HORNSEA 1 LIMITED' }).click();
 
+  // Ensure Entity Name & Jurisdiction fields are populated (handleCreate requires both name & jurisdiction)
+  const nameInput = page.locator('input[placeholder="Acme Corp Ltd"]').or(page.getByLabel('Entity Name')).first();
+  if (await nameInput.isVisible()) {
+    const currentName = await nameInput.inputValue();
+    if (!currentName.trim()) {
+      await nameInput.fill('HORNSEA 1 LIMITED');
+    }
+  }
+
+  const jurisdictionInput = page.locator('input[placeholder*="UK, Delaware"]').or(page.getByLabel('Jurisdiction')).first();
+  if (await jurisdictionInput.isVisible()) {
+    const currentJurisdiction = await jurisdictionInput.inputValue();
+    if (!currentJurisdiction.trim()) {
+      await jurisdictionInput.fill('United Kingdom');
+    }
+  }
+
   // 3. Create Entity & Set Team Access
   await page.getByRole('button', { name: 'Create Legal Entity' }).click();
   
