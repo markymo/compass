@@ -37,7 +37,7 @@ vi.mock("@/lib/prisma", () => ({
         },
         fIEngagement: {
             findUnique: vi.fn(),
-            findMany: vi.fn()
+            findMany: vi.fn().mockResolvedValue([])
         },
         question: {
             createMany: vi.fn(),
