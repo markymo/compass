@@ -34,22 +34,14 @@ test.describe('DOC-01 / ONP-29 + ONP-64 — Relationship Document & Output Pack 
         if (!engagement) throw new Error(`Active engagement for ${clientLE.id} not found`);
         engagementId = engagement.id;
 
-        // Clean up previous test documents
-        await prisma.document.deleteMany({
-            where: {
-                name: { startsWith: 'DOC01_' },
-                clientLEId: clientLE.id,
-            }
-        });
-
-        // Create test document and share it directly with the engagement
+        // Shared-fixture preservation: create a unique disposable document linked to the relationship
         const doc = await prisma.document.create({
             data: {
                 name: testDocName,
                 mimeType: 'application/pdf',
                 sizeBytes: BigInt(2048),
                 storageProvider: 'EXTERNAL_URL',
-                storagePathname: 'https://example.com/test-doc.pdf',
+                storagePathname: `https://example.com/test-doc-${testTimestamp}.pdf`,
                 clientLEId: clientLE.id,
                 sharedWith: {
                     connect: { id: engagement.id }
@@ -61,6 +53,7 @@ test.describe('DOC-01 / ONP-29 + ONP-64 — Relationship Document & Output Pack 
 
     test.afterAll(async () => {
         try {
+            // Non-destructive cleanup: delete only the exact document created by this test run
             if (testDocId) {
                 await prisma.document.delete({ where: { id: testDocId } }).catch(() => {});
             }
@@ -75,14 +68,14 @@ test.describe('DOC-01 / ONP-29 + ONP-64 — Relationship Document & Output Pack 
         await page.goto(`/app/le/${clientLEId}/relationships`);
         await page.waitForLoadState('domcontentloaded');
 
-        // Expand supplier engagement card by clicking header
-        const supplierHeader = page.locator('text="UAT Supplier Org A"').first();
-        await expect(supplierHeader).toBeVisible({ timeout: 15000 });
-        await supplierHeader.click();
-        await page.waitForTimeout(1000);
-
-        // Open inner Documents section
         const docsTrigger = page.locator('span.font-semibold:text-is("Documents")').first();
+        if (!await docsTrigger.isVisible().catch(() => false)) {
+            const supplierHeader = page.locator('text="UAT Supplier Org A"').first();
+            await expect(supplierHeader).toBeVisible({ timeout: 20000 });
+            await supplierHeader.click();
+            await page.waitForTimeout(1000);
+        }
+
         await expect(docsTrigger).toBeVisible({ timeout: 15000 });
         await docsTrigger.click();
         await page.waitForTimeout(1000);
@@ -99,20 +92,29 @@ test.describe('DOC-01 / ONP-29 + ONP-64 — Relationship Document & Output Pack 
         // Assert download link is present and targets the download API
         const downloadLink = page.locator(`a[href*="/api/documents/${testDocId}/download"]`).first();
         await expect(downloadLink).toBeVisible({ timeout: 10000 });
+        await expect(downloadLink).toHaveAttribute('href', `/api/documents/${testDocId}/download`);
+
+        // Execute user download action via browser UI click
+        await downloadLink.click();
+
+        // Verify direct download API response for authorized user
+        const downloadRes = await page.request.get(`/api/documents/${testDocId}/download`);
+        expect(downloadRes.status()).not.toBe(401);
+        expect(downloadRes.status()).not.toBe(403);
     });
 
     test('2. ONP-64: Output Pack displays supporting document with direct individual download link without requiring ZIP', async ({ page }) => {
         await page.goto(`/app/le/${clientLEId}/relationships`);
         await page.waitForLoadState('domcontentloaded');
 
-        // Expand supplier engagement card by clicking header
-        const supplierHeader = page.locator('text="UAT Supplier Org A"').first();
-        await expect(supplierHeader).toBeVisible({ timeout: 15000 });
-        await supplierHeader.click();
-        await page.waitForTimeout(1000);
-
-        // Open inner Output section
         const outputTrigger = page.locator('span.font-semibold:text-is("Output")').first();
+        if (!await outputTrigger.isVisible().catch(() => false)) {
+            const supplierHeader = page.locator('text="UAT Supplier Org A"').first();
+            await expect(supplierHeader).toBeVisible({ timeout: 20000 });
+            await supplierHeader.click();
+            await page.waitForTimeout(1000);
+        }
+
         await expect(outputTrigger).toBeVisible({ timeout: 15000 });
         await outputTrigger.click();
         await page.waitForTimeout(1000);
@@ -124,10 +126,14 @@ test.describe('DOC-01 / ONP-29 + ONP-64 — Relationship Document & Output Pack 
         // Assert individual download button exists on the document row in Output Pack
         const individualDownloadBtn = page.locator(`a[href*="/api/documents/${testDocId}/download"]`).last();
         await expect(individualDownloadBtn).toBeVisible({ timeout: 10000 });
+        await expect(individualDownloadBtn).toHaveAttribute('href', `/api/documents/${testDocId}/download`);
 
-        // Verify direct download API response
-        const res = await page.request.get(`/api/documents/${testDocId}/download`);
-        expect(res.status()).not.toBe(401);
-        expect(res.status()).not.toBe(403);
+        // Execute user download action via browser UI click
+        await individualDownloadBtn.click();
+
+        // Verify direct download API response for authorized user
+        const downloadRes = await page.request.get(`/api/documents/${testDocId}/download`);
+        expect(downloadRes.status()).not.toBe(401);
+        expect(downloadRes.status()).not.toBe(403);
     });
 });
