@@ -101,6 +101,8 @@ export interface PartyValue {
     // ── Contact ─────────────────────────────────────────────────────────────────
     /** Single primary email address only. */
     email:  string | null;
+    /** Multiple email addresses for V2/V1 party compatibility. */
+    emails?: string[] | null;
     /** Phone numbers. May be empty. */
     phones: PartyPhone[];
 
@@ -327,6 +329,14 @@ export function isPartyValue(value: any): value is PartyValue {
                 value.partySubType = 'CONTACT';
             }
         }
+
+        // Normalize email and emails compatibility
+        if (!value.email && Array.isArray(value.emails) && value.emails.length > 0) {
+            value.email = value.emails[0];
+        } else if (value.email && (!value.emails || value.emails.length === 0)) {
+            value.emails = [value.email];
+        }
+
         return true;
     }
 
@@ -630,8 +640,9 @@ export function getPartyDisplayProjection(value: any, displayMask?: string[], fa
         if (dobStr) secondaryParts.push(`DOB: ${dobStr}`);
     }
     
-    if (showField('email') && poc.email) {
-        secondaryParts.push(poc.email);
+    const emailVal = poc.email || (Array.isArray(poc.emails) && poc.emails.length > 0 ? poc.emails[0] : null);
+    if (showField('email') && emailVal) {
+        secondaryParts.push(emailVal);
     }
 
     let addressText = "";
@@ -742,7 +753,8 @@ export function buildPartyFieldProjection(party: any, displayMask?: string[], fa
     if (showField('teamName') && p.teamName) projected.teamName = p.teamName;
 
     // Contact
-    if (showField('email') && p.email) projected.email = p.email;
+    const emailVal = p.email || (Array.isArray(p.emails) && p.emails.length > 0 ? p.emails[0] : null);
+    if (showField('email') && emailVal) projected.email = emailVal;
     else projected.email = null;
 
     if (showField('phones') && Array.isArray(p.phones)) projected.phones = p.phones;

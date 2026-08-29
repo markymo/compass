@@ -347,14 +347,20 @@ export function PersonOrContactValueViewer({
             )}
 
             {/* Contact info */}
-            {(showField('email') || showField('phones')) && (poc.email || poc.phones?.length > 0) && (
-                <div className="grid grid-cols-2 gap-4 border-b border-border pb-3">
-                    {showField('email') && poc.email && <Field label="Email" value={poc.email} />}
-                    {showField('phones') && poc.phones.map((p, i) => (
-                        <Field key={i} label={p.type} value={p.number} />
-                    ))}
-                </div>
-            )}
+            {(() => {
+                const emailVal = poc.email || (Array.isArray((poc as any).emails) && (poc as any).emails.length > 0 ? (poc as any).emails[0] : null);
+                if ((showField('email') || showField('phones')) && (emailVal || poc.phones?.length > 0)) {
+                    return (
+                        <div className="grid grid-cols-2 gap-4 border-b border-border pb-3">
+                            {showField('email') && emailVal && <Field label="Email" value={emailVal} />}
+                            {showField('phones') && poc.phones.map((p, i) => (
+                                <Field key={i} label={p.type} value={p.number} />
+                            ))}
+                        </div>
+                    );
+                }
+                return null;
+            })()}
 
             {/* Individual attributes */}
             {(showField('nationality') || showField('countryOfResidence') || showField('dateOfBirth') || showField('placeOfBirth') || showField('correspondenceAddress')) && (poc.nationality?.length > 0 || poc.countryOfResidence || dob || poc.placeOfBirth || poc.correspondenceAddress) && (

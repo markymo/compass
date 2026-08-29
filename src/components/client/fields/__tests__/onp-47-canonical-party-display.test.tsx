@@ -139,4 +139,42 @@ describe('PARTY-01 / ONP-47 — Canonical Party Display Exposes All Saved Party 
         expect(exportText).toContain('Eleanor Jane Vance');
         expect(exportText).toContain('eleanor.vance@hillhouse.example');
     });
+
+    it('6. V2 CCPartyData with emails array correctly exposes email in detailed, row, and projection modes', () => {
+        const v2Party = {
+            schemaVersion: 2,
+            partyType: 'INDIVIDUAL',
+            forenames: 'Alexander',
+            surname: 'Hamilton',
+            emails: ['alexander.hamilton@onpro-test.example'],
+            phones: [],
+            roles: [],
+            sourceIdentifiers: []
+        };
+
+        // Projection
+        const proj = getPartyDisplayProjection(v2Party);
+        expect(proj.primaryText).toBe('Alexander Hamilton');
+        expect(proj.secondaryParts).toContain('alexander.hamilton@onpro-test.example');
+
+        // Detailed layout
+        const detailedHtml = renderToString(
+            <PersonOrContactValueViewer
+                value={v2Party}
+                layout="detailed"
+            />
+        );
+        expect(detailedHtml).toContain('Alexander Hamilton');
+        expect(detailedHtml).toContain('alexander.hamilton@onpro-test.example');
+
+        // Row layout
+        const rowHtml = renderToString(
+            <PersonOrContactValueViewer
+                value={v2Party}
+                layout="row"
+            />
+        );
+        expect(rowHtml).toContain('Alexander Hamilton');
+        expect(rowHtml).toContain('alexander.hamilton@onpro-test.example');
+    });
 });
