@@ -92,8 +92,9 @@ export async function saveFIMapping(fiOrgId: string, mapping: any[]) {
 
 // --- FI User Actions ---
 
-// Check if current user belongs to an FI
-// Check if current user belongs to an FI
+const SUPPLIER_ORG_TYPES = ["FI", "SUPPLIER", "LAW_FIRM", "OTHER"] as const;
+
+// Check if current user belongs to an FI / Supplier organization
 export async function getFIOganization(fiOrgId?: string) {
     const identity = await getIdentity();
     const userId = identity?.userId;
@@ -104,7 +105,7 @@ export async function getFIOganization(fiOrgId?: string) {
             where: {
                 userId,
                 organizationId: fiOrgId,
-                organization: { types: { has: "FI" } }
+                organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } }
             },
             include: { organization: true }
         });
@@ -119,7 +120,7 @@ export async function getFIOganization(fiOrgId?: string) {
             where: {
                 userId,
                 organizationId: activeOrgId,
-                organization: { types: { has: "FI" } }
+                organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } }
             },
             include: { organization: true }
         });
@@ -129,7 +130,7 @@ export async function getFIOganization(fiOrgId?: string) {
     const membership = await prisma.membership.findFirst({
         where: {
             userId: userId,
-            organization: { types: { has: "FI" } }
+            organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } }
         },
         include: { organization: true }
     });
@@ -154,7 +155,7 @@ export async function uploadQuestionnaire(formData: FormData) {
     if (!orgId) {
         // Try to default if user has only one FI
         const memberships = await prisma.membership.findMany({
-            where: { userId, organization: { types: { has: "FI" } } },
+            where: { userId, organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } } },
             select: { organizationId: true }
         });
         if (memberships.length === 1 && memberships[0].organizationId) {
@@ -166,7 +167,7 @@ export async function uploadQuestionnaire(formData: FormData) {
 
     // Verify permission
     const membership = await prisma.membership.findFirst({
-        where: { userId, organizationId: orgId, organization: { types: { has: "FI" } } }
+        where: { userId, organizationId: orgId, organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } } }
     });
     if (!membership) return { success: false, error: "Unauthorized for this Organization" };
 
@@ -471,7 +472,7 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
         where: {
             userId,
             organizationId: fiOrgId,
-            organization: { types: { has: "FI" } }
+            organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } }
         }
     });
 
@@ -1097,13 +1098,13 @@ export async function getFIDashboardQuestions(filters?: { clientLEId?: string; q
 
     if (filters?.fiOrgId) {
         const membership = await prisma.membership.findFirst({
-            where: { userId, organizationId: filters.fiOrgId, organization: { types: { has: "FI" } } }
+            where: { userId, organizationId: filters.fiOrgId, organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } } }
         });
         if (!membership) return [];
         targetFiOrgIds = [filters.fiOrgId];
     } else {
         const memberships = await prisma.membership.findMany({
-            where: { userId, organization: { types: { has: "FI" } }, organizationId: { not: null } },
+            where: { userId, organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } }, organizationId: { not: null } },
             select: { organizationId: true }
         });
         targetFiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
@@ -1155,7 +1156,7 @@ export async function getFIQueries() {
     const { userId } = identity;
 
     const memberships = await prisma.membership.findMany({
-        where: { userId, organization: { types: { has: "FI" } }, organizationId: { not: null } },
+        where: { userId, organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } }, organizationId: { not: null } },
         select: { organizationId: true }
     });
     const fiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
