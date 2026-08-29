@@ -76,4 +76,29 @@ describe('PROV-01 / ONP-33 — Provenance & Last Validated Consistency Invariant
             expect(collection.value.items[0].source?.lastValidatedAt).toBe('2026-08-25T11:00:00.000Z');
         }
     });
+
+    it('5. New winning claim update refreshes displayed provenance while preserving source metadata', () => {
+        const initialTimestamp = new Date('2026-08-01T10:00:00.000Z');
+        const updatedTimestamp = new Date('2026-08-29T16:00:00.000Z');
+
+        const initialResult = resolveFieldForDisplay('Old Name Ltd', {
+            type: 'USER_INPUT',
+            reference: null,
+            sourceCheckedAt: initialTimestamp,
+            timestamp: initialTimestamp,
+            userName: 'Initial Author'
+        }, { fieldNo: 2, isMultiValue: false });
+
+        const updatedResult = resolveFieldForDisplay('New Name Ltd', {
+            type: 'USER_INPUT',
+            reference: null,
+            sourceCheckedAt: updatedTimestamp,
+            timestamp: updatedTimestamp,
+            userName: 'Second Author'
+        }, { fieldNo: 2, isMultiValue: false });
+
+        expect(initialResult.source?.lastValidatedAt).toBe('2026-08-01T10:00:00.000Z');
+        expect(updatedResult.source?.lastValidatedAt).toBe('2026-08-29T16:00:00.000Z');
+        expect(updatedResult.source?.label).toBe('User input');
+    });
 });
