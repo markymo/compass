@@ -433,6 +433,7 @@ export interface SupplierQuestionView {
 
     // Optional metadata properties
     answerType?: string;
+    appDataType?: string;
     isLocked?: boolean;
     sourceSectionId?: string | null;
     masterFieldNo?: number | null;
@@ -618,6 +619,7 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
         listAllMasterGroups()
     ]);
 
+    const fieldDefMap = new Map(allFields.map((f: any) => [f.fieldNo, f]));
     const fieldCategoryMap = new Map(allFields.map((f: any) => [f.fieldNo, f.category]));
     const groupCategoryMap = new Map(allGroups.map((g: any) => [g.key, g.category]));
 
@@ -645,6 +647,7 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
         for (const ctx of contexts) {
             const { engagement, clientLE } = ctx;
             const clientOrgName = clientLE?.owners?.[0]?.party?.name || null;
+            const fieldDef = q.masterFieldNo ? fieldDefMap.get(q.masterFieldNo) : undefined;
 
             let category = "Uncategorized";
             if (q.masterFieldNo) category = fieldCategoryMap.get(q.masterFieldNo) || "Uncategorized";
@@ -701,17 +704,36 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                 if (q.answer !== null && q.answer !== undefined) {
                     answer = q.answer;
                 } else if (q.masterFieldNo && clientLE) {
-                    const subjectLeId = clientLE.legalEntityId || clientLE.id;
-                    const ownerScopeId = clientLE.id;
+                    const subjectLeId = clientLE.legalEntityId || null;
+                    const ownerScopeId = (await KycStateService.resolveScopeId(clientLE.id)) || undefined;
                     const snapshotDate = q.releasedAt ? new Date(q.releasedAt) : undefined;
 
                     try {
-                        derivedVal = await KycStateService.getAuthoritativeValue(
-                            { subjectLeId },
-                            q.masterFieldNo,
-                            ownerScopeId,
-                            snapshotDate
-                        );
+                        const isMulti = fieldDef?.isMultiValue || false;
+                        if (isMulti) {
+                            const collection = await KycStateService.getAuthoritativeCollection(
+                                { subjectLeId, clientLEId: clientLE.id },
+                                q.masterFieldNo,
+                                ownerScopeId,
+                                snapshotDate
+                            );
+                            if (collection.length > 0) {
+                                derivedVal = {
+                                    value: collection.map((c: any) => c.value),
+                                    sourceType: collection[0].sourceType,
+                                    sourceReference: collection[0].sourceReference,
+                                    assertedAt: collection[0].assertedAt,
+                                    sourceCheckedAt: collection[0].sourceCheckedAt
+                                };
+                            }
+                        } else {
+                            derivedVal = await KycStateService.getAuthoritativeValue(
+                                { subjectLeId, clientLEId: clientLE.id },
+                                q.masterFieldNo,
+                                ownerScopeId,
+                                snapshotDate
+                            );
+                        }
 
                         if (derivedVal) {
                             if (derivedVal.value && typeof derivedVal.value === 'object' && derivedVal.value.explicitNone) {
@@ -761,16 +783,35 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                 if (q.answer !== null && q.answer !== undefined) {
                     answer = q.answer;
                 } else if (q.masterFieldNo && clientLE) {
-                    const subjectLeId = clientLE.legalEntityId || clientLE.id;
-                    const ownerScopeId = clientLE.id;
+                    const subjectLeId = clientLE.legalEntityId || null;
+                    const ownerScopeId = (await KycStateService.resolveScopeId(clientLE.id)) || undefined;
 
                     try {
-                        derivedVal = await KycStateService.getAuthoritativeValue(
-                            { subjectLeId },
-                            q.masterFieldNo,
-                            ownerScopeId,
-                            undefined
-                        );
+                        const isMulti = fieldDef?.isMultiValue || false;
+                        if (isMulti) {
+                            const collection = await KycStateService.getAuthoritativeCollection(
+                                { subjectLeId, clientLEId: clientLE.id },
+                                q.masterFieldNo,
+                                ownerScopeId,
+                                undefined
+                            );
+                            if (collection.length > 0) {
+                                derivedVal = {
+                                    value: collection.map((c: any) => c.value),
+                                    sourceType: collection[0].sourceType,
+                                    sourceReference: collection[0].sourceReference,
+                                    assertedAt: collection[0].assertedAt,
+                                    sourceCheckedAt: collection[0].sourceCheckedAt
+                                };
+                            }
+                        } else {
+                            derivedVal = await KycStateService.getAuthoritativeValue(
+                                { subjectLeId, clientLEId: clientLE.id },
+                                q.masterFieldNo,
+                                ownerScopeId,
+                                undefined
+                            );
+                        }
 
                         if (derivedVal) {
                             if (derivedVal.value && typeof derivedVal.value === 'object' && derivedVal.value.explicitNone) {
@@ -849,6 +890,7 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                 text: q.text,
                 leName: clientLE?.name || "Unknown",
                 answerType: q.expectedDataType || "TEXT",
+                appDataType: fieldDef?.appDataType || q.expectedDataType || undefined,
                 isLocked: q.isLocked ?? false,
                 sourceSectionId: q.sourceSectionId || null,
 
