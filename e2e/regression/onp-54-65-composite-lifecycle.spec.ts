@@ -220,14 +220,15 @@ test.describe('COMP-01 / ONP-54 + ONP-65 — Composite Group Canonical Resolutio
             await page.reload();
             await page.waitForLoadState('domcontentloaded');
 
-            const answerContainer = page.locator(`div:has(h3:has-text("${testPrefix}"))`).last();
-            await expect(answerContainer).toBeVisible({ timeout: 20000 });
-            await expect(answerContainer).toContainText(directorForenames);
-            await expect(answerContainer).toContainText(testDirectorSurname);
-            await expect(answerContainer).toContainText(roleTitle);
+            // Locate the complete question card specifically (excluding summary filter box)
+            const questionCard = page.locator('div:has(span:has-text("Client Answer"))').filter({ hasText: testPrefix }).last();
+            await expect(questionCard).toBeVisible({ timeout: 20000 });
+            await expect(questionCard).toContainText(directorForenames);
+            await expect(questionCard).toContainText(testDirectorSurname);
+            await expect(questionCard).toContainText(roleTitle);
 
             // Assert NO false empty-state alert
-            const emptyAlert = answerContainer.locator('text=No master data available');
+            const emptyAlert = questionCard.locator('text=No master data available');
             await expect(emptyAlert).not.toBeVisible();
         } finally {
             await page.close();

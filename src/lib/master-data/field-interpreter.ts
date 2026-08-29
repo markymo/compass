@@ -166,6 +166,16 @@ export function resolveFieldForDisplay(
         }
     }
 
+    // If parsedValue is a group map { [fieldNo]: value }, unpack and resolve dynamically
+    if (parsedValue && typeof parsedValue === 'object' && !Array.isArray(parsedValue) && Object.keys(parsedValue).length > 0 && Object.keys(parsedValue).every(k => /^\d+$/.test(k))) {
+        const flatItems = Object.values(parsedValue).flatMap((v: any) => Array.isArray(v) ? v : [v]);
+        if (flatItems.length > 1 || Object.values(parsedValue).some(v => Array.isArray(v))) {
+            return resolveFieldCollectionForDisplay(flatItems, { ...metadata, rawSource });
+        } else if (flatItems.length === 1) {
+            return resolveFieldForDisplay(flatItems[0], rawSource, metadata);
+        }
+    }
+
     const normalizedDefaultText = typeof metadata.defaultText === 'string' && metadata.defaultText.trim().length > 0
         ? metadata.defaultText.trim()
         : undefined;
