@@ -80,7 +80,8 @@ describe('MASTER-03 / ONP-56 — Single-Value Master Fields Clear Unit Invariant
         });
     });
 
-    it('1. Emits verified tombstone claim when clearing a single-value scalar field', async () => {
+    it('1. Emits verified tombstone claim when clearing a field without manual claims', async () => {
+        (prisma.fieldClaim.findMany as any).mockResolvedValue([]);
         (FieldClaimService.emitTombstone as any).mockResolvedValue({ id: 'tomb-1' });
 
         const result = await clearSingleValueEntry('cle-1', 78);
@@ -96,7 +97,21 @@ describe('MASTER-03 / ONP-56 — Single-Value Master Fields Clear Unit Invariant
         expect(FieldClaimService.verifyClaim).toHaveBeenCalledWith('tomb-1', 'test-user-1');
     });
 
-    it('2. Rejects clearSingleValueEntry on multi-value collection fields with clear error', async () => {
+    it('2. Retracts/rejects active manual claims when clearing a manual override', async () => {
+        (prisma.fieldClaim.findMany as any).mockResolvedValue([{ id: 'manual-claim-1' }]);
+        (prisma.fieldClaim.updateMany as any) = vi.fn().mockResolvedValue({ count: 1 });
+
+        const result = await clearSingleValueEntry('cle-1', 78);
+
+        expect(result).toEqual({ success: true });
+        expect(prisma.fieldClaim.updateMany).toHaveBeenCalledWith({
+            where: { id: { in: ['manual-claim-1'] } },
+            data: { status: 'REJECTED' }
+        });
+        expect(FieldClaimService.emitTombstone).not.toHaveBeenCalled();
+    });
+
+    it('3. Rejects clearSingleValueEntry on multi-value collection fields with clear error', async () => {
         (prisma.masterFieldDefinition.findUnique as any).mockResolvedValue({
             fieldNo: 30,
             fieldName: 'directors',
@@ -110,7 +125,7 @@ describe('MASTER-03 / ONP-56 — Single-Value Master Fields Clear Unit Invariant
         expect(FieldClaimService.emitTombstone).not.toHaveBeenCalled();
     });
 
-    it('3. Requires authentication before emitting tombstone', async () => {
+    it('4. Requires authentication before clearing', async () => {
         vi.mocked(getIdentity).mockResolvedValue(null);
 
         const result = await clearSingleValueEntry('cle-1', 78);
