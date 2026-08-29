@@ -488,7 +488,7 @@ export async function createFIEngagement(clientLEId: string, fiOrgId: string) {
             return { success: false, error: "Organization not found" };
         }
 
-        if (!fiOrg.types.some((t: any) => ["FI", "SUPPLIER", "LAW_FIRM", "OTHER"].includes(t))) {
+        if (!fiOrg.types.some((t: any) => ["FI", "SUPPLIER", "LAW_FIRM"].includes(t))) {
             return { success: false, error: "Selected organization is not a supplier or financial institution" };
         }
 

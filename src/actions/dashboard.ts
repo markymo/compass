@@ -189,7 +189,7 @@ export async function getUserContexts(): Promise<DashboardContexts> {
                         }
                     });
                 }
-            } else if (org.types.includes("FI") || org.types.includes("SUPPLIER") || org.types.includes("OTHER")) {
+            } else if (org.types.includes("FI") || org.types.includes("SUPPLIER")) {
                 const existing = fiMap.get(org.id);
                 fiMap.set(org.id, {
                     id: org.id,

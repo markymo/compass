@@ -92,7 +92,7 @@ export async function saveFIMapping(fiOrgId: string, mapping: any[]) {
 
 // --- FI User Actions ---
 
-const SUPPLIER_ORG_TYPES = ["FI", "SUPPLIER", "LAW_FIRM", "OTHER"] as const;
+const SUPPLIER_ORG_TYPES = ["FI", "SUPPLIER", "LAW_FIRM"] as const;
 
 // Check if current user belongs to an FI / Supplier organization
 export async function getFIOganization(fiOrgId?: string) {
