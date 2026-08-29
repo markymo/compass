@@ -74,7 +74,7 @@ test.describe('INV-03 / ONP-79 — User Invitation & Auto-Add Fork Baseline', ()
         await expect(page.getByText(`Invited ${existingUserEmail} as ORG_MEMBER`)).toBeVisible({ timeout: 10000 });
 
         // Assert user appears in Active Members list
-        await expect(page.getByText(existingUserEmail)).toBeVisible();
+        await expect(page.getByText(existingUserEmail, { exact: true })).toBeVisible();
         const activeRow = page.locator('tr').filter({ hasText: existingUserEmail });
         await expect(activeRow.getByText('Active')).toBeVisible();
 
@@ -151,7 +151,7 @@ test.describe('INV-03 / ONP-79 — User Invitation & Auto-Add Fork Baseline', ()
         await addBtn.click();
 
         // Assert error toast
-        await expect(page.getByText('User is already a member of this scope.')).toBeVisible({ timeout: 15000 });
+        await expect(page.getByText(/User is already a member of this scope/)).toBeVisible({ timeout: 15000 });
 
         // Assert database state: exactly 1 Membership exists
         const count = await prisma.membership.count({

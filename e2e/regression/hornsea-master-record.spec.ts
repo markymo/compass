@@ -16,7 +16,8 @@ test.describe('Hornsea 1 End-to-End Master Record UI Lifecycle Regression', () =
     let testStartedAt: Date;
 
     async function cleanupTestOrgHornseaBaseline(orgId: string) {
-        if (!orgId || orgId !== '699fc2be-b7d4-4963-83fe-0e2ad9139cdd') {
+        const manifest = loadUATManifest();
+        if (!orgId || (orgId !== manifest.clientOrgA.id && orgId !== '699fc2be-b7d4-4963-83fe-0e2ad9139cdd')) {
             throw new Error(`[SAFETY GUARD] Refusing cleanup: Org ID "${orgId}" does not match UAT Test Org ID.`);
         }
 

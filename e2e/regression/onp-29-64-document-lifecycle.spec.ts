@@ -106,9 +106,9 @@ test.describe('DOC-01 / ONP-29 + ONP-64 — Relationship Document & Output Pack 
         // Locate and expand supplier engagement card if not expanded
         const docsTrigger = page.locator('span.font-semibold:text-is("Documents")').first();
         if (!await docsTrigger.isVisible().catch(() => false)) {
-            const supplierHeader = page.locator('text="UAT Supplier Org A"').first();
-            await expect(supplierHeader).toBeVisible({ timeout: 20000 });
-            await supplierHeader.click();
+            const supplierHeaderBtn = page.locator('button:has-text("UAT Supplier Org A")').first();
+            await expect(supplierHeaderBtn).toBeVisible({ timeout: 20000 });
+            await supplierHeaderBtn.click();
             await page.waitForTimeout(1000);
         }
 
@@ -164,9 +164,9 @@ test.describe('DOC-01 / ONP-29 + ONP-64 — Relationship Document & Output Pack 
         // Locate and expand supplier engagement card if not expanded
         const outputTrigger = page.locator('span.font-semibold:text-is("Output")').first();
         if (!await outputTrigger.isVisible().catch(() => false)) {
-            const supplierHeader = page.locator('text="UAT Supplier Org A"').first();
-            await expect(supplierHeader).toBeVisible({ timeout: 20000 });
-            await supplierHeader.click();
+            const supplierHeaderBtn = page.locator('button:has-text("UAT Supplier Org A")').first();
+            await expect(supplierHeaderBtn).toBeVisible({ timeout: 20000 });
+            await supplierHeaderBtn.click();
             await page.waitForTimeout(1000);
         }
 
