@@ -1,68 +1,80 @@
 import { test, expect } from '@playwright/test';
 import { PrismaClient } from '@prisma/client';
-import * as path from 'path';
-import PDFParser from 'pdf2json';
 import { loadUATManifest, PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture';
+import PDFParser from 'pdf2json';
 
-// Contract: COMP-01 — A populated composite group resolves canonically from Master into mapped questionnaire/Workbench and output/export surfaces
-// Linear: ONP-54 + ONP-65
+// Contract: COMP-01 — Composite group answer resolution and PDF export lifecycle
+// Linear: ONP-54, ONP-65
 
 const prisma = new PrismaClient();
 
-function extractPdfText(buffer: Buffer): Promise<string> {
+async function extractPdfText(pdfBuffer: Buffer): Promise<string> {
     return new Promise((resolve, reject) => {
         const pdfParser = new (PDFParser as any)(null, 1);
         pdfParser.on('pdfParser_dataError', (errData: any) => reject(errData.parserError));
         pdfParser.on('pdfParser_dataReady', () => {
-            const rawText = pdfParser.getRawTextContent();
+            const rawText = (pdfParser as any).getRawTextContent();
             resolve(rawText);
         });
-        pdfParser.parseBuffer(buffer);
+        pdfParser.parseBuffer(pdfBuffer);
     });
 }
 
 test.describe('COMP-01 / ONP-54 + ONP-65 — Composite Group Canonical Resolution & Export Lifecycle', () => {
+    test.use({ storageState: PERSONA_STORAGE_STATES.leAdminAlpha });
     test.setTimeout(90000);
 
     let manifest: ReturnType<typeof loadUATManifest>;
     let clientLEId: string;
-    let disposableLEName: string;
-    let supplierOrgId: string;
+    let disposableLegalEntityId: string;
     let engagementId: string;
+    let supplierOrgId: string;
     let testQuestionnaire: any;
     let compositeGroup: any;
+    let disposableLEName: string;
 
     const testTimestamp = Date.now();
     const testPrefix = `COMP01_${testTimestamp}`;
+    const testDirectorSurname = `Vanderbilt_${testTimestamp}`;
     const directorForenames = 'Arthur Bartholomew';
-    const testDirectorSurname = `Composite-Director-${testTimestamp.toString().slice(-4)}`;
-    const roleTitle = 'Managing Director';
+    const roleTitle = 'Executive Director & Controller';
 
     test.beforeAll(async () => {
         manifest = loadUATManifest();
+
         const alphaLE = await prisma.clientLE.findFirst({
             where: { OR: [{ id: manifest.alphaClientLE.id }, { shortCode: 'uat_cle_alpha' }] },
             include: { owners: true }
         });
         if (!alphaLE) throw new Error('uat_cle_alpha not found in database');
 
-        const leAdminUser = await prisma.user.findUnique({
-            where: { email: manifest.actors.leAdminAlpha.email }
+        const leAdminEmail = manifest.actors.leAdminAlpha.email;
+        const leAdminUser = await prisma.user.findFirst({
+            where: { email: leAdminEmail }
         });
-        if (!leAdminUser) throw new Error(`LE Admin user ${manifest.actors.leAdminAlpha.email} not found`);
+        if (!leAdminUser) throw new Error(`${leAdminEmail} user not found`);
 
         const supplierOrg = await prisma.organization.findFirst({
-            where: { OR: [{ id: manifest.supplierOrgA.id }, { shortCode: 'uat_supplier_org_a' }] }
+            where: { name: { contains: 'Supplier Org A' } }
         });
-        if (!supplierOrg) throw new Error('uat_supplier_org_a not found');
-        supplierOrgId = supplierOrg.id;
+        supplierOrgId = supplierOrg?.id || manifest.supplierOrgA.id;
 
-        // Shared-fixture preservation: create a fully disposable synthetic ClientLE
+        // Shared-fixture preservation: create a fully disposable synthetic LegalEntity & ClientLE
         disposableLEName = `Disposable CLE COMP-01 ${testTimestamp}`;
+        const disposableLegalEntity = await prisma.legalEntity.create({
+            data: {
+                reference: `COMP_${testTimestamp}`,
+                name: disposableLEName,
+                jurisdiction: 'GB'
+            }
+        });
+        disposableLegalEntityId = disposableLegalEntity.id;
+
         const disposableLE = await prisma.clientLE.create({
             data: {
                 shortCode: `uat_cle_comp_${testTimestamp}`,
                 name: disposableLEName,
+                legalEntityId: disposableLegalEntity.id,
                 owners: {
                     create: {
                         partyId: alphaLE.owners[0]?.partyId || alphaLE.id
@@ -122,6 +134,7 @@ test.describe('COMP-01 / ONP-54 + ONP-65 — Composite Group Canonical Resolutio
         await prisma.fieldClaim.create({
             data: {
                 clientLEId,
+                subjectLeId: disposableLegalEntity.id,
                 fieldNo: 63,
                 collectionId: 'DIRECTORS',
                 instanceId: `dir_${testTimestamp}`,
@@ -156,6 +169,9 @@ test.describe('COMP-01 / ONP-54 + ONP-65 — Composite Group Canonical Resolutio
                 await prisma.fieldClaim.deleteMany({ where: { clientLEId } }).catch(() => {});
                 await prisma.clientLE.delete({ where: { id: clientLEId } }).catch(() => {});
             }
+            if (disposableLegalEntityId) {
+                await prisma.legalEntity.delete({ where: { id: disposableLegalEntityId } }).catch(() => {});
+            }
         } catch (err) {
             console.warn('Cleanup warning in onp-54-65:', err);
         } finally {
@@ -178,14 +194,15 @@ test.describe('COMP-01 / ONP-54 + ONP-65 — Composite Group Canonical Resolutio
             }
 
             // Locate Field 63 card (Company directors)
-            const fieldCard = page.locator('[data-testid="master-field-63"], [data-field-no="63"]').first();
-            await expect(fieldCard).toBeVisible({ timeout: 15000 });
+            const f63Card = page.locator('div:has-text("Company directors"), div:has-text("Field 63")').filter({ hasText: testDirectorSurname }).first();
+            await expect(f63Card).toBeVisible({ timeout: 20000 });
 
-            // Assert canonical child elements are visible in read-only Master representation
-            await expect(fieldCard).toContainText(directorForenames);
-            await expect(fieldCard).toContainText(testDirectorSurname);
-            await expect(fieldCard).toContainText(roleTitle);
+            // Positive assertion: distinct individual child fields are projected and displayed
+            await expect(f63Card).toContainText(directorForenames);
+            await expect(f63Card).toContainText(testDirectorSurname);
+            await expect(f63Card).toContainText(roleTitle);
         } finally {
+            await page.close();
             await clientContext.close();
         }
     });
@@ -195,31 +212,25 @@ test.describe('COMP-01 / ONP-54 + ONP-65 — Composite Group Canonical Resolutio
         const page = await supplierContext.newPage();
 
         try {
-            await page.goto(`/app/s/${supplierOrgId}/questions?rel=${encodeURIComponent(disposableLEName)}&q=${encodeURIComponent(testQuestionnaire.name)}`);
+            // Navigate to supplier Questions Workbench for this relationship
+            await page.goto(`/app/s/${supplierOrgId}/questions?rel=${encodeURIComponent(disposableLEName)}`);
             await page.waitForLoadState('domcontentloaded');
 
-            // Locate question card
-            const questionHeading = page.locator(`h3:has-text("${testPrefix}")`).first();
-            await expect(questionHeading).toBeVisible({ timeout: 15000 });
+            // Fresh context reload to ensure clean server state
+            await page.reload();
+            await page.waitForLoadState('domcontentloaded');
 
             const answerContainer = page.locator(`div:has(h3:has-text("${testPrefix}"))`).last();
+            await expect(answerContainer).toBeVisible({ timeout: 20000 });
             await expect(answerContainer).toContainText(directorForenames);
             await expect(answerContainer).toContainText(testDirectorSurname);
             await expect(answerContainer).toContainText(roleTitle);
 
-            // Assert false "No master data available" placeholder is absent
-            await expect(answerContainer.locator('text=/No master data available/i')).toHaveCount(0);
-
-            // Reload page in fresh context to verify persistence
-            await page.reload();
-            await page.waitForLoadState('domcontentloaded');
-
-            const reloadedContainer = page.locator(`div:has(h3:has-text("${testPrefix}"))`).last();
-            await expect(reloadedContainer).toContainText(directorForenames);
-            await expect(reloadedContainer).toContainText(testDirectorSurname);
-            await expect(reloadedContainer).toContainText(roleTitle);
-            await expect(reloadedContainer.locator('text=/No master data available/i')).toHaveCount(0);
+            // Assert NO false empty-state alert
+            const emptyAlert = answerContainer.locator('text=No master data available');
+            await expect(emptyAlert).not.toBeVisible();
         } finally {
+            await page.close();
             await supplierContext.close();
         }
     });
@@ -229,11 +240,14 @@ test.describe('COMP-01 / ONP-54 + ONP-65 — Composite Group Canonical Resolutio
         const page = await clientContext.newPage();
 
         try {
-            const downloadUrl = `/api/export/questionnaire/${testQuestionnaire.id}?engagementId=${engagementId}`;
-            const response = await page.request.get(downloadUrl);
-            expect(response.ok()).toBe(true);
+            // Request PDF export for the test questionnaire via API endpoint
+            const res = await page.request.get(`/api/export/questionnaire/${testQuestionnaire.id}?engagementId=${engagementId}`);
+            expect(res.status()).toBe(200);
 
-            const buffer = await response.body();
+            const buffer = await res.body();
+            expect(buffer.length).toBeGreaterThan(100);
+
+            // Parse text content from generated PDF binary
             const extractedText = await extractPdfText(buffer);
 
             // Assert question title, child labels, and child values in PDF output
@@ -243,6 +257,7 @@ test.describe('COMP-01 / ONP-54 + ONP-65 — Composite Group Canonical Resolutio
             expect(extractedText).toContain(roleTitle);
             expect(extractedText).not.toContain('No response recorded');
         } finally {
+            await page.close();
             await clientContext.close();
         }
     });

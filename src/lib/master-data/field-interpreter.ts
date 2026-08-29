@@ -67,9 +67,10 @@ export function resolveFieldCollectionForDisplay(
 
     const state = resolveState(metadata.displayState, items);
     
-    // We parse each envelope individually to preserve per-item provenance
-    const resolvedItems = items.map((envelope, idx) => {
-        let innerVal = envelope.value;
+    // We parse each envelope or raw item individually to preserve per-item provenance
+    const resolvedItems = items.map((envelope: any, idx) => {
+        const isEnv = envelope && typeof envelope === 'object' && ('value' in envelope || 'source' in envelope);
+        let innerVal = isEnv ? envelope.value : envelope;
         if (typeof innerVal === 'string' && (innerVal.startsWith('{') || innerVal.startsWith('['))) {
             try { innerVal = JSON.parse(innerVal); } catch (e) {}
         }
@@ -105,10 +106,12 @@ export function resolveFieldCollectionForDisplay(
             }
         }
 
+        const itemSource = isEnv ? envelope.source : null;
+
         return {
-            stableKey: envelope.instanceId || `item-${idx}`,
+            stableKey: (envelope && envelope.instanceId) || `item-${idx}`,
             value: val,
-            source: envelope.source ? (resolveSource(envelope.source, 'POPULATED') ?? undefined) : undefined,
+            source: itemSource ? (resolveSource(itemSource, 'POPULATED') ?? undefined) : undefined,
             attachments: itemAttachments
         };
     });
