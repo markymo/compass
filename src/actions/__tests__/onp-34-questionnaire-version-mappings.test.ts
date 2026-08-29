@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 import prisma from "@/lib/prisma";
 import {
     computeDefinitionFingerprint,
@@ -26,7 +26,7 @@ describe.skipIf(!process.env.DATABASE_URL)("QNR-02 / ONP-34 — Questionnaire Ve
     let testQ1: any;
     let testQ2: any;
 
-    beforeEach(async () => {
+    const cleanTestData = async () => {
         await prisma.submissionAnswerAttachment.deleteMany({ where: { submissionAnswer: { submission: { questionnaire: { name: { startsWith: "QNR02 Version QN" } } } } } });
         await prisma.submissionAnswer.deleteMany({ where: { submission: { questionnaire: { name: { startsWith: "QNR02 Version QN" } } } } });
         await prisma.questionnaireSubmission.deleteMany({ where: { questionnaire: { name: { startsWith: "QNR02 Version QN" } } } });
@@ -40,6 +40,10 @@ describe.skipIf(!process.env.DATABASE_URL)("QNR-02 / ONP-34 — Questionnaire Ve
         await prisma.legalEntity.deleteMany({ where: { reference: { startsWith: "REF-QNR02-" } } });
         await prisma.organization.deleteMany({ where: { name: { startsWith: "QNR02 FI Org" } } });
         await prisma.fieldClaim.deleteMany({ where: { sourceReference: "QNR02_TEST_CLAIM" } });
+    };
+
+    beforeEach(async () => {
+        await cleanTestData();
 
         const rand = Math.floor(Math.random() * 1000000);
 
@@ -246,5 +250,9 @@ describe.skipIf(!process.env.DATABASE_URL)("QNR-02 / ONP-34 — Questionnaire Ve
         expect(history).toHaveLength(2);
         expect(history[0].definitionVersion.versionNumber).toBe(2);
         expect(history[1].definitionVersion.versionNumber).toBe(1);
+    });
+
+    afterAll(async () => {
+        await cleanTestData();
     });
 });
