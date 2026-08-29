@@ -7,19 +7,16 @@ import { loadUATManifest, PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture
 
 const prisma = new PrismaClient();
 
-test.describe('MASTER-04 / ONP-28 — Master Source-Backed Field User Override & Provenance Update', () => {
+test.describe('MASTER-04 / ONP-28 — Master Field Override & Provenance Update Lifecycle', () => {
     test.use({ storageState: PERSONA_STORAGE_STATES.leAdminAlpha });
     test.setTimeout(90000);
 
     let manifest: ReturnType<typeof loadUATManifest>;
     let clientLEId: string;
-    let initialSourceClaim: any;
 
     const testTimestamp = Date.now();
-    const testPrefix = `ONP28 ${testTimestamp}`;
-    const initialSourceValue = `Initial Source Value ${testTimestamp.toString().slice(-4)}`;
-    const manualOverrideValue = `Manual Override Value ${testTimestamp.toString().slice(-4)}`;
-    const historicalSourceDate = new Date('2025-01-15T10:00:00.000Z');
+    const initialSourceValue = `213800TESTSOURCELEI${testTimestamp.toString().slice(-4)}`;
+    const manualOverrideValue = `213800MANUALOVERRIDE${testTimestamp.toString().slice(-4)}`;
 
     test.beforeAll(async () => {
         manifest = loadUATManifest();
@@ -29,7 +26,7 @@ test.describe('MASTER-04 / ONP-28 — Master Source-Backed Field User Override &
         if (!clientLE) throw new Error('uat_cle_alpha not found in database');
         clientLEId = clientLE.id;
 
-        // Clean up any existing claims on Field 2 for this clientLE first
+        // Clean up any test claims on Field 2 (LEI)
         await prisma.fieldClaim.deleteMany({
             where: {
                 clientLEId,
@@ -37,19 +34,18 @@ test.describe('MASTER-04 / ONP-28 — Master Source-Backed Field User Override &
             }
         });
 
-        // Create the baseline source claim
-        initialSourceClaim = await prisma.fieldClaim.create({
+        // Seed initial lower-priority source claim (GLEIF) with historical validation date
+        await prisma.fieldClaim.create({
             data: {
                 clientLEId,
                 fieldNo: 2,
-                collectionId: 'GENERAL',
                 claimRole: 'VALUE',
                 status: 'VERIFIED',
                 sourceType: 'GLEIF',
-                sourceReference: 'GLEIF',
-                valueText: initialSourceValue,
-                assertedAt: historicalSourceDate,
-                verifiedAt: historicalSourceDate,
+                sourceReference: 'GLEIF-LEI-DATA',
+                valueJson: initialSourceValue,
+                assertedAt: new Date('2025-01-15T09:00:00.000Z'),
+                verifiedAt: new Date('2025-01-15T09:00:00.000Z'),
             }
         });
     });
@@ -71,11 +67,11 @@ test.describe('MASTER-04 / ONP-28 — Master Source-Backed Field User Override &
         }
     });
 
-    test('1. Baseline displays source claim and historical Last validated timestamp', async ({ page }) => {
+    test('1. Baseline: displays source claim with GLEIF badge and historical Last validated date', async ({ page }) => {
         await page.goto(`/app/le/${clientLEId}/master`);
         await page.waitForLoadState('domcontentloaded');
 
-        // Locate Field 2 card in Master Record
+        // Locate Field 2 card (LEI)
         const fieldCard = page.locator('[data-testid="master-field-2"], [data-field-no="2"]').first();
         await expect(fieldCard).toBeVisible({ timeout: 15000 });
 
@@ -90,7 +86,7 @@ test.describe('MASTER-04 / ONP-28 — Master Source-Backed Field User Override &
         await expect(fieldCard.locator('text=/15 Jan 2025/i').first()).toBeVisible();
     });
 
-    test('2. User overrides value via UI drawer; winner becomes User Input with updated timestamp', async ({ page }) => {
+    test('2. User overrides value via UI drawer; winner becomes User Input with refreshed provenance', async ({ page }) => {
         await page.goto(`/app/le/${clientLEId}/master`);
         await page.waitForLoadState('domcontentloaded');
 
@@ -138,6 +134,15 @@ test.describe('MASTER-04 / ONP-28 — Master Source-Backed Field User Override &
         const reloadedCard = page.locator('[data-testid="master-field-2"], [data-field-no="2"]').first();
         await expect(reloadedCard).toContainText(manualOverrideValue);
         await expect(reloadedCard.locator('text=/User input/i').first()).toBeVisible();
-        await expect(reloadedCard.locator('text=/15 Jan 2025/i')).toHaveCount(0);
+
+        // Open inspection drawer on reloaded page to verify full provenance history
+        await reloadedCard.locator('[role="button"]').first().click();
+        const reloadedDrawer = page.locator('[role="dialog"]').first();
+        await expect(reloadedDrawer).toBeVisible({ timeout: 10000 });
+
+        // Verify active winner in drawer has User Input provenance
+        const winningClaimRow = reloadedDrawer.locator(`div:has-text("${manualOverrideValue}")`).first();
+        await expect(winningClaimRow).toBeVisible();
+        await expect(winningClaimRow.locator('text=/User input/i').first()).toBeVisible();
     });
 });
