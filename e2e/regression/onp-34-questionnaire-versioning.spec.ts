@@ -210,19 +210,21 @@ test.describe('QNR-02 / ONP-34 — Questionnaire Versioning Mappings & Completio
         await historyTabButton.click();
         await page.waitForLoadState('networkidle');
 
-        // Step 3: Assert both definition versions appear in the UI with their question counts
+        // Step 3: Assert both definition versions appear in the UI with their question counts & snapshot metrics
         const version2Card = page.locator('.border-slate-200, .card').filter({ hasText: 'Questionnaire Definition Version 2' }).first();
         await expect(version2Card).toBeVisible({ timeout: 15000 });
         await expect(version2Card).toContainText('3 questions');
+        await expect(version2Card).toContainText('3 answers snapshotted');
 
         const version1Card = page.locator('.border-slate-200, .card').filter({ hasText: 'Questionnaire Definition Version 1' }).first();
         await expect(version1Card).toBeVisible({ timeout: 15000 });
         await expect(version1Card).toContainText('2 questions');
+        await expect(version1Card).toContainText('2 answers snapshotted');
 
-        // Step 4: Open V1 Historical Details Dialog
-        const v1ViewDetailsButton = version1Card.getByRole('button', { name: /View Details/i }).first();
-        await expect(v1ViewDetailsButton).toBeVisible({ timeout: 10000 });
-        await v1ViewDetailsButton.click();
+        // Step 4: Open V1 Historical Details Dialog via 'View Snapshot' button
+        const v1ViewSnapshotButton = version1Card.getByRole('button', { name: /View Snapshot/i }).first();
+        await expect(v1ViewSnapshotButton).toBeVisible({ timeout: 10000 });
+        await v1ViewSnapshotButton.click();
 
         const dialog = page.getByRole('dialog').first();
         await expect(dialog).toBeVisible({ timeout: 10000 });
@@ -243,10 +245,10 @@ test.describe('QNR-02 / ONP-34 — Questionnaire Versioning Mappings & Completio
         }
         await expect(dialog).not.toBeVisible({ timeout: 5000 });
 
-        // Step 5: Open V2 Historical Details Dialog
-        const v2ViewDetailsButton = version2Card.getByRole('button', { name: /View Details/i }).first();
-        await expect(v2ViewDetailsButton).toBeVisible({ timeout: 10000 });
-        await v2ViewDetailsButton.click();
+        // Step 5: Open V2 Historical Details Dialog via 'View Snapshot' button
+        const v2ViewSnapshotButton = version2Card.getByRole('button', { name: /View Snapshot/i }).first();
+        await expect(v2ViewSnapshotButton).toBeVisible({ timeout: 10000 });
+        await v2ViewSnapshotButton.click();
 
         const dialog2 = page.getByRole('dialog').first();
         await expect(dialog2).toBeVisible({ timeout: 10000 });
@@ -258,6 +260,7 @@ test.describe('QNR-02 / ONP-34 — Questionnaire Versioning Mappings & Completio
         await expect(dialog2).toContainText('V2 Question 2 - Companies House Registration Number');
         await expect(dialog2).toContainText('09876543');
         await expect(dialog2).toContainText('V2 Question 3 - Primary Contact Note');
+        await expect(dialog2).toContainText('Direct contact note for V2');
 
         // Close V2 Dialog
         const closeButton2 = dialog2.locator('button:has(svg.lucide-x), button:has-text("Close")').first();
