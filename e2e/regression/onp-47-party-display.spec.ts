@@ -23,7 +23,44 @@ test.describe('PARTY-01 / ONP-47 — Canonical Party Display Exposes All Saved P
     });
 
     test.afterAll(async () => {
-        await prisma.$disconnect();
+        try {
+            if (clientLEId) {
+                // Find only the disposable CCParty records created by this test run
+                const allLeParties = await prisma.cCParty.findMany({
+                    where: { clientLEId }
+                });
+                const testParties = allLeParties.filter((p: any) => {
+                    const d = p.data as any;
+                    return d?.emails?.includes(testEmail) || d?.surname === testSurname;
+                });
+                const partyIds = testParties.map(p => p.id);
+
+                if (partyIds.length > 0) {
+                    // Remove only the disposable FieldClaim records referencing these party IDs
+                    const claims = await prisma.fieldClaim.findMany({
+                        where: { clientLEId, fieldNo: 104 }
+                    });
+                    const testClaimIds = claims
+                        .filter((c: any) => partyIds.includes((c.valueJson as any)?.ccPartyId))
+                        .map((c: any) => c.id);
+
+                    if (testClaimIds.length > 0) {
+                        await prisma.fieldClaim.deleteMany({
+                            where: { id: { in: testClaimIds } }
+                        });
+                    }
+
+                    // Remove only the disposable CCParty records
+                    await prisma.cCParty.deleteMany({
+                        where: { id: { in: partyIds } }
+                    });
+                }
+            }
+        } catch (err) {
+            console.warn('Cleanup warning in onp-47-party-display:', err);
+        } finally {
+            await prisma.$disconnect();
+        }
     });
 
     test('1. Creating/editing party in Master UI persists and displays in read-only canonical view without edit mode', async ({ page }) => {

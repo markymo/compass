@@ -22,25 +22,15 @@ test.describe('SRC-03 / ONP-44 — Unsupported Registration Authority Graceful H
         });
         if (!user) throw new Error('uat+le-admin-alpha user not found');
 
-        // Ensure RA000592 authority exists in database
-        testAuthority = await prisma.registryAuthority.upsert({
-            where: { id: 'RA000592' },
-            update: {
-                name: 'Financial Conduct Authority Mutuals Public Register',
-                countryCode: 'GB',
-                registryKey: 'UK_FCA',
-                mappingSourceKey: 'UK_FCA'
-            },
-            create: {
-                id: 'RA000592',
-                name: 'Financial Conduct Authority Mutuals Public Register',
-                countryCode: 'GB',
-                registryKey: 'UK_FCA',
-                mappingSourceKey: 'UK_FCA'
-            }
+        // Assert that the seeded RA000592 authority already exists in database (read-only, no mutation)
+        testAuthority = await prisma.registryAuthority.findUnique({
+            where: { id: 'RA000592' }
         });
+        if (!testAuthority) {
+            throw new Error('Seeded RA000592 authority not found in database');
+        }
 
-        // Create test ClientLE with RA000592 registry reference and membership
+        // Create disposable test ClientLE with RA000592 registry reference and membership
         const timestamp = Date.now();
         testClientLE = await prisma.clientLE.create({
             data: {
@@ -69,12 +59,17 @@ test.describe('SRC-03 / ONP-44 — Unsupported Registration Authority Graceful H
     });
 
     test.afterAll(async () => {
-        if (testClientLE?.id) {
-            await prisma.membership.deleteMany({ where: { clientLEId: testClientLE.id } });
-            await prisma.registryReference.deleteMany({ where: { clientLEId: testClientLE.id } });
-            await prisma.clientLE.deleteMany({ where: { id: testClientLE.id } });
+        try {
+            if (testClientLE?.id) {
+                await prisma.membership.deleteMany({ where: { clientLEId: testClientLE.id } });
+                await prisma.registryReference.deleteMany({ where: { clientLEId: testClientLE.id } });
+                await prisma.clientLE.deleteMany({ where: { id: testClientLE.id } });
+            }
+        } catch (err) {
+            console.warn('Cleanup warning in onp-44-unsupported-ra:', err);
+        } finally {
+            await prisma.$disconnect();
         }
-        await prisma.$disconnect();
     });
 
     test('1. Registry connector factory returns null for RA000592 (UK FCA) without throwing', async () => {
