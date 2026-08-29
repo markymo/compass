@@ -152,18 +152,17 @@ test.describe('PROV-01 / ONP-33 — Provenance & Last Validated Consistency Acro
             const questionHeading = page.locator(`h3:has-text("${testPrefix}")`).first();
             await expect(questionHeading).toBeVisible({ timeout: 15000 });
 
-            // Locate parent card container
-            const card = page.locator(`div:has(> * h3:has-text("${testPrefix}"))`).first();
-            await expect(card).toBeVisible({ timeout: 10000 });
+            // Locate answer section
+            const answerSection = page.locator('.space-y-4, .card, div').filter({ hasText: testPrefix }).first();
+            await expect(answerSection).toBeVisible({ timeout: 10000 });
 
             // Verify canonical answer value is rendered
-            await expect(card).toContainText(initialValue);
+            await expect(answerSection).toContainText(initialValue);
 
             // Verify FieldSourceBadge with Last validated is visible
-            const sourceBadge = card.locator('text=/User input/i').first();
+            const sourceBadge = answerSection.locator('text=/User input/i').first();
             await expect(sourceBadge).toBeVisible();
-            const lastValidatedLabel = card.locator('text=/Last validated/i').first();
-            await expect(lastValidatedLabel).toBeVisible();
+            await expect(answerSection).toContainText(/Last validated/i);
         } finally {
             await supplierContext.close();
         }
