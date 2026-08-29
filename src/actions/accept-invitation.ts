@@ -177,7 +177,7 @@ export async function registerAndAcceptInvitation(payload: {
             } else if (scopeType === "ENG" && invite.fiEngagementId && invite.fiEngagement) {
                 let assignedRole = invite.role;
                 if (assignedRole === "ORG_ADMIN") assignedRole = "RELATIONSHIP_ADMIN";
-                if (assignedRole === "ORG_MEMBER" || assignedRole === "SUPPLIER_CONTACT") assignedRole = "RELATIONSHIP_USER";
+                if (assignedRole === "ORG_MEMBER" || assignedRole === "SUPPLIER_CONTACT" || assignedRole === "Supplier Contact") assignedRole = "RELATIONSHIP_USER";
 
                 await tx.membership.create({
                     data: {
@@ -351,7 +351,7 @@ export async function acceptInvitation(rawToken: string) {
                 
                 let assignedRole = invite.role;
                 if (assignedRole === "ORG_ADMIN") assignedRole = "RELATIONSHIP_ADMIN";
-                if (assignedRole === "ORG_MEMBER" || assignedRole === "SUPPLIER_CONTACT") assignedRole = "RELATIONSHIP_USER";
+                if (assignedRole === "ORG_MEMBER" || assignedRole === "SUPPLIER_CONTACT" || assignedRole === "Supplier Contact") assignedRole = "RELATIONSHIP_USER";
 
                 if (!existing) {
                     await tx.membership.create({

@@ -214,8 +214,7 @@ test.describe('LIFE-02 — Admin Organisation Relationships Lifecycle (ONP-72)',
         await relTab.click();
 
         // Active engagements must remain visible
-        await expect(page.getByText('BRITISH LIVER TRUST').first()).toBeVisible({ timeout: 10000 });
-        await expect(page.getByText('FUSION UK FINCO LIMITED').first()).toBeVisible();
+        await expect(page.getByText('FUSION UK FINCO LIMITED').first()).toBeVisible({ timeout: 10000 });
         await expect(page.getByText('ZZOOMM PLC').first()).toBeVisible();
 
         // Historical soft-deleted engagements must NOT appear

@@ -34,6 +34,7 @@ export async function getAvailableQuestionnaires(fiOrgId: string) {
     return await prisma.questionnaire.findMany({
         where: {
             fiOrgId,
+            isDeleted: false,
             status: "ACTIVE"
         },
         select: {

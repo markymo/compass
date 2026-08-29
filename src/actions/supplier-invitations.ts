@@ -19,7 +19,7 @@ import { getAppBaseUrl } from "@/lib/env";
 export async function inviteSupplier(
     fiEngagementId: string,
     email: string,
-    role: string = "Supplier Contact",
+    role: string = "SUPPLIER_CONTACT",
     message?: string
 ) {
     // 1. Authentication & Context
@@ -100,13 +100,19 @@ export async function inviteSupplier(
             inviteLink: inviteLink
         }));
 
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({
-            from: 'OnPro <onboarding@resend.dev>', // Use resend.dev for testing unless verified domain
-            to: email,
-            subject: `Invitation to collaborate on ${engagement.clientLE.name}`,
-            html: emailHtml
-        });
+        try {
+            if (process.env.RESEND_API_KEY) {
+                const resend = new Resend(process.env.RESEND_API_KEY);
+                await resend.emails.send({
+                    from: 'OnPro <onboarding@resend.dev>',
+                    to: email,
+                    subject: `Invitation to collaborate on ${engagement.clientLE.name}`,
+                    html: emailHtml
+                });
+            }
+        } catch (mailErr) {
+            console.warn("[Resend] Failed to send supplier invite email:", mailErr);
+        }
 
         // 7. Update Engagement Status
         if (engagement.status !== "CONNECTED" && engagement.status !== "INVITED") {

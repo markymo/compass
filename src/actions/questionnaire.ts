@@ -532,7 +532,18 @@ export async function deleteQuestionnaire(id: string) {
             type: "SOFT_DELETE"
         });
 
-        revalidatePath(`/app/admin/organizations/${q.fiOrgId}`);
+        if (q.fiOrgId) {
+            revalidatePath(`/app/admin/organizations/${q.fiOrgId}`);
+            revalidatePath(`/app/s/${q.fiOrgId}`);
+            revalidatePath(`/app/s/${q.fiOrgId}/questions`);
+        }
+        if (q.clientLEId) {
+            revalidatePath(`/app/le/${q.clientLEId}`);
+            revalidatePath(`/app/le/${q.clientLEId}/relationships`);
+        }
+        if (q.fiEngagementId) {
+            revalidatePath(`/app/s/${q.fiOrgId}/engagements/${q.fiEngagementId}`);
+        }
         return { success: true };
     } catch (error) {
         console.error("Delete failed:", error);
