@@ -97,29 +97,15 @@ test.describe('QNR-01 / ONP-68 — Supplier Questionnaire Navigation & Review Jo
     });
 
     test('Supplier Org -> relationship -> visible questionnaire -> click review control -> Questions & Answers loads without 404 -> reload works', async ({ page }) => {
-        // 1. Navigate to Supplier Org overview
-        await page.goto(`/app/s/${supplierOrgId}`);
-        await expect(page.getByRole('heading', { name: 'Client Relationships' })).toBeVisible({ timeout: 20000 });
+        // 1. Navigate to Supplier Org overview with expand query parameter
+        await page.goto(`/app/s/${supplierOrgId}?expand=${engagementId}`);
+        await expect(page.getByRole('heading', { name: 'Client Relationships' }).first()).toBeVisible({ timeout: 20000 });
 
-        // 2. Locate the client group header and legal entity row
-        const clientGroup = page.locator('div').filter({ hasText: clientOrgName }).first();
-        if (await clientGroup.isVisible()) {
-            // Ensure client group is expanded
-            const leRow = page.getByText(clientLEName);
-            if (!(await leRow.isVisible())) {
-                await clientGroup.click();
-            }
-        }
-
-        // 3. Expand the Client LE row if the questionnaire is not yet visible
+        // 2. Locate the visible questionnaire card
         const qText = page.getByText(questionnaireName);
-        if (!(await qText.isVisible())) {
-            const leButton = page.getByText(clientLEName).first();
-            await leButton.click();
-            await expect(qText).toBeVisible({ timeout: 10000 });
-        }
+        await expect(qText).toBeVisible({ timeout: 15000 });
 
-        // 4. Locate and click the actual "Review questionnaire" control within the questionnaire card
+        // 3. Locate and click the actual "Review questionnaire" control within the questionnaire card
         const qCard = page.locator('div').filter({ hasText: questionnaireName }).filter({ hasText: 'Review questionnaire' }).last();
         const reviewBtn = qCard.getByRole('button', { name: /Review questionnaire/i });
         await expect(reviewBtn).toBeVisible();
@@ -128,7 +114,7 @@ test.describe('QNR-01 / ONP-68 — Supplier Questionnaire Navigation & Review Jo
 
         // 5. Assert navigation lands on Questions & Answers workbench with query params
         await expect(page).toHaveURL(new RegExp(`/app/s/${supplierOrgId}/questions`));
-        await expect(page.getByRole('heading', { name: 'Questions & Answers' })).toBeVisible({ timeout: 20000 });
+        await expect(page.getByRole('heading', { name: 'Questions & Answers' }).first()).toBeVisible({ timeout: 20000 });
 
         // 6. Assert there is NO 404 error and page content is populated
         await expect(page.getByText('404')).not.toBeVisible();
@@ -136,7 +122,7 @@ test.describe('QNR-01 / ONP-68 — Supplier Questionnaire Navigation & Review Jo
 
         // 7. Assert reload works cleanly without 404
         await page.reload();
-        await expect(page.getByRole('heading', { name: 'Questions & Answers' })).toBeVisible({ timeout: 20000 });
+        await expect(page.getByRole('heading', { name: 'Questions & Answers' }).first()).toBeVisible({ timeout: 20000 });
         await expect(page.getByText('404')).not.toBeVisible();
         await expect(page.getByText(/This page could not be found/i)).not.toBeVisible();
     });
