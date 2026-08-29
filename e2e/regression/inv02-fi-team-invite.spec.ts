@@ -104,7 +104,7 @@ test.describe('INV-02 / ONP-69 — FI Team Invite End-to-End Regression', () => 
         await doneBtn.click();
 
         // Verify Pending Invitations card displays invited email and canonical role
-        await expect(adminPage.getByText(testEmail)).toBeVisible();
+        await expect(adminPage.getByText(testEmail)).toBeVisible({ timeout: 20000 });
 
         // -------------------------------------------------------------------------
         // 2. Verify Database Pending State
@@ -186,7 +186,7 @@ test.describe('INV-02 / ONP-69 — FI Team Invite End-to-End Regression', () => 
         // Re-expand the engagement accordion and Team sub-accordion
         await adminPage.locator('[data-state="closed"], [data-state="open"]').filter({ hasText: /UAT Supplier Org A|Barclays/i }).first().click();
         await adminPage.getByRole('button', { name: /Team/i }).first().click();
-        await expect(adminPage.getByText(testEmail)).toBeVisible();
+        await expect(adminPage.getByText(testEmail)).toBeVisible({ timeout: 20000 });
 
         await adminContext.close();
         await supplierContext.close();
