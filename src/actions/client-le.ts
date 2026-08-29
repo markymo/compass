@@ -2,7 +2,7 @@
 
 import prisma from "@/lib/prisma";
 import { EngagementStatus, SourceType, Prisma } from "@prisma/client";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_noStore } from "next/cache";
 import { ExtractedItem } from "./ai-mapper"; // Importing type
 import { MasterSchemaDefinition } from "@/types/schema";
 import { Action, can, ensureAuthorization } from "@/lib/auth/permissions";
