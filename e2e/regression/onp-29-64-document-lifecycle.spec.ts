@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { PrismaClient } from '@prisma/client';
+import { del } from '@vercel/blob';
 import * as fs from 'fs';
 import * as path from 'path';
 import { loadUATManifest, PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture';
@@ -17,6 +18,7 @@ test.describe('DOC-01 / ONP-29 + ONP-64 — Relationship Document & Output Pack 
     let clientLEId: string;
     let engagementId: string;
     let testDocId: string;
+    let storagePathname: string | undefined;
     let tempFilePath: string;
 
     const testTimestamp = Date.now();
@@ -65,6 +67,7 @@ test.describe('DOC-01 / ONP-29 + ONP-64 — Relationship Document & Output Pack 
             });
             if (!createdDoc) throw new Error(`Document ${testFilename} was not persisted in database after upload`);
             testDocId = createdDoc.id;
+            storagePathname = createdDoc.storagePathname;
 
             // Step 3: Explicitly share this genuine document with the supplier engagement
             await prisma.fIEngagement.update({
@@ -86,11 +89,30 @@ test.describe('DOC-01 / ONP-29 + ONP-64 — Relationship Document & Output Pack 
             if (fs.existsSync(tempFilePath)) {
                 fs.unlinkSync(tempFilePath);
             }
+            let blobPathToDelete = storagePathname;
             if (testDocId) {
+                if (!blobPathToDelete) {
+                    const doc = await prisma.document.findUnique({ where: { id: testDocId } }).catch(() => null);
+                    if (doc?.storagePathname) blobPathToDelete = doc.storagePathname;
+                }
+                if (engagementId) {
+                    await prisma.fIEngagement.update({
+                        where: { id: engagementId },
+                        data: { sharedDocuments: { disconnect: { id: testDocId } } }
+                    }).catch(() => {});
+                }
                 // Non-destructive cleanup: delete only the exact document created by this test run
                 await prisma.fieldClaim.deleteMany({ where: { attachmentDocumentId: testDocId } }).catch(() => {});
                 await prisma.privateDocumentUploadIntent.deleteMany({ where: { documentId: testDocId } }).catch(() => {});
                 await prisma.document.delete({ where: { id: testDocId } }).catch(() => {});
+            }
+            if (blobPathToDelete) {
+                const token = process.env.PRIVATE_BLOB_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN;
+                if (token) {
+                    await del(blobPathToDelete, { token }).catch((err) => {
+                        console.warn('Warning deleting test blob from Vercel Blob:', blobPathToDelete, err);
+                    });
+                }
             }
         } catch (err) {
             console.warn('Cleanup warning in onp-29-64:', err);
