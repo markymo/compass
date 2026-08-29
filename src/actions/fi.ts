@@ -833,9 +833,7 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                 const sharedSourceLabel = derivedVal ? getSourceDisplayName(sharedSourceType, sharedSourceRef) : "Provisional Shared";
                 const isSharedUserInput = sharedSourceType === "USER_INPUT";
 
-                const lastValidatedAt = isSharedUserInput
-                    ? (q.sharedAt || null)
-                    : (derivedVal?.sourceCheckedAt || derivedVal?.assertedAt || null);
+                const lastValidatedAt = derivedVal?.sourceCheckedAt || derivedVal?.assertedAt || q.sharedAt || null;
 
                 provenance = {
                     source: sharedSourceLabel || "Provisional Shared",
