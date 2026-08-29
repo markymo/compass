@@ -1385,7 +1385,12 @@ export async function getEngagementTeam(engagementId: string) {
         }));
 
         const members = await prisma.membership.findMany({
-            where: { clientLEId: engagement.clientLEId },
+            where: {
+                OR: [
+                    { clientLEId: engagement.clientLEId },
+                    { fiEngagementId: engagementId }
+                ]
+            },
             include: { user: { select: { name: true, email: true, image: true } } },
             orderBy: { createdAt: 'desc' }
         });

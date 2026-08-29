@@ -32,20 +32,32 @@ test.describe('INV-02 / ONP-69 — FI Team Invite End-to-End Regression', () => 
         engagementId = engagement.id;
         supplierOrgId = engagement.fiOrgId;
 
+        const cleanupUser = async () => {
+            const u = await prisma.user.findUnique({ where: { email: testEmail } });
+            if (u) {
+                await prisma.engagementActivity.deleteMany({ where: { userId: u.id } });
+            }
+            await prisma.membership.deleteMany({
+                where: { user: { email: testEmail } }
+            });
+            await prisma.invitation.deleteMany({
+                where: { sentToEmail: testEmail }
+            });
+            await prisma.user.deleteMany({
+                where: { email: testEmail }
+            });
+        };
+
         // 2. Clean up any previous test state for test email
-        await prisma.membership.deleteMany({
-            where: { user: { email: testEmail } }
-        });
-        await prisma.invitation.deleteMany({
-            where: { sentToEmail: testEmail }
-        });
-        await prisma.user.deleteMany({
-            where: { email: testEmail }
-        });
+        await cleanupUser();
     });
 
     test.afterAll(async () => {
         // Cleanup created test records
+        const u = await prisma.user.findUnique({ where: { email: testEmail } });
+        if (u) {
+            await prisma.engagementActivity.deleteMany({ where: { userId: u.id } });
+        }
         await prisma.membership.deleteMany({
             where: { user: { email: testEmail } }
         });
