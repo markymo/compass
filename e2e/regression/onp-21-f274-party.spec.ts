@@ -2,12 +2,12 @@ import { test, expect } from '@playwright/test';
 import { PrismaClient } from '@prisma/client';
 import { loadUATManifest, PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture';
 
-// Contract: PARTY-06 — F274 party values are not truncated in canonical read-only display and mapped reuse
+// Contract: PARTY-06 — Field 274 multi-value Person and Organisation records render complete, untruncated canonical values in Master read-only card and inspection drawer
 // Linear: ONP-21
 
 const prisma = new PrismaClient();
 
-test.describe('PARTY-06 / ONP-21 — F274 Party Non-Truncation Display Lifecycle', () => {
+test.describe('PARTY-06 / ONP-21 — Field 274 Party Non-Truncation Display Lifecycle', () => {
     test.use({ storageState: PERSONA_STORAGE_STATES.leAdminAlpha });
     test.setTimeout(90000);
 
@@ -23,21 +23,38 @@ test.describe('PARTY-06 / ONP-21 — F274 Party Non-Truncation Display Lifecycle
 
     test.beforeAll(async () => {
         manifest = loadUATManifest();
-        const clientLE = await prisma.clientLE.findFirst({
-            where: { OR: [{ id: manifest.alphaClientLE.id }, { shortCode: 'uat_cle_alpha' }] }
+        const alphaLE = await prisma.clientLE.findFirst({
+            where: { OR: [{ id: manifest.alphaClientLE.id }, { shortCode: 'uat_cle_alpha' }] },
+            include: { owners: true }
         });
-        if (!clientLE) throw new Error('uat_cle_alpha not found in database');
-        clientLEId = clientLE.id;
+        if (!alphaLE) throw new Error('uat_cle_alpha not found in database');
 
-        // Clean up any test claims on Field 274 (Persons of significant control (other))
-        await prisma.fieldClaim.deleteMany({
-            where: {
-                clientLEId,
-                fieldNo: 274,
+        const leAdminUser = await prisma.user.findUnique({
+            where: { email: manifest.actors.leAdminAlpha.email }
+        });
+        if (!leAdminUser) throw new Error(`LE Admin user ${manifest.actors.leAdminAlpha.email} not found`);
+
+        // Shared-fixture preservation: create a fully disposable synthetic ClientLE
+        const disposableLE = await prisma.clientLE.create({
+            data: {
+                shortCode: `uat_cle_onp21_${testTimestamp}`,
+                name: `Disposable CLE ONP-21 ${testTimestamp}`,
+                owners: {
+                    create: {
+                        partyId: alphaLE.owners[0]?.partyId || alphaLE.id
+                    }
+                },
+                memberships: {
+                    create: {
+                        userId: leAdminUser.id,
+                        role: 'LE_ADMIN'
+                    }
+                }
             }
         });
+        clientLEId = disposableLE.id;
 
-        // Seed distinctive long Person party claim
+        // Seed distinctive long Person party claim on Field 274 (Persons of significant control (other))
         await prisma.fieldClaim.create({
             data: {
                 clientLEId,
@@ -60,7 +77,7 @@ test.describe('PARTY-06 / ONP-21 — F274 Party Non-Truncation Display Lifecycle
             }
         });
 
-        // Seed distinctive long Organisation party claim
+        // Seed distinctive long Organisation party claim on Field 274
         await prisma.fieldClaim.create({
             data: {
                 clientLEId,
@@ -86,12 +103,8 @@ test.describe('PARTY-06 / ONP-21 — F274 Party Non-Truncation Display Lifecycle
     test.afterAll(async () => {
         try {
             if (clientLEId) {
-                await prisma.fieldClaim.deleteMany({
-                    where: {
-                        clientLEId,
-                        fieldNo: 274,
-                    }
-                });
+                await prisma.fieldClaim.deleteMany({ where: { clientLEId } }).catch(() => {});
+                await prisma.clientLE.delete({ where: { id: clientLEId } }).catch(() => {});
             }
         } catch (err) {
             console.warn('Cleanup error in ONP-21:', err);
