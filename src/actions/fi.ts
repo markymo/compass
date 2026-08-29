@@ -864,12 +864,12 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
     const questions: SupplierQuestionView[] = transformedQuestionsNested.flat();
 
     // Query all active engagements to ensure every relationship appears in LE filters
-    const activeEngagements = await prisma.fIEngagement.findMany({
+    const activeEngagements = (await prisma.fIEngagement?.findMany?.({
         where: engagementFilter,
         select: {
             clientLE: { select: { name: true } }
         }
-    });
+    })) || [];
     const allActiveLENames = activeEngagements.map((e: any) => e.clientLE?.name).filter(Boolean) as string[];
     const combinedLEs = Array.from(new Set([...allActiveLENames, ...questions.map((q) => q.clientLEName)])).sort();
 
