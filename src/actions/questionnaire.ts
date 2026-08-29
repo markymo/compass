@@ -516,7 +516,10 @@ export async function deleteQuestionnaire(id: string) {
     try { await ensureQuestionnaireAccess(id, "WRITE"); } catch(e) {
         return { success: false, error: "Unauthorized" };
     }
-    const q = await prisma.questionnaire.findUnique({ where: { id } });
+    const q = await prisma.questionnaire.findUnique({
+        where: { id },
+        include: { fiEngagement: { select: { clientLEId: true } } }
+    });
     if (!q) return { success: false, error: "Questionnaire not found" };
 
     try {
@@ -537,9 +540,11 @@ export async function deleteQuestionnaire(id: string) {
             revalidatePath(`/app/s/${q.fiOrgId}`);
             revalidatePath(`/app/s/${q.fiOrgId}/questions`);
         }
-        if (q.clientLEId) {
-            revalidatePath(`/app/le/${q.clientLEId}`);
-            revalidatePath(`/app/le/${q.clientLEId}/relationships`);
+        const clientLEId = q.fiEngagement?.clientLEId;
+        if (clientLEId) {
+            revalidatePath(`/app/le/${clientLEId}`);
+            revalidatePath(`/app/le/${clientLEId}/relationships`);
+            revalidatePath(`/app/le/${clientLEId}/workbench4`);
         }
         if (q.fiEngagementId) {
             revalidatePath(`/app/s/${q.fiOrgId}/engagements/${q.fiEngagementId}`);
