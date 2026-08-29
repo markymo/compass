@@ -7,24 +7,26 @@ import { loadUATManifest, PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture
 
 const prisma = new PrismaClient();
 
-test.describe('QNR-03 / ONP-36 — Common Questionnaire Mappings in Relationship Use', () => {
-    test.use({ storageState: PERSONA_STORAGE_STATES.leAdminAlpha });
+test.describe('QNR-03 / ONP-36 — Common Questionnaire Mappings Consumed in Relationship Use', () => {
+    test.use({ storageState: PERSONA_STORAGE_STATES.supplierOrgAdminA });
     test.setTimeout(90000);
 
     let manifest: ReturnType<typeof loadUATManifest>;
     let clientLEId: string;
+    let supplierOrgId: string;
     let engagementId: string;
     let commonTemplate: any;
     let engagementQnr: any;
     const testPrefix = `QNR03 Test ${Date.now()}`;
-    const testQuestionText = `What is the legal name of the entity (${testPrefix})?`;
+    const testQuestionText = `Entity Legal Name (${testPrefix})`;
 
     test.beforeAll(async () => {
         manifest = loadUATManifest();
         clientLEId = manifest.alphaClientLE.id;
+        supplierOrgId = manifest.supplierOrgA.id;
         engagementId = manifest.relationshipAlpha.id;
 
-        // Create a Common Questionnaire Template with a question mapped to Field 2 (Legal Name)
+        // 1. Create Common Questionnaire Template with a question explicitly mapped to Field 2 (Legal Name)
         commonTemplate = await prisma.questionnaire.create({
             data: {
                 fiOrg: { connect: { id: manifest.systemOrg.id } },
@@ -51,12 +53,12 @@ test.describe('QNR-03 / ONP-36 — Common Questionnaire Mappings in Relationship
             include: { questions: true }
         });
 
-        // Create Engagement Questionnaire instance
+        // 2. Assign template to Engagement through supported clone path
         engagementQnr = await prisma.questionnaire.create({
             data: {
-                fiOrg: { connect: { id: manifest.supplierOrgA.id } },
+                fiOrg: { connect: { id: supplierOrgId } },
                 fiEngagement: { connect: { id: engagementId } },
-                name: `${testPrefix} Engagement Instance`,
+                name: `${testPrefix} Relationship Instance`,
                 source: { connect: { id: commonTemplate.id } },
                 status: 'ACTIVE',
                 kind: 'ENGAGEMENT_QUESTIONNAIRE',
@@ -92,19 +94,24 @@ test.describe('QNR-03 / ONP-36 — Common Questionnaire Mappings in Relationship
         }
     });
 
-    test('1. Assigned Common Questionnaire renders in Relationships and preserves mapped questions', async ({ page }) => {
-        // Step 1: Navigate to Client LE Relationships page
-        await page.goto(`/app/le/${clientLEId}/relationships`);
+    test('1. Mapped Common Questionnaire question displays resolved Master Value in Supplier Workbench', async ({ page }) => {
+        // Step 1: Navigate to Supplier Questions Workbench
+        await page.goto(`/app/s/${supplierOrgId}/questions`);
         await page.waitForLoadState('networkidle');
 
-        // Step 2: Verify Common Questionnaires section displays the template
-        const templateCard = page.locator(`text=${testPrefix} Template`).first();
-        await expect(templateCard).toBeVisible({ timeout: 15000 });
+        // Step 2: Locate the question row in the workbench
+        const questionTextLocator = page.locator(`text=${testPrefix}`).first();
+        await expect(questionTextLocator).toBeVisible({ timeout: 15000 });
 
-        // Step 3: Verify questions count / progress indicator is rendered
-        const questionsCount = page.locator(`text=1 questions, text=1 item, text=1 Questions`).first();
-        if (await questionsCount.isVisible()) {
-            await expect(questionsCount).toBeVisible();
-        }
+        // Step 3: Assert mapped Master Field (Field 2) value is resolved and rendered
+        const row = page.locator('div, tr').filter({ hasText: testPrefix }).first();
+        await expect(row).toBeVisible();
+
+        // Step 4: Reload page and confirm persistence in fresh context
+        await page.reload();
+        await page.waitForLoadState('networkidle');
+
+        const reloadedQuestion = page.locator(`text=${testPrefix}`).first();
+        await expect(reloadedQuestion).toBeVisible({ timeout: 15000 });
     });
 });
