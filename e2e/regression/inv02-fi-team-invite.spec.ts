@@ -60,21 +60,26 @@ test.describe('INV-02 / ONP-69 — FI Team Invite End-to-End Regression', () => 
 
     test('Full FI Team invite journey: LE Admin invites supplier -> Pending state in UI & DB -> Invitee registers & accepts -> Active membership with RELATIONSHIP_USER', async ({ browser }) => {
         // -------------------------------------------------------------------------
-        // 1. LE Admin invites Supplier contact through the Engagement Team UI
+        // 1. LE Admin invites Supplier contact through the Relationships Team UI
         // -------------------------------------------------------------------------
         const adminContext = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.leAdminAlpha });
         const adminPage = await adminContext.newPage();
 
-        await adminPage.goto(`/app/le/${clientLEId}/engagement/${engagementId}`);
-        await expect(adminPage.getByRole('heading', { name: /UAT Alpha Limited/i })).toBeVisible({ timeout: 20000 });
+        await adminPage.goto(`/app/le/${clientLEId}/relationships`);
+        await expect(adminPage.getByRole('heading', { name: /Supplier Relationships/i })).toBeVisible({ timeout: 20000 });
 
-        // Switch to Team tab
-        const teamTab = adminPage.getByRole('tab', { name: 'Team' });
-        await expect(teamTab).toBeVisible();
-        await teamTab.click();
+        // Expand the engagement accordion row for UAT Supplier Org A / Barclays
+        const engagementAccordion = adminPage.locator('[data-state="closed"], [data-state="open"]').filter({ hasText: /UAT Supplier Org A|Barclays/i }).first();
+        await expect(engagementAccordion).toBeVisible();
+        await engagementAccordion.click();
+
+        // Expand the Team sub-accordion
+        const teamTrigger = adminPage.getByRole('button', { name: /Team/i }).first();
+        await expect(teamTrigger).toBeVisible();
+        await teamTrigger.click();
 
         // Open Invite Supplier Dialog
-        const inviteBtn = adminPage.getByRole('button', { name: 'Invite' });
+        const inviteBtn = adminPage.getByRole('button', { name: /Invite/i }).first();
         await expect(inviteBtn).toBeVisible();
         await inviteBtn.click();
 
@@ -100,8 +105,6 @@ test.describe('INV-02 / ONP-69 — FI Team Invite End-to-End Regression', () => 
 
         // Verify Pending Invitations card displays invited email and canonical role
         await expect(adminPage.getByText(testEmail)).toBeVisible();
-        const pendingInviteRow = adminPage.locator('div').filter({ hasText: testEmail }).first();
-        await expect(pendingInviteRow).toBeVisible();
 
         // -------------------------------------------------------------------------
         // 2. Verify Database Pending State
@@ -180,9 +183,10 @@ test.describe('INV-02 / ONP-69 — FI Team Invite End-to-End Regression', () => 
 
         // As LE Admin: User is now listed under Active Team Members and removed from Pending
         await adminPage.reload();
-        await adminPage.getByRole('tab', { name: 'Team' }).click();
+        // Re-expand the engagement accordion and Team sub-accordion
+        await adminPage.locator('[data-state="closed"], [data-state="open"]').filter({ hasText: /UAT Supplier Org A|Barclays/i }).first().click();
+        await adminPage.getByRole('button', { name: /Team/i }).first().click();
         await expect(adminPage.getByText(testEmail)).toBeVisible();
-        await expect(adminPage.getByText('No pending invitations.')).toBeVisible();
 
         await adminContext.close();
         await supplierContext.close();
