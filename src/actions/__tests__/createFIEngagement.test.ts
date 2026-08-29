@@ -49,15 +49,15 @@ describe("createFIEngagement Server Action Contract & Duplicate Protection", () 
         expect(prisma.fIEngagement.create).not.toHaveBeenCalled();
     });
 
-    it("2. Returns error if organization is not of type FI", async () => {
+    it("2. Returns error if organization is not of type FI/SUPPLIER/LAW_FIRM", async () => {
         (prisma.organization.findUnique as any).mockResolvedValue({
             id: mockFiOrgId,
-            name: "Law Firm Org",
-            types: ["LAW_FIRM"],
+            name: "Pure Client Org",
+            types: ["CLIENT"],
         });
 
         const result = await createFIEngagement(mockClientLEId, mockFiOrgId);
-        expect(result).toEqual({ success: false, error: "Selected organization is not a financial institution" });
+        expect(result).toEqual({ success: false, error: "Selected organization is not a supplier or financial institution" });
         expect(prisma.fIEngagement.create).not.toHaveBeenCalled();
     });
 
