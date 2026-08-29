@@ -68,15 +68,19 @@ test.describe('INV-02 / ONP-69 — FI Team Invite End-to-End Regression', () => 
         await adminPage.goto(`/app/le/${clientLEId}/relationships`);
         await expect(adminPage.getByRole('heading', { name: /Supplier Relationships/i }).first()).toBeVisible({ timeout: 20000 });
 
-        // Expand the engagement accordion row for UAT Supplier Org A / Barclays
-        const engagementAccordion = adminPage.locator('[data-state="closed"], [data-state="open"]').filter({ hasText: /UAT Supplier Org A|Barclays/i }).first();
-        await expect(engagementAccordion).toBeVisible();
-        await engagementAccordion.click();
+        // Expand the outer engagement accordion row if closed
+        const engagementTrigger = adminPage.getByRole('button', { name: /UAT Supplier Org A|Barclays/i }).first();
+        await expect(engagementTrigger).toBeVisible({ timeout: 20000 });
+        if (await engagementTrigger.getAttribute('data-state') === 'closed') {
+            await engagementTrigger.click();
+        }
 
-        // Expand the Team sub-accordion
+        // Wait for sub-accordion to appear and expand Team subsection
         const teamTrigger = adminPage.getByRole('button', { name: /Team/i }).first();
-        await expect(teamTrigger).toBeVisible();
-        await teamTrigger.click();
+        await expect(teamTrigger).toBeVisible({ timeout: 20000 });
+        if (await teamTrigger.getAttribute('data-state') === 'closed') {
+            await teamTrigger.click();
+        }
 
         // Open Invite Supplier Dialog
         const inviteBtn = adminPage.getByRole('button', { name: /Invite/i }).first();
@@ -183,9 +187,18 @@ test.describe('INV-02 / ONP-69 — FI Team Invite End-to-End Regression', () => 
 
         // As LE Admin: User is now listed under Active Team Members and removed from Pending
         await adminPage.reload();
-        // Re-expand the engagement accordion and Team sub-accordion
-        await adminPage.locator('[data-state="closed"], [data-state="open"]').filter({ hasText: /UAT Supplier Org A|Barclays/i }).first().click();
-        await adminPage.getByRole('button', { name: /Team/i }).first().click();
+        const reloadEngTrigger = adminPage.getByRole('button', { name: /UAT Supplier Org A|Barclays/i }).first();
+        await expect(reloadEngTrigger).toBeVisible({ timeout: 20000 });
+        if (await reloadEngTrigger.getAttribute('data-state') === 'closed') {
+            await reloadEngTrigger.click();
+        }
+
+        const reloadTeamTrigger = adminPage.getByRole('button', { name: /Team/i }).first();
+        await expect(reloadTeamTrigger).toBeVisible({ timeout: 20000 });
+        if (await reloadTeamTrigger.getAttribute('data-state') === 'closed') {
+            await reloadTeamTrigger.click();
+        }
+
         await expect(adminPage.getByText(testEmail)).toBeVisible({ timeout: 20000 });
 
         await adminContext.close();
