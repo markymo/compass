@@ -544,6 +544,7 @@ export async function createFIEngagement(clientLEId: string, fiOrgId: string) {
  * This is used for the Questionnaire Mapper to show existing values.
  */
 export async function getFullMasterData(clientLEId: string) {
+    unstable_noStore();
     if (!clientLEId) return { success: false, data: {} };
 
     const identity = await getIdentity();
@@ -615,7 +616,7 @@ export async function getFullMasterData(clientLEId: string) {
         mappingsByField.set(m.targetFieldNo, list);
     }
 
-    if (subjectLeId) {
+    if (clientLE) {
         const allFields = await listAllMasterFields();
 
         // Batch fetch master field assignments for this Legal Entity
