@@ -79,7 +79,6 @@ test.describe('REL-01 / ONP-67 — FI Workbench lists all authorised active rela
                             sharedAt: new Date(),
                             expectedDataType: 'TEXT',
                             answer: 'UAT Alpha Limited',
-                            isDeleted: false,
                             order: 1
                         }
                     ]
@@ -105,9 +104,9 @@ test.describe('REL-01 / ONP-67 — FI Workbench lists all authorised active rela
         await expect(page.getByRole('heading', { name: 'Questions & Answers' }).first()).toBeVisible({ timeout: 20000 });
 
         // 2. Identify and open the Relationship selector
-        const relTrigger = page.getByRole('combobox').filter({ hasText: /Relationship|All Relationships/i }).first();
-        await expect(relTrigger).toBeVisible();
-        await relTrigger.click();
+        const getRelTrigger = () => page.locator('button[role="combobox"]').first();
+        await expect(getRelTrigger()).toBeVisible();
+        await getRelTrigger().click();
 
         // 3. Assert BOTH UAT Alpha Limited and UAT Beta Limited are available options
         const alphaOption = page.getByRole('option', { name: 'UAT Alpha Limited' });
@@ -122,7 +121,7 @@ test.describe('REL-01 / ONP-67 — FI Workbench lists all authorised active rela
         await expect(page.getByText('UAT Alpha Limited').first()).toBeVisible();
 
         // 5. Select UAT Beta Limited (zero questions relationship) and confirm Workbench handles clean empty state
-        await relTrigger.click();
+        await getRelTrigger().click();
         await expect(betaOption).toBeVisible();
         await betaOption.click();
         await expect(page).toHaveURL(/rel=UAT(\+|%20)Beta(\+|%20)Limited/);
@@ -135,9 +134,8 @@ test.describe('REL-01 / ONP-67 — FI Workbench lists all authorised active rela
         await expect(page.getByRole('heading', { name: 'Questions & Answers' }).first()).toBeVisible({ timeout: 20000 });
         await expect(page.getByText('404')).not.toBeVisible();
 
-        const reloadedRelTrigger = page.getByRole('combobox').filter({ hasText: /Relationship|All Relationships|UAT Beta Limited/i }).first();
-        await expect(reloadedRelTrigger).toBeVisible();
-        await reloadedRelTrigger.click();
+        await expect(getRelTrigger()).toBeVisible();
+        await getRelTrigger().click();
 
         await expect(page.getByRole('option', { name: 'UAT Alpha Limited' })).toBeVisible();
         await expect(page.getByRole('option', { name: 'UAT Beta Limited' })).toBeVisible();
