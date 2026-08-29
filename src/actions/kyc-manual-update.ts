@@ -92,10 +92,23 @@ export async function updateFieldManually(
                     case 'ORG_REF': claimInput.valueLeId = value; break;
                     case 'ADDRESS_REF': claimInput.valueAddressId = value; break;
                     case 'DOCUMENT_REF': claimInput.valueText = value; break; // Manual edits store as text; valueDocId requires valid FK
+                    case 'BOOLEAN': {
+                        let boolVal: boolean;
+                        if (typeof value === 'boolean') {
+                            boolVal = value;
+                        } else if (typeof value === 'string' && (value.toLowerCase() === 'true' || value.toLowerCase() === 'yes')) {
+                            boolVal = true;
+                        } else if (typeof value === 'string' && (value.toLowerCase() === 'false' || value.toLowerCase() === 'no')) {
+                            boolVal = false;
+                        } else {
+                            throw new ActionDomainError("Invalid boolean value. Must be a boolean (true/false).");
+                        }
+                        claimInput.valueJson = boolVal;
+                        break;
+                    }
                     case 'PARTY_REF':
                     case 'JSONB':
                     case 'ADDRESS':
-                    case 'BOOLEAN':
                     case 'PARTY':
                     case 'PERSON_OR_CONTACT':
                         claimInput.valueJson = value; break;
