@@ -61,7 +61,7 @@ test.describe('FILE-01 / ONP-26 — User Files Upload Lifecycle', () => {
         }
     });
 
-    test('1. Permitted file uploaded through User Files UI persists and is inspectable in Drawer', async ({ page }) => {
+    test('1. Permitted file uploaded through User Files UI persists, opens in drawer, and downloads valid binary', async ({ page }) => {
         // Step 1: Navigate to User Files page
         await page.goto(`/app/le/${clientLEId}/sources/user-files`);
         await page.waitForLoadState('networkidle');
@@ -83,7 +83,10 @@ test.describe('FILE-01 / ONP-26 — User Files Upload Lifecycle', () => {
         const drawer = page.locator('[role="dialog"]').first();
         await expect(drawer).toBeVisible({ timeout: 10000 });
         await expect(drawer).toContainText(testFilename);
-        await expect(drawer).toContainText('Download');
+        await expect(drawer).toContainText('Metadata');
+
+        // Close drawer
+        await page.keyboard.press('Escape');
 
         // Step 6: Reload page and confirm persistence in fresh context
         await page.reload();
@@ -91,5 +94,18 @@ test.describe('FILE-01 / ONP-26 — User Files Upload Lifecycle', () => {
 
         const reloadedRow = page.locator('tr').filter({ hasText: testFilename }).first();
         await expect(reloadedRow).toBeVisible({ timeout: 15000 });
+
+        // Step 7: Download and verify actual file download payload
+        const downloadPromise = page.waitForEvent('download');
+        await reloadedRow.locator('a[href*="/api/documents/"]').click();
+        const download = await downloadPromise;
+
+        expect(download.suggestedFilename()).toBe(testFilename);
+        const downloadedPath = await download.path();
+        expect(downloadedPath).toBeTruthy();
+        if (downloadedPath) {
+            const downloadedSize = fs.statSync(downloadedPath).size;
+            expect(downloadedSize).toBeGreaterThan(0);
+        }
     });
 });
