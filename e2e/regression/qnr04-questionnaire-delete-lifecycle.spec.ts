@@ -98,8 +98,10 @@ test.describe('QNR-04 / ONP-70 — Questionnaire Delete Lifecycle Across Active 
         await prisma.$disconnect();
     });
 
-    test('Full QNR-04 lifecycle: Client visible -> Supplier visible -> Client removes via UI -> Absent across surfaces -> Unrelated unaffected -> Soft delete preserved', async ({ browser }) => {
-        // --- Step 1: Confirm initially visible on Client Relationships surface ---
+    test('Full QNR-04 lifecycle: Client visible -> Supplier visible -> Client removes via UI -> Absent across surfaces -> Unrelated unaffected -> Soft-deleted record retained', async ({ browser }) => {
+        // =========================================================================
+        // Step 1: Confirm initially visible on Client Relationships surface
+        // =========================================================================
         const clientContext = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.leAdminAlpha });
         const clientPage = await clientContext.newPage();
 
@@ -114,38 +116,59 @@ test.describe('QNR-04 / ONP-70 — Questionnaire Delete Lifecycle Across Active 
         const qTrigger = clientPage.getByRole('button', { name: /Questionnaires/i }).first();
         await expandAccordion(qTrigger);
 
-        // Both disposable and baseline questionnaires must be visible initially
+        // Both disposable and baseline questionnaires must be visible initially on Client UI
         await expect(clientPage.getByText(testQName).first()).toBeVisible({ timeout: 20000 });
         await expect(clientPage.getByText(baselineQName).first()).toBeVisible({ timeout: 20000 });
 
-        // --- Step 2: Confirm Supplier portal surface can access relationship ---
+        // =========================================================================
+        // Step 2: Confirm initially visible on Supplier Relationships surface
+        // =========================================================================
         const supplierContext = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.supplierOrgAdminA });
         const supplierPage = await supplierContext.newPage();
 
-        await supplierPage.goto(`/app/s/${supplierOrgId}`);
+        // Navigate with targeted expand parameter for alphaEngagementId
+        await supplierPage.goto(`/app/s/${supplierOrgId}?expand=${alphaEngagementId}`);
         await expect(supplierPage.getByRole('heading', { name: /Client Relationships/i }).first()).toBeVisible({ timeout: 20000 });
 
-        // --- Step 3: Client removes disposable questionnaire using supported UI action ---
-        // Find the card/row containing testQName
-        const targetQContainer = clientPage.locator('div').filter({ has: clientPage.getByText(testQName) }).last();
-        const removeButton = targetQContainer.locator('button[title="Remove Questionnaire"]').or(targetQContainer.getByRole('button', { name: /Remove/i })).first();
-
-        if (await removeButton.isVisible({ timeout: 4000 })) {
-            await removeButton.click();
-            const confirmBtn = targetQContainer.getByRole('button', { name: /^Yes$/i }).first();
-            await expect(confirmBtn).toBeVisible({ timeout: 4000 });
-            await confirmBtn.click();
-            // Wait for toast or removal
-            await expect(clientPage.getByText(testQName)).toHaveCount(0, { timeout: 10000 });
-        } else {
-            // Explicit soft delete via DB update if button is outside current viewport/DOM tree
-            await prisma.questionnaire.update({
-                where: { id: disposableQId },
-                data: { isDeleted: true }
-            });
+        // If LE row collapsible is not auto-expanded, expand it
+        const leRowHeader = supplierPage.locator('div').filter({ hasText: 'UAT Alpha Limited' }).last();
+        const leChevron = leRowHeader.locator('button').first();
+        if (await leChevron.isVisible()) {
+            const hasDisposableQ = await supplierPage.getByText(testQName).isVisible();
+            if (!hasDisposableQ) {
+                await leChevron.click();
+            }
         }
 
-        // --- Step 4: Verify persistent absence after reload ---
+        // Both disposable and baseline questionnaires must be visible initially on Supplier UI
+        await expect(supplierPage.getByText(testQName).first()).toBeVisible({ timeout: 20000 });
+        await expect(supplierPage.getByText(baselineQName).first()).toBeVisible({ timeout: 20000 });
+
+        // =========================================================================
+        // Step 3: Client removes disposable questionnaire using supported UI action
+        // No DB mutation fallback — must execute and succeed purely through UI
+        // =========================================================================
+        // Target specifically the individual questionnaire row for testQName
+        const targetQRow = clientPage.locator('.group\\/card').filter({ hasText: testQName }).first();
+        await expect(targetQRow).toBeVisible({ timeout: 15000 });
+
+        const removeButton = targetQRow.locator('button[title="Remove Questionnaire"]').first();
+        await expect(removeButton).toBeVisible({ timeout: 15000 });
+        await removeButton.click();
+
+        // Confirmation button "Yes" must appear within target row and be clicked
+        const confirmBtn = targetQRow.getByRole('button', { name: /^Yes$/i }).first();
+        await expect(confirmBtn).toBeVisible({ timeout: 10000 });
+        await confirmBtn.click();
+
+        // Verified immediate removal of disposable questionnaire from Client UI
+        await expect(clientPage.getByText(testQName)).toHaveCount(0, { timeout: 15000 });
+        // Baseline questionnaire remains untouched
+        await expect(clientPage.getByText(baselineQName).first()).toBeVisible();
+
+        // =========================================================================
+        // Step 4: Verify persistent absence after Client page reload
+        // =========================================================================
         await clientPage.reload();
         await expect(clientPage.getByRole('heading', { name: /Supplier Relationships/i }).first()).toBeVisible({ timeout: 20000 });
         const reloadedEngTrigger = clientPage.getByRole('button', { name: /UAT Supplier Org A|Barclays/i }).first();
@@ -158,7 +181,9 @@ test.describe('QNR-04 / ONP-70 — Questionnaire Delete Lifecycle Across Active 
         // Unrelated baseline questionnaire REMAINS visible
         await expect(clientPage.getByText(baselineQName).first()).toBeVisible();
 
-        // --- Step 5: Verify fresh Client browser context ---
+        // =========================================================================
+        // Step 5: Verify fresh Client browser context
+        // =========================================================================
         const freshClientContext = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.leAdminAlpha });
         const freshClientPage = await freshClientContext.newPage();
         await freshClientPage.goto(`/app/le/${alphaClientLEId}/relationships`);
@@ -170,12 +195,29 @@ test.describe('QNR-04 / ONP-70 — Questionnaire Delete Lifecycle Across Active 
         await expect(freshClientPage.getByText(testQName)).toHaveCount(0);
         await expect(freshClientPage.getByText(baselineQName).first()).toBeVisible();
 
-        // --- Step 6: Verify Supplier portal surface ---
+        // =========================================================================
+        // Step 6: Verify Supplier portal surface post-deletion
+        // =========================================================================
         await supplierPage.reload();
         await expect(supplierPage.getByRole('heading', { name: /Client Relationships/i }).first()).toBeVisible({ timeout: 20000 });
-        await expect(supplierPage.getByText(testQName)).toHaveCount(0);
 
-        // --- Step 7: Verify Database Record is soft-deleted, not destroyed ---
+        const reloadedSupplierLeRow = supplierPage.locator('div').filter({ hasText: 'UAT Alpha Limited' }).last();
+        const reloadedSupplierChevron = reloadedSupplierLeRow.locator('button').first();
+        if (await reloadedSupplierChevron.isVisible()) {
+            const hasBaselineQ = await supplierPage.getByText(baselineQName).isVisible();
+            if (!hasBaselineQ) {
+                await reloadedSupplierChevron.click();
+            }
+        }
+
+        // Deleted questionnaire is absent from Supplier UI
+        await expect(supplierPage.getByText(testQName)).toHaveCount(0);
+        // Baseline questionnaire remains visible on Supplier UI
+        await expect(supplierPage.getByText(baselineQName).first()).toBeVisible({ timeout: 10000 });
+
+        // =========================================================================
+        // Step 7: Verify Database Record is soft-deleted, not destroyed
+        // =========================================================================
         const dbQ = await prisma.questionnaire.findUnique({
             where: { id: disposableQId },
             select: { id: true, isDeleted: true, fiEngagementId: true }
