@@ -4,6 +4,7 @@ import { loadUATManifest, PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture
 
 // Contract: MASTER-04 — A user override of a source-backed Master value becomes the canonical winner and carries the winning claim's provenance
 // Linear: ONP-28
+// Field under test: Field 2 (LEI — GLEIF registry source-backed text field)
 
 const prisma = new PrismaClient();
 
@@ -20,21 +21,38 @@ test.describe('MASTER-04 / ONP-28 — Master Field Override & Provenance Update 
 
     test.beforeAll(async () => {
         manifest = loadUATManifest();
-        const clientLE = await prisma.clientLE.findFirst({
-            where: { OR: [{ id: manifest.alphaClientLE.id }, { shortCode: 'uat_cle_alpha' }] }
+        const alphaLE = await prisma.clientLE.findFirst({
+            where: { OR: [{ id: manifest.alphaClientLE.id }, { shortCode: 'uat_cle_alpha' }] },
+            include: { owners: true }
         });
-        if (!clientLE) throw new Error('uat_cle_alpha not found in database');
-        clientLEId = clientLE.id;
+        if (!alphaLE) throw new Error('uat_cle_alpha not found in database');
 
-        // Clean up any test claims on Field 2 (LEI)
-        await prisma.fieldClaim.deleteMany({
-            where: {
-                clientLEId,
-                fieldNo: 2,
+        const leAdminUser = await prisma.user.findUnique({
+            where: { email: manifest.actors.leAdminAlpha.email }
+        });
+        if (!leAdminUser) throw new Error(`LE Admin user ${manifest.actors.leAdminAlpha.email} not found`);
+
+        // Shared-fixture preservation: create a fully disposable synthetic ClientLE
+        const disposableLE = await prisma.clientLE.create({
+            data: {
+                shortCode: `uat_cle_onp28_${testTimestamp}`,
+                name: `Disposable CLE ONP-28 ${testTimestamp}`,
+                owners: {
+                    create: {
+                        partyId: alphaLE.owners[0]?.partyId || alphaLE.id
+                    }
+                },
+                memberships: {
+                    create: {
+                        userId: leAdminUser.id,
+                        role: 'LE_ADMIN'
+                    }
+                }
             }
         });
+        clientLEId = disposableLE.id;
 
-        // Seed initial lower-priority source claim (GLEIF) with historical validation date
+        // Seed initial lower-priority source claim (GLEIF) with historical validation date (15 Jan 2025)
         await prisma.fieldClaim.create({
             data: {
                 clientLEId,
@@ -53,12 +71,8 @@ test.describe('MASTER-04 / ONP-28 — Master Field Override & Provenance Update 
     test.afterAll(async () => {
         try {
             if (clientLEId) {
-                await prisma.fieldClaim.deleteMany({
-                    where: {
-                        clientLEId,
-                        fieldNo: 2,
-                    }
-                });
+                await prisma.fieldClaim.deleteMany({ where: { clientLEId } }).catch(() => {});
+                await prisma.clientLE.delete({ where: { id: clientLEId } }).catch(() => {});
             }
         } catch (err) {
             console.warn('Cleanup error in ONP-28:', err);
@@ -86,7 +100,9 @@ test.describe('MASTER-04 / ONP-28 — Master Field Override & Provenance Update 
         await expect(fieldCard.locator('text=/15 Jan 2025/i').first()).toBeVisible();
     });
 
-    test('2. User overrides value via UI drawer; winner becomes User Input with refreshed provenance', async ({ page }) => {
+    test('2. User overrides value via UI drawer; winner becomes User Input with refreshed Last validated timestamp', async ({ page }) => {
+        const todayStr = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
+
         await page.goto(`/app/le/${clientLEId}/master`);
         await page.waitForLoadState('domcontentloaded');
 
@@ -127,6 +143,12 @@ test.describe('MASTER-04 / ONP-28 — Master Field Override & Provenance Update 
         // Assert historical 2025 date is NO LONGER shown for the active winning value
         await expect(fieldCard.locator('text=/15 Jan 2025/i')).toHaveCount(0);
 
+        // Open inspection drawer to verify winning User Input claim has refreshed assertion date
+        const winningClaimRow = drawer.locator(`div:has-text("${manualOverrideValue}")`).first();
+        await expect(winningClaimRow).toBeVisible();
+        await expect(winningClaimRow.locator('text=/User input/i').first()).toBeVisible();
+        await expect(winningClaimRow).toContainText(todayStr);
+
         // Reload page to verify persistence across fresh session
         await page.reload();
         await page.waitForLoadState('domcontentloaded');
@@ -134,15 +156,15 @@ test.describe('MASTER-04 / ONP-28 — Master Field Override & Provenance Update 
         const reloadedCard = page.locator('[data-testid="master-field-2"], [data-field-no="2"]').first();
         await expect(reloadedCard).toContainText(manualOverrideValue);
         await expect(reloadedCard.locator('text=/User input/i').first()).toBeVisible();
+        await expect(reloadedCard.locator('text=/15 Jan 2025/i')).toHaveCount(0);
 
-        // Open inspection drawer on reloaded page to verify full provenance history
+        // Open reloaded drawer and reassert winning claim provenance timestamp
         await reloadedCard.locator('[role="button"]').first().click();
         const reloadedDrawer = page.locator('[role="dialog"]').first();
         await expect(reloadedDrawer).toBeVisible({ timeout: 10000 });
-
-        // Verify active winner in drawer has User Input provenance
-        const winningClaimRow = reloadedDrawer.locator(`div:has-text("${manualOverrideValue}")`).first();
-        await expect(winningClaimRow).toBeVisible();
-        await expect(winningClaimRow.locator('text=/User input/i').first()).toBeVisible();
+        const reloadedClaimRow = reloadedDrawer.locator(`div:has-text("${manualOverrideValue}")`).first();
+        await expect(reloadedClaimRow).toBeVisible();
+        await expect(reloadedClaimRow.locator('text=/User input/i').first()).toBeVisible();
+        await expect(reloadedClaimRow).toContainText(todayStr);
     });
 });
