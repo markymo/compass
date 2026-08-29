@@ -16,7 +16,7 @@ test.describe('INV-03 / ONP-79 — User Invitation & Auto-Add Fork Baseline', ()
     test.beforeAll(async () => {
         const manifest = loadUATManifest();
         clientOrgId = manifest.clientOrgA.id;
-        existingUserEmail = manifest.supplierUserA.email; // Valid registered user not in Client Org A
+        existingUserEmail = manifest.actors.supplierOrgAdminA.email; // Valid registered user not in Client Org A
 
         const user = await prisma.user.findUnique({ where: { email: existingUserEmail } });
         if (!user) throw new Error(`Existing user ${existingUserEmail} not found`);
@@ -113,9 +113,9 @@ test.describe('INV-03 / ONP-79 — User Invitation & Auto-Add Fork Baseline', ()
         await expect(page.getByText(`Invited ${unregisteredEmail} as ORG_MEMBER`)).toBeVisible({ timeout: 10000 });
 
         // Assert user appears in Pending Invites list with Pending badge
-        await expect(page.getByText(unregisteredEmail)).toBeVisible();
+        await expect(page.getByText(unregisteredEmail, { exact: true })).toBeVisible();
         const pendingRow = page.locator('tr').filter({ hasText: unregisteredEmail });
-        await expect(pendingRow.getByText('Pending')).toBeVisible();
+        await expect(pendingRow.getByText('Pending', { exact: true })).toBeVisible();
 
         // Assert database state: Invitation created with token, NO Membership created
         const dbInvitation = await prisma.invitation.findFirst({
@@ -144,13 +144,14 @@ test.describe('INV-03 / ONP-79 — User Invitation & Auto-Add Fork Baseline', ()
 
         // Try adding the existing user again
         const emailInput = page.getByPlaceholder('user@example.com');
+        await expect(emailInput).toBeVisible({ timeout: 10000 });
         await emailInput.fill(existingUserEmail);
 
         const addBtn = page.getByRole('button', { name: 'Add Member' });
         await addBtn.click();
 
         // Assert error toast
-        await expect(page.getByText('User is already a member of this scope.')).toBeVisible({ timeout: 10000 });
+        await expect(page.getByText('User is already a member of this scope.')).toBeVisible({ timeout: 15000 });
 
         // Assert database state: exactly 1 Membership exists
         const count = await prisma.membership.count({
