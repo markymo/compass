@@ -15,9 +15,10 @@ interface InviteSupplierDialogProps {
     onOpenChange: (open: boolean) => void;
     engagementId: string;
     orgName: string;
+    onSuccess?: () => void;
 }
 
-export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName }: InviteSupplierDialogProps) {
+export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName, onSuccess }: InviteSupplierDialogProps) {
     const [step, setStep] = useState<'FORM' | 'SUCCESS'>('FORM');
     const [isLoading, setIsLoading] = useState(false);
 
@@ -49,6 +50,7 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
                 } else {
                     toast.success("Invitation created (share link directly)");
                 }
+                onSuccess?.();
             } else {
                 toast.error(result.error || "Failed to create invitation");
             }
@@ -66,6 +68,7 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
 
     const handleClose = () => {
         onOpenChange(false);
+        onSuccess?.();
         // Reset state after close animation
         setTimeout(() => {
             setStep('FORM');

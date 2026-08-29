@@ -17,9 +17,10 @@ export interface EngagementTeamManagerProps {
     members: any[];
     invitations: any[];
     variant?: "default" | "inline";
+    onRefresh?: () => void;
 }
 
-export function EngagementTeamManager({ engagementId, orgName, members, invitations, variant = "default" }: EngagementTeamManagerProps) {
+export function EngagementTeamManager({ engagementId, orgName, members, invitations, variant = "default", onRefresh }: EngagementTeamManagerProps) {
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
     const [revokeId, setRevokeId] = useState<string | null>(null);
     const [isRevoking, setIsRevoking] = useState(false);
@@ -32,6 +33,7 @@ export function EngagementTeamManager({ engagementId, orgName, members, invitati
             loading: "Revoking invitation...",
             success: () => {
                 router.refresh();
+                onRefresh?.();
                 setIsRevoking(false);
                 setRevokeId(null);
                 return "Invitation revoked";
@@ -122,6 +124,7 @@ export function EngagementTeamManager({ engagementId, orgName, members, invitati
                     onOpenChange={setIsInviteDialogOpen}
                     engagementId={engagementId}
                     orgName={orgName}
+                    onSuccess={onRefresh}
                 />
             </div>
         );
@@ -221,6 +224,7 @@ export function EngagementTeamManager({ engagementId, orgName, members, invitati
                 onOpenChange={setIsInviteDialogOpen}
                 engagementId={engagementId}
                 orgName={orgName}
+                onSuccess={onRefresh}
             />
         </div>
     );

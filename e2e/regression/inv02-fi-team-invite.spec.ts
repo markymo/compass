@@ -66,7 +66,7 @@ test.describe('INV-02 / ONP-69 — FI Team Invite End-to-End Regression', () => 
         const adminPage = await adminContext.newPage();
 
         await adminPage.goto(`/app/le/${clientLEId}/relationships`);
-        await expect(adminPage.getByRole('heading', { name: /Supplier Relationships/i })).toBeVisible({ timeout: 20000 });
+        await expect(adminPage.getByRole('heading', { name: /Supplier Relationships/i }).first()).toBeVisible({ timeout: 20000 });
 
         // Expand the engagement accordion row for UAT Supplier Org A / Barclays
         const engagementAccordion = adminPage.locator('[data-state="closed"], [data-state="open"]').filter({ hasText: /UAT Supplier Org A|Barclays/i }).first();
@@ -80,7 +80,7 @@ test.describe('INV-02 / ONP-69 — FI Team Invite End-to-End Regression', () => 
 
         // Open Invite Supplier Dialog
         const inviteBtn = adminPage.getByRole('button', { name: /Invite/i }).first();
-        await expect(inviteBtn).toBeVisible();
+        await expect(inviteBtn).toBeVisible({ timeout: 20000 });
         await inviteBtn.click();
 
         // Fill in recipient email
