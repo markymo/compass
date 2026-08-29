@@ -101,4 +101,18 @@ describe('PROV-01 / ONP-33 — Provenance & Last Validated Consistency Invariant
         expect(updatedResult.source?.lastValidatedAt).toBe('2026-08-29T16:00:00.000Z');
         expect(updatedResult.source?.label).toBe('User input');
     });
+
+    it('6. resolveCanonicalFieldDisplay accurately extracts and formats sourceTimestamp for export generation', async () => {
+        const validatedDate = new Date('2026-08-25T12:00:00.000Z');
+        const displayModel = resolveFieldForDisplay('Canonical Export Test Ltd', {
+            type: 'COMPANIES_HOUSE',
+            reference: '12345678',
+            sourceCheckedAt: validatedDate,
+            timestamp: new Date('2026-08-01T00:00:00.000Z'),
+            userName: null
+        }, { fieldNo: 2, isMultiValue: false });
+
+        expect(displayModel.source?.lastValidatedAt).toBe('2026-08-25T12:00:00.000Z');
+        expect(displayModel.source?.label).toBe('Registry (12345678)');
+    });
 });
