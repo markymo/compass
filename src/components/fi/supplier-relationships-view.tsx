@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, Suspense } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,7 @@ interface SupplierRelationshipsViewProps {
     initialExpandedId?: string;
 }
 
-export function SupplierRelationshipsView({
+function SupplierRelationshipsViewInner({
     orgId,
     orgName,
     relationships,
@@ -382,5 +382,13 @@ export function SupplierRelationshipsView({
                 </div>
             )}
         </div>
+    );
+}
+
+export function SupplierRelationshipsView(props: SupplierRelationshipsViewProps) {
+    return (
+        <Suspense fallback={null}>
+            <SupplierRelationshipsViewInner {...props} />
+        </Suspense>
     );
 }

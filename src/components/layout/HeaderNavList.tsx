@@ -50,12 +50,12 @@ interface HeaderNavListProps {
     items: NavItem[];
 }
 
-export function HeaderNavList({ items }: HeaderNavListProps) {
+function HeaderNavListInner({ items }: HeaderNavListProps) {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     
     // Construct a full path with query string to pass to isActive for tab matching
-    const fullPath = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
+    const fullPath = searchParams ? (searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname) : pathname;
 
     return (
         <div className="relative group/nav overflow-hidden">
@@ -95,5 +95,13 @@ export function HeaderNavList({ items }: HeaderNavListProps) {
             {/* Fade background to indicate scroll availability on mobile */}
             <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-card to-transparent pointer-events-none md:hidden" />
         </div>
+    );
+}
+
+export function HeaderNavList(props: HeaderNavListProps) {
+    return (
+        <React.Suspense fallback={<div className="h-10" />}>
+            <HeaderNavListInner {...props} />
+        </React.Suspense>
     );
 }

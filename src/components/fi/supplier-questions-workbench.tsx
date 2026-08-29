@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -79,7 +79,7 @@ function getQuestionDisplayModel(q: SupplierQuestionView) {
     );
 }
 
-export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWorkbenchProps) {
+function SupplierQuestionsWorkbenchInner({ orgId, data }: SupplierQuestionsWorkbenchProps) {
     const searchParams = useSearchParams();
     const pathname = usePathname();
     const router = useRouter();
@@ -880,5 +880,13 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                 </Card>
             )}
         </div>
+    );
+}
+
+export function SupplierQuestionsWorkbench(props: SupplierQuestionsWorkbenchProps) {
+    return (
+        <Suspense fallback={null}>
+            <SupplierQuestionsWorkbenchInner {...props} />
+        </Suspense>
     );
 }
