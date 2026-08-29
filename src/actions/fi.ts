@@ -826,6 +826,77 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                     } catch (err) {
                         console.error(`[fi.ts] SHARED live resolution failed for question ${q.id}:`, err);
                     }
+                } else if (q.masterQuestionGroupId && clientLE) {
+                    const subjectLeId = clientLE.legalEntityId || null;
+                    const ownerScopeId = (await KycStateService.resolveScopeId(clientLE.id)) || undefined;
+
+                    try {
+                        const group = await prisma.masterFieldGroup.findFirst({
+                            where: { key: q.masterQuestionGroupId, isActive: true },
+                            include: {
+                                items: {
+                                    where: { field: { isActive: true } },
+                                    include: { field: true },
+                                    orderBy: { order: 'asc' }
+                                }
+                            }
+                        });
+
+                        if (group && group.items.length > 0) {
+                            const groupValues: Record<number, any> = {};
+                            let primaryChildSource: any = null;
+
+                            for (const item of group.items) {
+                                const childDef = item.field;
+                                let childVal: any = null;
+                                if (childDef.isMultiValue) {
+                                    const collection = await KycStateService.getAuthoritativeCollection(
+                                        { subjectLeId, clientLEId: clientLE.id },
+                                        item.fieldNo,
+                                        ownerScopeId,
+                                        undefined
+                                    );
+                                    if (collection.length > 0) {
+                                        childVal = {
+                                            value: collection.map((c: any) => c.value),
+                                            sourceType: collection[0].sourceType,
+                                            sourceReference: collection[0].sourceReference,
+                                            assertedAt: collection[0].assertedAt,
+                                            sourceCheckedAt: collection[0].sourceCheckedAt
+                                        };
+                                    }
+                                } else {
+                                    childVal = await KycStateService.getAuthoritativeValue(
+                                        { subjectLeId, clientLEId: clientLE.id },
+                                        item.fieldNo,
+                                        ownerScopeId,
+                                        undefined
+                                    );
+                                }
+
+                                if (childVal && childVal.value !== null && childVal.value !== undefined && childVal.value !== '') {
+                                    const vals = Array.isArray(childVal.value) ? childVal.value : [childVal.value];
+                                    await enrichPartyReferences(vals);
+                                    await enrichAddressReferences(vals);
+                                    groupValues[item.fieldNo] = childVal.value;
+                                    if (!primaryChildSource) {
+                                        primaryChildSource = childVal;
+                                    }
+                                }
+                            }
+
+                            if (Object.keys(groupValues).length > 0) {
+                                answer = groupValues;
+                                derivedVal = primaryChildSource || {
+                                    sourceType: 'USER_INPUT',
+                                    sourceReference: null,
+                                    assertedAt: new Date()
+                                };
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`[fi.ts] SHARED group live resolution failed for question ${q.id}:`, err);
+                    }
                 }
 
                 const sharedSourceType = derivedVal?.sourceType || "USER_INPUT";

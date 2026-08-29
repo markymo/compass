@@ -365,47 +365,52 @@ export async function resolveExportAnswer(
         if (group && group.items && group.items.length > 0) {
             const fieldNos = group.items.map((i: any) => i.fieldNo);
 
-            const [claims, sourceMappings] = await Promise.all([
-                prisma.fieldClaim.findMany({
-                    where: {
-                        subjectLeId: subjectLeId || '',
-                        fieldNo: { in: fieldNos },
-                        claimRole: 'VALUE',
-                        status: { in: ['VERIFIED', 'ASSERTED'] },
-                        OR: [{ ownerScopeId: ownerScopeId || null }, { ownerScopeId: null }]
-                    },
-                    orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }]
-                }),
-                (prisma as any).sourceFieldMapping.findMany({
-                    where: { targetFieldNo: { in: fieldNos }, isActive: true }
-                })
-            ]);
-
             const fieldDefMap = new Map();
+            const hydratedValues: Record<number, any> = {};
+
             for (const item of group.items) {
                 const def = await getMasterFieldDefinition(item.fieldNo);
                 if (def) {
                     fieldDefMap.set(def.fieldNo, def);
+                    let derived: any = null;
+                    if (def.isMultiValue) {
+                        const collection = await KycStateService.getAuthoritativeCollection(
+                            { subjectLeId, clientLEId: entityId },
+                            item.fieldNo,
+                            ownerScopeId || undefined,
+                            snapshotDate
+                        );
+                        if (collection && collection.length > 0) {
+                            derived = {
+                                value: collection.map((c: any) => c.value),
+                                source: collection[0].sourceType,
+                                sourceReference: collection[0].sourceReference,
+                                updatedAt: collection[0].assertedAt,
+                                sourceCheckedAt: collection[0].sourceCheckedAt || collection[0].assertedAt
+                            };
+                        }
+                    } else {
+                        const val = await KycStateService.getAuthoritativeValue(
+                            { subjectLeId, clientLEId: entityId },
+                            item.fieldNo,
+                            ownerScopeId || undefined,
+                            snapshotDate
+                        );
+                        if (val && val.value !== null && val.value !== undefined && val.value !== '') {
+                            derived = {
+                                value: val.value,
+                                source: val.sourceType,
+                                sourceReference: val.sourceReference,
+                                updatedAt: val.assertedAt,
+                                sourceCheckedAt: val.sourceCheckedAt || val.assertedAt
+                            };
+                        }
+                    }
+                    if (derived) {
+                        hydratedValues[item.fieldNo] = derived;
+                    }
                 }
             }
-
-            const groupFieldMap = new Map();
-            groupFieldMap.set(question.masterQuestionGroupId, fieldNos);
-
-            const batchInput = {
-                subjectLeId: subjectLeId || '',
-                ownerScopeId: ownerScopeId ?? null,
-                questions: [{ questionId: question.id, masterQuestionGroupId: question.masterQuestionGroupId, masterFieldProjectionPath: question.masterFieldProjectionPath }],
-                fieldDefMap,
-                groupFieldMap,
-                claims: claims as any,
-                sourceMappings,
-                attachmentsByField: undefined,
-                provenanceMap: null,
-            };
-
-            const resolvedValues = await resolveMasterDataBatch(batchInput);
-            const hydratedValues = resolvedValues[question.id] || {};
 
             const resolvedValuesMap = new Map();
             for (const [fieldNo, hydrated] of Object.entries(hydratedValues)) {
