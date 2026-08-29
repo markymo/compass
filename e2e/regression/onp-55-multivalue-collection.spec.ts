@@ -4,6 +4,7 @@ import { loadUATManifest, PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture
 
 // Contract: MASTER-05 — Multi-value Master collections support add/edit/delete without corrupting canonical collection state
 // Linear: ONP-55
+// Field under test: Field 4 (Trading name — multi-value scalar text collection)
 
 const prisma = new PrismaClient();
 
@@ -21,30 +22,43 @@ test.describe('MASTER-05 / ONP-55 — Multi-Value Master Collection Add/Edit/Del
 
     test.beforeAll(async () => {
         manifest = loadUATManifest();
-        const clientLE = await prisma.clientLE.findFirst({
-            where: { OR: [{ id: manifest.alphaClientLE.id }, { shortCode: 'uat_cle_alpha' }] }
+        const alphaLE = await prisma.clientLE.findFirst({
+            where: { OR: [{ id: manifest.alphaClientLE.id }, { shortCode: 'uat_cle_alpha' }] },
+            include: { owners: true }
         });
-        if (!clientLE) throw new Error('uat_cle_alpha not found in database');
-        clientLEId = clientLE.id;
+        if (!alphaLE) throw new Error('uat_cle_alpha not found in database');
 
-        // Clean up any test claims on Field 4 (Trading name)
-        await prisma.fieldClaim.deleteMany({
-            where: {
-                clientLEId,
-                fieldNo: 4,
+        const leAdminUser = await prisma.user.findUnique({
+            where: { email: manifest.actors.leAdminAlpha.email }
+        });
+        if (!leAdminUser) throw new Error(`LE Admin user ${manifest.actors.leAdminAlpha.email} not found`);
+
+        // Shared-fixture preservation: create a fully disposable synthetic ClientLE
+        const disposableLE = await prisma.clientLE.create({
+            data: {
+                shortCode: `uat_cle_onp55_${testTimestamp}`,
+                name: `Disposable CLE ONP-55 ${testTimestamp}`,
+                owners: {
+                    create: {
+                        partyId: alphaLE.owners[0]?.partyId || alphaLE.id
+                    }
+                },
+                memberships: {
+                    create: {
+                        userId: leAdminUser.id,
+                        role: 'LE_ADMIN'
+                    }
+                }
             }
         });
+        clientLEId = disposableLE.id;
     });
 
     test.afterAll(async () => {
         try {
             if (clientLEId) {
-                await prisma.fieldClaim.deleteMany({
-                    where: {
-                        clientLEId,
-                        fieldNo: 4,
-                    }
-                });
+                await prisma.fieldClaim.deleteMany({ where: { clientLEId } }).catch(() => {});
+                await prisma.clientLE.delete({ where: { id: clientLEId } }).catch(() => {});
             }
         } catch (err) {
             console.warn('Cleanup error in ONP-55:', err);
