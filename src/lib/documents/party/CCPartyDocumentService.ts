@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 import { CCPartyDocument, CCPartyDocumentOperation } from "@prisma/client";
-import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
 import { PartyDocumentLifecycleResolver, PartyDocumentHistory } from "./PartyDocumentLifecycleResolver";
 
 export type AttachPartyDocumentInput = {
@@ -151,7 +151,7 @@ export class CCPartyDocumentService {
 
     static async attachDocument(input: AttachPartyDocumentInput): Promise<CCPartyDocument> {
         await this.validatePartyAndDocumentExists(input.partyId, input.documentId);
-        const instanceId = uuidv4();
+        const instanceId = crypto.randomUUID();
         
         return await this.appendLifecycleEvent({
             partyId: input.partyId,

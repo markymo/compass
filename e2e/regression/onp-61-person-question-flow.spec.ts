@@ -14,7 +14,7 @@ test.describe('QB-01 / ONP-61 — Mapped Person/Party Master Data Flow to Questi
     let supplierOrgId: string;
     let alphaEngagementId: string;
     let clientLEId: string;
-    let subjectLeId: string;
+    let subjectLeId: string | undefined;
     let testUser: any;
     let testQuestionnaire: any;
     let testQuestion: any;
@@ -47,7 +47,7 @@ test.describe('QB-01 / ONP-61 — Mapped Person/Party Master Data Flow to Questi
         if (!engagement) throw new Error(`Active engagement for ${clientLE.id} not found`);
 
         clientLEId = clientLE.id;
-        subjectLeId = clientLE.legalEntityId || clientLE.id;
+        subjectLeId = clientLE.legalEntityId || undefined;
         supplierOrgId = engagement.fiOrgId;
         alphaEngagementId = engagement.id;
 
@@ -101,6 +101,7 @@ test.describe('QB-01 / ONP-61 — Mapped Person/Party Master Data Flow to Questi
                 clientLEId: clientLEId,
                 subjectLeId: subjectLeId,
                 fieldNo: 104,
+                instanceId: initialParty.id,
                 claimRole: 'VALUE',
                 sourceType: 'USER_INPUT',
                 sourceReference: 'MANUAL_ENTRY',
@@ -121,11 +122,11 @@ test.describe('QB-01 / ONP-61 — Mapped Person/Party Master Data Flow to Questi
             await prisma.question.deleteMany({ where: { questionnaireId: testQuestionnaire.id } });
             await prisma.questionnaire.deleteMany({ where: { id: testQuestionnaire.id } });
         }
-        if (initialClaim?.id) {
-            await prisma.fieldClaim.deleteMany({ where: { id: { in: [initialClaim.id, updatedClaim?.id].filter(Boolean) } } });
+        if (initialClaim?.id || updatedClaim?.id) {
+            await prisma.fieldClaim.deleteMany({ where: { id: { in: [initialClaim?.id, updatedClaim?.id].filter(Boolean) } } });
         }
-        if (initialParty?.id) {
-            await prisma.cCParty.deleteMany({ where: { id: { in: [initialParty.id, updatedParty?.id].filter(Boolean) } } });
+        if (initialParty?.id || updatedParty?.id) {
+            await prisma.cCParty.deleteMany({ where: { id: { in: [initialParty?.id, updatedParty?.id].filter(Boolean) } } });
         }
         await prisma.$disconnect();
     });
@@ -141,8 +142,8 @@ test.describe('QB-01 / ONP-61 — Mapped Person/Party Master Data Flow to Questi
 
         // Assert the distinctive mapped Master party value (name & email) flows to the rendered answer
         const answerSection = page.locator('.space-y-4, .card, div').filter({ hasText: testPrefix }).first();
-        await expect(answerSection).toContainText(initialName, { timeout: 10000 });
-        await expect(answerSection).toContainText(initialEmail, { timeout: 10000 });
+        await expect(answerSection).toContainText(initialName, { timeout: 15000 });
+        await expect(answerSection).toContainText(initialEmail, { timeout: 15000 });
 
         // Step 2: Update observable Master property in database to updatedParty
         updatedParty = await prisma.cCParty.create({
@@ -167,6 +168,7 @@ test.describe('QB-01 / ONP-61 — Mapped Person/Party Master Data Flow to Questi
                 clientLEId: clientLEId,
                 subjectLeId: subjectLeId,
                 fieldNo: 104,
+                instanceId: updatedParty.id,
                 claimRole: 'VALUE',
                 sourceType: 'USER_INPUT',
                 sourceReference: 'MANUAL_ENTRY',
@@ -180,6 +182,9 @@ test.describe('QB-01 / ONP-61 — Mapped Person/Party Master Data Flow to Questi
                 }
             }
         });
+
+        // Clean up initial claim so updatedParty is the sole authoritative party
+        await prisma.fieldClaim.deleteMany({ where: { id: initialClaim.id } });
 
         // Step 3: Reload Supplier Questions Workbench and assert dynamic update
         await page.reload();

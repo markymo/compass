@@ -13,6 +13,7 @@ test.describe('PARTY-01 / ONP-47 — Canonical Party Display Exposes All Saved P
 
     let manifest: ReturnType<typeof loadUATManifest>;
     let clientLEId: string;
+    const testEmail = `alexander.hamilton.${Date.now()}@partytest.example`;
     const testForenames = 'Alexander';
     const testSurname = `Hamilton-${Date.now().toString().slice(-4)}`;
 
@@ -57,26 +58,37 @@ test.describe('PARTY-01 / ONP-47 — Canonical Party Display Exposes All Saved P
         await expect(surnameInput).toBeVisible({ timeout: 10000 });
         await surnameInput.fill(testSurname);
 
+        // Click 'Add Email' and fill in distinctive email
+        const addEmailButton = page.getByRole('button', { name: 'Add Email' }).first();
+        await expect(addEmailButton).toBeVisible({ timeout: 5000 });
+        await addEmailButton.click();
+
+        const emailInput = page.locator('input[placeholder="Email address"], input[type="email"]').first();
+        await expect(emailInput).toBeVisible({ timeout: 5000 });
+        await emailInput.fill(testEmail);
+
         // Save & Select
         const saveAndSelectButton = page.getByRole('button', { name: 'Save & Select' }).first();
         await expect(saveAndSelectButton).toBeVisible({ timeout: 10000 });
         await saveAndSelectButton.click();
         await page.waitForLoadState('networkidle');
 
-        // Verify read-only canonical display inside dialog exposes the saved party name without edit mode
+        // Verify read-only canonical display inside dialog exposes the saved party name AND exact email without edit mode
         await expect(dialog).toContainText(`${testForenames} ${testSurname}`, { timeout: 15000 });
+        await expect(dialog).toContainText(testEmail, { timeout: 15000 });
 
         // Reload page to verify persistence in fresh context
         await page.reload();
         await page.waitForLoadState('networkidle');
 
-        // Verify re-opened dialog retains the canonical party data in read-only mode
+        // Verify row / re-opened dialog retains the canonical party data (name and email) in read-only mode
         const fieldRowAfterReload = page.locator('[data-field-no="104"], tr:has-text("SSI callback contact(s)"), tr:has-text("104")').first();
         await expect(fieldRowAfterReload).toBeVisible({ timeout: 15000 });
-        await fieldRowAfterReload.click();
 
+        await fieldRowAfterReload.click();
         const dialog2 = page.getByRole('dialog').first();
         await expect(dialog2).toBeVisible({ timeout: 10000 });
         await expect(dialog2).toContainText(`${testForenames} ${testSurname}`, { timeout: 10000 });
+        await expect(dialog2).toContainText(testEmail, { timeout: 10000 });
     });
 });
