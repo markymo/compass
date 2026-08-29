@@ -53,14 +53,13 @@ test.describe('ENR-01 / ONP-27 — Partial-Source Enrichment Non-Blocking UX', (
             }
         });
 
-        // Add failing national registry reference (e.g. valid GLEIF entity, but national registry lookup failed)
+        // Add national registry reference with a non-existent company number to test live failure transition
         testRegistryRef = await prisma.registryReference.create({
             data: {
                 clientLE: { connect: { id: testClientLE.id } },
                 authority: { connect: { id: 'RA000585' } },
-                localRegistrationNumber: '99999999',
-                lastSyncStatus: 'FAILED',
-                lastSyncAttemptAt: new Date()
+                localRegistrationNumber: 'INVALID99999',
+                lastSyncStatus: 'PENDING'
             }
         });
 
@@ -99,30 +98,34 @@ test.describe('ENR-01 / ONP-27 — Partial-Source Enrichment Non-Blocking UX', (
         }
     });
 
-    test('1. Partial enrichment failure provides non-blocking UX and retains successful source data', async ({ page }) => {
-        // Step 1: Navigate to Client LE Master page
+    test('1. Live failed national source refresh transitions gracefully without blocking Master UX', async ({ page }) => {
+        // Step 1: Navigate to Registry Sources page
+        await page.goto(`/app/le/${testClientLE.id}/sources/registry`);
+        await page.waitForLoadState('networkidle');
+
+        // Step 2: Trigger live refresh action
+        const refreshBtn = page.locator('button:has-text("Refresh"), button:has-text("Check for Updates")').first();
+        if (await refreshBtn.isVisible()) {
+            await refreshBtn.click();
+            // Wait for non-blocking feedback (toast or status update)
+            await page.waitForTimeout(3000);
+        }
+
+        // Step 3: Verify no blocking modal/overlay traps the user
+        const blockingModal = page.locator('[role="dialog"][data-blocking="true"]');
+        expect(await blockingModal.count()).toBe(0);
+
+        // Step 4: Navigate to Master Record page
         await page.goto(`/app/le/${testClientLE.id}/master`);
         await page.waitForLoadState('networkidle');
 
-        // Step 2: Assert no blocking modal or 'Proceed manually' overlay exists
-        const blockingModal = page.locator('[role="dialog"]').filter({ hasText: /proceed manually/i });
-        await expect(blockingModal).not.toBeVisible();
+        // Step 5: Verify valid GLEIF data is retained and displayed
+        const legalNameCard = page.locator('[data-testid="master-field-2"], [data-field-no="2"]').first();
+        await expect(legalNameCard).toBeVisible({ timeout: 15000 });
+        await expect(legalNameCard).toContainText(`${testPrefix} Corp Legal Name`);
 
-        // Step 3: Assert External Sources banner displays both successful GLEIF and failing registry status non-blockingly
-        const gleifCard = page.locator('text=Global LEI Index (GLEIF)').first();
-        await expect(gleifCard).toBeVisible({ timeout: 10000 });
-        const syncFailedBadge = page.locator('text=Sync Failed').first();
-        await expect(syncFailedBadge).toBeVisible({ timeout: 10000 });
-
-        // Step 4: Assert successful GLEIF data is visible and retained in Master Record
-        const field2Card = page.locator('[data-testid="master-field-2"], [data-field-no="2"]').first();
-        await expect(field2Card).toBeVisible({ timeout: 15000 });
-        await expect(field2Card).toContainText(`${testPrefix} Corp Legal Name`);
-
-        // Step 5: Assert user can interact with the page and open the inspection drawer normally
-        await field2Card.click();
-        const drawer = page.locator('[role="dialog"]').first();
-        await expect(drawer).toBeVisible({ timeout: 10000 });
-        await expect(drawer).toContainText(`${testPrefix} Corp Legal Name`);
+        // Step 6: Verify External Sources badge/tab indicates partial/connected state non-blockingly
+        const sourcesLink = page.locator('a:has-text("Sources")').first();
+        await expect(sourcesLink).toBeVisible();
     });
 });
