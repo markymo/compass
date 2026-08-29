@@ -130,7 +130,7 @@ test.describe('INV-02 / ONP-69 — FI Team Invite End-to-End Regression', () => 
         const supplierPage = await supplierContext.newPage();
 
         await supplierPage.goto(`/app/s/${supplierOrgId}/team`);
-        await expect(supplierPage.getByRole('heading', { name: 'Teams' })).toBeVisible({ timeout: 20000 });
+        await expect(supplierPage.getByRole('heading', { name: 'Teams' }).first()).toBeVisible({ timeout: 20000 });
         await expect(supplierPage.getByText(testEmail)).toBeVisible();
         const supplierPendingRow = supplierPage.locator('tr').filter({ hasText: testEmail });
         await expect(supplierPendingRow.getByText('Supplier Contact')).toBeVisible();
@@ -176,7 +176,7 @@ test.describe('INV-02 / ONP-69 — FI Team Invite End-to-End Regression', () => 
         // -------------------------------------------------------------------------
         // As Supplier Admin: User is now listed under Team Members (Active) and removed from Pending
         await supplierPage.reload();
-        await expect(supplierPage.getByRole('heading', { name: 'Teams' })).toBeVisible({ timeout: 20000 });
+        await expect(supplierPage.getByRole('heading', { name: 'Teams' }).first()).toBeVisible({ timeout: 20000 });
         const activeMemberRow = supplierPage.locator('tr').filter({ hasText: testEmail });
         await expect(activeMemberRow).toBeVisible();
         await expect(activeMemberRow.getByText('UAT Alpha Limited')).toBeVisible();
