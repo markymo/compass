@@ -59,11 +59,13 @@ type ViewMode = "classic" | "flow" | "compact";
 function getQuestionDisplayModel(q: SupplierQuestionView) {
     if (q.answerVisibility === "NOT_SHARED") return null;
 
+    const lastValidated = q.provenance?.lastValidatedAt || q.provenance?.timestamp;
+
     const rawSource: RawFieldSource | null = q.provenance ? {
         type: q.provenance.sourceType || (q.provenance.source === "Provisional Shared" ? "USER_INPUT" : q.provenance.source) || "USER_INPUT",
         reference: q.provenance.sourceReference || (q.provenance.releaseProvenance as any)?.sourceReference || null,
-        timestamp: q.provenance.timestamp ? new Date(q.provenance.timestamp) : undefined,
-        sourceCheckedAt: q.provenance.lastValidatedAt ? new Date(q.provenance.lastValidatedAt) : (q.provenance.timestamp ? new Date(q.provenance.timestamp) : undefined)
+        timestamp: q.provenance.timestamp ? new Date(q.provenance.timestamp) : (lastValidated ? new Date(lastValidated) : undefined),
+        sourceCheckedAt: lastValidated ? new Date(lastValidated) : undefined
     } : null;
 
     return resolveFieldForDisplay(

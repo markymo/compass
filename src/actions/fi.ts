@@ -831,15 +831,14 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                 const sharedSourceType = derivedVal?.sourceType || "USER_INPUT";
                 const sharedSourceRef = derivedVal?.sourceReference || null;
                 const sharedSourceLabel = derivedVal ? getSourceDisplayName(sharedSourceType, sharedSourceRef) : "Provisional Shared";
-                const isSharedUserInput = sharedSourceType === "USER_INPUT";
-
+                const sharedTimestamp = q.sharedAt || derivedVal?.assertedAt || null;
                 const lastValidatedAt = derivedVal?.sourceCheckedAt || derivedVal?.assertedAt || q.sharedAt || null;
 
                 provenance = {
                     source: sharedSourceLabel || "Provisional Shared",
                     sourceType: sharedSourceType,
                     sourceReference: sharedSourceRef,
-                    timestamp: q.sharedAt || null,
+                    timestamp: sharedTimestamp,
                     lastValidatedAt,
                     releaseProvenance: null
                 };
