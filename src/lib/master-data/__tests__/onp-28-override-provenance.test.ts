@@ -10,7 +10,7 @@ describe('MASTER-04 / ONP-28 — Master Field Override Provenance Resolution', (
 
         const rawValue = 'Acme Override Ltd';
         const rawSource = {
-            source: 'USER_INPUT',
+            type: 'USER_INPUT',
             sourceCheckedAt: overrideDate,
             timestamp: overrideDate,
         };
@@ -27,16 +27,17 @@ describe('MASTER-04 / ONP-28 — Master Field Override Provenance Resolution', (
         const resolved = resolveFieldForDisplay(rawValue, rawSource, metadata as any);
 
         expect(resolved.value.display).toBe('Acme Override Ltd');
-        expect(resolved.source.type).toBe('USER_INPUT');
-        expect(resolved.source.lastValidatedAt).toEqual(overrideDate);
-        expect(resolved.source.label).toBe('User input');
+        expect(resolved.source).not.toBeNull();
+        expect(resolved.source?.type).toBe('USER_INPUT');
+        expect(resolved.source?.lastValidatedAt).toBe(overrideDate.toISOString());
+        expect(resolved.source?.label).toBe('User input');
     });
 
     it('resolves historical source timestamp when not overridden', () => {
         const historicalDate = new Date('2025-01-15T10:00:00.000Z');
         const rawValue = 'Acme Historical Ltd';
         const rawSource = {
-            source: 'GLEIF',
+            type: 'GLEIF',
             sourceCheckedAt: historicalDate,
             timestamp: historicalDate,
         };
@@ -53,8 +54,9 @@ describe('MASTER-04 / ONP-28 — Master Field Override Provenance Resolution', (
         const resolved = resolveFieldForDisplay(rawValue, rawSource, metadata as any);
 
         expect(resolved.value.display).toBe('Acme Historical Ltd');
-        expect(resolved.source.type).toBe('GLEIF');
-        expect(resolved.source.label).toBe('GLEIF');
-        expect(resolved.source.lastValidatedAt).toEqual(historicalDate);
+        expect(resolved.source).not.toBeNull();
+        expect(resolved.source?.type).toBe('GLEIF');
+        expect(resolved.source?.label).toBe('GLEIF');
+        expect(resolved.source?.lastValidatedAt).toBe(historicalDate.toISOString());
     });
 });
