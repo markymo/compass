@@ -100,18 +100,29 @@ export async function inviteSupplier(
             inviteLink: inviteLink
         }));
 
+        let emailSent = false;
+        let emailDeliveryError: string | null = null;
+
         try {
             if (process.env.RESEND_API_KEY) {
                 const resend = new Resend(process.env.RESEND_API_KEY);
-                await resend.emails.send({
+                const sendRes = await resend.emails.send({
                     from: 'OnPro <onboarding@resend.dev>',
                     to: email,
                     subject: `Invitation to collaborate on ${engagement.clientLE.name}`,
                     html: emailHtml
                 });
+                if (sendRes?.error) {
+                    emailDeliveryError = sendRes.error.message || "Failed to send email";
+                } else {
+                    emailSent = true;
+                }
+            } else {
+                emailDeliveryError = "Email delivery service not configured";
             }
-        } catch (mailErr) {
+        } catch (mailErr: any) {
             console.warn("[Resend] Failed to send supplier invite email:", mailErr);
+            emailDeliveryError = mailErr?.message || "Failed to send email";
         }
 
         // 7. Update Engagement Status
@@ -135,9 +146,13 @@ export async function inviteSupplier(
         revalidatePath(`/app/le/${engagement.clientLEId}/relationships`);
 
         // Return Token/ID for UI display (e.g. Copy Link)
-        // SECURITY NOTE: We return the token here so the UI can display a "Copy Link" if needed,
-        // but typically we should rely on the email.
-        return { success: true, token, inviteId: invite.id };
+        return {
+            success: true,
+            token,
+            inviteId: invite.id,
+            emailSent,
+            emailDeliveryError
+        };
 
     } catch (e) {
         console.error("Failed to invite supplier:", e);

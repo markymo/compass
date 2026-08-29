@@ -27,6 +27,7 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
 
     // Success State
     const [inviteLink, setInviteLink] = useState("");
+    const [emailSent, setEmailSent] = useState(false);
 
     const handleInvite = async () => {
         if (!email) {
@@ -41,8 +42,13 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
             if (result.success && result.token) {
                 const link = `${window.location.origin}/invite/${result.token}`;
                 setInviteLink(link);
+                setEmailSent(Boolean(result.emailSent));
                 setStep('SUCCESS');
-                toast.success("Invitation created");
+                if (result.emailSent) {
+                    toast.success("Invitation created and email sent");
+                } else {
+                    toast.success("Invitation created (share link directly)");
+                }
             } else {
                 toast.error(result.error || "Failed to create invitation");
             }
@@ -66,6 +72,7 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
             setEmail("");
             setMessage("");
             setInviteLink("");
+            setEmailSent(false);
         }, 300);
     };
 
@@ -115,7 +122,11 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
                             </div>
                             <div>
                                 <h4 className="font-semibold">Invitation Created!</h4>
-                                <p className="text-sm text-green-700">The supplier has been invited.</p>
+                                <p className="text-sm text-green-700">
+                                    {emailSent
+                                        ? "An invitation email has been sent to the supplier."
+                                        : "The invitation was created. Email notification was not dispatched, so please share the link below."}
+                                </p>
                             </div>
                         </div>
 
@@ -128,7 +139,9 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
                                 </Button>
                             </div>
                             <p className="text-xs text-slate-500">
-                                Share this link manually if the email notification is delayed.
+                                {emailSent
+                                    ? "Share this link manually if the email notification is delayed."
+                                    : "Copy and send this link to the recipient so they can accept and set up their access."}
                             </p>
                         </div>
                     </div>
