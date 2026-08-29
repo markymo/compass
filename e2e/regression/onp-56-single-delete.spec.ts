@@ -27,13 +27,13 @@ test.describe('MASTER-03 / ONP-56 — Single-Value Master Fields Clear/Delete Li
 
     test.beforeAll(async () => {
         manifest = loadUATManifest();
-        clientLEId = manifest.alphaClientLE.id;
-
-        const clientLE = await prisma.clientLE.findUnique({
-            where: { id: clientLEId },
+        const clientLE = await prisma.clientLE.findFirst({
+            where: { OR: [{ id: manifest.alphaClientLE.id }, { shortCode: 'uat_cle_alpha' }] },
             select: { id: true, legalEntityId: true }
         });
-        subjectLeId = clientLE?.legalEntityId || undefined;
+        if (!clientLE) throw new Error('uat_cle_alpha not found');
+        clientLEId = clientLE.id;
+        subjectLeId = clientLE.legalEntityId || undefined;
 
         const owner = await prisma.clientLEOwner.findFirst({
             where: { clientLEId, endAt: null },
