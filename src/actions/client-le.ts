@@ -5,7 +5,7 @@ import { EngagementStatus, SourceType, Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { ExtractedItem } from "./ai-mapper"; // Importing type
 import { MasterSchemaDefinition } from "@/types/schema";
-import { Action, can } from "@/lib/auth/permissions";
+import { Action, can, ensureAuthorization } from "@/lib/auth/permissions";
 import { getMasterFieldDefinition, listAllMasterFields, listAllMasterGroupsWithItems } from "@/services/masterData/definitionService";
 import { getIdentity } from "@/lib/auth";
 import { getUserFIOrg } from "./security";
@@ -23,18 +23,6 @@ import { compareAndLogShadowRender } from "@/lib/master-data/shadow-logger";
 import { FieldDisplayModel } from "@/lib/master-data/field-display-model";
 import * as Sentry from "@sentry/nextjs";
 import { ensureNotReferenceSnapshot } from "./questionnaire";
-async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
-    const identity = await getIdentity();
-    if (!identity?.userId) throw new Error("Unauthorized: Not logged in");
-
-    const userWithMemberships = {
-        id: identity.userId,
-        memberships: await prisma.membership.findMany({ where: { userId: identity.userId } })
-    };
-
-    const hasAccess = await can(userWithMemberships, action, context, prisma);
-    if (!hasAccess) throw new Error(`Unauthorized: Missing ${action} for context`);
-}
 
 export async function createLegalEntity(data: { name: string; jurisdiction: string; clientOrgId: string }) {
     if (!data.name || !data.clientOrgId) {
@@ -1353,8 +1341,13 @@ export async function removeCommonQuestionnaire(clientLEId: string, questionnair
 }
 
 export async function getEngagementTeam(engagementId: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    if (!engagementId) return { success: false, error: "Engagement ID is required" };
+
+    try {
+        await ensureAuthorization(Action.ENG_VIEW, { engagementId });
+    } catch (e) {
+        return { success: false, error: "Unauthorized" };
+    }
 
     try {
         const engagement = await prisma.fIEngagement.findUnique({
