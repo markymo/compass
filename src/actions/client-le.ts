@@ -488,8 +488,8 @@ export async function createFIEngagement(clientLEId: string, fiOrgId: string) {
             return { success: false, error: "Organization not found" };
         }
 
-        if (!fiOrg.types.includes("FI")) {
-            return { success: false, error: "Selected organization is not a financial institution" };
+        if (!fiOrg.types.some((t: any) => ["FI", "SUPPLIER", "LAW_FIRM", "OTHER"].includes(t))) {
+            return { success: false, error: "Selected organization is not a supplier or financial institution" };
         }
 
         // 2. Check for Existing Engagement using canonical composite key [fiOrgId, clientLEId]
