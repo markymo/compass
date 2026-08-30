@@ -2024,11 +2024,18 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                          <button
                                                                              className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
                                                                              onClick={() => {
-                                                                                 if (data?.current) {
+                                                                                 if (data?.canonicalDisplayModel) {
+                                                                                     if (data.canonicalDisplayModel.state === 'EXPLICIT_NONE' || data.canonicalDisplayModel.value?.kind === 'empty') {
+                                                                                         setManualValue("");
+                                                                                     } else if (data.canonicalDisplayModel.value?.kind === 'scalar') {
+                                                                                         setManualValue(data.canonicalDisplayModel.value.rawValue ?? "");
+                                                                                     } else {
+                                                                                         setManualValue(data.current?.value ?? "");
+                                                                                     }
+                                                                                 } else if (data?.current) {
                                                                                      const val = data.current.value;
-                                                                                     const isExplicitNone = (val && typeof val === 'object' && val.explicitNone === true) || 
-                                                                                         (typeof val === 'string' && val.includes('"explicitNone":true'));
-                                                                                     setManualValue(isExplicitNone ? "" : val);
+                                                                                     const isExplicitNone = val && typeof val === 'object' && val.explicitNone === true;
+                                                                                     setManualValue(isExplicitNone ? "" : (val ?? ""));
                                                                                  }
                                                                                  setIsEditing(true);
                                                                                  setRelatedValues({});

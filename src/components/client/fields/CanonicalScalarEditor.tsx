@@ -79,15 +79,10 @@ export function CanonicalScalarEditor({
 }: CanonicalScalarEditorProps) {
     const normType = (dataType || 'TEXT').toUpperCase();
 
-    // Helper: normalize explicitNone/tombstone sentinels to empty string for form inputs
-    const isSentinel = (v: any) => {
-        if (!v) return false;
-        if (typeof v === 'object' && (v.explicitNone === true || v.tombstone === true)) return true;
-        if (typeof v === 'string' && (v.includes('"explicitNone":true') || v.includes('"explicitNone": true') || v.includes('"tombstone":true'))) return true;
-        return false;
-    };
-
-    const sanitizedValue = isSentinel(value) ? '' : value;
+    // Canonical scalar editor operates on primitive values (string, number, boolean).
+    // If an explicitNone sentinel object reaches the editor, treat as empty for input rendering.
+    const isExplicitNoneObject = value && typeof value === 'object' && value.explicitNone === true;
+    const sanitizedValue = isExplicitNoneObject ? '' : value;
 
     // 1. Configured Options (Option-set or SELECT fields)
     if (options && options.length > 0) {
