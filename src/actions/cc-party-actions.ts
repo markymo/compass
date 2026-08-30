@@ -10,6 +10,7 @@ import type { V2PartyType } from "@/lib/master-data/party-v2/CCPartyData";
 import { PartyValue, isPartyValue, getPartyName } from "@/lib/master-data/party-value";
 import { revalidatePath } from "next/cache";
 import { getMasterFieldDefinition } from "@/services/masterData/definitionService";
+import { KycStateService } from "@/lib/kyc/KycStateService";
 
 function extractIds(value: any, idKey: string, foundIds: Set<string> = new Set()): Set<string> {
     if (!value) return foundIds;
@@ -252,49 +253,69 @@ export async function upsertCCPartyV2(params: {
  * Returns a map of ccPartyId -> Array of { fieldNo, fieldName }
  */
 export async function getCCPartyUsage(clientLEId: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
+    if (!clientLEId) {
+        return {};
     }
 
+    await ensureApiAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId });
+
     try {
-        const claims = await prisma.fieldClaim.findMany({
-            where: { valueJson: { not: Prisma.AnyNull }, claimRole: 'VALUE' },
-            select: { fieldNo: true, valueJson: true }
+        const candidateClaims = await prisma.fieldClaim.findMany({
+            where: { clientLEId, claimRole: 'VALUE' },
+            select: { fieldNo: true },
+            distinct: ['fieldNo']
         });
 
-        const usageMap: Record<string, { fieldNo: number; fieldName: string }[]> = {};
-        const defMap = new Map<number, string>();
+        if (candidateClaims.length === 0) {
+            return {};
+        }
 
-        for (const claim of claims) {
-            const value = claim.valueJson as any;
-            const partyIds = extractIds(value, 'ccPartyId');
-            for (const partyId of partyIds) {
-                if (!usageMap[partyId]) {
-                    usageMap[partyId] = [];
-                }
-                // Avoid duplicates if multiple claims for the same field point to the same party
-                if (!usageMap[partyId].some(u => u.fieldNo === claim.fieldNo)) {
-                    // Lazy load field definitions only for fields that actually have usage
-                    if (!defMap.has(claim.fieldNo)) {
-                        try {
-                            const def = await getMasterFieldDefinition(claim.fieldNo);
-                            defMap.set(claim.fieldNo, def.fieldName);
-                        } catch (e) {
-                            defMap.set(claim.fieldNo, `Field ${claim.fieldNo}`);
-                        }
+        const clientLE = await prisma.clientLE.findUnique({
+            where: { id: clientLEId },
+            select: { legalEntityId: true }
+        });
+        const subject = { clientLEId, subjectLeId: clientLE?.legalEntityId ?? null };
+
+        const usageMap: Record<string, { fieldNo: number; fieldName: string }[]> = {};
+
+        for (const { fieldNo } of candidateClaims) {
+            try {
+                const def = await getMasterFieldDefinition(fieldNo);
+                const foundIds = new Set<string>();
+
+                if (def.isMultiValue) {
+                    const authoritative = await KycStateService.getAuthoritativeCollection(subject, fieldNo);
+                    for (const item of authoritative) {
+                        extractIds(item.value, 'ccPartyId', foundIds);
                     }
-                    usageMap[partyId].push({
-                        fieldNo: claim.fieldNo,
-                        fieldName: defMap.get(claim.fieldNo) as string
-                    });
+                } else {
+                    const authoritative = await KycStateService.getAuthoritativeValue(subject, fieldNo);
+                    if (authoritative) {
+                        extractIds(authoritative.value, 'ccPartyId', foundIds);
+                    }
                 }
+
+                for (const partyId of foundIds) {
+                    if (!usageMap[partyId]) {
+                        usageMap[partyId] = [];
+                    }
+                    if (!usageMap[partyId].some(u => u.fieldNo === fieldNo)) {
+                        usageMap[partyId].push({
+                            fieldNo,
+                            fieldName: def.fieldName
+                        });
+                    }
+                }
+            } catch (err) {
+                console.warn(`[getCCPartyUsage] Failed to resolve field ${fieldNo}:`, err);
             }
         }
 
-        console.log("[getCCPartyUsage] Returning usage map:", JSON.stringify(usageMap, null, 2));
         return usageMap;
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message?.startsWith("Unauthorized")) {
+            throw error;
+        }
         console.error("Failed to fetch CC party usage:", error);
         throw new Error("Failed to fetch saved party usage");
     }

@@ -6,6 +6,7 @@ import { revalidatePath, unstable_noStore } from "next/cache";
 import { ExtractedItem } from "./ai-mapper"; // Importing type
 import { MasterSchemaDefinition } from "@/types/schema";
 import { Action, can, ensureAuthorization } from "@/lib/auth/permissions";
+import { ensureApiAuthorization } from "@/lib/auth/api-auth";
 import { getMasterFieldDefinition, listAllMasterFields, listAllMasterGroupsWithItems } from "@/services/masterData/definitionService";
 import { getIdentity } from "@/lib/auth";
 import { getUserFIOrg } from "./security";
@@ -1471,6 +1472,8 @@ export async function getFieldUsageDetails(
     if (!clientLEId || (!masterFieldNo && !customFieldId)) {
         return { totalQuestions: 0, totalQuestionnaires: 0, totalSuppliers: 0, relationships: [], questions: [], questionnaires: [], suppliers: [] };
     }
+
+    await ensureApiAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId });
 
     try {
         const fieldCondition = masterFieldNo

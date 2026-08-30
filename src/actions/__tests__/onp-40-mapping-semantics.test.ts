@@ -1,7 +1,18 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import { assertUatDbTestEnv } from "@/lib/kyc/__tests__/test-env-guard";
 import prisma from "@/lib/prisma";
 import { getFieldUsageDetails } from "@/actions/client-le";
+
+const TEST_USER_ID = `usr-onp40-${Date.now()}`;
+
+vi.mock("@/lib/auth", () => ({
+    getIdentity: vi.fn().mockImplementation(() => Promise.resolve({
+        userId: TEST_USER_ID,
+        email: "uat+onp40@onpro.tech",
+        role: "LE_ADMIN",
+        orgId: "org-onp40-test"
+    }))
+}));
 
 describe("Track B: ONP-40 Questionnaire Mapping Semantics (DB Integration)", () => {
     const timestamp = Date.now();
@@ -20,12 +31,20 @@ describe("Track B: ONP-40 Questionnaire Mapping Semantics (DB Integration)", () 
     beforeAll(async () => {
         assertUatDbTestEnv();
 
+        // 0. Seed User
+        await prisma.user.create({
+            data: { id: TEST_USER_ID, email: `onp40-${timestamp}@test.onpro.tech`, name: "ONP40 Test User" }
+        });
+
         // 1. Seed LegalEntity and ClientLE
         await prisma.legalEntity.create({
             data: { id: TEST_LE_ID, name: "ONP40 Legal Entity", reference: `REF-${timestamp}` }
         });
         await prisma.clientLE.create({
             data: { id: TEST_CLIENT_LE_ID, name: "ONP40 Client LE", legalEntityId: TEST_LE_ID }
+        });
+        await prisma.membership.create({
+            data: { userId: TEST_USER_ID, clientLEId: TEST_CLIENT_LE_ID, role: "LE_ADMIN" }
         });
 
         // 2. Seed Supplier Organizations
@@ -168,6 +187,12 @@ describe("Track B: ONP-40 Questionnaire Mapping Semantics (DB Integration)", () 
             }
             await prisma.fIEngagement.deleteMany({
                 where: { id: { in: [TEST_ENGAGEMENT_ACTIVE, TEST_ENGAGEMENT_ARCHIVED] } }
+            });
+            await prisma.membership.deleteMany({
+                where: { userId: TEST_USER_ID }
+            });
+            await prisma.user.deleteMany({
+                where: { id: TEST_USER_ID }
             });
             await prisma.clientLE.deleteMany({
                 where: { id: TEST_CLIENT_LE_ID }

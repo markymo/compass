@@ -3,8 +3,8 @@
  */
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import { SharedResourceUsageNotice } from '../SharedResourceUsageNotice';
 import * as ccPartyActions from '@/actions/cc-party-actions';
 import * as ccAddressActions from '@/actions/cc-address-actions';
@@ -20,6 +20,10 @@ vi.mock('@/actions/cc-address-actions', () => ({
 describe('Track B: ONP-31 Shared Resource Usage Notice Component', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+    });
+
+    afterEach(() => {
+        cleanup();
     });
 
     it('ONP-31 UI-01: Shared party edit notice provides explicit dossier-wide update warning, not vague "may appear anywhere"', async () => {

@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import { FieldClaimService } from "@/lib/kyc/FieldClaimService";
 import { getCCPartyUsage } from "@/actions/cc-party-actions";
 import { getCCAddressUsage } from "@/actions/cc-address-actions";
-import { removeMultiValueEntry } from "@/actions/kyc-manual-update";
+import { removeMultiValueEntry, clearSingleValueEntry } from "@/actions/kyc-manual-update";
 import { SourceType } from "@prisma/client";
 
 let mockUserId = "usr-onp31-test";
@@ -474,7 +474,7 @@ describe("Track B: ONP-31 & ONP-96 Shared Resource Usage & Authorization (DB Int
         await FieldClaimService.verifyClaim(claim.id, TEST_USER_ID);
 
         // Remove address reference
-        await removeMultiValueEntry(clientLEId, 138, claim.id);
+        await clearSingleValueEntry(clientLEId, 138);
 
         const usageMap = await getCCAddressUsage(clientLEId);
         const summary = usageMap[addr.id];
