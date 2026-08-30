@@ -330,11 +330,16 @@ export function PersonOrContactValueViewer({
                         <PartyAttachmentIndicator attachments={attachments} partyName={primaryText || 'Party'} />
                     )}
                     {renderActionButton()}
-                    {!hideStatusBadge && poc.isActivePersonOrContact !== null && (
-                        <span className={`text-[10px] font-semibold rounded-full px-2 py-1 border ${poc.isActivePersonOrContact ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                            {poc.isActivePersonOrContact ? 'Active' : 'Inactive'}
-                        </span>
-                    )}
+                    {(() => {
+                        const permitsStatus = isFieldPermittedByMask('role.isActiveRole', displayMask) || isFieldPermittedByMask('isActivePersonOrContact', displayMask);
+                        const showStatusBadge = !hideStatusBadge && (displayMask ? permitsStatus : true);
+                        if (!showStatusBadge || poc.isActivePersonOrContact === null) return null;
+                        return (
+                            <span className={`text-[10px] font-semibold rounded-full px-2 py-1 border ${poc.isActivePersonOrContact ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                                {poc.isActivePersonOrContact ? 'Active' : 'Inactive'}
+                            </span>
+                        );
+                    })()}
                 </div>
             </div>
 
