@@ -46,14 +46,8 @@ export async function resolveAmalgamatedAttachments(
     const result = new Map<number, ResolvedAttachment[]>();
     if (fieldNos.length === 0) return result;
 
-    // 1. Resolve direct field attachments (only for fields where allowAttachments === true)
-    const directFieldNos = fieldDefsMap
-        ? fieldNos.filter(fNo => fieldDefsMap.get(fNo)?.allowAttachments !== false)
-        : fieldNos;
-
-    const fieldAttachmentsMap = directFieldNos.length > 0
-        ? await KycStateService.resolveAllAttachments(subject, directFieldNos)
-        : new Map<number, any[]>();
+    // 1. Resolve direct field attachments (historic evidence remains visible regardless of current write policy)
+    const fieldAttachmentsMap = await KycStateService.resolveAllAttachments(subject, fieldNos);
 
     // 2. Extract ccPartyIds from the active field values (only if displayMask permits party.documents)
     const allPartyIds = new Set<string>();
