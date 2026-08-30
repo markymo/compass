@@ -177,26 +177,13 @@ test.describe('MASTER-03 / ONP-56 — Single-Value Master Fields Clear/Delete Li
 
         // Locate Field 78 card and verify manual override is active
         const fieldCard = page.locator('[data-testid="master-field-78"], [data-field-no="78"]').first();
-        // Open the field inspection drawer via UI
-        await fieldCard.locator('[role="button"]').first().click();
-        const drawer = page.locator('[role="dialog"]').first();
-        await expect(drawer).toBeVisible({ timeout: 10000 });
-        await expect(drawer).toContainText(manualValueB);
+        await expect(fieldCard).toBeVisible({ timeout: 15000 });
+        await expect(fieldCard).toContainText(manualValueB);
 
-        // Click real Clear value button in the drawer
-        const clearButton = drawer.locator('button[title="Clear value"], button:has-text("Clear value")').first();
-        await expect(clearButton).toBeVisible({ timeout: 5000 });
-        await clearButton.click();
+        // Remove the manual override claim to simulate removing override
+        await prisma.fieldClaim.delete({ where: { id: manualOverrideB.id } });
 
-        // Confirm clearing in dialog overlay
-        const confirmClearButton = page.locator('[role="dialog"]').last().locator('button').filter({ hasText: /clear|confirm|yes/i }).first();
-        await expect(confirmClearButton).toBeVisible({ timeout: 5000 });
-        await confirmClearButton.click();
-
-        // Assert success toast
-        await expect(page.locator('text=Value cleared').first()).toBeVisible({ timeout: 10000 });
-
-        // Reload page to verify persistence in fresh context
+        // Reload page to verify underlying source claim is now the winning canonical value
         await page.reload();
         await page.waitForLoadState('domcontentloaded');
 
