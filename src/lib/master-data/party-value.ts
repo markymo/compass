@@ -578,7 +578,8 @@ export function getPartyDisplayProjection(value: any, displayMask?: string[], fa
     }
 
     const secondaryParts: string[] = [];
-    if (showField('roles') && Array.isArray(poc.roles) && poc.roles.length > 0) {
+    const hasRoleFields = showField('roles') || showField('role.roleTitle') || showField('role.roleType') || showField('role.natureOfControl') || showField('role.appointedOn') || showField('role.resignedOn');
+    if (hasRoleFields && Array.isArray(poc.roles) && poc.roles.length > 0) {
         const r = poc.roles[0];
 
         const isPsc = r.roleType === 'PSC' ||
@@ -589,10 +590,11 @@ export function getPartyDisplayProjection(value: any, displayMask?: string[], fa
         const appointedLabel = isPsc ? 'Notified' : 'Appointed';
         const resignedLabel  = isPsc ? 'Ceased'   : 'Resigned';
 
-        let roleStr = r.roleTitle || r.roleType || "";
+        const showRoleTitle = showField('roles') || showField('role.roleTitle') || showField('role.roleType');
+        let roleStr = showRoleTitle ? (r.roleTitle || r.roleType || "") : "";
         const dates = [];
-        if (r.appointedOn) dates.push(`${appointedLabel} ${r.appointedOn}`);
-        if (r.resignedOn) dates.push(`${resignedLabel} ${r.resignedOn}`);
+        if (r.appointedOn && (showField('roles') || showField('role.appointedOn'))) dates.push(`${appointedLabel} ${r.appointedOn}`);
+        if (r.resignedOn && (showField('roles') || showField('role.resignedOn'))) dates.push(`${resignedLabel} ${r.resignedOn}`);
         if (dates.length > 0) roleStr += ` (${dates.join(' · ')})`;
         if (roleStr) secondaryParts.push(roleStr);
 
@@ -646,8 +648,9 @@ export function getPartyDisplayProjection(value: any, displayMask?: string[], fa
     }
 
     let addressText = "";
-    if (showField('correspondenceAddress') && poc.correspondenceAddress) {
-        const summary = getAddressSummary(poc.correspondenceAddress);
+    const addr = poc.correspondenceAddress || poc.address;
+    if ((showField('correspondenceAddress') || showField('address') || showField('individual.correspondenceAddress') || showField('organisation.correspondenceAddress')) && addr) {
+        const summary = getAddressSummary(addr);
         if (summary) addressText = summary;
     }
 

@@ -49,6 +49,8 @@ import { isAddressValue } from "@/lib/master-data/address-value";
 import { AddressValueEditor } from "../fields/AddressValueEditor";
 import { UnifiedAddressPicker } from "../fields/UnifiedAddressPicker";
 import { isPersonOrContactValue, getPersonOrContactSummary, isValidPartyValue } from "@/lib/master-data/person-or-contact-value";
+import { isFieldPermittedByCatalogue } from "@/lib/master-data/party-display-catalogue";
+import { getPartySummary } from "@/lib/master-data/party-value";
 import { applyTransform } from "@/services/kyc/normalization/transforms";
 import { PersonOrContactValueViewer } from "../fields/PersonOrContactValueViewer";
 import { CanonicalPartyEditDialog } from "../fields/CanonicalPartyEditDialog";
@@ -58,6 +60,29 @@ import { ExpandableRowItem } from "./expandable-row-item";
 import { SharedResourceUsageNotice } from "./SharedResourceUsageNotice";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 import { ExpandableText } from "@/components/ui/expandable-text";
+
+function getPartyScopedAttachments(
+    partyVal: any,
+    attachments?: import("@/lib/master-data/field-display-model").ResolvedAttachment[],
+    displayMask?: string[]
+): import("@/lib/master-data/field-display-model").ResolvedAttachment[] | undefined {
+    if (!attachments || attachments.length === 0) return undefined;
+    const permitsPartyDocs = isFieldPermittedByCatalogue('party.documents', displayMask);
+    if (!permitsPartyDocs) return undefined;
+
+    const ccPartyId = partyVal?.id || partyVal?.ccPartyId || partyVal?._resolvedData?.ccParty?.id;
+    const partyNameStr = getPartySummary(partyVal) || [partyVal?.forenames, partyVal?.surname].filter(Boolean).join(' ') || partyVal?.organisationName || partyVal?.displayName;
+
+    const matched = attachments.filter(att =>
+        att.provenance?.some(p => {
+            if (p.type !== 'PARTY') return false;
+            if (ccPartyId && p.partyId === ccPartyId) return true;
+            if (partyNameStr && p.partyName && p.partyName.trim().toLowerCase() === partyNameStr.trim().toLowerCase()) return true;
+            return false;
+        })
+    );
+    return matched.length > 0 ? matched : undefined;
+}
 import { getExpectedDataTypeLabel } from "@/lib/master-data/field-type-resolver";
 import { CanonicalScalarEditor } from "@/components/client/fields/CanonicalScalarEditor";
 
@@ -283,18 +308,19 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     ? rowCanonical.value.resolved 
                     : (rowCanonical?.value?.kind === 'party' ? rowCanonical.value.data : (parsedVal?.ccParty?.data || parsedVal?._resolvedData?.ccParty?.data || parsedVal));
 
+                const rowPartyAttachments = rowCanonical?.attachments || getPartyScopedAttachments(resolvedVal || parsedVal, data?.canonicalDisplayModel?.attachments, data?.profileConfig?.displayMask);
+
                 return (
                     <PersonOrContactValueViewer
                         value={resolvedVal || parsedVal}
                         partyLabel={partyLabel}
                         layout="compact"
                         displayMask={data?.profileConfig?.displayMask}
-                        attachments={data?.canonicalDisplayModel?.attachments}
+                        attachments={rowPartyAttachments}
                         claimId={rowData?.id || data?.current?.claimId}
                         isPromotedToCCC={rowData?.isPromotedToCCC || data?.current?.isPromotedToCCC}
                         isPromoting={isPromoting === (rowData?.id || data?.current?.claimId)}
                         onSaveForReuse={handleSaveForReuse}
-                        hideStatusBadge={fieldNo === 104 || data?.fieldNo === 104}
                     />
                 );
             }
@@ -1540,6 +1566,8 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                             ? (parsedRowValue.ccParty?.data || parsedRowValue._resolvedData?.ccParty?.data || row?.data?.ccParty?.data || row?.data?._resolvedData?.ccParty?.data || parsedRowValue)
                                                             : null);
 
+                                                        const rowPartyAttachments = rowCanonicalModel?.attachments || getPartyScopedAttachments(partyValForExpandable, data?.canonicalDisplayModel?.attachments, data?.profileConfig?.displayMask);
+
                                                         const addressValForExpandable = (parsedRowValue && typeof parsedRowValue === 'object' && (isAddressValue(parsedRowValue) || 'ccAddressId' in parsedRowValue))
                                                             ? (parsedRowValue.ccAddress?.data || parsedRowValue._resolvedData?.ccAddress?.data || row?.data?.ccAddress?.data || parsedRowValue)
                                                             : null;
@@ -1693,12 +1721,11 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                         partyLabel={rowPartyLabel}
                                                                                         layout="row"
                                                                                         displayMask={data?.profileConfig?.displayMask}
-                                                                                        attachments={data?.canonicalDisplayModel?.attachments}
+                                                                                        attachments={rowPartyAttachments}
                                                                                         claimId={row.id}
                                                                                         isPromotedToCCC={row.isPromotedToCCC || isPartyRefValue || rowCanonicalModel?.value?.kind === 'partyRef'}
                                                                                         isPromoting={isPromoting === row.id}
                                                                                         onSaveForReuse={handleSaveForReuse}
-                                                                                        hideStatusBadge={fieldNo === 104 || data?.fieldNo === 104}
                                                                                     />
                                                                                 }
                                                                                 expandedContent={
@@ -1707,12 +1734,11 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                         partyLabel={rowPartyLabel}
                                                                                         layout="detailed"
                                                                                         displayMask={data?.profileConfig?.displayMask}
-                                                                                        attachments={data?.canonicalDisplayModel?.attachments}
+                                                                                        attachments={rowPartyAttachments}
                                                                                         claimId={row.id}
                                                                                         isPromotedToCCC={row.isPromotedToCCC || isPartyRefValue || rowCanonicalModel?.value?.kind === 'partyRef'}
                                                                                         isPromoting={isPromoting === row.id}
                                                                                         onSaveForReuse={handleSaveForReuse}
-                                                                                        hideStatusBadge={fieldNo === 104 || data?.fieldNo === 104}
                                                                                     />
                                                                                 }
                                                                             />
@@ -1900,7 +1926,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                 partyLabel={(data?.canonicalDisplayModel?.value as any)?.partyLabel}
                                                                                 layout="detailed"
                                                                                 displayMask={data?.profileConfig?.displayMask}
-                                                                                attachments={data?.canonicalDisplayModel?.attachments}
+                                                                                attachments={getPartyScopedAttachments(data.current.value, data?.canonicalDisplayModel?.attachments, data?.profileConfig?.displayMask)}
                                                                                 claimId={data.current?.claimId}
                                                                                 isPromotedToCCC={data.current?.isPromotedToCCC}
                                                                                 isPromoting={isPromoting === data.current?.claimId}
@@ -1920,6 +1946,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                         : (itemCanonical?.value?.kind === 'party' ? itemCanonical.value.data : (parsed?.ccParty?.data || parsed?._resolvedData?.ccParty?.data || parsed));
 
                                                                                     const partyVal = resolvedVal || parsed?.ccParty?.data || parsed?._resolvedData?.ccParty?.data || parsed;
+                                                                                    const rowPartyAttachments = itemCanonical?.attachments || getPartyScopedAttachments(partyVal, data?.canonicalDisplayModel?.attachments, data?.profileConfig?.displayMask);
                                                                                     const rowId = `current_auth_${idx}`;
                                                                                     return (
                                                                                         <ExpandableRowItem
@@ -1932,12 +1959,11 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                                     partyLabel={partyLabel}
                                                                                                     layout="row"
                                                                                                     displayMask={data?.profileConfig?.displayMask}
-                                                                                                    attachments={data?.canonicalDisplayModel?.attachments}
+                                                                                                    attachments={rowPartyAttachments}
                                                                                                     claimId={data.current?.claimId}
                                                                                                     isPromotedToCCC={data.current?.isPromotedToCCC}
                                                                                                     isPromoting={isPromoting === data.current?.claimId}
                                                                                                     onSaveForReuse={handleSaveForReuse}
-                                                                                                    hideStatusBadge={fieldNo === 104 || data?.fieldNo === 104}
                                                                                                 />
                                                                                             }
                                                                                             expandedContent={
@@ -1946,12 +1972,11 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                                     partyLabel={partyLabel}
                                                                                                     layout="detailed"
                                                                                                     displayMask={data?.profileConfig?.displayMask}
-                                                                                                    attachments={data?.canonicalDisplayModel?.attachments}
+                                                                                                    attachments={rowPartyAttachments}
                                                                                                     claimId={data.current?.claimId}
                                                                                                     isPromotedToCCC={data.current?.isPromotedToCCC}
                                                                                                     isPromoting={isPromoting === data.current?.claimId}
                                                                                                     onSaveForReuse={handleSaveForReuse}
-                                                                                                    hideStatusBadge={fieldNo === 104 || data?.fieldNo === 104}
                                                                                                 />
                                                                                             }
                                                                                         />
@@ -2340,7 +2365,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     </div>
 
                     {/* ─── Field Attachments ─── */}
-                    {data?.canonicalDisplayModel?.allowAttachments && (
+                    {(data?.canonicalDisplayModel?.allowAttachments || (data?.canonicalDisplayModel?.attachments?.length ?? 0) > 0) && (
                         <div className="pt-6 border-t border-slate-200/80 space-y-3">
                             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                                 <Paperclip className="w-3.5 h-3.5 text-slate-400" /> Field Attachments
@@ -2348,8 +2373,8 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                             <FieldAttachments 
                                 clientLEId={clientLEId} 
                                 fieldNo={data.fieldNo || fieldNo} 
-                                attachments={data.canonicalDisplayModel.attachments || []} 
-                                isEditable={!isLocked}
+                                attachments={data.canonicalDisplayModel?.attachments || []} 
+                                isEditable={!isLocked && (data?.canonicalDisplayModel?.allowAttachments ?? false)}
                                 mode="manage" 
                                 onChange={loadData}
                             />
