@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll, beforeAll } from 'vitest';
 import prisma from '@/lib/prisma';
 import { KycStateService } from '@/lib/kyc/KycStateService';
 import { FieldClaimService } from '@/lib/kyc/FieldClaimService';
 import { updateFieldManually } from '@/actions/kyc-manual-update';
 import { resolveFieldForDisplay } from '@/lib/master-data/field-interpreter';
 import { ClaimStatus, SourceType } from '@prisma/client';
+import { assertUatDbTestEnv } from './test-env-guard';
 
 // Mock Auth
 vi.mock('@/lib/auth', () => ({
@@ -25,6 +26,17 @@ describe('ONP-95 — Master Edit Claim Precedence, Hydration & Immutability Cont
     const clientLEId = 'le-onp95-test';
     const subjectLeId = 'legal-entity-onp95';
     const fieldNo = 45; // Fund manager (TEXT)
+
+    beforeAll(() => {
+        assertUatDbTestEnv();
+    });
+
+    afterAll(async () => {
+        await prisma.fieldClaim.deleteMany({ where: { clientLEId } });
+        await prisma.clientLE.deleteMany({ where: { id: clientLEId } });
+        await prisma.legalEntity.deleteMany({ where: { id: subjectLeId } });
+        await prisma.user.deleteMany({ where: { id: 'usr-test-123' } });
+    });
 
     beforeEach(async () => {
         // Clean up test data

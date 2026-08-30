@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll, beforeAll } from 'vitest';
 import prisma from '@/lib/prisma';
 import { FieldClaimService } from '@/lib/kyc/FieldClaimService';
 import { KycStateService } from '@/lib/kyc/KycStateService';
 import { ClaimStatus, SourceType } from '@prisma/client';
+import { assertUatDbTestEnv } from './test-env-guard';
 
 // Mock Auth
 vi.mock('@/lib/auth', () => ({
@@ -16,6 +17,17 @@ describe('ONP-51 / ONP-52 — Existing Address Editing & History Immutability In
     const clientLEId = 'le-onp51-test';
     const subjectLeId = 'legal-entity-onp51';
     const fieldNo = 138; // Registered address (appDataType: ADDRESS)
+
+    beforeAll(() => {
+        assertUatDbTestEnv();
+    });
+
+    afterAll(async () => {
+        await prisma.fieldClaim.deleteMany({ where: { clientLEId } });
+        await prisma.clientLE.deleteMany({ where: { id: clientLEId } });
+        await prisma.legalEntity.deleteMany({ where: { id: subjectLeId } });
+        await prisma.user.deleteMany({ where: { email: 'test-onp51@onpro.tech' } });
+    });
 
     beforeEach(async () => {
         // Clean up test data

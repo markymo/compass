@@ -1,8 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterAll, beforeAll } from 'vitest';
 import prisma from '@/lib/prisma';
 import { FieldClaimService } from '@/lib/kyc/FieldClaimService';
 import { resolveAmalgamatedAttachments } from '@/lib/kyc/attachments';
 import { ClaimStatus, SourceType } from '@prisma/client';
+import { assertUatDbTestEnv } from './test-env-guard';
 
 // Mock Auth
 vi.mock('@/lib/auth', () => ({
@@ -16,6 +17,18 @@ describe('ONP-49 — Attachment Write Policy & Historic Evidence Preservation Co
     const clientLEId = 'le-onp49-test';
     const subjectLeId = 'legal-entity-onp49';
     const fieldNo = 39; // Register of members location
+
+    beforeAll(() => {
+        assertUatDbTestEnv();
+    });
+
+    afterAll(async () => {
+        await prisma.fieldClaim.deleteMany({ where: { clientLEId } });
+        await prisma.document.deleteMany({ where: { id: { in: ['doc-historic-1', 'doc-future-2'] } } });
+        await prisma.clientLE.deleteMany({ where: { id: clientLEId } });
+        await prisma.legalEntity.deleteMany({ where: { id: subjectLeId } });
+        await prisma.user.deleteMany({ where: { email: 'test-onp49@onpro.tech' } });
+    });
 
     beforeEach(async () => {
         // Clean up test data
