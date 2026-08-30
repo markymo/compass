@@ -2019,13 +2019,16 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                              />
                                                                          )}
                                                                      </div>
-                                                                 ) : (
+) : (
                                                                      <div className="flex items-center gap-1.5 shrink-0">
                                                                          <button
                                                                              className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
                                                                              onClick={() => {
                                                                                  if (data?.current) {
-                                                                                     setManualValue(data.current.value);
+                                                                                     const val = data.current.value;
+                                                                                     const isExplicitNone = (val && typeof val === 'object' && val.explicitNone === true) || 
+                                                                                         (typeof val === 'string' && val.includes('"explicitNone":true'));
+                                                                                     setManualValue(isExplicitNone ? "" : val);
                                                                                  }
                                                                                  setIsEditing(true);
                                                                                  setRelatedValues({});

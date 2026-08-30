@@ -75,6 +75,56 @@ describe('CanonicalScalarEditor - Component Tests', () => {
         expect((textInput as HTMLInputElement).value).toBe('Hello World');
     });
 
+    it('sanitizes explicitNone object sentinel as empty text input (never displays raw JSON sentinel)', () => {
+        const onChange = vi.fn();
+        render(
+            <CanonicalScalarEditor
+                dataType="TEXT"
+                value={{ explicitNone: true }}
+                onChange={onChange}
+                placeholder="Enter value..."
+            />
+        );
+
+        const textInput = screen.getByPlaceholderText('Enter value...');
+        expect(textInput).toBeTruthy();
+        expect((textInput as HTMLInputElement).value).toBe('');
+        expect(screen.queryByDisplayValue('{"explicitNone":true}')).toBeNull();
+    });
+
+    it('sanitizes stringified explicitNone JSON sentinel as empty text input', () => {
+        const onChange = vi.fn();
+        render(
+            <CanonicalScalarEditor
+                dataType="TEXT"
+                value='{"explicitNone":true}'
+                onChange={onChange}
+                placeholder="Enter value..."
+            />
+        );
+
+        const textInput = screen.getByPlaceholderText('Enter value...');
+        expect(textInput).toBeTruthy();
+        expect((textInput as HTMLInputElement).value).toBe('');
+        expect(screen.queryByDisplayValue('{"explicitNone":true}')).toBeNull();
+    });
+
+    it('sanitizes explicitNone sentinel when options array is provided (maps to empty selection)', () => {
+        const onChange = vi.fn();
+        render(
+            <CanonicalScalarEditor
+                dataType="TEXT"
+                options={['Option A', 'Option B']}
+                value={{ explicitNone: true }}
+                onChange={onChange}
+            />
+        );
+
+        const selectTrigger = screen.getByRole('combobox');
+        expect(selectTrigger).toBeTruthy();
+        expect(screen.queryByText('{"explicitNone":true}')).toBeNull();
+    });
+
     it('renders a safe non-editable warning for unsupported complex datatypes (e.g. DOCUMENT)', () => {
         const onChange = vi.fn();
         render(

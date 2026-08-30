@@ -864,12 +864,52 @@ describe('FieldDetailPanel - CanonicalScalarEditor Integration', () => {
             expect(screen.getByText('123456')).toBeTruthy();
         });
 
+            fireEvent.click(screen.getByTitle('Edit value'));
+
+            await waitFor(() => {
+                const input = screen.getByPlaceholderText('Enter value...');
+                expect(input).toBeTruthy();
+                expect((input as HTMLInputElement).value).toBe('123456');
+            });
+        });
+
+    it('sanitizes explicitNone sentinel when entering edit mode on a scalar field whose authoritative claim is explicitNone', async () => {
+        vi.mocked(kycQuery.getFieldDetail).mockResolvedValueOnce({
+            fieldNo: 45,
+            fieldName: 'Fund manager',
+            dataType: 'TEXT',
+            isRepeating: false,
+            current: { value: { explicitNone: true }, source: 'USER_INPUT' },
+            canonicalDisplayModel: {
+                allowAttachments: false,
+                attachments: [],
+                isEditable: true,
+                state: 'EXPLICIT_NONE',
+                value: { kind: 'empty' }
+            }
+        } as any);
+
+        render(
+            <FieldDetailPanel
+                open={true}
+                onOpenChange={() => {}}
+                clientLEId="le-123"
+                fieldNo={45}
+                fieldName="Fund manager"
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText('None')).toBeTruthy();
+        });
+
         fireEvent.click(screen.getByTitle('Edit value'));
 
         await waitFor(() => {
             const input = screen.getByPlaceholderText('Enter value...');
             expect(input).toBeTruthy();
-            expect((input as HTMLInputElement).value).toBe('123456');
+            expect((input as HTMLInputElement).value).toBe('');
+            expect(screen.queryByDisplayValue('{"explicitNone":true}')).toBeNull();
         });
     });
 });
