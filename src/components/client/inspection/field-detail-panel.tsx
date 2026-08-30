@@ -2372,8 +2372,8 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                             </div>
                             <FieldAttachments 
                                 clientLEId={clientLEId} 
-                                fieldNo={data.fieldNo || fieldNo} 
-                                attachments={data.canonicalDisplayModel?.attachments || []} 
+                                fieldNo={data?.fieldNo || fieldNo} 
+                                attachments={data?.canonicalDisplayModel?.attachments || []} 
                                 isEditable={!isLocked && (data?.canonicalDisplayModel?.allowAttachments ?? false)}
                                 mode="manage" 
                                 onChange={loadData}
