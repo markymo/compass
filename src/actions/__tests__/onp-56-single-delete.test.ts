@@ -32,7 +32,8 @@ vi.mock('@/lib/prisma', () => ({
             findMany: vi.fn(),
             findFirst: vi.fn(),
             create: vi.fn(),
-            update: vi.fn()
+            update: vi.fn(),
+            updateMany: vi.fn()
         }
     }
 }));
@@ -97,18 +98,21 @@ describe('MASTER-03 / ONP-56 — Single-Value Master Fields Clear Unit Invariant
         expect(FieldClaimService.verifyClaim).toHaveBeenCalledWith('tomb-1', 'test-user-1');
     });
 
-    it('2. Retracts/rejects active manual claims when clearing a manual override', async () => {
-        (prisma.fieldClaim.findMany as any).mockResolvedValue([{ id: 'manual-claim-1' }]);
-        (prisma.fieldClaim.updateMany as any) = vi.fn().mockResolvedValue({ count: 1 });
+    it('2. Emits verified tombstone claim when clearing a manual override (preserving claim immutability)', async () => {
+        (FieldClaimService.emitTombstone as any).mockResolvedValue({ id: 'tomb-2' });
 
         const result = await clearSingleValueEntry('cle-1', 78);
 
         expect(result).toEqual({ success: true });
-        expect(prisma.fieldClaim.updateMany).toHaveBeenCalledWith({
-            where: { id: { in: ['manual-claim-1'] } },
-            data: { status: 'REJECTED' }
-        });
-        expect(FieldClaimService.emitTombstone).not.toHaveBeenCalled();
+        expect(FieldClaimService.emitTombstone).toHaveBeenCalledWith(
+            expect.objectContaining({ clientLEId: 'cle-1', subjectLeId: 'le-1' }),
+            78,
+            'GENERAL',
+            'single',
+            expect.any(String)
+        );
+        expect(FieldClaimService.verifyClaim).toHaveBeenCalledWith('tomb-2', 'test-user-1');
+        expect(prisma.fieldClaim.updateMany).not.toHaveBeenCalled();
     });
 
     it('3. Rejects clearSingleValueEntry on multi-value collection fields with clear error', async () => {

@@ -453,35 +453,15 @@ export async function clearSingleValueEntry(
         const subjectLeId = clientLE.legalEntityId ?? null;
         const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
 
-        const activeManualClaims = await prisma.fieldClaim.findMany({
-            where: {
-                clientLEId,
-                fieldNo,
-                sourceType: 'USER_INPUT',
-                status: { in: ['ASSERTED', 'VERIFIED'] }
-            }
-        });
+        const tombstone = await FieldClaimService.emitTombstone(
+            { subjectLeId, clientLEId },
+            fieldNo,
+            def.categoryId || 'GENERAL',
+            'single',
+            ownerScopeId
+        );
 
-        if (activeManualClaims.length > 0) {
-            await prisma.fieldClaim.updateMany({
-                where: {
-                    id: { in: activeManualClaims.map((c: any) => c.id) }
-                },
-                data: {
-                    status: 'REJECTED'
-                }
-            });
-        } else {
-            const tombstone = await FieldClaimService.emitTombstone(
-                { subjectLeId, clientLEId },
-                fieldNo,
-                def.categoryId || 'GENERAL',
-                'single',
-                ownerScopeId
-            );
-
-            await FieldClaimService.verifyClaim(tombstone.id, userId);
-        }
+        await FieldClaimService.verifyClaim(tombstone.id, userId);
 
         revalidatePath(`/app/le/${clientLEId}`, 'layout');
         return { success: true };

@@ -1136,7 +1136,7 @@ describe('FieldDetailPanel - Multi-Value Repeating Party Save-for-Reuse Parity',
         expect(screen.queryByText('Save for reuse')).toBeNull();
     });
 
-    it('4. preserves inline break link / delete confirmation behaviour for repeating party references', async () => {
+    it('4. preserves inline removal confirmation behaviour for repeating party references', async () => {
         vi.mocked(kycQuery.getFieldDetail).mockResolvedValueOnce({
             fieldNo: 274,
             fieldName: 'Persons of significant control (other)',
@@ -1179,14 +1179,14 @@ describe('FieldDetailPanel - Multi-Value Repeating Party Save-for-Reuse Parity',
         );
 
         await waitFor(() => {
-            expect(screen.getByTitle('Break link to party reference')).toBeTruthy();
+            expect(screen.getByTitle('Remove from this field')).toBeTruthy();
         });
 
-        // Click break link button
-        fireEvent.click(screen.getByTitle('Break link to party reference'));
+        // Click remove button
+        fireEvent.click(screen.getByTitle('Remove from this field'));
 
         await waitFor(() => {
-            expect(screen.getByText('Yes, break link')).toBeTruthy();
+            expect(screen.getByText('Remove')).toBeTruthy();
         });
     });
 });

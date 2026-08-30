@@ -98,6 +98,7 @@ describe('Track A: ONP-39 Drawer Removal Language (REF-04)', () => {
                     instanceId: 'inst-alice-1',
                     value: { ccPartyId: 'party-alice-123' },
                     label: 'Alice Smith',
+                    source: 'USER_INPUT',
                     isUserValue: true,
                     data: {
                         partyType: 'INDIVIDUAL',

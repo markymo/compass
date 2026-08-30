@@ -1548,7 +1548,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                     <button
                                                                         className="p-1.5 rounded text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
                                                                         onClick={() => setDeletingRowId(row.id)}
-                                                                        title={isPartyRefValue ? "Break link to party reference" : "Remove value"}
+                                                                        title={isPartyRefValue ? "Remove from this field" : "Remove value"}
                                                                     >
                                                                         {isPartyRefValue ? <Link2Off className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
                                                                     </button>
@@ -1578,7 +1578,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                 <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 animate-in fade-in duration-150">
                                                                     <span className="text-xs text-red-700 font-medium truncate flex-1 flex items-center gap-1">
                                                                         {isPartyRefValue ? (
-                                                                            <span>Break link to "{row.data?.resolvedSummary || (typeof row.value === 'object' && row.value?.ccPartyId) || 'saved party'}"?</span>
+                                                                            <span>Remove "{row.data?.resolvedSummary || (typeof row.value === 'object' && row.value?.ccPartyId) || 'saved party'}" from this field?</span>
                                                                         ) : (
                                                                             <>
                                                                                 Remove "{typeof row.value === 'object' && row.value ? (row.value.label || JSON.stringify(row.value)) : String(row.value)}"?
@@ -1593,7 +1593,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                             onClick={() => handleRemoveEntry(row.id)}
                                                                             disabled={isSaving}
                                                                         >
-                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isPartyRefValue ? 'Yes, break link' : 'Yes, remove'}
+                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isPartyRefValue ? 'Remove' : 'Yes, remove'}
                                                                         </Button>
                                                                         <Button
                                                                             variant="ghost"
@@ -2029,7 +2029,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                              <button
                                                                                  className="p-1.5 rounded text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
                                                                                  onClick={() => setIsClearingSingleValue(true)}
-                                                                                 title={isCuratedPartyRef ? "Break link to party reference" : "Clear value"}
+                                                                                 title={isCuratedPartyRef ? "Remove from this field" : "Clear value"}
                                                                              >
                                                                                  {isCuratedPartyRef ? <Link2Off className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
                                                                              </button>
@@ -2099,7 +2099,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         {isClearingSingleValue && (
                                                             <div className="mt-3 flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 animate-in fade-in duration-150">
                                                                 <span className="text-xs text-red-700 font-medium truncate flex-1 flex items-center gap-1">
-                                                                    {isCuratedPartyRef ? 'Break link to party reference?' : 'Clear this value?'}
+                                                                    {isCuratedPartyRef ? 'Remove from this field?' : 'Clear this value?'}
                                                                 </span>
                                                                 <div className="flex items-center gap-1.5 shrink-0">
                                                                     <Button
@@ -2109,7 +2109,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         onClick={() => handleClearSingleValue()}
                                                                         disabled={isSaving}
                                                                     >
-                                                                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isCuratedPartyRef ? 'Yes, break link' : 'Yes, clear'}
+                                                                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isCuratedPartyRef ? 'Remove' : 'Yes, clear'}
                                                                     </Button>
                                                                     <Button
                                                                         variant="ghost"
