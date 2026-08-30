@@ -79,11 +79,21 @@ export function CanonicalScalarEditor({
 }: CanonicalScalarEditorProps) {
     const normType = (dataType || 'TEXT').toUpperCase();
 
+    // Helper: normalize explicitNone/tombstone sentinels to empty string for form inputs
+    const isSentinel = (v: any) => {
+        if (!v) return false;
+        if (typeof v === 'object' && (v.explicitNone === true || v.tombstone === true)) return true;
+        if (typeof v === 'string' && (v.includes('"explicitNone":true') || v.includes('"explicitNone": true') || v.includes('"tombstone":true'))) return true;
+        return false;
+    };
+
+    const sanitizedValue = isSentinel(value) ? '' : value;
+
     // 1. Configured Options (Option-set or SELECT fields)
     if (options && options.length > 0) {
         return (
             <Select
-                value={typeof value === 'string' || typeof value === 'number' ? String(value) : ''}
+                value={typeof sanitizedValue === 'string' || typeof sanitizedValue === 'number' ? String(sanitizedValue) : ''}
                 onValueChange={(val) => onChange(val)}
                 disabled={disabled}
             >
@@ -107,9 +117,9 @@ export function CanonicalScalarEditor({
 
     // 2. BOOLEAN Datatype -> Constrained Yes/No Select
     if (normType === 'BOOLEAN') {
-        const strVal = (value === true || value === 'true')
+        const strVal = (sanitizedValue === true || sanitizedValue === 'true')
             ? 'true'
-            : (value === false || value === 'false')
+            : (sanitizedValue === false || sanitizedValue === 'false')
                 ? 'false'
                 : '';
 
@@ -135,7 +145,7 @@ export function CanonicalScalarEditor({
         return (
             <Input
                 type="date"
-                value={formatDateForInput(value)}
+                value={formatDateForInput(sanitizedValue)}
                 onChange={(e) => onChange(parseDateFromInput(e.target.value))}
                 onKeyDown={onKeyDown}
                 disabled={disabled}
@@ -156,7 +166,7 @@ export function CanonicalScalarEditor({
         return (
             <Input
                 type={normType === 'NUMBER' ? 'number' : 'text'}
-                value={typeof value === 'object' && value !== null ? JSON.stringify(value) : (value ?? '')}
+                value={typeof sanitizedValue === 'object' && sanitizedValue !== null ? JSON.stringify(sanitizedValue) : (sanitizedValue ?? '')}
                 onChange={(e) => onChange(e.target.value)}
                 onKeyDown={onKeyDown}
                 placeholder={placeholder || "Enter value..."}
