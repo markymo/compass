@@ -22,7 +22,7 @@ describe('Track B: ONP-31 Shared Resource Usage Notice Component', () => {
         vi.clearAllMocks();
     });
 
-    it('ONP-31 UI-01: Shared party edit notice provides explicit dossier-wide update warning, not vague "may appear elsewhere"', async () => {
+    it('ONP-31 UI-01: Shared party edit notice provides explicit dossier-wide update warning, not vague "may appear anywhere"', async () => {
         (ccPartyActions.getCCPartyUsage as any).mockResolvedValue({
             'party-alice': [
                 { fieldNo: 64, fieldName: 'Significant Beneficial Owners' },
@@ -79,5 +79,53 @@ describe('Track B: ONP-31 Shared Resource Usage Notice Component', () => {
         await waitFor(() => {
             expect(screen.getByText('Currently only used here.')).toBeInTheDocument();
         });
+    });
+
+    it('ONP-31 UI-03: Address parity — shared address edit notice provides explicit consequence and lists direct & party usages', async () => {
+        (ccAddressActions.getCCAddressUsage as any).mockResolvedValue({
+            'addr-1': {
+                ccAddressId: 'addr-1',
+                fieldUsages: [
+                    { fieldNo: 138, fieldName: 'Registered address' },
+                    { fieldNo: 139, fieldName: 'Headquarters address' }
+                ],
+                partyUsages: [
+                    {
+                        ccPartyId: 'party-1',
+                        partyLabel: 'Acme Holding Ltd',
+                        partyType: 'ORGANISATION',
+                        usageKind: 'REGISTERED_ADDRESS'
+                    }
+                ]
+            }
+        });
+
+        render(
+            <SharedResourceUsageNotice
+                resourceType="ADDRESS"
+                displayTypeLabel="address"
+                resourceId="addr-1"
+                clientLEId="client-le-1"
+                currentFieldNo={138}
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getByText(/Editing shared address/i)).toBeInTheDocument();
+        });
+
+        // 1. Assert explicit Save consequence copy for Address
+        const warningParagraph = screen.getByText(/You are editing a saved\/shared address\. Saving changes will update it everywhere/i);
+        expect(warningParagraph).toBeInTheDocument();
+
+        // 2. Assert direct field usages are listed
+        expect(screen.getByText(/Field reference 138 — Registered address/i)).toBeInTheDocument();
+        expect(screen.getByText(/Field reference 139 — Headquarters address/i)).toBeInTheDocument();
+
+        // 3. Assert Party-contained usages are listed
+        expect(screen.getByText(/Party record: Acme Holding Ltd \(REGISTERED ADDRESS\)/i)).toBeInTheDocument();
+
+        // 4. Assert current field indicator
+        expect(screen.getByText('Current')).toBeInTheDocument();
     });
 });
