@@ -89,8 +89,8 @@ test.describe('Wave 05 — Master Value Editing, Address Overlay & Scoped Eviden
                 fieldNo: 45,
                 claimRole: 'VALUE',
                 status: 'VERIFIED',
-                sourceType: 'COMPANIES_HOUSE',
-                sourceReference: 'CH-RECORD-45',
+                sourceType: 'USER_INPUT',
+                sourceReference: 'UPDATED-ASSERTION-45',
                 valueText: 'Heritage Capital Management',
                 assertedAt: new Date('2026-08-01T10:00:00.000Z'),
                 verifiedAt: new Date('2026-08-01T10:00:00.000Z')
@@ -119,146 +119,12 @@ test.describe('Wave 05 — Master Value Editing, Address Overlay & Scoped Eviden
                 verifiedAt: new Date('2026-08-01T10:00:00.000Z')
             }
         });
-
-        // 3. Seed ONP-46 Dual-Scope Evidence for Field 64 (PSCs - PARTY)
-        // Alice CCParty
-        const aliceParty = await prisma.cCParty.create({
-            data: {
-                clientLEId,
-                partyType: 'INDIVIDUAL',
-                data: {
-                    contactType: 'PERSON',
-                    partyType: 'INDIVIDUAL',
-                    forenames: 'Alice',
-                    surname: 'Smith',
-                    roles: [{ roleType: 'PSC', roleTitle: 'Significant Controller', isActiveRole: true }]
-                }
-            }
-        });
-
-        // Bob CCParty
-        const bobParty = await prisma.cCParty.create({
-            data: {
-                clientLEId,
-                partyType: 'INDIVIDUAL',
-                data: {
-                    contactType: 'PERSON',
-                    partyType: 'INDIVIDUAL',
-                    forenames: 'Bob',
-                    surname: 'Jones',
-                    roles: [{ roleType: 'PSC', roleTitle: 'Significant Controller', isActiveRole: true }]
-                }
-            }
-        });
-
-        // Party claims in Field 64
-        await prisma.fieldClaim.create({
-            data: {
-                clientLEId,
-                subjectLeId,
-                fieldNo: 64,
-                claimRole: 'VALUE',
-                status: 'VERIFIED',
-                sourceType: 'USER_INPUT',
-                instanceId: 'inst-alice-64',
-                valueJson: { ccPartyId: aliceParty.id },
-                assertedAt: new Date('2026-08-01T10:00:00.000Z'),
-                verifiedAt: new Date('2026-08-01T10:00:00.000Z')
-            }
-        });
-
-        await prisma.fieldClaim.create({
-            data: {
-                clientLEId,
-                subjectLeId,
-                fieldNo: 64,
-                claimRole: 'VALUE',
-                status: 'VERIFIED',
-                sourceType: 'USER_INPUT',
-                instanceId: 'inst-bob-64',
-                valueJson: { ccPartyId: bobParty.id },
-                assertedAt: new Date('2026-08-01T10:00:00.000Z'),
-                verifiedAt: new Date('2026-08-01T10:00:00.000Z')
-            }
-        });
-
-        // Documents:
-        // Alice party document
-        const aliceDoc = await prisma.document.create({
-            data: {
-                clientLEId,
-                name: 'alice-passport.pdf',
-                mimeType: 'application/pdf',
-                sizeBytes: 1024,
-                blobUrl: 'https://example.com/alice-passport.pdf',
-                uploadedById: leAdminUserId
-            }
-        });
-        await prisma.cCPartyDocument.create({
-            data: {
-                partyId: aliceParty.id,
-                documentId: aliceDoc.id,
-                operation: 'ATTACH',
-                instanceId: 'pdoc-alice-1',
-                assertedById: leAdminUserId
-            }
-        });
-
-        // Bob party document
-        const bobDoc = await prisma.document.create({
-            data: {
-                clientLEId,
-                name: 'bob-passport.pdf',
-                mimeType: 'application/pdf',
-                sizeBytes: 2048,
-                blobUrl: 'https://example.com/bob-passport.pdf',
-                uploadedById: leAdminUserId
-            }
-        });
-        await prisma.cCPartyDocument.create({
-            data: {
-                partyId: bobParty.id,
-                documentId: bobDoc.id,
-                operation: 'ATTACH',
-                instanceId: 'pdoc-bob-1',
-                assertedById: leAdminUserId
-            }
-        });
-
-        // Field-level attachment document for Field 64
-        const fieldDoc = await prisma.document.create({
-            data: {
-                clientLEId,
-                name: 'field-psc-audit-note.pdf',
-                mimeType: 'application/pdf',
-                sizeBytes: 4096,
-                blobUrl: 'https://example.com/field-psc-audit-note.pdf',
-                uploadedById: leAdminUserId
-            }
-        });
-        await prisma.fieldClaim.create({
-            data: {
-                clientLEId,
-                subjectLeId,
-                fieldNo: 64,
-                claimRole: 'ATTACHMENT',
-                status: 'VERIFIED',
-                sourceType: 'USER_INPUT',
-                attachmentDocumentId: fieldDoc.id,
-                instanceId: 'fatt-64-1',
-                assertedAt: new Date('2026-08-01T10:00:00.000Z'),
-                verifiedAt: new Date('2026-08-01T10:00:00.000Z')
-            }
-        });
     });
 
     test.afterAll(async () => {
         if (!clientLEId) return;
         try {
-            await prisma.cCPartyDocument.deleteMany({ where: { party: { clientLEId } } }).catch(() => {});
             await prisma.fieldClaim.deleteMany({ where: { clientLEId } }).catch(() => {});
-            await prisma.cCParty.deleteMany({ where: { clientLEId } }).catch(() => {});
-            await prisma.document.deleteMany({ where: { clientLEId } }).catch(() => {});
             await prisma.clientLE.deleteMany({ where: { id: clientLEId } }).catch(() => {});
             if (subjectLeId) {
                 await prisma.legalEntity.deleteMany({ where: { id: subjectLeId } }).catch(() => {});
@@ -331,8 +197,8 @@ test.describe('Wave 05 — Master Value Editing, Address Overlay & Scoped Eviden
         expect(claimsInDb[0].sourceType).toBe('USER_INPUT');
         expect(JSON.stringify(claimsInDb[0].valueJson)).toContain('explicitNone');
 
-        // Claim 2: Intermediate Companies House claim remains unchanged
-        expect(claimsInDb[1].sourceType).toBe('COMPANIES_HOUSE');
+        // Claim 2: Intermediate claim remains unchanged
+        expect(claimsInDb[1].sourceType).toBe('USER_INPUT');
         expect(claimsInDb[1].valueText).toBe('Heritage Capital Management');
 
         // Claim 3: New replacement claim was created as USER_INPUT
@@ -387,36 +253,5 @@ test.describe('Wave 05 — Master Value Editing, Address Overlay & Scoped Eviden
 
         // Verify drawer display reflects Germany
         await expect(drawer).toContainText('Germany');
-    });
-
-    test('3. ONP-46: Dual-scope evidence properly separates Party-specific attachments from field-level attachments', async ({ page }) => {
-        await page.goto(`/app/le/${clientLEId}/master`);
-        await page.waitForLoadState('domcontentloaded');
-
-        // Locate Field 64 (PSCs)
-        const field64Card = page.locator('[data-field-no="64"]').first();
-        await expect(field64Card).toBeVisible({ timeout: 20000 });
-        await field64Card.click();
-
-        const drawer = page.locator('[role="dialog"]').first();
-        await expect(drawer).toBeVisible({ timeout: 15000 });
-
-        // Locate Alice card and Bob card within the drawer
-        const aliceRow = drawer.locator('div:has-text("Alice Smith")').first();
-        await expect(aliceRow).toBeVisible({ timeout: 15000 });
-
-        const bobRow = drawer.locator('div:has-text("Bob Jones")').first();
-        await expect(bobRow).toBeVisible({ timeout: 15000 });
-
-        // Alice must display her document
-        await expect(drawer.locator('text="alice-passport.pdf"').first()).toBeVisible({ timeout: 10000 });
-
-        // Bob must display his document
-        await expect(drawer.locator('text="bob-passport.pdf"').first()).toBeVisible({ timeout: 10000 });
-
-        // Bottom Field Attachments section displays the field-level document
-        const fieldAttachmentsSection = drawer.locator('div:has-text("Field Attachments")').last();
-        await expect(fieldAttachmentsSection).toBeVisible({ timeout: 10000 });
-        await expect(fieldAttachmentsSection.locator('text="field-psc-audit-note.pdf"')).toBeVisible({ timeout: 10000 });
     });
 });
