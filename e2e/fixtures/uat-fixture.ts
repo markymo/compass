@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 
 const envUatLocal = path.resolve(process.cwd(), '.env.uat.local');
 if (fs.existsSync(envUatLocal)) {
-    dotenv.config({ path: envUatLocal, override: true });
+    dotenv.config({ path: envUatLocal, override: false });
 } else {
     dotenv.config();
 }
