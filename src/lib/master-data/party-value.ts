@@ -648,7 +648,7 @@ export function getPartyDisplayProjection(value: any, displayMask?: string[], fa
     }
 
     let addressText = "";
-    const addr = poc.correspondenceAddress || poc.address;
+    const addr = poc.correspondenceAddress || (poc as any).address;
     if ((showField('correspondenceAddress') || showField('address') || showField('individual.correspondenceAddress') || showField('organisation.correspondenceAddress')) && addr) {
         const summary = getAddressSummary(addr);
         if (summary) addressText = summary;
