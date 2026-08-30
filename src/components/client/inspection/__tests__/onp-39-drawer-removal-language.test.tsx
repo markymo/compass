@@ -4,7 +4,7 @@
 import '@testing-library/jest-dom/vitest';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { FieldDetailPanel } from '../field-detail-panel';
 import * as kycQuery from '@/actions/kyc-query';
 
@@ -79,7 +79,7 @@ describe('Track A: ONP-39 Drawer Removal Language (REF-04)', () => {
         vi.clearAllMocks();
     });
 
-    it('REF-04: Master drawer uses "Remove from this field" / "Remove" and NEVER "Delete" or "Break link" jargon for party references', async () => {
+    it('REF-04: Master drawer removal interaction uses neutral "Remove from this field" / "Remove" and NEVER "Delete" or "Break link" jargon', async () => {
         // Mock Field 64 (repeating party field with a saved party reference)
         (kycQuery.getFieldDetail as any).mockResolvedValue({
             fieldNo: 64,
@@ -135,17 +135,32 @@ describe('Track A: ONP-39 Drawer Removal Language (REF-04)', () => {
             expect(screen.getAllByText(/Significant Beneficial Owners/i).length).toBeGreaterThan(0);
         });
 
-        // 1. Assert the reference removal action is NEVER labelled "Delete"
+        // 1. Assert the reference removal action is NEVER labelled "Delete" anywhere
         expect(screen.queryByTitle(/delete/i)).not.toBeInTheDocument();
         expect(screen.queryByText(/delete/i)).not.toBeInTheDocument();
 
-        // 2. The confirmed ONP-39 product contract requires user-facing language: "Remove from this field" or "Remove"
-        // It must NOT use technical jargon "Break link" or "Break link to party reference"
-        const breakLinkButton = screen.queryByTitle(/break link/i);
-        const removeButton = screen.queryByTitle(/remove/i);
+        // 2. Trigger button must NOT use "Break link" jargon
+        const breakLinkTrigger = screen.queryByTitle(/break link/i);
+        const removeTrigger = screen.queryByTitle(/remove/i);
+        expect(breakLinkTrigger).toBeNull();
+        expect(removeTrigger).not.toBeNull();
 
-        // Current implementation uses "Break link to party reference", so breakLinkButton is present (making test RED)
-        expect(breakLinkButton).toBeNull();
-        expect(removeButton).not.toBeNull();
+        // 3. Activate the removal control to open the confirmation UI
+        const triggerToClick = removeTrigger || breakLinkTrigger;
+        if (triggerToClick) {
+            fireEvent.click(triggerToClick);
+        }
+
+        // 4. Assert the confirmation UI renders
+        // The confirmation prompt must use neutral removal language (e.g. Remove Alice Smith from this field?)
+        // and must NEVER say "Break link to..." or "Delete..."
+        const confirmationBreakLinkText = screen.queryByText(/break link/i);
+        expect(confirmationBreakLinkText).toBeNull();
+
+        // 5. Assert the confirmation action button uses neutral removal language (e.g. "Yes, remove" or "Remove", NEVER "Yes, break link")
+        const confirmBreakLinkBtn = screen.queryByRole('button', { name: /break link/i });
+        const confirmRemoveBtn = screen.queryByRole('button', { name: /remove/i });
+        expect(confirmBreakLinkBtn).toBeNull();
+        expect(confirmRemoveBtn).not.toBeNull();
     });
 });
