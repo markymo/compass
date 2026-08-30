@@ -200,14 +200,18 @@ export async function upsertCCAddress(params: {
  * Returns a map of ccAddressId -> Array of { fieldNo, fieldName }
  */
 export async function getCCAddressUsage(clientLEId: string): Promise<Record<string, CCAddressUsageSummary>> {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
+    if (!clientLEId) {
+        return {};
     }
+
+    await ensureApiAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId });
 
     try {
         return await resolveCCAddressUsages(clientLEId);
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message?.startsWith("Unauthorized")) {
+            throw error;
+        }
         console.error("Failed to fetch CC address usage:", error);
         throw new Error("Failed to fetch saved address usage");
     }

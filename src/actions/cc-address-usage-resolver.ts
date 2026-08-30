@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { normaliseCCPartyData } from "@/lib/master-data/party-v2/normaliser";
 import { getPartyLabel } from "@/lib/master-data/party-v2/label-helper";
 import { getMasterFieldDefinition } from "@/services/masterData/definitionService";
+import { KycStateService } from "@/lib/kyc/KycStateService";
 
 export type CCAddressPartyUsage = {
   ccPartyId: string;
@@ -79,36 +80,48 @@ export async function resolveCCAddressUsages(
         return summaryMap[addrId];
     };
 
-    const fieldWhere: any = { valueJson: { not: Prisma.AnyNull }, claimRole: 'VALUE' };
-    const claims = await prisma.fieldClaim.findMany({
-        where: fieldWhere,
-        select: { fieldNo: true, valueJson: true, clientLEId: true }
+    const candidateClaims = await prisma.fieldClaim.findMany({
+        where: { clientLEId, claimRole: 'VALUE' },
+        select: { fieldNo: true },
+        distinct: ['fieldNo']
     });
-    
-    const clientClaims = claims.filter((c: any) => c.clientLEId === clientLEId);
 
-    const defMap = new Map<number, string>();
-    for (const claim of clientClaims) {
-        const value = claim.valueJson as any;
-        const foundIds = extractIds(value, 'ccAddressId');
-        for (const addrId of foundIds) {
-            if (addressIds && !addressIds.includes(addrId)) continue;
-            
-            const summary = getSummary(addrId);
-            if (!summary.fieldUsages.some(u => u.fieldNo === claim.fieldNo)) {
-                if (!defMap.has(claim.fieldNo)) {
-                    try {
-                        const def = await getMasterFieldDefinition(claim.fieldNo);
-                        defMap.set(claim.fieldNo, def.fieldName);
-                    } catch (e) {
-                        defMap.set(claim.fieldNo, `Field ${claim.fieldNo}`);
-                    }
+    const clientLE = await prisma.clientLE.findUnique({
+        where: { id: clientLEId },
+        select: { legalEntityId: true }
+    });
+    const subject = { clientLEId, subjectLeId: clientLE?.legalEntityId ?? null };
+
+    for (const { fieldNo } of candidateClaims) {
+        try {
+            const def = await getMasterFieldDefinition(fieldNo);
+            const foundIds = new Set<string>();
+
+            if (def.isMultiValue) {
+                const authoritative = await KycStateService.getAuthoritativeCollection(subject, fieldNo);
+                for (const item of authoritative) {
+                    extractIds(item.value, 'ccAddressId', foundIds);
                 }
-                summary.fieldUsages.push({
-                    fieldNo: claim.fieldNo,
-                    fieldName: defMap.get(claim.fieldNo) as string
-                });
+            } else {
+                const authoritative = await KycStateService.getAuthoritativeValue(subject, fieldNo);
+                if (authoritative) {
+                    extractIds(authoritative.value, 'ccAddressId', foundIds);
+                }
             }
+
+            for (const addrId of foundIds) {
+                if (addressIds && !addressIds.includes(addrId)) continue;
+
+                const summary = getSummary(addrId);
+                if (!summary.fieldUsages.some(u => u.fieldNo === fieldNo)) {
+                    summary.fieldUsages.push({
+                        fieldNo,
+                        fieldName: def.fieldName
+                    });
+                }
+            }
+        } catch (err) {
+            console.warn(`[resolveCCAddressUsages] Failed to resolve field ${fieldNo}:`, err);
         }
     }
 
