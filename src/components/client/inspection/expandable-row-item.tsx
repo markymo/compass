@@ -22,16 +22,7 @@ export function ExpandableRowItem({
         <div className="w-full">
             {/* Clickable Header Row */}
             <div 
-                role="button"
-                tabIndex={0}
-                aria-expanded={isExpanded}
                 onClick={onToggle}
-                onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        onToggle();
-                    }
-                }}
                 className={`flex items-start justify-between gap-3 px-3 py-2.5 rounded-lg border transition-all cursor-pointer ${
                     isExpanded 
                         ? "bg-slate-50 border-slate-200" 
@@ -40,9 +31,18 @@ export function ExpandableRowItem({
             >
                 {/* Left side: chevron + content */}
                 <div className="flex flex-1 items-start gap-2 min-w-0">
-                    <div className="pt-0.5 text-slate-400 shrink-0">
+                    <button
+                        type="button"
+                        aria-expanded={isExpanded}
+                        aria-label={isExpanded ? "Collapse item details" : "Expand item details"}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onToggle();
+                        }}
+                        className="pt-0.5 text-slate-400 hover:text-slate-600 shrink-0 focus:outline-none"
+                    >
                         {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </div>
+                    </button>
                     <div className="flex-1 min-w-0 pr-4">
                         {collapsedContent}
                     </div>
