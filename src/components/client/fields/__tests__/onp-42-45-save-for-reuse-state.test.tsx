@@ -428,7 +428,7 @@ describe('Track C: ONP-42 & ONP-45 Save for Reuse State Machine', () => {
         );
 
         await waitFor(() => {
-            expect(screen.getAllByText(/Persons of significant control/i).length).toBeGreaterThan(0);
+            expect(screen.getByText('Tricia McMillan')).toBeInTheDocument();
         });
 
         // Verify single Save for reuse action in collapsed view
@@ -498,7 +498,7 @@ describe('Track C: ONP-42 & ONP-45 Save for Reuse State Machine', () => {
         );
 
         await waitFor(() => {
-            expect(screen.getAllByText(/Persons of significant control \(other\)/i).length).toBeGreaterThan(0);
+            expect(screen.getByText('Zaphod Beeblebrox')).toBeInTheDocument();
         });
 
         // Unpromoted entity in F274 has exactly 1 Save for reuse button

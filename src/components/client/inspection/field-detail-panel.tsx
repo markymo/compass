@@ -297,7 +297,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         claimId={rowData?.id || data?.current?.claimId}
                         isPromotedToCCC={rowData?.isPromotedToCCC || data?.current?.isPromotedToCCC}
                         isPromoting={isPromoting === (rowData?.id || data?.current?.claimId)}
-                        onSaveForReuse={handleSaveForReuse}
                     />
                 );
             }
@@ -320,7 +319,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         claimId={rowData?.id || data?.current?.claimId}
                         isPromotedToCCC={rowData?.isPromotedToCCC || data?.current?.isPromotedToCCC}
                         isPromoting={isPromoting === (rowData?.id || data?.current?.claimId)}
-                        onSaveForReuse={handleSaveForReuse}
                     />
                 );
             }
@@ -1738,7 +1736,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                         claimId={row.id}
                                                                                         isPromotedToCCC={row.isPromotedToCCC || isPartyRefValue || rowCanonicalModel?.value?.kind === 'partyRef'}
                                                                                         isPromoting={isPromoting === row.id}
-                                                                                        onSaveForReuse={handleSaveForReuse}
                                                                                     />
                                                                                 }
                                                                             />
@@ -1763,7 +1760,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                         claimId={row.id}
                                                                                         isPromotedToCCC={row.isPromotedToCCC}
                                                                                         isPromoting={isPromoting === row.id}
-                                                                                        onSaveForReuse={handleSaveForReuse}
                                                                                     />
                                                                                 }
                                                                             />
@@ -2667,7 +2663,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         claimId={candidate.id}
                                                                         isPromotedToCCC={candidate.isPromotedToCCC}
                                                                         isPromoting={isPromoting === candidate.id}
-                                                                        onSaveForReuse={handleSaveForReuse}
                                                                         hideStatusBadge={fieldNo === 104}
                                                                     />
                                                                 );
@@ -2697,7 +2692,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         disabled={isPromoting !== null}
                                                         onClick={() => handlePromote(candidate.id)}
                                                     >
-                                                        {isPromoting === candidate.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save for reuse"}
+                                                        {isPromoting === candidate.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Use this value"}
                                                     </Button>
                                                 )}
                                             </div>
