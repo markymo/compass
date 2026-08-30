@@ -1,9 +1,23 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Locator } from '@playwright/test';
 import { PrismaClient } from '@prisma/client';
 import { del } from '@vercel/blob';
 import * as fs from 'fs';
 import * as path from 'path';
 import { loadUATManifest, PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture';
+
+async function expandAccordion(trigger: Locator) {
+    await expect(trigger).toBeVisible({ timeout: 20000 });
+    const state = await trigger.getAttribute('data-state');
+    if (state === 'closed') {
+        await trigger.click();
+        try {
+            await expect(trigger).toHaveAttribute('data-state', 'open', { timeout: 3000 });
+        } catch {
+            await trigger.click();
+            await expect(trigger).toHaveAttribute('data-state', 'open', { timeout: 10000 });
+        }
+    }
+}
 
 // Contract: DOC-01 — A relationship document that the entitled user can see can be directly opened/downloaded as an individual file, and the corresponding Output Pack/Documents surfaces agree.
 // Linear: ONP-29, ONP-64
@@ -125,18 +139,12 @@ test.describe('DOC-01 / ONP-29 + ONP-64 — Relationship Document & Output Pack 
         await page.goto(`/app/le/${clientLEId}/relationships`);
         await page.waitForLoadState('domcontentloaded');
 
-        // Locate and expand supplier engagement card if not expanded
-        const docsTrigger = page.locator('span.font-semibold:text-is("Documents")').first();
-        if (!await docsTrigger.isVisible().catch(() => false)) {
-            const supplierHeaderBtn = page.locator('button:has-text("UAT Supplier Org A")').first();
-            await expect(supplierHeaderBtn).toBeVisible({ timeout: 20000 });
-            await supplierHeaderBtn.click();
-            await page.waitForTimeout(1000);
-        }
+        // Locate and expand supplier engagement card
+        const supplierHeaderBtn = page.getByRole('button', { name: /UAT Supplier Org A|Barclays/i }).first();
+        await expandAccordion(supplierHeaderBtn);
 
-        await expect(docsTrigger).toBeVisible({ timeout: 15000 });
-        await docsTrigger.click();
-        await page.waitForTimeout(1000);
+        const docsTrigger = page.getByRole('button', { name: /Documents/i }).first();
+        await expandAccordion(docsTrigger);
 
         // Click the "Shared" tab inside Documents
         const sharedTab = page.locator('button[role="tab"]:has-text("Shared"), [role="tab"]:has-text("Shared")').first();
@@ -183,18 +191,12 @@ test.describe('DOC-01 / ONP-29 + ONP-64 — Relationship Document & Output Pack 
         await page.goto(`/app/le/${clientLEId}/relationships`);
         await page.waitForLoadState('domcontentloaded');
 
-        // Locate and expand supplier engagement card if not expanded
-        const outputTrigger = page.locator('span.font-semibold:text-is("Output")').first();
-        if (!await outputTrigger.isVisible().catch(() => false)) {
-            const supplierHeaderBtn = page.locator('button:has-text("UAT Supplier Org A")').first();
-            await expect(supplierHeaderBtn).toBeVisible({ timeout: 20000 });
-            await supplierHeaderBtn.click();
-            await page.waitForTimeout(1000);
-        }
+        // Locate and expand supplier engagement card
+        const supplierHeaderBtn = page.getByRole('button', { name: /UAT Supplier Org A|Barclays/i }).first();
+        await expandAccordion(supplierHeaderBtn);
 
-        await expect(outputTrigger).toBeVisible({ timeout: 15000 });
-        await outputTrigger.click();
-        await page.waitForTimeout(1000);
+        const outputTrigger = page.getByRole('button', { name: /Output/i }).first();
+        await expandAccordion(outputTrigger);
 
         // Assert Supporting Documents list contains our document
         const docEntry = page.locator(`text="${testFilename}"`).first();
