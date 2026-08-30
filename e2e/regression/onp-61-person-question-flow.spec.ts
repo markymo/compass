@@ -134,7 +134,7 @@ test.describe('QB-01 / ONP-61 — Mapped Person/Party Master Data Flow to Questi
     test('1. Mapped person/party Master data flows to Question Bank/Workbench and updates dynamically on Master change', async ({ page }) => {
         // Step 1: Open Supplier Questions Workbench filtered by test question search text
         await page.goto(`/app/s/${supplierOrgId}/questions?s=${encodeURIComponent(testPrefix)}`);
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
 
         // Verify question card renders with distinctive question text
         const questionHeading = page.locator(`h3:has-text("${testPrefix}")`).first();
@@ -188,7 +188,7 @@ test.describe('QB-01 / ONP-61 — Mapped Person/Party Master Data Flow to Questi
 
         // Step 3: Reload Supplier Questions Workbench and assert dynamic update
         await page.reload();
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
 
         const reloadedAnswerSection = page.locator('.space-y-4, .card, div').filter({ hasText: testPrefix }).first();
         await expect(reloadedAnswerSection).toContainText(updatedName, { timeout: 15000 });
