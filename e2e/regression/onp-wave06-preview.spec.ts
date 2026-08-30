@@ -258,10 +258,12 @@ test.describe('Wave 06 Preview Deployed Behavioural Gate', () => {
     test.afterAll(async () => {
         try {
             if (clientLEId) {
+                await prisma.clientLEGraphEdge.deleteMany({ where: { clientLEId } }).catch(() => {});
                 await prisma.fieldClaim.deleteMany({ where: { clientLEId } }).catch(() => {});
                 await prisma.cCParty.deleteMany({ where: { clientLEId } }).catch(() => {});
                 await prisma.cCAddress.deleteMany({ where: { clientLEId } }).catch(() => {});
                 await prisma.membership.deleteMany({ where: { clientLEId } }).catch(() => {});
+                await prisma.clientLEOwner.deleteMany({ where: { clientLEId } }).catch(() => {});
                 await prisma.clientLE.delete({ where: { id: clientLEId } }).catch(() => {});
             }
         } catch (e) {
