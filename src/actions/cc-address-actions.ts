@@ -43,10 +43,11 @@ function extractIds(value: any, idKey: string, foundIds: Set<string> = new Set()
  * Fetch all curated addresses for a given clientLEId
  */
 export async function getCCAddresses(clientLEId: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
+    if (!clientLEId) {
+        return [];
     }
+
+    await ensureApiAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId });
 
     try {
         const addresses = await prisma.cCAddress.findMany({
@@ -135,7 +136,10 @@ export async function getCCAddresses(clientLEId: string) {
                 usage: usageMap[a.id] || { ccAddressId: a.id, partyUsages: [], fieldUsages: [] }
             };
         });
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message?.startsWith("Unauthorized")) {
+            throw error;
+        }
         console.error("Failed to fetch CC addresses:", error);
         throw new Error("Failed to fetch saved addresses");
     }
@@ -149,9 +153,12 @@ export async function upsertCCAddress(params: {
     clientLEId: string;
     data: AddressValue;
 }) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        return { success: false, error: "Unauthorized" };
+    let userId: string;
+    try {
+        const auth = await ensureApiAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId: params.clientLEId });
+        userId = auth.userId;
+    } catch (authError: any) {
+        return { success: false, error: authError?.message || "Unauthorized" };
     }
 
     if (!isAddressValue(params.data) && !params.data.addressLines && !params.data.countryCode) {
@@ -161,11 +168,20 @@ export async function upsertCCAddress(params: {
     try {
         let address;
         if (params.id) {
+            const existing = await prisma.cCAddress.findUnique({
+                where: { id: params.id },
+                select: { clientLEId: true }
+            });
+
+            if (!existing || existing.clientLEId !== params.clientLEId) {
+                return { success: false, error: "Address not found in this dossier" };
+            }
+
             address = await prisma.cCAddress.update({
                 where: { id: params.id },
                 data: {
                     data: params.data as any,
-                    updatedByUserId: identity.userId
+                    updatedByUserId: userId
                 }
             });
         } else {
@@ -174,8 +190,8 @@ export async function upsertCCAddress(params: {
                     clientLEId: params.clientLEId,
                     data: params.data as any,
                     visibility: "CLIENT_LE",
-                    createdByUserId: identity.userId,
-                    updatedByUserId: identity.userId
+                    createdByUserId: userId,
+                    updatedByUserId: userId
                 }
             });
         }
@@ -221,12 +237,26 @@ export async function getCCAddressUsage(clientLEId: string): Promise<Record<stri
  * Delete a curated address
  */
 export async function deleteCCAddress(id: string, clientLEId: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        return { success: false, error: "Unauthorized" };
+    if (!clientLEId) {
+        return { success: false, error: "Client LE ID required" };
     }
 
     try {
+        await ensureApiAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId });
+    } catch (authError: any) {
+        return { success: false, error: authError?.message || "Unauthorized" };
+    }
+
+    try {
+        const existing = await prisma.cCAddress.findUnique({
+            where: { id },
+            select: { clientLEId: true }
+        });
+
+        if (!existing || existing.clientLEId !== clientLEId) {
+            return { success: false, error: "Address not found in this dossier" };
+        }
+
         const usageMap = await resolveCCAddressUsages(clientLEId, [id]);
         const usage = usageMap[id];
 
@@ -251,10 +281,11 @@ export async function deleteCCAddress(id: string, clientLEId: string) {
  * Search curated addresses for a client LE (used by UnifiedAddressPicker)
  */
 export async function searchCCAddresses(clientLEId: string, query: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
+    if (!clientLEId) {
+        return [];
     }
+
+    await ensureApiAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId });
 
     try {
         const addresses = await prisma.cCAddress.findMany({
@@ -282,9 +313,12 @@ export async function searchCCAddresses(clientLEId: string, query: string) {
             id: a.id,
             data: a.data as AddressValue
         }));
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message?.startsWith("Unauthorized")) {
+            throw error;
+        }
         console.error("Failed to search CC addresses:", error);
-        throw new Error("Failed to search saved addresses");
+        throw new Error(error?.message || "Failed to search saved addresses");
     }
 }
 /**

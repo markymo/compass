@@ -45,10 +45,11 @@ function extractIds(value: any, idKey: string, foundIds: Set<string> = new Set()
  * Fetch all curated parties for a given clientLEId
  */
 export async function getCCParties(clientLEId: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
+    if (!clientLEId) {
+        return [];
     }
+
+    await ensureApiAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId });
 
     try {
         const parties = await prisma.cCParty.findMany({
@@ -153,10 +154,7 @@ export async function upsertCCParty(params: {
     clientLEId: string;
     data: PartyValue;
 }) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
-    }
+    const { userId } = await ensureApiAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId: params.clientLEId });
 
     if (!isPartyValue(params.data)) {
         throw new Error("Invalid PartyValue data structure");
@@ -174,13 +172,13 @@ export async function upsertCCParty(params: {
                 ccPartyId: params.id,
                 clientLEId: params.clientLEId,
                 data: v2Data,
-                updatedByUserId: identity.userId
+                updatedByUserId: userId
             });
         } else {
             party = await CCPartyService.create({
                 clientLEId: params.clientLEId,
                 data: v2Data,
-                createdByUserId: identity.userId
+                createdByUserId: userId
             });
         }
 
@@ -193,9 +191,12 @@ export async function upsertCCParty(params: {
                 data: party.data as unknown as PartyValue
             }
         };
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message?.startsWith("Unauthorized")) {
+            throw error;
+        }
         console.error("Failed to upsert CC party:", error);
-        throw new Error("Failed to save saved party");
+        throw new Error(error?.message || "Failed to save saved party");
     }
 }
 
@@ -207,10 +208,7 @@ export async function upsertCCPartyV2(params: {
     clientLEId: string;
     data: any; // We type it as any at the API boundary to perform runtime validation
 }) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
-    }
+    const { userId } = await ensureApiAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId: params.clientLEId });
 
     const { isCCPartyData } = await import("@/lib/master-data/party-v2/CCPartyData");
     if (!isCCPartyData(params.data)) {
@@ -226,13 +224,13 @@ export async function upsertCCPartyV2(params: {
                 ccPartyId: params.id,
                 clientLEId: params.clientLEId,
                 data: params.data,
-                updatedByUserId: identity.userId
+                updatedByUserId: userId
             });
         } else {
             party = await CCPartyService.create({
                 clientLEId: params.clientLEId,
                 data: params.data,
-                createdByUserId: identity.userId
+                createdByUserId: userId
             });
         }
 
@@ -242,9 +240,12 @@ export async function upsertCCPartyV2(params: {
             success: true,
             party
         };
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message?.startsWith("Unauthorized")) {
+            throw error;
+        }
         console.error("Failed to upsert V2 CC party:", error);
-        throw new Error("Failed to save saved party");
+        throw new Error(error?.message || "Failed to save saved party");
     }
 }
 
@@ -325,10 +326,11 @@ export async function getCCPartyUsage(clientLEId: string) {
  * Search curated parties for a client LE (used by UnifiedPartyPicker)
  */
 export async function searchCCParties(clientLEId: string, query: string, allowedPartyTypes?: V2PartyType[]) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
+    if (!clientLEId) {
+        return [];
     }
+
+    await ensureApiAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId });
 
     if (allowedPartyTypes && allowedPartyTypes.length === 0) {
         return [];
@@ -369,9 +371,12 @@ export async function searchCCParties(clientLEId: string, query: string, allowed
             ...p,
             data: p.data as unknown as PartyValue
         }));
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message?.startsWith("Unauthorized")) {
+            throw error;
+        }
         console.error("Failed to search CC parties:", error);
-        throw new Error("Failed to search curated parties");
+        throw new Error(error?.message || "Failed to search curated parties");
     }
 }
 
@@ -379,12 +384,21 @@ export async function searchCCParties(clientLEId: string, query: string, allowed
  * Delete a curated party
  */
 export async function deleteCCParty(id: string, clientLEId: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
+    if (!clientLEId) {
+        throw new Error("Client LE ID required");
     }
 
+    await ensureApiAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId });
+
     try {
+        const existing = await prisma.cCParty.findUnique({
+            where: { id }
+        });
+
+        if (!existing || existing.clientLEId !== clientLEId) {
+            throw new Error("Party not found in this dossier");
+        }
+
         const claims = await prisma.fieldClaim.findMany({
             where: { valueJson: { not: Prisma.AnyNull }, claimRole: 'VALUE' },
             select: { valueJson: true }
@@ -407,6 +421,9 @@ export async function deleteCCParty(id: string, clientLEId: string) {
         revalidatePath(`/app/le/${clientLEId}/sources/user`);
         return { success: true };
     } catch (error: any) {
+        if (error?.message?.startsWith("Unauthorized")) {
+            throw error;
+        }
         console.error("Failed to delete CC party:", error);
         throw new Error(error.message || "Failed to delete saved party");
     }
