@@ -289,10 +289,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         partyLabel={partyLabel}
                         layout="compact"
                         displayMask={data?.profileConfig?.displayMask}
+                        attachments={data?.canonicalDisplayModel?.attachments}
                         claimId={rowData?.id || data?.current?.claimId}
                         isPromotedToCCC={rowData?.isPromotedToCCC || data?.current?.isPromotedToCCC}
                         isPromoting={isPromoting === (rowData?.id || data?.current?.claimId)}
                         onSaveForReuse={handleSaveForReuse}
+                        hideStatusBadge={fieldNo === 104 || data?.fieldNo === 104}
                     />
                 );
             }
@@ -1691,10 +1693,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                         partyLabel={rowPartyLabel}
                                                                                         layout="row"
                                                                                         displayMask={data?.profileConfig?.displayMask}
+                                                                                        attachments={data?.canonicalDisplayModel?.attachments}
                                                                                         claimId={row.id}
                                                                                         isPromotedToCCC={row.isPromotedToCCC || isPartyRefValue || rowCanonicalModel?.value?.kind === 'partyRef'}
                                                                                         isPromoting={isPromoting === row.id}
                                                                                         onSaveForReuse={handleSaveForReuse}
+                                                                                        hideStatusBadge={fieldNo === 104 || data?.fieldNo === 104}
                                                                                     />
                                                                                 }
                                                                                 expandedContent={
@@ -1703,10 +1707,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                         partyLabel={rowPartyLabel}
                                                                                         layout="detailed"
                                                                                         displayMask={data?.profileConfig?.displayMask}
+                                                                                        attachments={data?.canonicalDisplayModel?.attachments}
                                                                                         claimId={row.id}
                                                                                         isPromotedToCCC={row.isPromotedToCCC || isPartyRefValue || rowCanonicalModel?.value?.kind === 'partyRef'}
                                                                                         isPromoting={isPromoting === row.id}
                                                                                         onSaveForReuse={handleSaveForReuse}
+                                                                                        hideStatusBadge={fieldNo === 104 || data?.fieldNo === 104}
                                                                                     />
                                                                                 }
                                                                             />
@@ -1894,10 +1900,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                 partyLabel={(data?.canonicalDisplayModel?.value as any)?.partyLabel}
                                                                                 layout="detailed"
                                                                                 displayMask={data?.profileConfig?.displayMask}
+                                                                                attachments={data?.canonicalDisplayModel?.attachments}
                                                                                 claimId={data.current?.claimId}
                                                                                 isPromotedToCCC={data.current?.isPromotedToCCC}
                                                                                 isPromoting={isPromoting === data.current?.claimId}
                                                                                 onSaveForReuse={handleSaveForReuse}
+                                                                                hideStatusBadge={fieldNo === 104 || data?.fieldNo === 104}
                                                                             />
                                                                         ) : Array.isArray(data.current.value) ? (
                                                                         <div className="flex flex-col gap-2 mt-1">
@@ -1924,10 +1932,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                                     partyLabel={partyLabel}
                                                                                                     layout="row"
                                                                                                     displayMask={data?.profileConfig?.displayMask}
+                                                                                                    attachments={data?.canonicalDisplayModel?.attachments}
                                                                                                     claimId={data.current?.claimId}
                                                                                                     isPromotedToCCC={data.current?.isPromotedToCCC}
                                                                                                     isPromoting={isPromoting === data.current?.claimId}
                                                                                                     onSaveForReuse={handleSaveForReuse}
+                                                                                                    hideStatusBadge={fieldNo === 104 || data?.fieldNo === 104}
                                                                                                 />
                                                                                             }
                                                                                             expandedContent={
@@ -1936,10 +1946,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                                     partyLabel={partyLabel}
                                                                                                     layout="detailed"
                                                                                                     displayMask={data?.profileConfig?.displayMask}
+                                                                                                    attachments={data?.canonicalDisplayModel?.attachments}
                                                                                                     claimId={data.current?.claimId}
                                                                                                     isPromotedToCCC={data.current?.isPromotedToCCC}
                                                                                                     isPromoting={isPromoting === data.current?.claimId}
                                                                                                     onSaveForReuse={handleSaveForReuse}
+                                                                                                    hideStatusBadge={fieldNo === 104 || data?.fieldNo === 104}
                                                                                                 />
                                                                                             }
                                                                                         />
