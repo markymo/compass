@@ -220,7 +220,7 @@ describe('Track C: ONP-42 & ONP-45 Save for Reuse State Machine', () => {
     it('REUSE-04: Drawer rendering for F64 / F274 never produces duplicate Save for reuse controls for the same entity', async () => {
         (kycQuery.getFieldDetail as any).mockResolvedValue({
             fieldNo: 64,
-            fieldName: 'Significant Beneficial Owners',
+            fieldName: 'Persons of significant control (public source)',
             dataType: 'PARTY',
             isRepeating: true,
             isLocked: false,
@@ -264,12 +264,12 @@ describe('Track C: ONP-42 & ONP-45 Save for Reuse State Machine', () => {
                 onOpenChange={vi.fn()}
                 clientLEId="client-le-1"
                 fieldNo={64}
-                fieldName="Significant Beneficial Owners"
+                fieldName="Persons of significant control (public source)"
             />
         );
 
         await waitFor(() => {
-            expect(screen.getAllByText(/Significant Beneficial Owners/i).length).toBeGreaterThan(0);
+            expect(screen.getAllByText(/Persons of significant control/i).length).toBeGreaterThan(0);
         });
 
         // Assert exactly 1 "Save for reuse" control appears for Arthur Dent (never 2 duplicate badges)
@@ -311,5 +311,198 @@ describe('Track C: ONP-42 & ONP-45 Save for Reuse State Machine', () => {
 
         expect(screen.queryByRole('button', { name: /save for reuse/i })).toBeNull();
         expect(screen.getAllByText(/saved for reuse/i)).toHaveLength(1);
+    });
+
+    it('REUSE-06: Actual PARTY_REF state in Master drawer renders ZERO actionable Save buttons and at most ONE Saved badge', async () => {
+        (kycQuery.getFieldDetail as any).mockResolvedValue({
+            fieldNo: 64,
+            fieldName: 'Persons of significant control (public source)',
+            dataType: 'PARTY_REF',
+            isRepeating: true,
+            isLocked: false,
+            current: {
+                value: { ccPartyId: 'party-reused-101' },
+                source: 'USER_INPUT',
+                timestamp: new Date().toISOString()
+            },
+            rows: [
+                {
+                    id: 'claim-reused-row-1',
+                    instanceId: 'inst-reused-1',
+                    value: { ccPartyId: 'party-reused-101' },
+                    label: 'Ford Prefect',
+                    isUserValue: true,
+                    data: {
+                        partyType: 'INDIVIDUAL',
+                        individual: { givenName: 'Ford', familyName: 'Prefect' },
+                        resolvedSummary: 'Ford Prefect'
+                    }
+                }
+            ],
+            canonicalDisplayModel: {
+                isRepeating: true,
+                values: [
+                    {
+                        claimId: 'claim-reused-row-1',
+                        party: {
+                            partyType: 'INDIVIDUAL',
+                            individual: { givenName: 'Ford', familyName: 'Prefect' }
+                        }
+                    }
+                ]
+            }
+        });
+
+        render(
+            <FieldDetailPanel
+                open={true}
+                onOpenChange={vi.fn()}
+                clientLEId="client-le-1"
+                fieldNo={64}
+                fieldName="Persons of significant control (public source)"
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getAllByText(/Persons of significant control/i).length).toBeGreaterThan(0);
+        });
+
+        // 1. Zero actionable "Save for reuse" buttons
+        const actionButtons = screen.queryAllByRole('button', { name: /save for reuse/i });
+        expect(actionButtons).toHaveLength(0);
+
+        // 2. At most one "Saved for reuse" badge
+        const savedBadges = screen.queryAllByText(/saved for reuse/i);
+        expect(savedBadges.length).toBeLessThanOrEqual(1);
+    });
+
+    it('REUSE-07: Historical F64 collapsed & expanded row path renders exactly one reuse status per entity', async () => {
+        (kycQuery.getFieldDetail as any).mockResolvedValue({
+            fieldNo: 64,
+            fieldName: 'Persons of significant control (public source)',
+            dataType: 'PARTY',
+            isRepeating: true,
+            isLocked: false,
+            current: {
+                value: [{ forenames: 'Tricia', surname: 'McMillan', partyType: 'INDIVIDUAL' }],
+                source: 'COMPANY_REGISTRY',
+                timestamp: new Date().toISOString()
+            },
+            rows: [
+                {
+                    id: 'claim-f64-tricia',
+                    instanceId: 'inst-f64-tricia',
+                    value: { forenames: 'Tricia', surname: 'McMillan', partyType: 'INDIVIDUAL' },
+                    label: 'Tricia McMillan',
+                    isUserValue: false,
+                    data: {
+                        partyType: 'INDIVIDUAL',
+                        individual: { givenName: 'Tricia', familyName: 'McMillan' },
+                        resolvedSummary: 'Tricia McMillan'
+                    }
+                }
+            ],
+            canonicalDisplayModel: {
+                isRepeating: true,
+                values: [
+                    {
+                        claimId: 'claim-f64-tricia',
+                        isPromotedToCCC: false,
+                        party: {
+                            partyType: 'INDIVIDUAL',
+                            individual: { givenName: 'Tricia', familyName: 'McMillan' }
+                        }
+                    }
+                ]
+            }
+        });
+
+        render(
+            <FieldDetailPanel
+                open={true}
+                onOpenChange={vi.fn()}
+                clientLEId="client-le-1"
+                fieldNo={64}
+                fieldName="Persons of significant control (public source)"
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getAllByText(/Persons of significant control/i).length).toBeGreaterThan(0);
+        });
+
+        // Verify single Save for reuse action in collapsed view
+        let saveButtons = screen.queryAllByRole('button', { name: /save for reuse/i });
+        expect(saveButtons.length).toBe(1);
+
+        // Click row expand toggle
+        const expandToggles = screen.getAllByRole('button').filter(b => b.getAttribute('aria-expanded') !== null);
+        if (expandToggles.length > 0) {
+            fireEvent.click(expandToggles[0]);
+        }
+
+        // Verify that in expanded state, there is still only one active Save for reuse button (no duplicate from parent + child)
+        saveButtons = screen.queryAllByRole('button', { name: /save for reuse/i });
+        expect(saveButtons.length).toBe(1);
+    });
+
+    it('REUSE-08: Historical F274 (Persons of significant control other) exercises repeating party row rendering', async () => {
+        (kycQuery.getFieldDetail as any).mockResolvedValue({
+            fieldNo: 274,
+            fieldName: 'Persons of significant control (other)',
+            dataType: 'PARTY',
+            isRepeating: true,
+            isLocked: false,
+            current: {
+                value: { forenames: 'Zaphod', surname: 'Beeblebrox', partyType: 'INDIVIDUAL' },
+                source: 'USER_INPUT',
+                timestamp: new Date().toISOString()
+            },
+            rows: [
+                {
+                    id: 'claim-f274-1',
+                    instanceId: 'inst-f274-1',
+                    value: { forenames: 'Zaphod', surname: 'Beeblebrox', partyType: 'INDIVIDUAL' },
+                    label: 'Zaphod Beeblebrox',
+                    isUserValue: true,
+                    data: {
+                        partyType: 'INDIVIDUAL',
+                        individual: { givenName: 'Zaphod', familyName: 'Beeblebrox' },
+                        resolvedSummary: 'Zaphod Beeblebrox'
+                    }
+                }
+            ],
+            canonicalDisplayModel: {
+                isRepeating: true,
+                values: [
+                    {
+                        claimId: 'claim-f274-1',
+                        isPromotedToCCC: false,
+                        party: {
+                            partyType: 'INDIVIDUAL',
+                            individual: { givenName: 'Zaphod', familyName: 'Beeblebrox' }
+                        }
+                    }
+                ]
+            }
+        });
+
+        render(
+            <FieldDetailPanel
+                open={true}
+                onOpenChange={vi.fn()}
+                clientLEId="client-le-1"
+                fieldNo={274}
+                fieldName="Persons of significant control (other)"
+            />
+        );
+
+        await waitFor(() => {
+            expect(screen.getAllByText(/Persons of significant control \(other\)/i).length).toBeGreaterThan(0);
+        });
+
+        // Unpromoted entity in F274 has exactly 1 Save for reuse button
+        const saveButtons = screen.queryAllByRole('button', { name: /save for reuse/i });
+        expect(saveButtons).toHaveLength(1);
     });
 });
