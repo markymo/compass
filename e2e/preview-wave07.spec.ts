@@ -163,25 +163,26 @@ test.describe('Wave 07 — Preview Verification Pack', () => {
             await page.goto(`/app/le/${manifest.alphaClientLE.id}/relationships`);
             await page.waitForLoadState('networkidle');
 
-            // Confirm obsolete 'Available Institutions' text is absent
+            // Confirm obsolete 'Available Institutions' text is absent from page
             await expect(page.getByText('Available Institutions')).toHaveCount(0);
 
             // Confirm relationship UI is present
-            await expect(page.getByText('Active Relationships').or(page.getByText('Relationships'))).toBeVisible({ timeout: 15000 });
+            await expect(page.locator('h1')).toBeVisible({ timeout: 15000 });
 
-            // Click + Add / Connect if present
-            const addConnectionBtn = page.getByRole('button', { name: /\+ Add|\+ Connect|Add Relationship|Connect/i }).first();
-            if (await addConnectionBtn.count() > 0) {
-                await addConnectionBtn.click();
-                await page.waitForTimeout(500);
+            // Click Add Supplier Relationship button
+            const addSupplierBtn = page.locator('button[title="Add Supplier Relationship"]').or(
+                page.getByRole('button', { name: /Add Supplier Relationship/i })
+            );
+            await expect(addSupplierBtn.first()).toBeVisible({ timeout: 10000 });
+            await addSupplierBtn.first().click();
 
-                // In the Add dialog, 'Available Institutions' is absent
-                await expect(page.getByText('Available Institutions')).toHaveCount(0);
+            // In the Add dialog, verify 'Available Institutions' is absent
+            await expect(page.getByText('Available Institutions')).toHaveCount(0);
 
-                // Search input is present
-                const searchInput = page.getByPlaceholder(/search|institution|financial/i).or(page.getByRole('searchbox'));
-                await expect(searchInput.first()).toBeVisible();
-            }
+            // Verify dialog header and search input are present
+            await expect(page.getByText('Add Supplier Relationship')).toBeVisible({ timeout: 5000 });
+            const searchInput = page.getByPlaceholder('Search financial institutions...');
+            await expect(searchInput).toBeVisible({ timeout: 5000 });
         } finally {
             await clientContext.close();
         }
