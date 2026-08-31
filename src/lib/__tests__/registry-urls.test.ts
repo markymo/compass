@@ -457,5 +457,77 @@ describe("Registry Entity URLs Generic Resolver (ONP-37)", () => {
             expect(displayModel.source?.entityIdentifier).toBe("213800AB12CD34EF5678");
             expect(displayModel.source?.entityUrl).toBe("https://search.gleif.org/#/record/213800AB12CD34EF5678");
         });
+
+        it("mappingSourceKey: resolves registration number when claim sourceReference uses canonical mappingSourceKey", async () => {
+            const { resolveSourceEntityIdentifier } = await import("../kyc/provenance-enricher");
+
+            const raIdentifierMap = new Map<string, string>();
+            // Authority RA000586 (Scotland) maps to canonical COMPANIES_HOUSE mappingSourceKey
+            raIdentifierMap.set("RA000586", "SC123456");
+            raIdentifierMap.set("COMPANIES_HOUSE", "SC123456");
+
+            const provenanceMap = {
+                gleifFetchedAt: null,
+                lei: null,
+                registrationAuthorityMap: new Map([["COMPANIES_HOUSE", new Date("2026-08-30T12:00:00Z")]]),
+                registrationAuthorityIdentifierMap: raIdentifierMap,
+                primaryRegistrationNumber: "SC123456",
+                hasSingleRegistryReference: true
+            };
+
+            // 1. Claim emitted with mappingSourceKey 'COMPANIES_HOUSE'
+            const resolvedByKey = resolveSourceEntityIdentifier(
+                "REGISTRATION_AUTHORITY",
+                "COMPANIES_HOUSE",
+                undefined,
+                provenanceMap
+            );
+            expect(resolvedByKey).toBe("SC123456");
+
+            // 2. Claim emitted with specific authority code 'RA000586'
+            const resolvedByCode = resolveSourceEntityIdentifier(
+                "REGISTRATION_AUTHORITY",
+                "RA000586",
+                undefined,
+                provenanceMap
+            );
+            expect(resolvedByCode).toBe("SC123456");
+        });
+
+        it("Authority-exact Isolation: an unknown or unmatched RA sourceReference CANNOT borrow a Companies House registration number", async () => {
+            const { resolveSourceEntityIdentifier } = await import("../kyc/provenance-enricher");
+
+            // Dossier only has UK Companies House registered (07640868)
+            const raIdentifierMap = new Map<string, string>();
+            raIdentifierMap.set("RA000585", "07640868");
+            raIdentifierMap.set("COMPANIES_HOUSE", "07640868");
+
+            const provenanceMap = {
+                gleifFetchedAt: null,
+                lei: null,
+                registrationAuthorityMap: new Map([["RA000585", new Date("2026-08-30T12:00:00Z")]]),
+                registrationAuthorityIdentifierMap: raIdentifierMap,
+                primaryRegistrationNumber: "07640868",
+                hasSingleRegistryReference: true
+            };
+
+            // Claim with explicit French Registry reference RA000192 on a UK-only dossier
+            const resolvedUnmatched = resolveSourceEntityIdentifier(
+                "REGISTRATION_AUTHORITY",
+                "RA000192", // Unmatched RA on this dossier
+                undefined,
+                provenanceMap
+            );
+
+            // Must NOT fall back to 07640868! Must return null.
+            expect(resolvedUnmatched).toBeNull();
+
+            const computedUrl = getRegistryEntityUrl({
+                sourceType: "REGISTRATION_AUTHORITY",
+                sourceReference: "RA000192",
+                entityIdentifier: resolvedUnmatched!
+            });
+            expect(computedUrl).toBeNull();
+        });
     });
 });

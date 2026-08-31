@@ -7,13 +7,14 @@ export interface ProvenanceMap {
     registrationAuthorityMap: Map<string, Date>;
     registrationAuthorityIdentifierMap: Map<string, string>;
     primaryRegistrationNumber: string | null;
+    hasSingleRegistryReference: boolean;
 }
 
 /**
  * Fetches the provenance map for a given ClientLE.
  * 
  * This performs a single DB query for the ClientLE to get `gleifFetchedAt`, `lei`,
- * and its `registryReferences` (timestamps, authorities, and localRegistrationNumbers).
+ * and its `registryReferences` (timestamps, authorities, mappingSourceKeys, and localRegistrationNumbers).
  * 
  * Wrapped in React cache() so that resolving multiple fields in a single Server Action
  * only executes these queries once.
@@ -33,6 +34,7 @@ export const fetchProvenanceMap = cache(async (params: { clientLEId: string }): 
                         select: {
                             id: true,
                             registryKey: true,
+                            mappingSourceKey: true,
                             name: true
                         }
                     }
@@ -47,18 +49,23 @@ export const fetchProvenanceMap = cache(async (params: { clientLEId: string }): 
             lei: null,
             registrationAuthorityMap: new Map(),
             registrationAuthorityIdentifierMap: new Map(),
-            primaryRegistrationNumber: null
+            primaryRegistrationNumber: null,
+            hasSingleRegistryReference: false
         };
     }
 
     const raMap = new Map<string, Date>();
     const raIdentifierMap = new Map<string, string>();
+    let validRefCount = 0;
     let primaryRegistrationNumber: string | null = null;
     
     // Map registry references
     for (const ref of le.registryReferences) {
-        if (ref.localRegistrationNumber && !primaryRegistrationNumber) {
-            primaryRegistrationNumber = ref.localRegistrationNumber;
+        if (ref.localRegistrationNumber) {
+            validRefCount++;
+            if (!primaryRegistrationNumber) {
+                primaryRegistrationNumber = ref.localRegistrationNumber;
+            }
         }
 
         if (ref.localRegistrationNumber && ref.authority) {
@@ -69,9 +76,18 @@ export const fetchProvenanceMap = cache(async (params: { clientLEId: string }): 
             if (ref.authority.registryKey) {
                 raIdentifierMap.set(ref.authority.registryKey, ref.localRegistrationNumber);
             }
+
+            // Map the canonical mappingSourceKey (e.g. COMPANIES_HOUSE)
+            if (ref.authority.mappingSourceKey) {
+                raIdentifierMap.set(ref.authority.mappingSourceKey, ref.localRegistrationNumber);
+            }
             
             // Add legacy alias for COMPANIES_HOUSE
-            if (ref.authority.registryKey === 'GB_COMPANIES_HOUSE' || (ref.authority.name && ref.authority.name.includes("Companies House"))) {
+            if (
+                ref.authority.mappingSourceKey === 'COMPANIES_HOUSE' ||
+                ref.authority.registryKey === 'GB_COMPANIES_HOUSE' ||
+                (ref.authority.name && ref.authority.name.includes("Companies House"))
+            ) {
                 raIdentifierMap.set('COMPANIES_HOUSE', ref.localRegistrationNumber);
             }
         }
@@ -84,9 +100,18 @@ export const fetchProvenanceMap = cache(async (params: { clientLEId: string }): 
             if (ref.authority.registryKey) {
                 raMap.set(ref.authority.registryKey, ref.lastSyncSucceededAt);
             }
+
+            // Map the canonical mappingSourceKey
+            if (ref.authority.mappingSourceKey) {
+                raMap.set(ref.authority.mappingSourceKey, ref.lastSyncSucceededAt);
+            }
             
             // Add legacy alias for COMPANIES_HOUSE
-            if (ref.authority.registryKey === 'GB_COMPANIES_HOUSE' || (ref.authority.name && ref.authority.name.includes("Companies House"))) {
+            if (
+                ref.authority.mappingSourceKey === 'COMPANIES_HOUSE' ||
+                ref.authority.registryKey === 'GB_COMPANIES_HOUSE' ||
+                (ref.authority.name && ref.authority.name.includes("Companies House"))
+            ) {
                 raMap.set('COMPANIES_HOUSE', ref.lastSyncSucceededAt);
             }
         }
@@ -97,7 +122,8 @@ export const fetchProvenanceMap = cache(async (params: { clientLEId: string }): 
         lei: le.lei || null,
         registrationAuthorityMap: raMap,
         registrationAuthorityIdentifierMap: raIdentifierMap,
-        primaryRegistrationNumber
+        primaryRegistrationNumber,
+        hasSingleRegistryReference: validRefCount === 1
     };
 });
 
@@ -105,7 +131,7 @@ export const fetchProvenanceMap = cache(async (params: { clientLEId: string }): 
  * Pure mapping function to resolve `sourceCheckedAt` from a `ProvenanceMap`.
  * 
  * @param sourceType The source type of the derived value
- * @param sourceReference The reference (e.g., registrationAuthorityId)
+ * @param sourceReference The reference (e.g., registrationAuthorityId or mappingSourceKey)
  * @param assertedAt The fallback timestamp from the original claim
  * @param map The loaded provenance map
  */
@@ -117,17 +143,26 @@ export function resolveSourceCheckedAt(
 ): Date | null {
     if (!map) return assertedAt;
 
-    if (sourceType === 'GLEIF' && map.gleifFetchedAt) {
+    const normType = (sourceType || "").toUpperCase().trim();
+
+    if (normType === 'GLEIF' && map.gleifFetchedAt) {
         return map.gleifFetchedAt;
     }
 
-    if (sourceType === 'REGISTRATION_AUTHORITY' || sourceType === 'COMPANIES_HOUSE') {
-        const refKey = sourceReference || (sourceType === 'COMPANIES_HOUSE' ? 'COMPANIES_HOUSE' : null);
-        if (refKey) {
-            const raDate = map.registrationAuthorityMap.get(refKey);
+    if (normType === 'REGISTRATION_AUTHORITY' || normType === 'COMPANIES_HOUSE') {
+        const cleanRef = sourceReference ? sourceReference.trim() : null;
+        if (cleanRef) {
+            const raDate = map.registrationAuthorityMap.get(cleanRef);
             if (raDate) {
                 return raDate;
             }
+            // Explicit sourceReference was provided but not matched -> do not borrow unrelated timestamps
+            return assertedAt;
+        }
+
+        // Legacy unscoped claims with sourceReference = null
+        if (normType === 'COMPANIES_HOUSE' && map.registrationAuthorityMap.has('COMPANIES_HOUSE')) {
+            return map.registrationAuthorityMap.get('COMPANIES_HOUSE')!;
         }
     }
 
@@ -138,6 +173,14 @@ export function resolveSourceCheckedAt(
 /**
  * Resolves the entityIdentifier (e.g. company number, LEI) for a source claim.
  * Combines claim-linked EvidenceStore payload (if present) with the ClientLE provenance map.
+ * 
+ * Invariants:
+ * 1. An explicit claimIdentifier from EvidenceStore always wins.
+ * 2. GLEIF source maps strictly to ClientLE.lei.
+ * 3. An explicit sourceReference resolves ONLY against its matching authority/mappingSourceKey.
+ *    An unknown/unmatched sourceReference returns null and CANNOT borrow another registry's number.
+ * 4. Fallback to primaryRegistrationNumber is permitted ONLY for legacy unscoped claims (sourceReference=null)
+ *    on dossiers with an unambiguous single registry reference.
  */
 export function resolveSourceEntityIdentifier(
     sourceType: string | null | undefined,
@@ -159,25 +202,38 @@ export function resolveSourceEntityIdentifier(
         if (map.lei && map.lei.trim()) {
             return map.lei.trim();
         }
+        return null;
     }
 
-    // 3. REGISTRATION_AUTHORITY / COMPANIES_HOUSE source -> lookup in registrationAuthorityIdentifierMap
+    // 3. REGISTRATION_AUTHORITY / COMPANIES_HOUSE source
     if (normType === "REGISTRATION_AUTHORITY" || normType === "COMPANIES_HOUSE") {
-        const refKey = sourceReference || (normType === "COMPANIES_HOUSE" ? "COMPANIES_HOUSE" : null);
-        if (refKey && map.registrationAuthorityIdentifierMap.has(refKey)) {
-            return map.registrationAuthorityIdentifierMap.get(refKey)!;
+        const cleanRef = sourceReference ? sourceReference.trim() : null;
+
+        // If an explicit sourceReference was provided:
+        if (cleanRef) {
+            if (map.registrationAuthorityIdentifierMap.has(cleanRef)) {
+                return map.registrationAuthorityIdentifierMap.get(cleanRef)!;
+            }
+            // Strict principle: an unknown/unmatched sourceReference cannot borrow another registry's number
+            return null;
         }
-        if (map.registrationAuthorityIdentifierMap.has("COMPANIES_HOUSE")) {
-            return map.registrationAuthorityIdentifierMap.get("COMPANIES_HOUSE")!;
+
+        // Legacy unscoped claims where sourceReference is null/absent:
+        if (normType === "COMPANIES_HOUSE") {
+            if (map.registrationAuthorityIdentifierMap.has("COMPANIES_HOUSE")) {
+                return map.registrationAuthorityIdentifierMap.get("COMPANIES_HOUSE")!;
+            }
+            return null;
         }
-        if (map.registrationAuthorityIdentifierMap.has("GB_COMPANIES_HOUSE")) {
-            return map.registrationAuthorityIdentifierMap.get("GB_COMPANIES_HOUSE")!;
-        }
-        if (map.primaryRegistrationNumber) {
+
+        // For generic REGISTRATION_AUTHORITY with null sourceReference,
+        // only fall back if the dossier has an unambiguous single registry reference
+        if (map.hasSingleRegistryReference && map.primaryRegistrationNumber) {
             return map.primaryRegistrationNumber;
         }
     }
 
     return null;
 }
+
 

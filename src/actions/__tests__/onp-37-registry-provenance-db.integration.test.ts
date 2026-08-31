@@ -13,7 +13,6 @@ process.env.ONPRO_DB_TEST_ENV = "uat";
 
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { assertUatDbTestEnv } from "@/lib/kyc/__tests__/test-env-guard";
-import { resolveCanonicalFieldDisplay } from "@/lib/export/export-answer-resolver";
 
 // c. Call assertUatDbTestEnv() immediately
 assertUatDbTestEnv();
@@ -23,6 +22,7 @@ vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
 // d. Dynamically imported references
 let prisma: typeof import("@/lib/prisma").default;
 let KycStateService: typeof import("@/lib/kyc/KycStateService").KycStateService;
+let resolveCanonicalFieldDisplay: typeof import("@/lib/export/export-answer-resolver").resolveCanonicalFieldDisplay;
 
 describe("ONP-37 — Real Companies House & GLEIF Provenance Resolution (UAT Guarded)", () => {
     const PREFIX = "SYNTH_ONP37_";
@@ -90,6 +90,8 @@ describe("ONP-37 — Real Companies House & GLEIF Provenance Resolution (UAT Gua
         prisma = prismaModule.default;
         const kycModule = await import("@/lib/kyc/KycStateService");
         KycStateService = kycModule.KycStateService;
+        const exportModule = await import("@/lib/export/export-answer-resolver");
+        resolveCanonicalFieldDisplay = exportModule.resolveCanonicalFieldDisplay;
 
         await cleanTestData();
 
