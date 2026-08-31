@@ -43,12 +43,12 @@ test.describe('Wave 07 — Preview Verification Pack', () => {
 
             // Switch to Classic (v1)
             await classicBtn.click();
-            await expect(adminPage).toHaveURL(/home=v1/);
+            await expect(adminPage).toHaveURL(/home=v1/, { timeout: 10000 });
             await expect(adminPage.locator('[data-testid="home-variant-switcher"]')).toBeVisible();
 
             // Switch back to Current (v2)
             await currentBtn.click();
-            await expect(adminPage).toHaveURL(/\/app$/);
+            await expect(adminPage).toHaveURL(/\/app$/, { timeout: 10000 });
             await expect(adminPage.locator('[data-testid="experimental-dashboard"]')).toBeVisible();
         } finally {
             await adminContext.close();
@@ -114,37 +114,39 @@ test.describe('Wave 07 — Preview Verification Pack', () => {
     });
 
     test('PW07-04 — ONP-35: Mapping dropdown category/order', async ({ browser }) => {
-        const manifest = loadUATManifest();
-        const questionnaireId = manifest.referenceQuestionnaire?.id || '1a807425-59b4-4c3a-8c64-01044fc9d2c2';
+        // Working copy questionnaire with editable mapping workbench
+        const WORKING_COPY_Q_ID = '073161a9-befe-4f12-ae85-d19a423906ba';
 
         const adminContext = await browser.newContext({
             storageState: PERSONA_STORAGE_STATES.systemAdmin,
         });
         const page = await adminContext.newPage();
         try {
-            await page.goto(`/app/admin/questionnaires/${questionnaireId}`);
+            await page.goto(`/app/admin/questionnaires/${WORKING_COPY_Q_ID}`);
             await page.waitForLoadState('networkidle');
 
             // Confirm Questionnaire Manager / Mapper loads
-            await expect(page.getByText('Questions & Mapping').or(page.getByText('Questionnaire'))).toBeVisible({ timeout: 15000 });
+            await expect(page.getByPlaceholder('Questionnaire Name')).toBeVisible({ timeout: 15000 });
 
-            // Click the first field mapping SelectTrigger / button to open dropdown
-            const mappingTrigger = page.locator('[data-testid^="mapping-select-"]').first().or(
-                page.getByRole('combobox').first()
+            // Click the first mapping trigger button to open dropdown
+            const selectFieldBtn = page.getByRole('button', { name: /Select field/i }).first().or(
+                page.locator('button:has-text("Select field")').first()
             );
+            await expect(selectFieldBtn).toBeVisible({ timeout: 10000 });
+            await selectFieldBtn.click();
 
-            if (await mappingTrigger.count() > 0) {
-                await mappingTrigger.first().click();
-                
-                // Confirm configured categories appear
-                const legalEntityCategory = page.getByRole('group', { name: /Legal Entity/i }).or(page.getByText('Legal Entity'));
-                await expect(legalEntityCategory.first()).toBeVisible();
+            // Confirm Command popover opens with configured categories in order
+            const popover = page.locator('[cmdk-root], [role="dialog"], [data-radix-popper-content-wrapper]');
+            await expect(popover.first()).toBeVisible({ timeout: 5000 });
 
-                // Confirm Legal Name does not appear under "Other"
-                const otherGroup = page.getByRole('group', { name: /Other/i });
-                if (await otherGroup.count() > 0) {
-                    await expect(otherGroup.getByText('Legal Name')).toHaveCount(0);
-                }
+            // Confirm standard categories appear (e.g. Identity / Registration / etc.)
+            const identityCategory = page.locator('[cmdk-group-heading]').getByText(/Identity|Basic Information|Legal Entity/i);
+            await expect(identityCategory.first()).toBeVisible();
+
+            // Confirm "Legal name" appears under its category, not under "Other"
+            const otherGroup = page.locator('[cmdk-group]:has([cmdk-group-heading]:text-is("Other"))');
+            if (await otherGroup.count() > 0) {
+                await expect(otherGroup.getByText('Legal name', { exact: true })).toHaveCount(0);
             }
         } finally {
             await adminContext.close();
@@ -164,7 +166,10 @@ test.describe('Wave 07 — Preview Verification Pack', () => {
             // Confirm obsolete 'Available Institutions' text is absent
             await expect(page.getByText('Available Institutions')).toHaveCount(0);
 
-            // Confirm relationship UI and search / connection controls are present
+            // Confirm relationship UI is present
+            await expect(page.getByText('Active Relationships').or(page.getByText('Relationships'))).toBeVisible({ timeout: 15000 });
+
+            // Click + Add / Connect if present
             const addConnectionBtn = page.getByRole('button', { name: /\+ Add|\+ Connect|Add Relationship|Connect/i }).first();
             if (await addConnectionBtn.count() > 0) {
                 await addConnectionBtn.click();

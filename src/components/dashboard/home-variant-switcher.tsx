@@ -1,27 +1,14 @@
 "use client";
 
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export interface HomeVariantSwitcherProps {
     currentVariant: "v1" | "v2";
 }
 
 export function HomeVariantSwitcher({ currentVariant }: HomeVariantSwitcherProps) {
-    const searchParams = useSearchParams();
-    const router = useRouter();
     const pathname = usePathname();
-
-    const setVariant = (variant: "v1" | "v2") => {
-        const params = new URLSearchParams(searchParams?.toString() || "");
-        if (variant === "v1") {
-            params.set("home", "v1");
-        } else {
-            params.delete("home");
-        }
-        const queryString = params.toString();
-        const url = queryString ? `${pathname}?${queryString}` : pathname;
-        router.push(url);
-    };
 
     return (
         <div
@@ -31,9 +18,9 @@ export function HomeVariantSwitcher({ currentVariant }: HomeVariantSwitcherProps
             <span className="px-1 font-medium text-muted-foreground select-none">
                 Home view:
             </span>
-            <button
-                type="button"
-                onClick={() => setVariant("v2")}
+            <Link
+                href={pathname || "/app"}
+                role="button"
                 className={`px-2 py-0.5 rounded text-xs font-medium transition-colors cursor-pointer ${
                     currentVariant === "v2"
                         ? "bg-card text-foreground shadow-xs border border-border"
@@ -41,10 +28,10 @@ export function HomeVariantSwitcher({ currentVariant }: HomeVariantSwitcherProps
                 }`}
             >
                 Current
-            </button>
-            <button
-                type="button"
-                onClick={() => setVariant("v1")}
+            </Link>
+            <Link
+                href={`${pathname || "/app"}?home=v1`}
+                role="button"
                 className={`px-2 py-0.5 rounded text-xs font-medium transition-colors cursor-pointer ${
                     currentVariant === "v1"
                         ? "bg-card text-foreground shadow-xs border border-border"
@@ -52,7 +39,7 @@ export function HomeVariantSwitcher({ currentVariant }: HomeVariantSwitcherProps
                 }`}
             >
                 Classic
-            </button>
+            </Link>
         </div>
     );
 }
