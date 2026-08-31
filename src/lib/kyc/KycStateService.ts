@@ -1,10 +1,30 @@
 import { AttachmentLifecycleResolver } from "./AttachmentLifecycleResolver";
 import prisma from "@/lib/prisma";
-import { ClaimStatus, FieldClaim, Prisma } from "@prisma/client";
+import {
+    ClaimStatus,
+    FieldClaim,
+    EvidenceStore,
+    Address,
+    Person,
+    LegalEntity,
+    Organization,
+    Document,
+    User,
+    Prisma
+} from "@prisma/client";
 import { COLLECTION_FIELD_CONFIG } from "./collection-field-config";
 import { getFallbackPriority, USER_INPUT_PRIORITY } from "./source-priority-config";
-import { fetchProvenanceMap, resolveSourceCheckedAt } from "./provenance-enricher";
+import { fetchProvenanceMap, resolveSourceCheckedAt, resolveSourceEntityIdentifier, ProvenanceMap } from "./provenance-enricher";
 import { extractRegistryEntityIdentifier, getRegistryEntityUrl } from "@/lib/registry-urls";
+
+export type FieldClaimWithRelations = FieldClaim & {
+    evidence?: EvidenceStore | null;
+    valueAddress?: Address | null;
+    valuePerson?: Person | null;
+    valueLe?: LegalEntity | null;
+    valueOrg?: Organization | null;
+    attachmentDocument?: (Document & { uploadedBy?: User | null }) | null;
+};
 
 export type DerivedValue = {
     fieldNo?: number;
@@ -339,6 +359,39 @@ export class KycStateService {
     }
 
     /**
+     * Enriches a DerivedValue with source timestamps and canonical entity identifiers from the provenance map.
+     */
+    private static enrichDerivedProvenance(derived: DerivedValue, provenanceMap: ProvenanceMap | null) {
+        if (!provenanceMap) return;
+        const resolvedCheckedAt = resolveSourceCheckedAt(
+            derived.sourceType || derived.evidenceProvider,
+            derived.sourceReference,
+            derived.assertedAt,
+            provenanceMap
+        );
+        if (resolvedCheckedAt) {
+            derived.sourceCheckedAt = resolvedCheckedAt;
+        }
+        const resolvedIdentifier = resolveSourceEntityIdentifier(
+            derived.sourceType || derived.evidenceProvider,
+            derived.sourceReference,
+            derived.entityIdentifier,
+            provenanceMap
+        );
+        if (resolvedIdentifier) {
+            derived.entityIdentifier = resolvedIdentifier;
+            const computedUrl = getRegistryEntityUrl({
+                sourceType: derived.sourceType,
+                sourceReference: derived.sourceReference,
+                entityIdentifier: resolvedIdentifier
+            });
+            if (computedUrl) {
+                derived.entityUrl = computedUrl;
+            }
+        }
+    }
+
+    /**
      * Derives the authoritative value for a single-value field.
      */
     static async getAuthoritativeValue(
@@ -388,15 +441,7 @@ export class KycStateService {
         
         if (subject.clientLEId) {
             const provenanceMap = await fetchProvenanceMap({ clientLEId: subject.clientLEId });
-            const resolvedCheckedAt = resolveSourceCheckedAt(
-                derived.sourceType || derived.evidenceProvider,
-                derived.sourceReference,
-                derived.assertedAt,
-                provenanceMap
-            );
-            if (resolvedCheckedAt) {
-                derived.sourceCheckedAt = resolvedCheckedAt;
-            }
+            this.enrichDerivedProvenance(derived, provenanceMap);
         }
 
         return derived;
@@ -454,15 +499,7 @@ export class KycStateService {
             nextDerivedValue = this.mapToDerivedValue(nextWinner, ownerScopeId);
             if (subject.clientLEId) {
                 const provenanceMap = await fetchProvenanceMap({ clientLEId: subject.clientLEId });
-                const resolvedCheckedAt = resolveSourceCheckedAt(
-                    nextDerivedValue.sourceType || nextDerivedValue.evidenceProvider,
-                    nextDerivedValue.sourceReference,
-                    nextDerivedValue.assertedAt,
-                    provenanceMap
-                );
-                if (resolvedCheckedAt) {
-                    nextDerivedValue.sourceCheckedAt = resolvedCheckedAt;
-                }
+                this.enrichDerivedProvenance(nextDerivedValue, provenanceMap);
             }
         }
 
@@ -547,15 +584,7 @@ export class KycStateService {
             const winner = this.pickWinner(group, ownerScopeId, priorityMap);
             if (winner && !this.isTombstone(winner)) {
                 const derived = this.mapToDerivedValue(winner, ownerScopeId);
-                const resolvedCheckedAt = resolveSourceCheckedAt(
-                    derived.sourceType || derived.evidenceProvider,
-                    derived.sourceReference,
-                    derived.assertedAt,
-                    provenanceMap
-                );
-                if (resolvedCheckedAt) {
-                    derived.sourceCheckedAt = resolvedCheckedAt;
-                }
+                this.enrichDerivedProvenance(derived, provenanceMap);
                 const oldestClaim = group[group.length - 1];
                 resultsWithOrder.push({ derived, oldestAssertedAt: oldestClaim.assertedAt.getTime(), oldestId: oldestClaim.id });
             }
@@ -858,15 +887,7 @@ export class KycStateService {
                     const winner = this.pickWinner(group, ownerScopeId, priorityMap);
                     if (winner && !this.isTombstone(winner)) {
                         const derived = this.mapToDerivedValue(winner, ownerScopeId);
-                        if (provenanceMap) {
-                            const resolvedCheckedAt = resolveSourceCheckedAt(
-                                derived.sourceType || derived.evidenceProvider,
-                                derived.sourceReference,
-                                derived.assertedAt,
-                                provenanceMap
-                            );
-                            if (resolvedCheckedAt) derived.sourceCheckedAt = resolvedCheckedAt;
-                        }
+                        this.enrichDerivedProvenance(derived, provenanceMap);
                         const oldestClaim = group[group.length - 1];
                         collectionWithOrder.push({ derived, oldestAssertedAt: oldestClaim.assertedAt.getTime(), oldestId: oldestClaim.id });
                     }
@@ -890,15 +911,7 @@ export class KycStateService {
                     result.set(def.fieldNo, null);
                 } else {
                     const derived = this.mapToDerivedValue(winner, ownerScopeId);
-                    if (provenanceMap) {
-                        const resolvedCheckedAt = resolveSourceCheckedAt(
-                            derived.sourceType || derived.evidenceProvider,
-                            derived.sourceReference,
-                            derived.assertedAt,
-                            provenanceMap
-                        );
-                        if (resolvedCheckedAt) derived.sourceCheckedAt = resolvedCheckedAt;
-                    }
+                    this.enrichDerivedProvenance(derived, provenanceMap);
                     result.set(def.fieldNo, derived);
                 }
             }
@@ -1048,18 +1061,18 @@ export class KycStateService {
     }
 
     /** Exported so resolveMasterDataBatch can map winners to DerivedValue without duplicating logic. */
-    static mapToDerivedValue(claim: FieldClaim, requestedScopeId?: string): DerivedValue {
+    static mapToDerivedValue(claim: FieldClaimWithRelations, requestedScopeId?: string): DerivedValue {
         const value = claim.valueText ??
             claim.valueNumber ??
             claim.valueDate ??
             claim.valueJson ??
-            (claim as any).valueAddress ??
-            (claim as any).valuePerson ??
-            (claim as any).valueLe ??
-            (claim as any).valueOrg ??
-            (claim as any).attachmentDocumentId;
+            claim.valueAddress ??
+            claim.valuePerson ??
+            claim.valueLe ??
+            claim.valueOrg ??
+            claim.attachmentDocumentId;
 
-        const entityIdentifier = extractRegistryEntityIdentifier((claim as any).evidence, claim);
+        const entityIdentifier = extractRegistryEntityIdentifier(claim.evidence, claim);
         const entityUrl = entityIdentifier ? getRegistryEntityUrl({
             sourceType: claim.sourceType,
             sourceReference: claim.sourceReference,
@@ -1073,7 +1086,7 @@ export class KycStateService {
             isScoped: claim.ownerScopeId === requestedScopeId && !!requestedScopeId,
             sourceType: claim.sourceType,
             sourceReference: claim.sourceReference ?? undefined,
-            evidenceProvider: (claim as any).evidence?.provider ?? undefined,
+            evidenceProvider: claim.evidence?.provider ?? undefined,
             confidenceScore: claim.confidenceScore ?? undefined,
             evidenceId: claim.evidenceId ?? undefined,
             instanceId: claim.instanceId ?? undefined,
@@ -1081,7 +1094,7 @@ export class KycStateService {
             assertedAt: claim.assertedAt,
             effectiveFrom: claim.effectiveFrom ?? undefined,
             effectiveTo: claim.effectiveTo ?? undefined,
-            attachmentDocumentId: (claim as any).attachmentDocumentId ?? undefined,
+            attachmentDocumentId: claim.attachmentDocumentId ?? undefined,
             entityIdentifier: entityIdentifier ?? undefined,
             entityUrl: entityUrl ?? undefined,
         };

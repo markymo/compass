@@ -202,8 +202,8 @@ export class LegalEntityEnrichmentService {
                     if (candidate.fieldNo === 63) {
                         console.log(`[DEBUG] Field 63 Candidate Value:`, JSON.stringify(candidate.value, null, 2));
                     }
-                    // Strip evidenceId to prevent foreign key constraint violations against the Evidence table
-                    const cleanCandidate = { ...candidate, evidenceId: null };
+                    // Link to genuine EvidenceStore record
+                    const cleanCandidate = { ...candidate, evidenceId: candidate.evidenceId || result.evidenceId || null };
                     await kycWriteService.applyFieldCandidate(reference.clientLEId, cleanCandidate, undefined, 'CLIENT_LE');
                 } catch (e: any) {
                     console.error(`[LegalEntityEnrichmentService] Failed applying candidate for field ${candidate.fieldNo}:`, e.message);

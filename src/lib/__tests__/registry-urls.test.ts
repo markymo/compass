@@ -305,7 +305,7 @@ describe("Registry Entity URLs Generic Resolver (ONP-37)", () => {
             expect(gleifDerived.entityUrl).toBe("https://search.gleif.org/#/record/213800AB12CD34EF5678");
 
             // 2. Production display resolution
-            const { displayModel } = await resolveCanonicalFieldDisplay({
+            const { displayModel: gleifDisplay } = await resolveCanonicalFieldDisplay({
                 derivedValue: gleifDerived.value,
                 primarySource: {
                     type: gleifDerived.sourceType as any,
@@ -318,6 +318,142 @@ describe("Registry Entity URLs Generic Resolver (ONP-37)", () => {
                 meta: { fieldNo: 1, label: "LEI", displayState: "HAS_VALUE" }
             });
 
+            expect(gleifDisplay.source?.entityIdentifier).toBe("213800AB12CD34EF5678");
+            expect(gleifDisplay.source?.entityUrl).toBe("https://search.gleif.org/#/record/213800AB12CD34EF5678");
+        });
+
+        it("Real Production CH State (evidenceId: null): non-company-number field (Legal Name / Address / Directors) resolves 07640868 via ProvenanceMap", async () => {
+            const { KycStateService } = await import("../kyc/KycStateService");
+            const { resolveSourceEntityIdentifier } = await import("../kyc/provenance-enricher");
+
+            // Actual production/UAT FieldClaim shape: evidenceId is null (prior to or during ingestion)
+            const realProductionChClaim: any = {
+                id: "claim-real-ch-legal-name",
+                fieldNo: 3, // Field 3: Legal Name (NOT company number)
+                claimRole: "VALUE",
+                status: "ASSERTED",
+                sourceType: "REGISTRATION_AUTHORITY",
+                sourceReference: "COMPANIES_HOUSE",
+                valueText: "Acme Industrial Ltd", // Value is the legal name, not company number
+                evidenceId: null, // Null in real DB
+                evidence: null,
+                assertedAt: new Date("2026-06-01T12:00:00Z")
+            };
+
+            // 1. Initial mapping without dossier context has no entityIdentifier
+            const rawDerived = KycStateService.mapToDerivedValue(realProductionChClaim);
+            expect(rawDerived.entityIdentifier).toBeUndefined();
+            expect(rawDerived.entityUrl).toBeUndefined();
+
+            // 2. Production ProvenanceMap loaded from ClientLE + RegistryReferences
+            const raIdentifierMap = new Map<string, string>();
+            raIdentifierMap.set("COMPANIES_HOUSE", "07640868");
+            raIdentifierMap.set("RA000585", "07640868");
+
+            const provenanceMap = {
+                gleifFetchedAt: null,
+                lei: null,
+                registrationAuthorityMap: new Map([["COMPANIES_HOUSE", new Date("2026-08-30T12:00:00Z")]]),
+                registrationAuthorityIdentifierMap: raIdentifierMap,
+                primaryRegistrationNumber: "07640868"
+            };
+
+            // 3. Resolve source entity identifier from genuine persisted source context
+            const resolvedId = resolveSourceEntityIdentifier(
+                rawDerived.sourceType,
+                rawDerived.sourceReference,
+                rawDerived.entityIdentifier,
+                provenanceMap
+            );
+            expect(resolvedId).toBe("07640868");
+
+            // 4. Transform to canonical registry URL
+            const computedUrl = getRegistryEntityUrl({
+                sourceType: rawDerived.sourceType,
+                sourceReference: rawDerived.sourceReference,
+                entityIdentifier: resolvedId!
+            });
+            expect(computedUrl).toBe("https://find-and-update.company-information.service.gov.uk/company/07640868");
+
+            // 5. Transform through resolveCanonicalFieldDisplay -> FieldDisplayModel
+            const { displayModel } = await resolveCanonicalFieldDisplay({
+                derivedValue: rawDerived.value,
+                primarySource: {
+                    type: rawDerived.sourceType as any,
+                    reference: rawDerived.sourceReference,
+                    timestamp: rawDerived.assertedAt,
+                    entityIdentifier: resolvedId!,
+                    entityUrl: computedUrl!,
+                    userName: null
+                },
+                meta: { fieldNo: 3, label: "Legal Name", displayState: "HAS_VALUE" }
+            });
+
+            expect(displayModel.source?.type).toBe("REGISTRATION_AUTHORITY");
+            expect(displayModel.source?.reference).toBe("COMPANIES_HOUSE");
+            expect(displayModel.source?.entityIdentifier).toBe("07640868");
+            expect(displayModel.source?.entityUrl).toBe("https://find-and-update.company-information.service.gov.uk/company/07640868");
+        });
+
+        it("Real Production GLEIF State: non-LEI field (Legal Name / Status) resolves LEI via ProvenanceMap", async () => {
+            const { KycStateService } = await import("../kyc/KycStateService");
+            const { resolveSourceEntityIdentifier } = await import("../kyc/provenance-enricher");
+
+            // Actual production/UAT FieldClaim shape for Legal Name from GLEIF
+            const realGleifNameClaim: any = {
+                id: "claim-real-gleif-name",
+                fieldNo: 3, // Field 3: Legal Name (value is NOT the LEI)
+                claimRole: "VALUE",
+                status: "ASSERTED",
+                sourceType: "GLEIF",
+                sourceReference: "GLEIF",
+                valueText: "Acme Global Holdings Ltd",
+                evidenceId: null,
+                evidence: null,
+                assertedAt: new Date("2026-06-01T12:00:00Z")
+            };
+
+            const rawDerived = KycStateService.mapToDerivedValue(realGleifNameClaim);
+            expect(rawDerived.entityIdentifier).toBeUndefined();
+
+            // Production ProvenanceMap loaded from ClientLE
+            const provenanceMap = {
+                gleifFetchedAt: new Date("2026-08-30T12:00:00Z"),
+                lei: "213800AB12CD34EF5678",
+                registrationAuthorityMap: new Map(),
+                registrationAuthorityIdentifierMap: new Map(),
+                primaryRegistrationNumber: null
+            };
+
+            const resolvedLei = resolveSourceEntityIdentifier(
+                rawDerived.sourceType,
+                rawDerived.sourceReference,
+                rawDerived.entityIdentifier,
+                provenanceMap
+            );
+            expect(resolvedLei).toBe("213800AB12CD34EF5678");
+
+            const computedUrl = getRegistryEntityUrl({
+                sourceType: rawDerived.sourceType,
+                sourceReference: rawDerived.sourceReference,
+                entityIdentifier: resolvedLei!
+            });
+            expect(computedUrl).toBe("https://search.gleif.org/#/record/213800AB12CD34EF5678");
+
+            const { displayModel } = await resolveCanonicalFieldDisplay({
+                derivedValue: rawDerived.value,
+                primarySource: {
+                    type: rawDerived.sourceType as any,
+                    reference: rawDerived.sourceReference,
+                    timestamp: rawDerived.assertedAt,
+                    entityIdentifier: resolvedLei!,
+                    entityUrl: computedUrl!,
+                    userName: null
+                },
+                meta: { fieldNo: 3, label: "Legal Name", displayState: "HAS_VALUE" }
+            });
+
+            expect(displayModel.source?.type).toBe("GLEIF");
             expect(displayModel.source?.entityIdentifier).toBe("213800AB12CD34EF5678");
             expect(displayModel.source?.entityUrl).toBe("https://search.gleif.org/#/record/213800AB12CD34EF5678");
         });

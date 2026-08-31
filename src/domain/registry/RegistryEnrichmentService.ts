@@ -202,7 +202,7 @@ export class RegistryEnrichmentService {
             if (run) {
                 console.log("[RegistryEnrichmentService.enrich] Running Mapping Engine...");
                 try {
-                    candidates = await RegistryMappingEngine.mapEnrichmentRun(run.id);
+                    candidates = await RegistryMappingEngine.mapEnrichmentRun(run.id, evidenceId);
                     console.log(`[RegistryEnrichmentService.enrich] Generated ${candidates.length} candidates.`);
                 } catch (e) {
                     console.error("[RegistryEnrichmentService.enrich] Mapping Engine failed:", e);
