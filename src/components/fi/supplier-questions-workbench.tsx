@@ -48,6 +48,7 @@ import { resolveFieldForDisplay, RawFieldSource } from "@/lib/master-data/field-
 import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
 import { FieldSourceBadge } from "@/components/client/fields/FieldSourceBadge";
 import { usePreferences } from "@/components/providers/user-preferences-provider";
+import { deriveEligibleSupplierQuestionnaires } from "@/lib/metrics/question-scope";
 
 interface SupplierQuestionsWorkbenchProps {
     orgId: string;
@@ -203,11 +204,15 @@ function SupplierQuestionsWorkbenchInner({ orgId, data }: SupplierQuestionsWorkb
         return unique.length > 0 ? unique : data.les;
     }, [relFilter, scopeFilteredQuestions, data.les]);
 
-    const activeQuestionnairesList = useMemo(() => {
-        if (qFilter !== "ALL") return [qFilter];
-        const unique = Array.from(new Set(scopeFilteredQuestions.map((q) => q.questionnaireName).filter(Boolean)));
-        return unique.length > 0 ? unique : data.questionnaires;
-    }, [qFilter, scopeFilteredQuestions, data.questionnaires]);
+    const relationshipQuestionnairesList = useMemo(() => {
+        return deriveEligibleSupplierQuestionnaires(
+            data.questions.map((q) => ({
+                clientLEName: q.clientLEName || (q as any).leName,
+                questionnaireName: q.questionnaireName,
+            })),
+            relFilter
+        );
+    }, [relFilter, data.questions]);
 
     return (
         <div className="space-y-6 w-full pb-20">
@@ -233,7 +238,14 @@ function SupplierQuestionsWorkbenchInner({ orgId, data }: SupplierQuestionsWorkb
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                        <Select value={relFilter} onValueChange={(val) => handleFilterChange("rel", val, setRelFilter)}>
+                        <Select
+                            value={relFilter}
+                            onValueChange={(val) => {
+                                handleFilterChange("rel", val, setRelFilter);
+                                setQFilter("ALL");
+                                updateUrl({ rel: val, q: null });
+                            }}
+                        >
                             <SelectTrigger className="w-[170px] bg-slate-50/50 border-slate-200 text-xs h-10 rounded-xl">
                                 <Building2 className="h-3.5 w-3.5 mr-2 text-slate-400" />
                                 <SelectValue placeholder="Relationship" />
@@ -253,7 +265,7 @@ function SupplierQuestionsWorkbenchInner({ orgId, data }: SupplierQuestionsWorkb
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="ALL">All Questionnaires</SelectItem>
-                                {data.questionnaires.map((q) => (
+                                {relationshipQuestionnairesList.map((q) => (
                                     <SelectItem key={q} value={q}>{q}</SelectItem>
                                 ))}
                             </SelectContent>
@@ -326,9 +338,9 @@ function SupplierQuestionsWorkbenchInner({ orgId, data }: SupplierQuestionsWorkb
                             <span>
                                 {qFilter !== "ALL"
                                     ? qFilter
-                                    : activeQuestionnairesList.length === 1
-                                    ? activeQuestionnairesList[0]
-                                    : `${activeQuestionnairesList.length} Questionnaires`}
+                                    : relationshipQuestionnairesList.length === 1
+                                    ? relationshipQuestionnairesList[0]
+                                    : `${relationshipQuestionnairesList.length} Questionnaires`}
                             </span>
                         </div>
 

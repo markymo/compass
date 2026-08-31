@@ -139,7 +139,7 @@ export function formatAnswerValue(value: unknown): string {
 
 
 import { classifyQuestionAnswerState } from "@/lib/metrics/question-state-types";
-import { isQuestionInPopulationScope } from "@/lib/metrics/question-scope";
+import { isQuestionInPopulationScope, deriveEligibleQuestionnaireOptions } from "@/lib/metrics/question-scope";
 
 export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     const searchParams = useSearchParams();
@@ -200,36 +200,54 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
 
     const handleRelationshipSelect = (val: string) => {
         clearPinned();
+        setQuestionnaireIdFilter("ALL");
+        setQFilter("ALL");
         if (val === "ALL") {
             setRelationshipIdFilter("ALL");
             setRelFilter("ALL");
-            updateUrl({ relationshipId: null, relId: null, rel: null });
+            updateUrl({
+                relationshipId: null,
+                relId: null,
+                rel: null,
+                questionnaireId: null,
+                qId: null,
+                q: null,
+            });
         } else {
             const opt = relationshipOptions.find(o => o.id === val || o.name === val);
             if (opt?.id) {
                 setRelationshipIdFilter(opt.id);
                 setRelFilter("ALL");
-                updateUrl({ relationshipId: opt.id, relId: null, rel: null });
+                updateUrl({
+                    relationshipId: opt.id,
+                    relId: null,
+                    rel: null,
+                    questionnaireId: null,
+                    qId: null,
+                    q: null,
+                });
             } else {
                 setRelationshipIdFilter("ALL");
                 setRelFilter(val);
-                updateUrl({ relationshipId: null, relId: null, rel: val });
+                updateUrl({
+                    relationshipId: null,
+                    relId: null,
+                    rel: val,
+                    questionnaireId: null,
+                    qId: null,
+                    q: null,
+                });
             }
         }
     };
 
-    // Derive unique questionnaire options (stable ID + name)
+    // Derive unique questionnaire options scoped to the active relationship
     const questionnaireOptions = useMemo(() => {
-        const map = new Map<string, { id?: string; name: string }>();
-        for (const q of data.questions) {
-            if (q.questionnaireId && q.questionnaireName) {
-                map.set(q.questionnaireId, { id: q.questionnaireId, name: q.questionnaireName });
-            } else if (q.questionnaireName) {
-                map.set(q.questionnaireName, { id: undefined, name: q.questionnaireName });
-            }
-        }
-        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-    }, [data.questions]);
+        return deriveEligibleQuestionnaireOptions(data.questions, {
+            relationshipId: relationshipIdFilter,
+            rel: relFilter,
+        });
+    }, [data.questions, relationshipIdFilter, relFilter]);
 
     const activeQuestionnaireValue = useMemo(() => {
         if (questionnaireIdFilter !== "ALL") {
