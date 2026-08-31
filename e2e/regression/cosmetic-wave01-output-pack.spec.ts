@@ -24,12 +24,13 @@ test.describe('Cosmetic Wave 01 — Track B: Output Pack & Relationships Contrac
         clientLEName = manifest.alphaClientLE.name;
         relationshipId = manifest.relationshipAlpha.id;
 
-        // Find a question in Alpha's questionnaire and attach a disposable document for ONP-116 testing
+        // Find question with order 2 in Alpha's questionnaire and attach a disposable document for ONP-116 testing
         const alphaQuestion = await prisma.question.findFirst({
             where: {
                 questionnaire: {
-                    fiEngagement: { clientLEId }
-                }
+                    fiEngagementId: relationshipId
+                },
+                order: 2
             }
         });
 
@@ -70,7 +71,7 @@ test.describe('Cosmetic Wave 01 — Track B: Output Pack & Relationships Contrac
         await expect(headerTitle).not.toHaveText(/^Supplier Relationships$/i);
     });
 
-    test('ONP-102: Output Pack builder uses distinct section headings for Common/Relationship Questionnaires and Documents', async ({ page }) => {
+    test('ONP-102A: Output Pack builder renders distinct "Common Questionnaires" heading for common questionnaires', async ({ page }) => {
         await page.goto(`/app/le/${clientLEId}/engagement-new/${relationshipId}?tab=output`);
         await page.waitForLoadState('networkidle');
 
@@ -83,28 +84,55 @@ test.describe('Cosmetic Wave 01 — Track B: Output Pack & Relationships Contrac
         // 2. Distinct "Common Questionnaires" heading must be visible
         const commonQHeader = outputPanel.locator('span', { hasText: /Common Questionnaires/i });
         await expect(commonQHeader).toBeVisible();
+    });
 
-        // 3. Simplified "Documents" heading must be visible instead of verbose explanatory phrase
+    test('ONP-102B: Output Pack builder renders distinct "Relationship Questionnaires" heading for relationship questionnaires', async ({ page }) => {
+        await page.goto(`/app/le/${clientLEId}/engagement-new/${relationshipId}?tab=output`);
+        await page.waitForLoadState('networkidle');
+
+        const outputPanel = page.locator('#radix-_R_25fiv5uiv5ubriutb_-content-output, [role="tabpanel"]').first();
+
+        // Distinct "Relationship Questionnaires" heading must be visible
+        const relQHeader = outputPanel.locator('span', { hasText: /Relationship Questionnaires/i });
+        await expect(relQHeader).toBeVisible();
+    });
+
+    test('ONP-102C: Output Pack builder simplifies supporting documents heading to "Documents"', async ({ page }) => {
+        await page.goto(`/app/le/${clientLEId}/engagement-new/${relationshipId}?tab=output`);
+        await page.waitForLoadState('networkidle');
+
+        const outputPanel = page.locator('#radix-_R_25fiv5uiv5ubriutb_-content-output, [role="tabpanel"]').first();
+
+        // 1. Verbose phrase must NOT be present
         const verboseDocsHeader = outputPanel.getByText(/Supporting Documents \(not linked to specific questions\)/i);
         await expect(verboseDocsHeader).not.toBeVisible();
 
+        // 2. Clear concise "Documents" heading must be visible
         const docsHeader = outputPanel.locator('span', { hasText: /^Documents$/i });
         await expect(docsHeader).toBeVisible();
     });
 
-    test('ONP-115: Individual questionnaire download button satisfies accessible name and canonical control sizing', async ({ page }) => {
+    test('ONP-115A: Individual questionnaire download button has accessible name', async ({ page }) => {
         await page.goto(`/app/le/${clientLEId}/engagement-new/${relationshipId}?tab=output`);
         await page.waitForLoadState('networkidle');
 
-        // Locate questionnaire download button
         const downloadBtn = page.locator('button[title*="Download questionnaire"], button[aria-label*="Download questionnaire"]').first();
         await expect(downloadBtn).toBeVisible();
 
-        // On unfixed dev, button lacks aria-label and has size < 32px (p-1.5 bare button = 28px)
+        // On unfixed dev, button lacks aria-label (returns null)
         const ariaLabel = await downloadBtn.getAttribute('aria-label');
         expect(ariaLabel).not.toBeNull();
         expect(ariaLabel).toMatch(/Download questionnaire/i);
+    });
 
+    test('ONP-115B: Individual questionnaire download button satisfies minimum 32px x 32px hit target geometry', async ({ page }) => {
+        await page.goto(`/app/le/${clientLEId}/engagement-new/${relationshipId}?tab=output`);
+        await page.waitForLoadState('networkidle');
+
+        const downloadBtn = page.locator('button[title*="Download questionnaire"], button[aria-label*="Download questionnaire"]').first();
+        await expect(downloadBtn).toBeVisible();
+
+        // On unfixed dev, bare button has computed bounding box < 32px (p-1.5 = 28px)
         const box = await downloadBtn.boundingBox();
         expect(box).not.toBeNull();
         if (box) {
@@ -122,9 +150,9 @@ test.describe('Cosmetic Wave 01 — Track B: Output Pack & Relationships Contrac
         await expect(filesAccordionTrigger).toBeVisible();
         await filesAccordionTrigger.click();
 
-        // On unfixed dev, the reference badge only renders text snippet (f.questionRef) without Q number
+        // On unfixed dev, the reference badge only renders text snippet (f.questionRef) without canonical Q number
         const questionBadge = page.locator('div.border-t span.font-mono').first();
         await expect(questionBadge).toBeVisible();
-        await expect(questionBadge).toHaveText(/Q\d+|Question \d+/i);
+        await expect(questionBadge).toHaveText(/^Q\d+(:|\s|$)/i);
     });
 });
