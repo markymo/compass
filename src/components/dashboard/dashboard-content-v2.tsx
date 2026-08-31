@@ -535,39 +535,46 @@ function RoleBadge({ role }: { role: string }) {
     );
 }
 
-// ─── Child Row Component (Fallback for generic views) ────────────────
 function ChildRow({ child, orgType }: { child: OrgChild; orgType: OrgType }) {
     const isEngagement = child.type === "engagement";
 
-    return (
-        <Link href={child.href} className="block">
-            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 group transition-colors cursor-pointer">
-                <div className={`p-1.5 rounded-md ${isEngagement ? "bg-emerald-50" : "bg-slate-100"}`}>
-                    {isEngagement
-                        ? <Briefcase className="h-3.5 w-3.5 text-emerald-600" />
-                        : <FileText className="h-3.5 w-3.5 text-slate-500" />}
-                </div>
-                <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-slate-800 truncate group-hover:text-indigo-700 transition-colors">
-                            {child.name}
-                        </span>
-                        {child.status && (
-                            <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal bg-slate-50 text-slate-500 shrink-0">
-                                {child.status}
-                            </Badge>
-                        )}
-                    </div>
-                    {child.subtitle && (
-                        <span className="text-xs text-slate-400 truncate block">
-                            {child.subtitle}
-                        </span>
+    const content = (
+        <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-50 group transition-colors cursor-pointer">
+            <div className={`p-1.5 rounded-md ${isEngagement ? "bg-emerald-50" : "bg-slate-100"}`}>
+                {isEngagement
+                    ? <Briefcase className="h-3.5 w-3.5 text-emerald-600" />
+                    : <FileText className="h-3.5 w-3.5 text-slate-500" />}
+            </div>
+            <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-slate-800 truncate group-hover:text-indigo-700 transition-colors">
+                        {child.name}
+                    </span>
+                    {child.status && (
+                        <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal bg-slate-50 text-slate-500 shrink-0">
+                            {child.status}
+                        </Badge>
                     )}
                 </div>
-                <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-indigo-500 transition-colors shrink-0" />
+                {child.subtitle && (
+                    <span className="text-xs text-slate-400 truncate block">
+                        {child.subtitle}
+                    </span>
+                )}
             </div>
-        </Link>
+            {child.href && <ArrowRight className="h-4 w-4 text-slate-300 group-hover:text-indigo-500 transition-colors shrink-0" />}
+        </div>
     );
+
+    if (child.href && child.href !== "#") {
+        return (
+            <Link href={child.href} className="block">
+                {content}
+            </Link>
+        );
+    }
+
+    return <div className="block">{content}</div>;
 }
 
 export function DashboardContentV2({ contexts }: { contexts: DashboardContexts }) {

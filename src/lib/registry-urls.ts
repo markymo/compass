@@ -14,6 +14,12 @@ export interface RegistryUrlParams {
     entityUrl?: string | null;
 }
 
+const TRUSTED_REGISTRY_HOSTS = new Set([
+    "search.gleif.org",
+    "find-and-update.company-information.service.gov.uk",
+    "annuaire-entreprises.data.gouv.fr",
+]);
+
 /**
  * Validates whether a given URL is a safe HTTPS link from an allowed registry domain.
  */
@@ -24,7 +30,8 @@ export function isSafeRegistryUrl(url: string | null | undefined): boolean {
 
     try {
         const parsed = new URL(trimmed);
-        return parsed.protocol === "https:";
+        if (parsed.protocol !== "https:") return false;
+        return TRUSTED_REGISTRY_HOSTS.has(parsed.hostname.toLowerCase());
     } catch {
         return false;
     }

@@ -275,29 +275,29 @@ describe("Experimental Homepage V2 Tweaks and Metric Parity", () => {
     });
 
     describe("HomeVariantSwitcher", () => {
-        it("switches to v1 variant by appending ?home=v1 while preserving other params", () => {
+        it("switches to Classic (v1) variant by appending ?home=v1 while preserving other params", () => {
             mockSearchParams = new URLSearchParams("filter=active&tab=overview");
             render(<HomeVariantSwitcher currentVariant="v2" />);
 
-            const currentButton = screen.getByText("Current");
-            currentButton.click();
+            const classicButton = screen.getByText("Classic");
+            classicButton.click();
 
             expect(mockPush).toHaveBeenCalledWith("/app?filter=active&tab=overview&home=v1");
         });
 
-        it("switches back to v2 default by removing ?home=v1", () => {
+        it("switches to Current (v2 default) variant by removing ?home=v1", () => {
             mockSearchParams = new URLSearchParams("filter=active&home=v1");
             render(<HomeVariantSwitcher currentVariant="v1" />);
 
-            const expButton = screen.getByText("Experimental");
-            expButton.click();
+            const currentButton = screen.getByText("Current");
+            currentButton.click();
 
             expect(mockPush).toHaveBeenCalledWith("/app?filter=active");
         });
     });
 
-    describe("Supplier Organisation Client Navigation Links", () => {
-        it("renders clickable client links with /app/clients/[id] for client nodes under supplier orgs", () => {
+    describe("Supplier Organisation Client Navigation Headers", () => {
+        it("renders non-clickable client heading (preventing unauthorized /app/clients navigation) for client nodes under supplier orgs", () => {
             const supplierContexts: DashboardContexts = {
                 clients: [],
                 financialInstitutions: [
@@ -332,9 +332,9 @@ describe("Experimental Homepage V2 Tweaks and Metric Parity", () => {
 
             render(<ExperimentalDashboardContent contexts={supplierContexts} />);
 
-            const clientLink = screen.getByRole("link", { name: "Global Trade Corp" });
-            expect(clientLink).toBeDefined();
-            expect(clientLink.getAttribute("href")).toBe("/app/clients/client-party-99");
+            // Supplier user cannot access /app/clients/[id] so client heading must NOT be a link
+            expect(screen.queryByRole("link", { name: "Global Trade Corp" })).toBeNull();
+            expect(screen.getByText("Global Trade Corp")).toBeDefined();
         });
     });
 });

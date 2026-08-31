@@ -12,7 +12,7 @@ export interface OrgChild {
     name: string;
     subtitle?: string;
     status?: string;
-    href: string;
+    href?: string;
     metrics: DashboardMetric;
     v2Metrics?: QuestionStateMetrics;
     children?: OrgChild[];
@@ -148,14 +148,12 @@ export function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
                 };
             });
 
-            const validClientId = (rels[0] as any)?.clientId || (clientId && clientId !== clientName ? clientId : undefined);
-
             return {
                 type: "client" as const,
-                id: validClientId || clientId,
+                id: (rels[0] as any)?.clientId || clientId,
                 name: clientName,
                 subtitle: "Client Organization",
-                href: validClientId ? `/app/clients/${validClientId}` : "#",
+                href: undefined,
                 metrics: clientMetrics,
                 v2Metrics: clientV2,
                 children: leNodes

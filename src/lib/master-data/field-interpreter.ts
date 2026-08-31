@@ -6,6 +6,7 @@ import { isAddressValue, getAddressSummary } from './address-value';
 import { formatStructuredCollectionRow } from './structured-value-formatters';
 import { FIELD_DEFINITIONS } from '@/domain/kyc/FieldDefinitions';
 import { applyTransform } from '@/services/kyc/normalization/transforms';
+import { getRegistryEntityUrl } from '../registry-urls';
 
 export interface FieldInterpreterMetadata {
     fieldNo: number;
@@ -49,6 +50,8 @@ export interface RawFieldSource {
     timestamp?: Date | string | null;
     sourceCheckedAt?: Date | string | null;
     userName?: string | null;
+    entityIdentifier?: string | null;
+    entityUrl?: string | null;
 }
 
 export interface CollectionItemEnvelope {
@@ -455,6 +458,12 @@ function resolveSource(rawSource: RawFieldSource | null | undefined, state: Fiel
         lastValidatedAt = checkTime instanceof Date ? checkTime.toISOString() : String(checkTime);
     }
 
+    const entityUrl = rawSource.entityUrl || getRegistryEntityUrl({
+        sourceType: type,
+        sourceReference: rawSource.reference,
+        entityIdentifier: rawSource.entityIdentifier
+    });
+
     return {
         type,
         reference: rawSource.reference || null,
@@ -463,7 +472,9 @@ function resolveSource(rawSource: RawFieldSource | null | undefined, state: Fiel
         timestamp,
         userName: rawSource.userName || null,
         category,
-        lastValidatedAt
+        lastValidatedAt,
+        entityIdentifier: rawSource.entityIdentifier || null,
+        entityUrl: entityUrl || undefined
     };
 }
 

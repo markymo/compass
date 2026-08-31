@@ -33,9 +33,9 @@ export function HomeVariantSwitcher({ currentVariant }: HomeVariantSwitcherProps
             </span>
             <button
                 type="button"
-                onClick={() => setVariant("v1")}
+                onClick={() => setVariant("v2")}
                 className={`px-2 py-0.5 rounded text-xs font-medium transition-colors cursor-pointer ${
-                    currentVariant === "v1"
+                    currentVariant === "v2"
                         ? "bg-card text-foreground shadow-xs border border-border"
                         : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -44,14 +44,14 @@ export function HomeVariantSwitcher({ currentVariant }: HomeVariantSwitcherProps
             </button>
             <button
                 type="button"
-                onClick={() => setVariant("v2")}
+                onClick={() => setVariant("v1")}
                 className={`px-2 py-0.5 rounded text-xs font-medium transition-colors cursor-pointer ${
-                    currentVariant === "v2"
+                    currentVariant === "v1"
                         ? "bg-card text-foreground shadow-xs border border-border"
                         : "text-muted-foreground hover:text-foreground"
                 }`}
             >
-                Experimental
+                Classic
             </button>
         </div>
     );

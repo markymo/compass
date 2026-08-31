@@ -142,7 +142,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
             const report = await checkCustomFieldDependencies(customFieldId);
             setDependencyReport(report);
         } catch (e) {
-            toast.error("Failed to check dependencies");
+            showActionErrorToast(e as any, "Failed to check dependencies");
             setIsDeleteDialogOpen(false);
         } finally {
             setIsCheckingDependencies(false);
@@ -160,10 +160,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 onOpenChange(false);
                 router.refresh();
             } else {
-                toast.error(('message' in res && res.message) || ('error' in res && (res as any).error) || "Failed to delete field");
+                showActionErrorToast(res as any, "Failed to delete field");
             }
         } catch (e) {
-            toast.error("An error occurred");
+            showActionErrorToast(e as any, "An error occurred");
         } finally {
             setIsDeleting(false);
         }
@@ -547,7 +547,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
             setAssignmentNoteInput(result?.assignment?.note || "");
         } catch (error) {
             console.error("Error loading field details:", error);
-            toast.error("Failed to load field details");
+            showActionErrorToast(error as any, "Failed to load field details");
         } finally {
             setLoading(false);
         }
@@ -583,7 +583,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
             }
         } catch (e) {
             console.error("Failed to save note:", e);
-            toast.error("Failed to save note");
+            showActionErrorToast(e as any, "Failed to save note");
         } finally {
             setIsSavingNote(false);
         }
@@ -605,7 +605,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
             }
         } catch (e) {
             console.error("Promote error:", e);
-            toast.error("Save for reuse failed");
+            showActionErrorToast(e as any, "Save for reuse failed");
         } finally {
             setIsPromoting(null);
         }
@@ -620,7 +620,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     toast.success("Saved for reuse");
                     loadData(); // Reload rows to update isPromotedToCCC flag
                 } else {
-                    toast.error((res as any).message || "Failed to save for reuse");
+                    showActionErrorToast(res as any, "Failed to save for reuse");
                 }
             } else if (target.kind === 'ADDRESS') {
                 const res = await saveAddressForReuse(target.claimId, clientLEId);
@@ -628,12 +628,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     toast.success("Saved for reuse");
                     loadData(); // Reload rows to update isPromotedToCCC flag
                 } else {
-                    toast.error((res as any).message || "Failed to save for reuse");
+                    showActionErrorToast(res as any, "Failed to save for reuse");
                 }
             }
         } catch (e: any) {
             console.error("Save for reuse error:", e);
-            toast.error(e.message || "Failed to save for reuse");
+            showActionErrorToast(e as any, "Failed to save for reuse");
         } finally {
             setIsPromoting(null);
         }
@@ -685,7 +685,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 showActionErrorToast(res as any, "Failed to add entry");
             }
         } catch (e) {
-            toast.error("An error occurred");
+            showActionErrorToast(e as any, "An error occurred");
         } finally {
             setIsAddingSaving(false);
         }
@@ -728,7 +728,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
             }
         } catch (e) {
             console.error("Graph node selection error:", e);
-            toast.error("An error occurred");
+            showActionErrorToast(e as any, "An error occurred");
         } finally {
             setIsAddingSaving(false);
         }
@@ -788,7 +788,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 showActionErrorToast(res as any, "Failed to remove entry");
             }
         } catch (e) {
-            toast.error("An error occurred");
+            showActionErrorToast(e as any, "An error occurred");
         } finally {
             setIsSaving(false);
             setDeletingRowId(null);
@@ -812,7 +812,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 showActionErrorToast(res as any, "Failed to clear value");
             }
         } catch (e) {
-            toast.error("An error occurred");
+            showActionErrorToast(e as any, "An error occurred");
         } finally {
             setIsSaving(false);
             setIsClearingSingleValue(false);
@@ -847,7 +847,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                     }
                 } else {
-                    toast.error("Failed to update saved party");
+                    showActionErrorToast(result as any, "Failed to update saved party");
                 }
             } else if (inferredKind === 'ADDRESS_REF' && parsedVal?.ccAddressId) {
                 const { upsertCCAddress } = await import("@/actions/cc-address-actions");
@@ -867,7 +867,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                     }
                 } else {
-                    toast.error("Failed to update saved address");
+                    showActionErrorToast(result as any, "Failed to update saved address");
                 }
             } else {
                 const isString = typeof editingRowValue === 'string';
@@ -893,12 +893,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                     }
                 } else {
-                    toast.error(result.message || "Update failed");
+                    showActionErrorToast(result as any, "Update failed");
                 }
             }
         } catch (e) {
             console.error("Inline edit save error:", e);
-            toast.error("An error occurred");
+            showActionErrorToast(e as any, "An error occurred");
         } finally {
             setIsSaving(false);
         }
@@ -984,7 +984,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
             }
         } catch (error) {
             console.error("Save error:", error);
-            toast.error("An error occurred");
+            showActionErrorToast(error as any, "An error occurred");
         } finally {
             setIsSaving(false);
         }
@@ -1008,7 +1008,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
             }
         } catch (error) {
             console.error("Apply error:", error);
-            toast.error("An error occurred");
+            showActionErrorToast(error as any, "An error occurred");
         } finally {
             setIsApplyingCandidate(false);
         }
@@ -1037,10 +1037,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 if (!userId) setAssignmentNoteInput("");
                 await loadData();
             } else {
-                toast.error(res.error || "Failed to assign field");
+                showActionErrorToast(res as any, "Failed to assign field");
             }
         } catch (e) {
-            toast.error("An error occurred during assignment.");
+            showActionErrorToast(e as any, "An error occurred during assignment.");
         } finally {
             setIsAssigning(false);
         }
@@ -1055,10 +1055,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 toast.success("Assignment instruction updated");
                 await loadData();
             } else {
-                toast.error(res.error || "Failed to update assignment instruction");
+                showActionErrorToast(res as any, "Failed to update assignment instruction");
             }
         } catch (e) {
-            toast.error("Error saving instruction");
+            showActionErrorToast(e as any, "Error saving instruction");
         } finally {
             setIsSavingAssignmentNote(false);
         }
@@ -1073,10 +1073,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 toast.success(newStatus === 'DONE' ? "Assignment marked as Done" : "Assignment reopened as Open");
                 await loadData();
             } else {
-                toast.error(res.error || "Failed to update work status");
+                showActionErrorToast(res as any, "Failed to update work status");
             }
         } catch (e) {
-            toast.error("Error updating work status");
+            showActionErrorToast(e as any, "Error updating work status");
         } finally {
             setIsAssigning(false);
         }
@@ -1381,7 +1381,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                         setData(refreshed);
                                                     } else {
-                                                        toast.error(('message' in res && res.message) || ('error' in res && (res as any).error) || "Rename failed");
+                                                        showActionErrorToast(res as any, "Rename failed");
                                                     }
                                                     setIsRenamingSaving(false);
                                                 }
@@ -1406,7 +1406,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                     const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                     setData(refreshed);
                                                 } else {
-                                                    toast.error(('message' in res && res.message) || ('error' in res && (res as any).error) || "Rename failed");
+                                                    showActionErrorToast(res as any, "Rename failed");
                                                 }
                                                 setIsRenamingSaving(false);
                                             }}
