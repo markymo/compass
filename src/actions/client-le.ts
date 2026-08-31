@@ -795,6 +795,8 @@ export async function getFullMasterData(clientLEId: string) {
                     let sourceRefToSet: string | undefined = undefined;
                     let timestampToSet: Date | undefined = undefined;
                     let sourceCheckedAtToSet: Date | undefined = undefined;
+                    let entityIdentifierToSet: string | undefined = undefined;
+                    let entityUrlToSet: string | undefined = undefined;
 
                     if (val !== null && val !== undefined) {
                         if (Array.isArray(val)) {
@@ -806,11 +808,15 @@ export async function getFullMasterData(clientLEId: string) {
                                         type: c.sourceType,
                                         reference: c.sourceReference || null,
                                         timestamp: c.assertedAt || null,
-                                        sourceCheckedAt: c.sourceCheckedAt || null
+                                        sourceCheckedAt: c.sourceCheckedAt || null,
+                                        entityIdentifier: c.entityIdentifier || null,
+                                        entityUrl: c.entityUrl || null
                                     } : undefined,
                                     instanceId: c.instanceId
                                 }));
                                 sourceToSet = val[0].isScoped ? 'USER_INPUT' : (val[0].evidenceProvider || val[0].sourceType || 'MASTER_RECORD');
+                                entityIdentifierToSet = val[0].entityIdentifier || undefined;
+                                entityUrlToSet = val[0].entityUrl || undefined;
                             }
                         } else {
                             claimsCount += 1;
@@ -819,6 +825,8 @@ export async function getFullMasterData(clientLEId: string) {
                             sourceRefToSet = val.sourceReference ?? undefined;
                             timestampToSet = val.assertedAt || undefined;
                             sourceCheckedAtToSet = val.sourceCheckedAt || undefined;
+                            entityIdentifierToSet = val.entityIdentifier || undefined;
+                            entityUrlToSet = val.entityUrl || undefined;
                         }
                     }
 
@@ -852,7 +860,9 @@ export async function getFullMasterData(clientLEId: string) {
                         reference: sourceRefToSet,
                         timestamp: timestampToSet || null,
                         sourceCheckedAt: sourceCheckedAtToSet || null,
-                        userName: null
+                        userName: null,
+                        entityIdentifier: entityIdentifierToSet || null,
+                        entityUrl: entityUrlToSet || null
                     } : null;
 
                     const t2 = performance.now();
