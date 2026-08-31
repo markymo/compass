@@ -4,6 +4,7 @@ import { ClaimStatus, FieldClaim, Prisma } from "@prisma/client";
 import { COLLECTION_FIELD_CONFIG } from "./collection-field-config";
 import { getFallbackPriority, USER_INPUT_PRIORITY } from "./source-priority-config";
 import { fetchProvenanceMap, resolveSourceCheckedAt } from "./provenance-enricher";
+import { extractRegistryEntityIdentifier, getRegistryEntityUrl } from "@/lib/registry-urls";
 
 export type DerivedValue = {
     fieldNo?: number;
@@ -1056,8 +1057,14 @@ export class KycStateService {
             (claim as any).valuePerson ??
             (claim as any).valueLe ??
             (claim as any).valueOrg ??
-            
             (claim as any).attachmentDocumentId;
+
+        const entityIdentifier = extractRegistryEntityIdentifier((claim as any).evidence, claim);
+        const entityUrl = entityIdentifier ? getRegistryEntityUrl({
+            sourceType: claim.sourceType,
+            sourceReference: claim.sourceReference,
+            entityIdentifier
+        }) ?? undefined : undefined;
 
         return {
             value,
@@ -1075,8 +1082,8 @@ export class KycStateService {
             effectiveFrom: claim.effectiveFrom ?? undefined,
             effectiveTo: claim.effectiveTo ?? undefined,
             attachmentDocumentId: (claim as any).attachmentDocumentId ?? undefined,
-            entityIdentifier: (claim as any).entityIdentifier ?? (claim as any).evidence?.entityIdentifier ?? undefined,
-            entityUrl: (claim as any).entityUrl ?? (claim as any).evidence?.entityUrl ?? undefined,
+            entityIdentifier: entityIdentifier ?? undefined,
+            entityUrl: entityUrl ?? undefined,
         };
     }
 }

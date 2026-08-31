@@ -209,4 +209,117 @@ describe("Registry Entity URLs Generic Resolver (ONP-37)", () => {
             expect(displayModel.source?.entityUrl).toBe("https://find-and-update.company-information.service.gov.uk/company/00747608");
         });
     });
+
+    describe("Full Production Provenance Pipeline (Persisted EvidenceStore -> KycStateService.mapToDerivedValue -> FieldDisplayModel)", () => {
+        it("Companies House 07640868: persisted EvidenceStore payload transforms into trusted registry URL", async () => {
+            const { KycStateService } = await import("../kyc/KycStateService");
+
+            // Persisted FieldClaim + EvidenceStore shape created by RegistryEnrichmentService / KycWriteService
+            const chClaim: any = {
+                id: "claim-ch-07640868",
+                fieldNo: 3,
+                claimRole: "VALUE",
+                status: "ASSERTED",
+                sourceType: "REGISTRATION_AUTHORITY",
+                sourceReference: "COMPANIES_HOUSE",
+                valueText: "Acme Industrial Ltd",
+                assertedAt: new Date("2026-06-01T12:00:00Z"),
+                evidence: {
+                    id: "ev-ch-1",
+                    provider: "REGISTRATION_AUTHORITY",
+                    payload: {
+                        COMPANY_PROFILE: {
+                            company_number: "07640868",
+                            company_name: "Acme Industrial Ltd",
+                            company_status: "active"
+                        },
+                        OFFICERS: [],
+                        PSC: []
+                    },
+                    schemaVersion: "2.0",
+                    retrievedAt: new Date("2026-06-01T12:00:00Z")
+                }
+            };
+
+            // 1. Production KycStateService mapping from persisted claim & evidence
+            const derived = KycStateService.mapToDerivedValue(chClaim);
+            expect(derived.entityIdentifier).toBe("07640868");
+            expect(derived.entityUrl).toBe("https://find-and-update.company-information.service.gov.uk/company/07640868");
+
+            // 2. Production display resolution
+            const { displayModel } = await resolveCanonicalFieldDisplay({
+                derivedValue: derived.value,
+                primarySource: {
+                    type: derived.sourceType as any,
+                    reference: derived.sourceReference,
+                    timestamp: derived.assertedAt,
+                    entityIdentifier: derived.entityIdentifier,
+                    entityUrl: derived.entityUrl,
+                    userName: null
+                },
+                meta: { fieldNo: 3, label: "Legal Name", displayState: "HAS_VALUE" }
+            });
+
+            expect(displayModel.source?.entityIdentifier).toBe("07640868");
+            expect(displayModel.source?.entityUrl).toBe("https://find-and-update.company-information.service.gov.uk/company/07640868");
+        });
+
+        it("GLEIF 213800AB12CD34EF5678: persisted EvidenceStore payload transforms into trusted registry URL", async () => {
+            const { KycStateService } = await import("../kyc/KycStateService");
+
+            // Persisted FieldClaim + EvidenceStore shape created by LegalEntityEnrichmentService / KycWriteService
+            const gleifClaim: any = {
+                id: "claim-gleif-213800AB12CD34EF5678",
+                fieldNo: 1,
+                claimRole: "VALUE",
+                status: "ASSERTED",
+                sourceType: "GLEIF",
+                sourceReference: "GLEIF",
+                valueText: "213800AB12CD34EF5678",
+                assertedAt: new Date("2026-06-01T12:00:00Z"),
+                evidence: {
+                    id: "ev-gleif-1",
+                    provider: "GLEIF",
+                    payload: {
+                        data: [
+                            {
+                                id: "213800AB12CD34EF5678",
+                                attributes: {
+                                    lei: "213800AB12CD34EF5678",
+                                    entity: {
+                                        legalName: { name: "Acme Global Holdings Ltd" },
+                                        status: "ACTIVE"
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    schemaVersion: "2.0",
+                    retrievedAt: new Date("2026-06-01T12:00:00Z")
+                }
+            };
+
+            // 1. Production KycStateService mapping from persisted claim & evidence
+            const gleifDerived = KycStateService.mapToDerivedValue(gleifClaim);
+            expect(gleifDerived.entityIdentifier).toBe("213800AB12CD34EF5678");
+            expect(gleifDerived.entityUrl).toBe("https://search.gleif.org/#/record/213800AB12CD34EF5678");
+
+            // 2. Production display resolution
+            const { displayModel } = await resolveCanonicalFieldDisplay({
+                derivedValue: gleifDerived.value,
+                primarySource: {
+                    type: gleifDerived.sourceType as any,
+                    reference: gleifDerived.sourceReference,
+                    timestamp: gleifDerived.assertedAt,
+                    entityIdentifier: gleifDerived.entityIdentifier,
+                    entityUrl: gleifDerived.entityUrl,
+                    userName: null
+                },
+                meta: { fieldNo: 1, label: "LEI", displayState: "HAS_VALUE" }
+            });
+
+            expect(displayModel.source?.entityIdentifier).toBe("213800AB12CD34EF5678");
+            expect(displayModel.source?.entityUrl).toBe("https://search.gleif.org/#/record/213800AB12CD34EF5678");
+        });
+    });
 });

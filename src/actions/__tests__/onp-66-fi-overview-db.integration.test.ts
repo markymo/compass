@@ -2,17 +2,20 @@ import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
 
-// 1. Select UAT environment before Prisma-backed modules are instantiated
+// a. Load .env.uat.local with override: true
 const envUatLocal = path.resolve(process.cwd(), ".env.uat.local");
 if (fs.existsSync(envUatLocal)) {
     dotenv.config({ path: envUatLocal, override: true });
 }
-process.env.ONPRO_DB_TEST_ENV = process.env.ONPRO_DB_TEST_ENV || "uat";
+
+// b. Set ONPRO_DB_TEST_ENV=uat
+process.env.ONPRO_DB_TEST_ENV = "uat";
 
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { assertUatDbTestEnv } from "@/lib/kyc/__tests__/test-env-guard";
-import prisma from "@/lib/prisma";
-import { getSupplierRelationshipsSummary } from "../fi";
+
+// c. Call assertUatDbTestEnv()
+assertUatDbTestEnv();
 
 let currentAuthUserId: string | null = null;
 let currentAuthEmail: string | null = null;
@@ -29,6 +32,10 @@ vi.mock("@/lib/auth", () => ({
 }));
 
 vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
+
+// d. Dynamically imported references
+let prisma: typeof import("@/lib/prisma").default;
+let getSupplierRelationshipsSummary: typeof import("../fi").getSupplierRelationshipsSummary;
 
 describe("ONP-66 — Real FI Relationship Data-Path Integration Proof (UAT Guarded)", () => {
     let testFiOrg: any;
@@ -100,6 +107,12 @@ describe("ONP-66 — Real FI Relationship Data-Path Integration Proof (UAT Guard
     beforeAll(async () => {
         // Enforce UAT safety guard
         assertUatDbTestEnv();
+
+        // d. Dynamically import Prisma and DB-backed application action only after guard passes
+        const prismaModule = await import("@/lib/prisma");
+        prisma = prismaModule.default;
+        const fiModule = await import("../fi");
+        getSupplierRelationshipsSummary = fiModule.getSupplierRelationshipsSummary;
 
         await cleanTestData();
 
