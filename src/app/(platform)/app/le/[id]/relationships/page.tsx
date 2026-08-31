@@ -17,7 +17,6 @@ export default async function RelationshipsPage({ params }: { params: Promise<{ 
         <div className="space-y-6">
             <SetPageBreadcrumbs 
                 items={[{ label: "Relationships", iconName: "link-2" }]}
-                title="Supplier Relationships"
                 typeLabel="Active Connections"
             />
             <CommonQuestionnaires 

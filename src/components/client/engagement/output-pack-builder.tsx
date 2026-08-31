@@ -73,13 +73,17 @@ export function OutputPackBuilder({
     for (const question of evidenceDocuments) {
         if (!question.questionnaireId) continue;
         const qFiles = docsByQuestionnaireId.get(question.questionnaireId) || [];
+        const qPrefix = question.order != null ? `Q${question.order}` : "";
+        const textSnippet = question.compactText || (question.text ? question.text.substring(0, 15) + "..." : "");
+        const questionRef = qPrefix && textSnippet ? `${qPrefix}: ${textSnippet}` : (qPrefix || textSnippet || "Attachment");
+
         for (const doc of question.documents || []) {
             qFiles.push({
                 id: doc.id,
                 name: doc.name,
                 fileUrl: doc.fileUrl,
                 fileType: doc.fileType,
-                questionRef: question.compactText || question.text?.substring(0, 15) + "...",
+                questionRef,
                 size: doc.kbSize ? `${doc.kbSize} KB` : "—",
             });
         }
@@ -291,150 +295,305 @@ export function OutputPackBuilder({
                 </div>
             </div>
 
-            {/* ─── Questionnaires Section ──────────────────── */}
-            <div className="space-y-2">
-                <div className="flex items-center justify-between px-1">
-                    <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-slate-400" />
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Questionnaires</span>
-                    </div>
-                    <button
-                        onClick={selectAllQuestionnaires}
-                        className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
-                    >
-                        {selectedQuestionnaires.size === outputQuestionnaires.length && outputQuestionnaires.length > 0 ? "Deselect All" : "Select All"}
-                    </button>
-                </div>
-
+            {/* ─── Common Questionnaires Section ──────────────────── */}
+            {outputQuestionnaires.filter(q => q.isCommon).length > 0 && (
                 <div className="space-y-2">
-                    {outputQuestionnaires.map((q) => {
-                        const isSelected = selectedQuestionnaires.has(q.id);
-                        const isExpanded = expandedQuestionnaires.has(q.id);
-                        const hasAttachments = q.files.length > 0;
+                    <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-slate-400" />
+                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Common Questionnaires</span>
+                        </div>
+                        <button
+                            onClick={() => {
+                                const common = outputQuestionnaires.filter(q => q.isCommon);
+                                const allSelected = common.every(q => selectedQuestionnaires.has(q.id));
+                                setSelectedQuestionnaires(prev => {
+                                    const next = new Set(prev);
+                                    common.forEach(q => allSelected ? next.delete(q.id) : next.add(q.id));
+                                    return next;
+                                });
+                            }}
+                            className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+                        >
+                            {outputQuestionnaires.filter(q => q.isCommon).every(q => selectedQuestionnaires.has(q.id)) ? "Deselect All" : "Select All"}
+                        </button>
+                    </div>
 
-                        return (
-                            <Card
-                                variant="structural"
-                                key={`${q.id}-${q.isCommon ? 'common' : 'rel'}`}
-                                className={cn(
-                                    "transition-all overflow-hidden",
-                                    isSelected
-                                        ? "border-indigo-200 bg-indigo-50/30 shadow-sm"
-                                        : "border-slate-200 hover:border-slate-300"
-                                )}
-                            >
-                                <CardContent className="p-0">
-                                    {/* Questionnaire row */}
-                                    <div className="flex items-center gap-3 px-4 py-3">
-                                        <Checkbox
-                                            checked={isSelected}
-                                            onCheckedChange={() => toggleQuestionnaire(q.id)}
-                                            className="data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
-                                        />
-                                        <div className="flex-1 min-w-0 flex flex-col items-start">
-                                                {q.isCommon && (
-                                                    <Badge variant="outline" className="text-[9px] uppercase font-bold text-slate-500 mb-0.5 w-fit py-0 px-1.5 border-slate-200 -ml-0.5">
-                                                        Common
-                                                    </Badge>
-                                                )}
+                    <div className="space-y-2">
+                        {outputQuestionnaires.filter(q => q.isCommon).map((q) => {
+                            const isSelected = selectedQuestionnaires.has(q.id);
+                            const isExpanded = expandedQuestionnaires.has(q.id);
+                            const hasAttachments = q.files.length > 0;
+
+                            return (
+                                <Card
+                                    variant="structural"
+                                    key={`${q.id}-common`}
+                                    className={cn(
+                                        "transition-all overflow-hidden",
+                                        isSelected
+                                            ? "border-indigo-200 bg-indigo-50/30 shadow-sm"
+                                            : "border-slate-200 hover:border-slate-300"
+                                    )}
+                                >
+                                    <CardContent className="p-0">
+                                        {/* Questionnaire row */}
+                                        <div className="flex items-center gap-3 px-4 py-3">
+                                            <Checkbox
+                                                checked={isSelected}
+                                                onCheckedChange={() => toggleQuestionnaire(q.id)}
+                                                className="data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+                                            />
+                                            <div className="flex-1 min-w-0 flex flex-col items-start">
+                                                <Badge variant="outline" className="text-[9px] uppercase font-bold text-slate-500 mb-0.5 w-fit py-0 px-1.5 border-slate-200 -ml-0.5">
+                                                    Common
+                                                </Badge>
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-medium text-sm text-slate-900">{q.name}</span>
-                                                <Badge variant="secondary" className="text-[10px] py-0 px-1.5 bg-slate-100 text-slate-500">
-                                                    {q.answeredCount}/{q.questionCount} answered
-                                                </Badge>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <button 
-                                                onClick={() => handleDownloadQuestionnaire(q.id, q.name)}
-                                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
-                                                title="Download questionnaire PDF"
-                                            >
-                                                <FileDown className="h-4 w-4" />
-                                            </button>
-                                            {hasAttachments && (
-                                                <button
-                                                    onClick={() => toggleExpand(q.id)}
-                                                    className={cn(
-                                                        "flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md transition-colors",
-                                                        isExpanded
-                                                            ? "bg-amber-50 text-amber-700"
-                                                            : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
-                                                    )}
-                                                >
-                                                    <Paperclip className="h-3 w-3" />
-                                                    {q.files.length} file{q.files.length !== 1 ? "s" : ""}
-                                                    {isExpanded
-                                                        ? <ChevronDown className="h-3 w-3" />
-                                                        : <ChevronRight className="h-3 w-3" />
-                                                    }
-                                                </button>
-                                            )}
-                                            {!hasAttachments && (
-                                                <span className="text-[11px] text-slate-300 italic">No attachments</span>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Expanded files list */}
-                                    {isExpanded && hasAttachments && (
-                                        <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-2 space-y-1">
-                                            <div className="flex items-center justify-between py-1">
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                                                    Question Attachments
-                                                </span>
-                                                <button
-                                                    onClick={() => {
-                                                        const allFileIds = q.files.map((f) => f.id);
-                                                        const allSelected = allFileIds.every((id) => selectedFiles.has(id));
-                                                        setSelectedFiles((prev) => {
-                                                            const next = new Set(prev);
-                                                            allFileIds.forEach((id) => allSelected ? next.delete(id) : next.add(id));
-                                                            return next;
-                                                        });
-                                                    }}
-                                                    className="text-[10px] font-medium text-indigo-600 hover:text-indigo-800"
-                                                >
-                                                    {q.files.every((f) => selectedFiles.has(f.id)) ? "Deselect All" : "Select All"}
-                                                </button>
-                                            </div>
-                                            {q.files.map((f) => (
-                                                <div
-                                                    key={f.id}
-                                                    className={cn(
-                                                        "flex items-center gap-3 py-1.5 px-2 rounded-md transition-colors",
-                                                        selectedFiles.has(f.id) ? "bg-indigo-50/60" : "hover:bg-white"
-                                                    )}
-                                                >
-                                                    <Checkbox
-                                                        checked={selectedFiles.has(f.id)}
-                                                        onCheckedChange={() => toggleFile(f.id)}
-                                                        className="h-3.5 w-3.5 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
-                                                    />
-                                                    {fileIcon(f.name)}
-                                                    <span className="text-sm text-slate-700 flex-1 truncate">{f.name}</span>
-                                                    <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-mono border-slate-200 text-slate-400 shrink-0">
-                                                        {f.questionRef}
+                                                    <Badge variant="secondary" className="text-[10px] py-0 px-1.5 bg-slate-100 text-slate-500">
+                                                        {q.answeredCount}/{q.questionCount} answered
                                                     </Badge>
-                                                    <span className="text-[11px] text-slate-400 shrink-0">{f.size}</span>
                                                 </div>
-                                            ))}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Button 
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => handleDownloadQuestionnaire(q.id, q.name)}
+                                                    className="h-8 w-8 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                                                    title="Download questionnaire PDF"
+                                                    aria-label="Download questionnaire PDF"
+                                                >
+                                                    <FileDown className="h-4 w-4" />
+                                                </Button>
+                                                {hasAttachments && (
+                                                    <button
+                                                        onClick={() => toggleExpand(q.id)}
+                                                        className={cn(
+                                                            "flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md transition-colors",
+                                                            isExpanded
+                                                                ? "bg-amber-50 text-amber-700"
+                                                                : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                                                        )}
+                                                    >
+                                                        <Paperclip className="h-3 w-3" />
+                                                        {q.files.length} file{q.files.length !== 1 ? "s" : ""}
+                                                        {isExpanded
+                                                            ? <ChevronDown className="h-3 w-3" />
+                                                            : <ChevronRight className="h-3 w-3" />
+                                                        }
+                                                    </button>
+                                                )}
+                                                {!hasAttachments && (
+                                                    <span className="text-[11px] text-slate-300 italic">No attachments</span>
+                                                )}
+                                            </div>
                                         </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-                        );
-                    })}
-                </div>
-            </div>
 
-            {/* ─── Supporting Documents Section ────────────── */}
+                                        {/* Expanded files list */}
+                                        {isExpanded && hasAttachments && (
+                                            <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-2 space-y-1">
+                                                <div className="flex items-center justify-between py-1">
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                        Question Attachments
+                                                    </span>
+                                                    <button
+                                                        onClick={() => {
+                                                            const allFileIds = q.files.map((f) => f.id);
+                                                            const allSelected = allFileIds.every((id) => selectedFiles.has(id));
+                                                            setSelectedFiles((prev) => {
+                                                                const next = new Set(prev);
+                                                                allFileIds.forEach((id) => allSelected ? next.delete(id) : next.add(id));
+                                                                return next;
+                                                            });
+                                                        }}
+                                                        className="text-[10px] font-medium text-indigo-600 hover:text-indigo-800"
+                                                    >
+                                                        {q.files.every((f) => selectedFiles.has(f.id)) ? "Deselect All" : "Select All"}
+                                                    </button>
+                                                </div>
+                                                {q.files.map((f) => (
+                                                    <div
+                                                        key={f.id}
+                                                        className={cn(
+                                                            "flex items-center gap-3 py-1.5 px-2 rounded-md transition-colors",
+                                                            selectedFiles.has(f.id) ? "bg-indigo-50/60" : "hover:bg-white"
+                                                        )}
+                                                    >
+                                                        <Checkbox
+                                                            checked={selectedFiles.has(f.id)}
+                                                            onCheckedChange={() => toggleFile(f.id)}
+                                                            className="h-3.5 w-3.5 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+                                                        />
+                                                        {fileIcon(f.name)}
+                                                        <span className="text-sm text-slate-700 flex-1 truncate">{f.name}</span>
+                                                        <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-mono border-slate-200 text-slate-400 shrink-0">
+                                                            {f.questionRef}
+                                                        </Badge>
+                                                        <span className="text-[11px] text-slate-400 shrink-0">{f.size}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* ─── Relationship Questionnaires Section ────────────── */}
+            {outputQuestionnaires.filter(q => !q.isCommon).length > 0 && (
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-slate-400" />
+                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Relationship Questionnaires</span>
+                        </div>
+                        <button
+                            onClick={() => {
+                                const rel = outputQuestionnaires.filter(q => !q.isCommon);
+                                const allSelected = rel.every(q => selectedQuestionnaires.has(q.id));
+                                setSelectedQuestionnaires(prev => {
+                                    const next = new Set(prev);
+                                    rel.forEach(q => allSelected ? next.delete(q.id) : next.add(q.id));
+                                    return next;
+                                });
+                            }}
+                            className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+                        >
+                            {outputQuestionnaires.filter(q => !q.isCommon).every(q => selectedQuestionnaires.has(q.id)) ? "Deselect All" : "Select All"}
+                        </button>
+                    </div>
+
+                    <div className="space-y-2">
+                        {outputQuestionnaires.filter(q => !q.isCommon).map((q) => {
+                            const isSelected = selectedQuestionnaires.has(q.id);
+                            const isExpanded = expandedQuestionnaires.has(q.id);
+                            const hasAttachments = q.files.length > 0;
+
+                            return (
+                                <Card
+                                    variant="structural"
+                                    key={`${q.id}-rel`}
+                                    className={cn(
+                                        "transition-all overflow-hidden",
+                                        isSelected
+                                            ? "border-indigo-200 bg-indigo-50/30 shadow-sm"
+                                            : "border-slate-200 hover:border-slate-300"
+                                    )}
+                                >
+                                    <CardContent className="p-0">
+                                        {/* Questionnaire row */}
+                                        <div className="flex items-center gap-3 px-4 py-3">
+                                            <Checkbox
+                                                checked={isSelected}
+                                                onCheckedChange={() => toggleQuestionnaire(q.id)}
+                                                className="data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+                                            />
+                                            <div className="flex-1 min-w-0 flex flex-col items-start">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-medium text-sm text-slate-900">{q.name}</span>
+                                                    <Badge variant="secondary" className="text-[10px] py-0 px-1.5 bg-slate-100 text-slate-500">
+                                                        {q.answeredCount}/{q.questionCount} answered
+                                                    </Badge>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <Button 
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => handleDownloadQuestionnaire(q.id, q.name)}
+                                                    className="h-8 w-8 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
+                                                    title="Download questionnaire PDF"
+                                                    aria-label="Download questionnaire PDF"
+                                                >
+                                                    <FileDown className="h-4 w-4" />
+                                                </Button>
+                                                {hasAttachments && (
+                                                    <button
+                                                        onClick={() => toggleExpand(q.id)}
+                                                        className={cn(
+                                                            "flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-md transition-colors",
+                                                            isExpanded
+                                                                ? "bg-amber-50 text-amber-700"
+                                                                : "text-slate-400 hover:text-slate-600 hover:bg-slate-50"
+                                                        )}
+                                                    >
+                                                        <Paperclip className="h-3 w-3" />
+                                                        {q.files.length} file{q.files.length !== 1 ? "s" : ""}
+                                                        {isExpanded
+                                                            ? <ChevronDown className="h-3 w-3" />
+                                                            : <ChevronRight className="h-3 w-3" />
+                                                        }
+                                                    </button>
+                                                )}
+                                                {!hasAttachments && (
+                                                    <span className="text-[11px] text-slate-300 italic">No attachments</span>
+                                                )}
+                                            </div>
+                                        </div>
+
+                                        {/* Expanded files list */}
+                                        {isExpanded && hasAttachments && (
+                                            <div className="border-t border-slate-100 bg-slate-50/50 px-4 py-2 space-y-1">
+                                                <div className="flex items-center justify-between py-1">
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                        Question Attachments
+                                                    </span>
+                                                    <button
+                                                        onClick={() => {
+                                                            const allFileIds = q.files.map((f) => f.id);
+                                                            const allSelected = allFileIds.every((id) => selectedFiles.has(id));
+                                                            setSelectedFiles((prev) => {
+                                                                const next = new Set(prev);
+                                                                allFileIds.forEach((id) => allSelected ? next.delete(id) : next.add(id));
+                                                                return next;
+                                                            });
+                                                        }}
+                                                        className="text-[10px] font-medium text-indigo-600 hover:text-indigo-800"
+                                                    >
+                                                        {q.files.every((f) => selectedFiles.has(f.id)) ? "Deselect All" : "Select All"}
+                                                    </button>
+                                                </div>
+                                                {q.files.map((f) => (
+                                                    <div
+                                                        key={f.id}
+                                                        className={cn(
+                                                            "flex items-center gap-3 py-1.5 px-2 rounded-md transition-colors",
+                                                            selectedFiles.has(f.id) ? "bg-indigo-50/60" : "hover:bg-white"
+                                                        )}
+                                                    >
+                                                        <Checkbox
+                                                            checked={selectedFiles.has(f.id)}
+                                                            onCheckedChange={() => toggleFile(f.id)}
+                                                            className="h-3.5 w-3.5 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+                                                        />
+                                                        {fileIcon(f.name)}
+                                                        <span className="text-sm text-slate-700 flex-1 truncate">{f.name}</span>
+                                                        <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-mono border-slate-200 text-slate-400 shrink-0">
+                                                            {f.questionRef}
+                                                        </Badge>
+                                                        <span className="text-[11px] text-slate-400 shrink-0">{f.size}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* ─── Documents Section ────────────── */}
             <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
                     <div className="flex items-center gap-2">
                         <FolderOpen className="h-4 w-4 text-slate-400" />
-                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Supporting Documents</span>
-                        <span className="text-[10px] text-slate-400">(not linked to specific questions)</span>
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Documents</span>
                     </div>
                     <button
                         onClick={selectAllDocs}
