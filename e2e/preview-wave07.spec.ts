@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test';
 import { PrismaClient } from '@prisma/client';
+import { assertUatDbTestEnv } from '../src/lib/kyc/__tests__/test-env-guard';
 import { loadUATManifest, PERSONA_STORAGE_STATES } from './fixtures/uat-fixture';
+
+// Set and enforce UAT DB test guard before initializing PrismaClient
+process.env.ONPRO_DB_TEST_ENV = 'uat';
+assertUatDbTestEnv();
 
 const prisma = new PrismaClient();
 
