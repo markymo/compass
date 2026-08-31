@@ -1,5 +1,8 @@
 import { test, expect } from '@playwright/test';
+import { PrismaClient } from '@prisma/client';
 import { loadUATManifest, PERSONA_STORAGE_STATES } from './fixtures/uat-fixture';
+
+const prisma = new PrismaClient();
 
 test.describe.configure({ mode: 'serial' });
 
@@ -87,10 +90,32 @@ test.describe('Wave 07 — Preview Verification Pack', () => {
         // LEI: 894500GL3Z31KK4RYI63 (GLEIF)
         const BENBRACK_LE_ID = '1115c64f-7614-4035-804a-81f3f59c3a6c';
 
-        const adminContext = await browser.newContext({
-            storageState: PERSONA_STORAGE_STATES.systemAdmin,
+        // 1. Establish disposable test-scoped membership for Client LE Admin persona
+        const manifest = loadUATManifest();
+        const leAdminUser = await prisma.user.findFirst({
+            where: { email: manifest.actors.leAdminAlpha.email }
         });
-        const page = await adminContext.newPage();
+        if (!leAdminUser) throw new Error('leAdminAlpha user not found in database');
+
+        // Assert no pre-existing membership on BENBRACK before test
+        const preExistingMembership = await prisma.membership.findFirst({
+            where: { userId: leAdminUser.id, clientLEId: BENBRACK_LE_ID }
+        });
+        expect(preExistingMembership, 'Must not have pre-existing membership on BENBRACK before test').toBeNull();
+
+        // Create disposable test-scoped membership
+        const disposableMembership = await prisma.membership.create({
+            data: {
+                userId: leAdminUser.id,
+                clientLEId: BENBRACK_LE_ID,
+                role: 'LE_ADMIN'
+            }
+        });
+
+        const clientContext = await browser.newContext({
+            storageState: PERSONA_STORAGE_STATES.leAdminAlpha,
+        });
+        const page = await clientContext.newPage();
         try {
             await page.goto(`/app/le/${BENBRACK_LE_ID}/master`);
             await page.waitForLoadState('networkidle');
@@ -109,7 +134,18 @@ test.describe('Wave 07 — Preview Verification Pack', () => {
             await expect(gleifBadgeLink).toHaveAttribute('target', '_blank');
             await expect(gleifBadgeLink).toHaveAttribute('rel', /noopener/);
         } finally {
-            await adminContext.close();
+            await clientContext.close();
+
+            // Teardown: delete disposable membership and assert it is removed
+            if (disposableMembership?.id) {
+                await prisma.membership.delete({
+                    where: { id: disposableMembership.id }
+                }).catch(() => {});
+            }
+            const postCleanupMembership = await prisma.membership.findFirst({
+                where: { userId: leAdminUser.id, clientLEId: BENBRACK_LE_ID }
+            });
+            expect(postCleanupMembership, 'Disposable membership on BENBRACK must be cleaned up').toBeNull();
         }
     });
 
@@ -186,6 +222,10 @@ test.describe('Wave 07 — Preview Verification Pack', () => {
         } finally {
             await clientContext.close();
         }
+    });
+
+    test.afterAll(async () => {
+        await prisma.$disconnect();
     });
 
 });
