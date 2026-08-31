@@ -22,7 +22,7 @@ export default async function EngagementPage({ params, searchParams }: PageProps
         getEngagementEvidenceDocuments(engagementId),
     ]);
 
-    const { success, engagement, questionnaires, invitations, members, metrics } = detailsRes;
+    const { success, engagement, questionnaires, commonQuestionnaires, invitations, members, metrics } = detailsRes;
 
     if (!success || !engagement) {
         return notFound();
@@ -45,6 +45,7 @@ export default async function EngagementPage({ params, searchParams }: PageProps
                 le={le}
                 engagement={engagement}
                 questionnaires={questionnaires || []}
+                commonQuestionnaires={commonQuestionnaires || []}
                 sharedDocuments={sharedDocuments}
                 evidenceDocuments={evidenceDocuments}
                 invitations={invitations || []}

@@ -1420,6 +1420,7 @@ export async function getEngagementEvidenceDocuments(engagementId: string) {
             },
             select: {
                 id: true,
+                order: true,
                 text: true,
                 compactText: true,
                 answer: true,

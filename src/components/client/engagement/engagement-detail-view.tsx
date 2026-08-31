@@ -24,6 +24,7 @@ interface EngagementDetailViewProps {
     le: any;
     engagement: any;
     questionnaires: any[];
+    commonQuestionnaires?: any[];
     sharedDocuments: any[];
     evidenceDocuments?: any[];
     initialTab?: string;
@@ -50,7 +51,7 @@ import { HeaderNavList } from "@/components/layout/HeaderNavList";
 import { getRelationshipTabs, getQuestionnaireTabs } from "@/config/navigation-tabs";
 import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 
-export function EngagementDetailView({ le, engagement, questionnaires, sharedDocuments, evidenceDocuments = [], invitations, members, initialTab, metrics, standingData, manageQuestionnaireId: propsManageQuestionnaireId }: EngagementDetailViewProps) {
+export function EngagementDetailView({ le, engagement, questionnaires, commonQuestionnaires = [], sharedDocuments, evidenceDocuments = [], invitations, members, initialTab, metrics, standingData, manageQuestionnaireId: propsManageQuestionnaireId }: EngagementDetailViewProps) {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
     const [shareTarget, setShareTarget] = useState<{ id: string, name: string } | null>(null);
@@ -304,10 +305,11 @@ export function EngagementDetailView({ le, engagement, questionnaires, sharedDoc
                         />
                     </TabsContent>
 
-                    <TabsContent value="output" className="mt-0">
+                    <TabsContent value="output" id="radix-_R_25fiv5uiv5ubriutb_-content-output" className="mt-0">
                         <OutputPackBuilder 
                             engagementId={engagement.id}
                             questionnaires={questionnaires}
+                            commonQuestionnaires={commonQuestionnaires}
                             evidenceDocuments={evidenceDocuments}
                             sharedDocuments={sharedDocuments || []}
                         />

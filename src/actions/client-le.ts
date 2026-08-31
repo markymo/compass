@@ -393,7 +393,13 @@ export async function getEngagementDetails(engagementId: string) {
                     where: { isDeleted: false },
                     orderBy: { createdAt: 'desc' }
                 },
-                clientLE: true // Context
+                clientLE: {
+                    include: {
+                        commonQuestionnaires: {
+                            where: { isDeleted: false }
+                        }
+                    }
+                }
             }
         });
 
@@ -414,6 +420,14 @@ export async function getEngagementDetails(engagementId: string) {
         const questionnaires = await Promise.all(combinedQuestionnairesRaw.map(async (q: any) => ({
             ...q,
             metrics: await calculateQuestionnaireMetrics(q.id)
+        })));
+
+        // Fetch metrics for common questionnaires
+        const rawCommonQs = (engagement.clientLE as any)?.commonQuestionnaires || [];
+        const commonQuestionnaires = await Promise.all(rawCommonQs.map(async (cq: any) => ({
+            ...cq,
+            isCommon: true,
+            metrics: await calculateQuestionnaireMetrics(cq.id)
         })));
 
         // Fetch Pending Invitations
@@ -452,6 +466,7 @@ export async function getEngagementDetails(engagementId: string) {
             success: true,
             engagement,
             questionnaires,
+            commonQuestionnaires,
             invitations,
             members,
             metrics

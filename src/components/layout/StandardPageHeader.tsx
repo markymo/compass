@@ -90,7 +90,7 @@ export function StandardPageHeader({
             </div>
 
             {/* Content Area - Scrolls away (bg-card ensures it goes 'under' the sticky crumbs) */}
-            <div className="bg-card text-card-foreground">
+            <header className="bg-card text-card-foreground">
                 {/* Title Row - Only render if title or actions exist */}
                 {(title || actions) && (
                     <div className="flex items-center justify-between px-4 py-4 md:px-8">
@@ -132,7 +132,7 @@ export function StandardPageHeader({
                         {children}
                     </div>
                 )}
-            </div>
+            </header>
 
             {/* Secondary Navigation Row (Tabs) - Sticky below Breadcrumbs */}
             {secondaryNav && (
