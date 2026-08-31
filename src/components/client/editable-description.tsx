@@ -90,7 +90,7 @@ export function EditableDescription({ leId, initialValue, leName, clientOrgName 
             <div className="relative group w-full">
                 <textarea
                     ref={textareaRef}
-                    className="w-full min-h-[100px] p-0 text-lg text-slate-600 bg-transparent border-none focus:ring-0 resize-none font-sans leading-relaxed"
+                    className="w-full min-h-[80px] p-0 text-sm md:text-base text-slate-600 bg-transparent border-none focus:ring-0 resize-none font-sans leading-relaxed whitespace-pre-wrap"
                     value={value}
                     onChange={(e) => setValue(e.target.value)}
                     onBlur={handleSave}
@@ -114,7 +114,7 @@ export function EditableDescription({ leId, initialValue, leName, clientOrgName 
         >
             <div className="flex items-start justify-between gap-4">
                 <p className={cn(
-                    "text-lg leading-relaxed transition-colors",
+                    "text-sm md:text-base leading-relaxed whitespace-pre-wrap transition-colors",
                     value ? "text-slate-600" : "text-slate-400 italic"
                 )}>
                     {value || "Add a description for this Legal Entity..."}
