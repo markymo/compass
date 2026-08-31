@@ -929,7 +929,12 @@ export async function getFieldDetail(
                             hydrated,
                             canonicalDisplayModel: resolveFieldForDisplay(
                                 hydrated.value,
-                                hydrated.source ? { type: hydrated.source, reference: hydrated.sourceReference } : null,
+                                hydrated.source ? { 
+                                    type: hydrated.source, 
+                                    reference: hydrated.sourceReference,
+                                    entityIdentifier: (hydrated as any).entityIdentifier || null,
+                                    entityUrl: (hydrated as any).entityUrl || null
+                                } : null,
                                 {
                                     fieldNo: item.fieldNo,
                                     label: def.fieldName,
@@ -1744,7 +1749,9 @@ export async function getFieldDetail(
                 type: result.current.source as any, 
                 reference: result.current.sourceReference,
                 timestamp: result.current.timestamp,
-                sourceCheckedAt: result.current.sourceCheckedAt
+                sourceCheckedAt: result.current.sourceCheckedAt,
+                entityIdentifier: (result.current as any).entityIdentifier || null,
+                entityUrl: (result.current as any).entityUrl || null
             } : null,
             metadataForDisplay
         );
@@ -1771,7 +1778,9 @@ export async function getFieldDetail(
                     type: row.source as any, 
                     reference: row.sourceReference,
                     timestamp: row.timestamp,
-                    sourceCheckedAt: row.sourceCheckedAt 
+                    sourceCheckedAt: row.sourceCheckedAt,
+                    entityIdentifier: (row as any).entityIdentifier || null,
+                    entityUrl: (row as any).entityUrl || null
                 } : null,
                 {
                     ...metadataForDisplay,

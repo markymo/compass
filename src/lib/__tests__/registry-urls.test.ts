@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { getRegistryEntityUrl, isSafeRegistryUrl } from "../registry-urls";
-import { resolveFieldForDisplay, RawFieldSource } from "../master-data/field-interpreter";
+import { RawFieldSource } from "../master-data/field-interpreter";
+import { resolveCanonicalFieldDisplay } from "../export/export-answer-resolver";
 
 describe("Registry Entity URLs Generic Resolver (ONP-37)", () => {
     describe("isSafeRegistryUrl Trust Contract", () => {
@@ -104,44 +105,108 @@ describe("Registry Entity URLs Generic Resolver (ONP-37)", () => {
         });
     });
 
-    describe("Full Pipeline Interpretation Trace (Raw Claim -> FieldDisplayModel -> FieldSource)", () => {
-        it("resolves Companies House raw source into FieldSource with verified entityUrl and identifier", () => {
-            const rawSource: RawFieldSource = {
-                type: "REGISTRATION_AUTHORITY",
-                reference: "COMPANIES_HOUSE",
+    describe("Upstream Pipeline Interpretation Proof (Stored Claim / Provenance -> RawFieldSource -> FieldDisplayModel -> Trusted URL)", () => {
+        it("converts stored Companies House answer provenance into FieldDisplayModel with verified entityUrl and identifier", async () => {
+            // Upstream stored database record / submissionAnswer shape
+            const storedProvenanceJson = {
+                sourceType: "REGISTRATION_AUTHORITY",
+                sourceReference: "COMPANIES_HOUSE",
                 entityIdentifier: "07640868",
-                timestamp: new Date("2026-08-30T12:00:00Z"),
+                assertedAt: "2026-08-30T12:00:00.000Z",
+                sourceCheckedAt: "2026-08-30T12:00:00.000Z"
             };
 
-            const model = resolveFieldForDisplay("Acme Legal Entity Ltd", rawSource, {
-                fieldNo: 3,
-                label: "Legal Name",
+            // Production RawFieldSource construction from stored provenance
+            const primarySource: RawFieldSource = {
+                type: storedProvenanceJson.sourceType as any,
+                reference: storedProvenanceJson.sourceReference,
+                timestamp: storedProvenanceJson.assertedAt,
+                sourceCheckedAt: storedProvenanceJson.sourceCheckedAt,
+                entityIdentifier: storedProvenanceJson.entityIdentifier,
+                userName: null
+            };
+
+            const { displayModel } = await resolveCanonicalFieldDisplay({
+                derivedValue: "Acme Legal Entity Ltd",
+                primarySource,
+                meta: {
+                    fieldNo: 3,
+                    label: "Legal Name",
+                    displayState: "HAS_VALUE"
+                }
             });
 
-            expect(model.source).toBeDefined();
-            expect(model.source?.type).toBe("REGISTRATION_AUTHORITY");
-            expect(model.source?.reference).toBe("COMPANIES_HOUSE");
-            expect(model.source?.entityIdentifier).toBe("07640868");
-            expect(model.source?.entityUrl).toBe("https://find-and-update.company-information.service.gov.uk/company/07640868");
+            expect(displayModel.source).toBeDefined();
+            expect(displayModel.source?.type).toBe("REGISTRATION_AUTHORITY");
+            expect(displayModel.source?.reference).toBe("COMPANIES_HOUSE");
+            expect(displayModel.source?.entityIdentifier).toBe("07640868");
+            expect(displayModel.source?.entityUrl).toBe("https://find-and-update.company-information.service.gov.uk/company/07640868");
         });
 
-        it("resolves GLEIF raw source into FieldSource with verified entityUrl and identifier", () => {
-            const rawSource: RawFieldSource = {
-                type: "GLEIF",
-                reference: "GLEIF",
+        it("converts stored GLEIF answer provenance into FieldDisplayModel with verified entityUrl and identifier", async () => {
+            // Upstream stored database record / submissionAnswer shape
+            const storedProvenanceJson = {
+                sourceType: "GLEIF",
+                sourceReference: "GLEIF",
                 entityIdentifier: "213800AB12CD34EF5678",
-                timestamp: new Date("2026-08-30T12:00:00Z"),
+                assertedAt: "2026-08-30T12:00:00.000Z",
+                sourceCheckedAt: "2026-08-30T12:00:00.000Z"
             };
 
-            const model = resolveFieldForDisplay("213800AB12CD34EF5678", rawSource, {
-                fieldNo: 1,
-                label: "LEI",
+            // Production RawFieldSource construction from stored provenance
+            const primarySource: RawFieldSource = {
+                type: storedProvenanceJson.sourceType as any,
+                reference: storedProvenanceJson.sourceReference,
+                timestamp: storedProvenanceJson.assertedAt,
+                sourceCheckedAt: storedProvenanceJson.sourceCheckedAt,
+                entityIdentifier: storedProvenanceJson.entityIdentifier,
+                userName: null
+            };
+
+            const { displayModel } = await resolveCanonicalFieldDisplay({
+                derivedValue: "213800AB12CD34EF5678",
+                primarySource,
+                meta: {
+                    fieldNo: 1,
+                    label: "LEI",
+                    displayState: "HAS_VALUE"
+                }
             });
 
-            expect(model.source).toBeDefined();
-            expect(model.source?.type).toBe("GLEIF");
-            expect(model.source?.entityIdentifier).toBe("213800AB12CD34EF5678");
-            expect(model.source?.entityUrl).toBe("https://search.gleif.org/#/record/213800AB12CD34EF5678");
+            expect(displayModel.source).toBeDefined();
+            expect(displayModel.source?.type).toBe("GLEIF");
+            expect(displayModel.source?.entityIdentifier).toBe("213800AB12CD34EF5678");
+            expect(displayModel.source?.entityUrl).toBe("https://search.gleif.org/#/record/213800AB12CD34EF5678");
+        });
+
+        it("converts stored Companies House (RA000585) claim into FieldDisplayModel with left-padded entityUrl", async () => {
+            const storedClaim = {
+                sourceType: "REGISTRATION_AUTHORITY",
+                sourceReference: "RA000585",
+                entityIdentifier: "747608",
+                assertedAt: new Date("2026-08-30T12:00:00.000Z")
+            };
+
+            const primarySource: RawFieldSource = {
+                type: storedClaim.sourceType as any,
+                reference: storedClaim.sourceReference,
+                timestamp: storedClaim.assertedAt,
+                entityIdentifier: storedClaim.entityIdentifier,
+                userName: null
+            };
+
+            const { displayModel } = await resolveCanonicalFieldDisplay({
+                derivedValue: "Padded Company Ltd",
+                primarySource,
+                meta: {
+                    fieldNo: 3,
+                    label: "Legal Name",
+                    displayState: "HAS_VALUE"
+                }
+            });
+
+            expect(displayModel.source?.entityIdentifier).toBe("747608");
+            expect(displayModel.source?.entityUrl).toBe("https://find-and-update.company-information.service.gov.uk/company/00747608");
         });
     });
 });

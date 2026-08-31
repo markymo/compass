@@ -1,25 +1,40 @@
-import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
-import prisma from "@/lib/prisma";
-import { getSupplierRelationshipsSummary } from "../fi";
 import path from "path";
 import fs from "fs";
 import dotenv from "dotenv";
 
+// 1. Select UAT environment before Prisma-backed modules are instantiated
 const envUatLocal = path.resolve(process.cwd(), ".env.uat.local");
 if (fs.existsSync(envUatLocal)) {
-    dotenv.config({ path: envUatLocal, override: false });
+    dotenv.config({ path: envUatLocal, override: true });
 }
+process.env.ONPRO_DB_TEST_ENV = process.env.ONPRO_DB_TEST_ENV || "uat";
+
+import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
+import { assertUatDbTestEnv } from "@/lib/kyc/__tests__/test-env-guard";
+import prisma from "@/lib/prisma";
+import { getSupplierRelationshipsSummary } from "../fi";
+
+let currentAuthUserId: string | null = null;
+let currentAuthEmail: string | null = null;
 
 vi.mock("@/lib/auth", () => ({
-    getIdentity: vi.fn(),
+    getIdentity: vi.fn().mockImplementation(() => {
+        if (!currentAuthUserId) return Promise.resolve(null);
+        return Promise.resolve({
+            userId: currentAuthUserId,
+            email: currentAuthEmail || "test@example.com",
+            role: "ORG_ADMIN",
+        });
+    }),
 }));
 
 vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
 
-describe.skipIf(!process.env.DATABASE_URL)("ONP-66 — Real FI Relationship Data-Path Integration Proof", () => {
+describe("ONP-66 — Real FI Relationship Data-Path Integration Proof (UAT Guarded)", () => {
     let testFiOrg: any;
     let testUnrelatedFiOrg: any;
-    let testUser: any;
+    let testFiMemberUser: any;
+    let testUnauthMemberUser: any;
     let testClientOrgA: any;
     let testClientOrgB: any;
     let testLeA1: any;
@@ -36,7 +51,7 @@ describe.skipIf(!process.env.DATABASE_URL)("ONP-66 — Real FI Relationship Data
     const PREFIX = "ONP66_INT_";
 
     const cleanTestData = async () => {
-        // Delete engagements
+        // 1. Delete engagements
         await prisma.fIEngagement.deleteMany({
             where: {
                 OR: [
@@ -46,7 +61,7 @@ describe.skipIf(!process.env.DATABASE_URL)("ONP-66 — Real FI Relationship Data
             },
         });
 
-        // Delete client LE owners
+        // 2. Delete client LE owners
         await prisma.clientLEOwner.deleteMany({
             where: {
                 OR: [
@@ -56,28 +71,36 @@ describe.skipIf(!process.env.DATABASE_URL)("ONP-66 — Real FI Relationship Data
             },
         });
 
-        // Delete client LEs
+        // 3. Delete client LEs
         await prisma.clientLE.deleteMany({
             where: { name: { startsWith: PREFIX } },
         });
 
-        // Delete memberships
+        // 4. Delete memberships
         await prisma.membership.deleteMany({
-            where: { user: { email: { startsWith: PREFIX.toLowerCase() } } },
+            where: {
+                OR: [
+                    { user: { email: { startsWith: PREFIX.toLowerCase() } } },
+                    { organization: { name: { startsWith: PREFIX } } },
+                ],
+            },
         });
 
-        // Delete organizations
+        // 5. Delete organizations
         await prisma.organization.deleteMany({
             where: { name: { startsWith: PREFIX } },
         });
 
-        // Delete user
+        // 6. Delete users
         await prisma.user.deleteMany({
             where: { email: { startsWith: PREFIX.toLowerCase() } },
         });
     };
 
-    beforeEach(async () => {
+    beforeAll(async () => {
+        // Enforce UAT safety guard
+        assertUatDbTestEnv();
+
         await cleanTestData();
 
         const rand = Math.floor(Math.random() * 1000000);
@@ -90,18 +113,33 @@ describe.skipIf(!process.env.DATABASE_URL)("ONP-66 — Real FI Relationship Data
             data: { name: `${PREFIX}Unrelated_FI_${rand}`, types: ["FI"] },
         });
 
-        // 2. User with membership in Primary FI Org
-        testUser = await prisma.user.create({
+        // 2. Users: Authorized FI Member vs Unrelated User
+        testFiMemberUser = await prisma.user.create({
             data: {
-                email: `${PREFIX.toLowerCase()}user_${rand}@example.com`,
-                name: `ONP66 Test User ${rand}`,
+                email: `${PREFIX.toLowerCase()}member_${rand}@example.com`,
+                name: `ONP66 FI Member User ${rand}`,
             },
         });
 
         await prisma.membership.create({
             data: {
-                userId: testUser.id,
+                userId: testFiMemberUser.id,
                 organizationId: testFiOrg.id,
+                role: "ORG_ADMIN",
+            },
+        });
+
+        testUnauthMemberUser = await prisma.user.create({
+            data: {
+                email: `${PREFIX.toLowerCase()}unauth_${rand}@example.com`,
+                name: `ONP66 Unauth User ${rand}`,
+            },
+        });
+
+        await prisma.membership.create({
+            data: {
+                userId: testUnauthMemberUser.id,
+                organizationId: testUnrelatedFiOrg.id,
                 role: "ORG_ADMIN",
             },
         });
@@ -177,7 +215,7 @@ describe.skipIf(!process.env.DATABASE_URL)("ONP-66 — Real FI Relationship Data
             },
         });
 
-        // Engagement 4: Active in Unrelated FI Org (should be excluded)
+        // Engagement 4: Active in Unrelated FI Org (should be excluded from testFiOrg queries)
         testEngUnrelated = await prisma.fIEngagement.create({
             data: {
                 fiOrgId: testUnrelatedFiOrg.id,
@@ -196,19 +234,12 @@ describe.skipIf(!process.env.DATABASE_URL)("ONP-66 — Real FI Relationship Data
                 isDeleted: true,
             },
         });
-
-        const { getIdentity } = await import("@/lib/auth");
-        vi.mocked(getIdentity).mockResolvedValue({
-            userId: testUser.id,
-            email: testUser.email,
-            role: "ORG_ADMIN",
-        } as any);
     });
 
     afterAll(async () => {
         await cleanTestData();
 
-        // Verify synthetic residue = 0
+        // Comprehensive verification: verify synthetic residue = 0 for EVERY created entity type
         const residueEng = await prisma.fIEngagement.count({
             where: {
                 OR: [
@@ -217,19 +248,44 @@ describe.skipIf(!process.env.DATABASE_URL)("ONP-66 — Real FI Relationship Data
                 ],
             },
         });
+        const residueOwners = await prisma.clientLEOwner.count({
+            where: {
+                OR: [
+                    { party: { name: { startsWith: PREFIX } } },
+                    { clientLE: { name: { startsWith: PREFIX } } },
+                ],
+            },
+        });
         const residueLE = await prisma.clientLE.count({
             where: { name: { startsWith: PREFIX } },
+        });
+        const residueMemberships = await prisma.membership.count({
+            where: {
+                OR: [
+                    { user: { email: { startsWith: PREFIX.toLowerCase() } } },
+                    { organization: { name: { startsWith: PREFIX } } },
+                ],
+            },
         });
         const residueOrg = await prisma.organization.count({
             where: { name: { startsWith: PREFIX } },
         });
+        const residueUsers = await prisma.user.count({
+            where: { email: { startsWith: PREFIX.toLowerCase() } },
+        });
 
         expect(residueEng).toBe(0);
+        expect(residueOwners).toBe(0);
         expect(residueLE).toBe(0);
+        expect(residueMemberships).toBe(0);
         expect(residueOrg).toBe(0);
+        expect(residueUsers).toBe(0);
     });
 
-    it("1. Queries real database and correctly groups relationships across client orgs while isolating unrelated/deleted data", async () => {
+    it("1. Applicable FI member succeeds with real DB grouping across client orgs", async () => {
+        currentAuthUserId = testFiMemberUser.id;
+        currentAuthEmail = testFiMemberUser.email;
+
         const groups = await getSupplierRelationshipsSummary(testFiOrg.id);
 
         // Assert exactly 2 client organization groups
@@ -249,10 +305,31 @@ describe.skipIf(!process.env.DATABASE_URL)("ONP-66 — Real FI Relationship Data
         expect(groupB?.clientOrganizationName).toBe(testClientOrgB.name);
         expect(groupB?.legalEntities).toHaveLength(1);
         expect(groupB?.legalEntities[0].clientLEId).toBe(testLeB1.id);
+    });
+
+    it("2. Authenticated user without applicable FI membership is rejected (returns empty summary)", async () => {
+        // User has membership in testUnrelatedFiOrg, NOT testFiOrg
+        currentAuthUserId = testUnauthMemberUser.id;
+        currentAuthEmail = testUnauthMemberUser.email;
+
+        const groups = await getSupplierRelationshipsSummary(testFiOrg.id);
+        expect(groups).toEqual([]);
+    });
+
+    it("3. Unrelated FI data and soft-deleted engagements are not exposed to FI member", async () => {
+        currentAuthUserId = testFiMemberUser.id;
+        currentAuthEmail = testFiMemberUser.email;
+
+        // Query testFiOrg
+        const groups = await getSupplierRelationshipsSummary(testFiOrg.id);
+        const allLeIdsInSummary = groups.flatMap((g) => g.legalEntities.map((le) => le.clientLEId));
 
         // Assert unrelated engagement and deleted engagement are NOT present
-        const allLeIdsInSummary = groups.flatMap((g) => g.legalEntities.map((le) => le.clientLEId));
         expect(allLeIdsInSummary).not.toContain(testLeUnrelated.id);
         expect(allLeIdsInSummary).not.toContain(testLeDeleted.id);
+
+        // Query testUnrelatedFiOrg as testFiMemberUser (should be rejected)
+        const unauthGroups = await getSupplierRelationshipsSummary(testUnrelatedFiOrg.id);
+        expect(unauthGroups).toEqual([]);
     });
 });

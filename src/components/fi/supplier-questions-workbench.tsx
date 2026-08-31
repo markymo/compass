@@ -65,7 +65,9 @@ function getQuestionDisplayModel(q: SupplierQuestionView) {
         type: q.provenance.sourceType || (q.provenance.source === "Provisional Shared" ? "USER_INPUT" : q.provenance.source) || "USER_INPUT",
         reference: q.provenance.sourceReference || (q.provenance.releaseProvenance as any)?.sourceReference || null,
         timestamp: q.provenance.timestamp ? new Date(q.provenance.timestamp) : (lastValidated ? new Date(lastValidated) : undefined),
-        sourceCheckedAt: lastValidated ? new Date(lastValidated) : undefined
+        sourceCheckedAt: lastValidated ? new Date(lastValidated) : undefined,
+        entityIdentifier: q.provenance.entityIdentifier || (q.provenance.releaseProvenance as any)?.entityIdentifier || null,
+        entityUrl: q.provenance.entityUrl || (q.provenance.releaseProvenance as any)?.entityUrl || null
     } : null;
 
     return resolveFieldForDisplay(

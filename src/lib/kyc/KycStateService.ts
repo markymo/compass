@@ -25,6 +25,10 @@ export type DerivedValue = {
     effectiveTo?: Date;
     /** The date the value was last validated against its authoritative source. */
     sourceCheckedAt?: Date;
+    /** Registry entity identifier (LEI, company number, SIREN, etc.). */
+    entityIdentifier?: string;
+    /** Direct canonical registry entity URL if pre-resolved. */
+    entityUrl?: string;
 
     attachmentDocumentId?: string;
     documentName?: string;
@@ -1071,6 +1075,8 @@ export class KycStateService {
             effectiveFrom: claim.effectiveFrom ?? undefined,
             effectiveTo: claim.effectiveTo ?? undefined,
             attachmentDocumentId: (claim as any).attachmentDocumentId ?? undefined,
+            entityIdentifier: (claim as any).entityIdentifier ?? (claim as any).evidence?.entityIdentifier ?? undefined,
+            entityUrl: (claim as any).entityUrl ?? (claim as any).evidence?.entityUrl ?? undefined,
         };
     }
 }

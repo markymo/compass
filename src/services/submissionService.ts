@@ -210,6 +210,8 @@ export async function createQuestionnaireSubmission(
                         sourceReference: derived.sourceReference || null,
                         assertedAt: derived.assertedAt?.toISOString() || null,
                         sourceCheckedAt: derived.sourceCheckedAt?.toISOString() || null,
+                        entityIdentifier: (derived as any).entityIdentifier || null,
+                        entityUrl: (derived as any).entityUrl || null,
                     };
                 }
             } else if (q.masterQuestionGroupId) {

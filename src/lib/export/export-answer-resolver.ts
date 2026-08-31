@@ -146,7 +146,9 @@ export async function resolveExportAnswer(
                     reference: subAnswer.provenanceJson.sourceReference || null,
                     timestamp: subAnswer.provenanceJson.assertedAt || subAnswer.provenanceJson.submittedAt || null,
                     sourceCheckedAt: subAnswer.provenanceJson.sourceCheckedAt || null,
-                    userName: subAnswer.provenanceJson.sourceLabel || null
+                    userName: subAnswer.provenanceJson.sourceLabel || null,
+                    entityIdentifier: subAnswer.provenanceJson.entityIdentifier || null,
+                    entityUrl: subAnswer.provenanceJson.entityUrl || null
                 } : null;
 
                 const { displayModel, displayValue } = await resolveCanonicalFieldDisplay({
@@ -258,7 +260,9 @@ export async function resolveExportAnswer(
                 reference: primaryDerived.sourceReference,
                 timestamp: primaryDerived.assertedAt,
                 sourceCheckedAt: primaryDerived.sourceCheckedAt || primaryDerived.assertedAt,
-                userName: null
+                userName: null,
+                entityIdentifier: primaryDerived.entityIdentifier || null,
+                entityUrl: primaryDerived.entityUrl || null
             };
 
             const { displayModel, displayValue, parsedDerivedValue } = await resolveCanonicalFieldDisplay({
@@ -451,7 +455,9 @@ export async function resolveExportAnswer(
                         reference: hv.sourceReference,
                         timestamp: hv.updatedAt,
                         sourceCheckedAt: hv.sourceCheckedAt,
-                        userName: null
+                        userName: null,
+                        entityIdentifier: hv.entityIdentifier || null,
+                        entityUrl: hv.entityUrl || null
                     } : null;
 
                     const { displayModel, displayValue: resolvedText } = await resolveCanonicalFieldDisplay({

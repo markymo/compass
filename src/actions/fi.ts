@@ -392,6 +392,8 @@ export interface SupplierVisibleProvenance {
     sourceReference?: string | null;
     timestamp: Date | string | null;
     lastValidatedAt?: Date | string | null;
+    entityIdentifier?: string | null;
+    entityUrl?: string | null;
     releaseProvenance?: any | null;
 }
 
@@ -686,6 +688,8 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                     sourceReference: subSourceRef,
                     timestamp: subMetadata?.submittedAt || q.releasedAt || null,
                     lastValidatedAt,
+                    entityIdentifier: subProv.entityIdentifier || null,
+                    entityUrl: subProv.entityUrl || null,
                     releaseProvenance: subProv
                 };
                 documents = (subAnswer.attachments || []).map((att: any) => ({
@@ -766,6 +770,8 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                     sourceReference: relSourceRef,
                     timestamp: q.releasedAt || null,
                     lastValidatedAt,
+                    entityIdentifier: derivedVal?.entityIdentifier || relProv.entityIdentifier || null,
+                    entityUrl: derivedVal?.entityUrl || relProv.entityUrl || null,
                     releaseProvenance: relProv
                 };
                 documents = (q.documents || []).map((d: any) => ({
@@ -911,6 +917,8 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                     sourceReference: sharedSourceRef,
                     timestamp: sharedTimestamp,
                     lastValidatedAt,
+                    entityIdentifier: derivedVal?.entityIdentifier || null,
+                    entityUrl: derivedVal?.entityUrl || null,
                     releaseProvenance: null
                 };
                 documents = (q.documents || []).map((d: any) => ({
