@@ -26,15 +26,9 @@ import { CreateCCAddressDialog } from "@/components/client/fields/CreateCCAddres
 import { PartyAddressRef } from "@/components/client/fields/CCAddressSelector";
 import { getPartyLabel } from "@/lib/master-data/party-v2/label-helper";
 import { upsertCCPartyV2, deleteCCParty } from "@/actions/cc-party-actions";
-import { Plus, Edit, Trash2, Loader2, Layers, AlertTriangle, MoreHorizontal, Users } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2, Layers, AlertTriangle, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { StandardTooltip } from "@/components/ui/standard-tooltip";
 
 interface CCPartyRecord {
@@ -212,9 +206,6 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                             Type
                                         </TableHead>
                                         <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider">
-                                            Status
-                                        </TableHead>
-                                        <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider">
                                             Origin
                                         </TableHead>
                                         <TableHead className="text-xs font-bold text-slate-500 uppercase py-3 px-5 tracking-wider">
@@ -229,7 +220,6 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                 <TableBody>
                                     {initialParties.map((party) => {
                                         const summary = party.data ? getPartyLabel({ party: party.data, legacy: party.legacy || {} } as any) : "Unknown";
-                                        const isActive = party.data.isActiveParty !== false;
                                         const usage = (party as any).usage;
                                         return (
                                             <TableRow key={party.id} className="hover:bg-slate-50/40 border-b border-slate-100 last:border-0 transition-colors duration-150">
@@ -242,17 +232,6 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                                             {party.data.partyType || "UNKNOWN"}
                                                         </span>
                                                     </div>
-                                                </TableCell>
-                                                <TableCell className="py-3 px-5 text-sm">
-                                                    <Badge
-                                                        className={
-                                                            isActive
-                                                                ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border border-emerald-200/60 font-semibold px-2 py-0.5 rounded-md"
-                                                                : "bg-slate-50 text-slate-500 hover:bg-slate-50 border border-slate-200 font-semibold px-2 py-0.5 rounded-md"
-                                                        }
-                                                    >
-                                                        {isActive ? "Active" : "Inactive"}
-                                                    </Badge>
                                                 </TableCell>
                                                 <TableCell className="py-3 px-5 text-sm whitespace-normal">
                                                     <div className="flex flex-col gap-0.5 max-w-[200px]">
@@ -299,33 +278,22 @@ export function CCPartyManager({ clientLEId, initialParties }: CCPartyManagerPro
                                                             variant="ghost"
                                                             size="icon"
                                                             onClick={() => handleEditClick(party)}
-                                                            className="h-8.5 w-8.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-all duration-150"
+                                                            className="h-8 w-8 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-all duration-150"
                                                             title="Edit saved party"
                                                             aria-label="Edit saved party"
                                                         >
                                                             <Edit className="h-4 w-4" />
                                                         </Button>
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="icon"
-                                                                    className="h-8.5 w-8.5 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-md transition-all duration-150"
-                                                                    aria-label="More actions"
-                                                                >
-                                                                    <MoreHorizontal className="h-4 w-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end" className="w-40">
-                                                                <DropdownMenuItem
-                                                                    onClick={() => handleDeleteClick(party)}
-                                                                    className="text-rose-600 focus:text-rose-700 focus:bg-rose-50 cursor-pointer"
-                                                                >
-                                                                    <Trash2 className="h-4 w-4 mr-2" />
-                                                                    Delete
-                                                                </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() => handleDeleteClick(party)}
+                                                            className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-all duration-150"
+                                                            title="Delete saved party"
+                                                            aria-label="Delete saved party"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
                                                     </div>
                                                 </TableCell>
                                             </TableRow>

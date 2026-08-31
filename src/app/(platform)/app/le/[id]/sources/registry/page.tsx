@@ -6,7 +6,6 @@ import { Badge } from "@/components/ui/badge";
 import { Users, Building2, Fingerprint, ShieldCheck } from "lucide-react";
 import { RegistryRefreshButton } from "@/components/client/registry-refresh-button";
 import { RawPayloadViewer } from "@/components/client/raw-payload-viewer";
-import { ExtractedCandidatesViewer } from "@/components/client/extracted-candidates-viewer";
 import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 import { CanonicalRegistryMapper } from "@/services/kyc/normalization/CanonicalRegistryMapper";
 import { RegistryMappingEngine } from "@/services/kyc/normalization/RegistryMappingEngine";
@@ -117,12 +116,7 @@ export default async function RegistryPage({ params }: { params: Promise<{ id: s
 
                 <div className="flex flex-col items-end gap-2">
                     <RegistryRefreshButton leId={le.id} referenceId={primaryRef?.id ?? null} lastRefreshed={le.registryFetchedAt} />
-                    <div className="flex gap-2">
-                        {extractedCandidates.length > 0 && (
-                            <ExtractedCandidatesViewer candidates={extractedCandidates} />
-                        )}
-                        <RawPayloadViewer data={rawProfile || (le as any).nationalRegistryData || (le as any).gleifData} />
-                    </div>
+                    <RawPayloadViewer data={rawProfile || (le as any).nationalRegistryData || (le as any).gleifData} />
                 </div>
             </div>
 
