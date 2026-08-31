@@ -148,12 +148,14 @@ export function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
                 };
             });
 
+            const validClientId = (rels[0] as any)?.clientId || (clientId && clientId !== clientName ? clientId : undefined);
+
             return {
                 type: "client" as const,
-                id: clientId,
+                id: validClientId || clientId,
                 name: clientName,
                 subtitle: "Client Organization",
-                href: "#",
+                href: validClientId ? `/app/clients/${validClientId}` : "#",
                 metrics: clientMetrics,
                 v2Metrics: clientV2,
                 children: leNodes

@@ -911,6 +911,7 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData, rea
                                                                 else if (type === 'clear') updateQuestion(q.id, { masterFieldNo: null, masterQuestionGroupId: null, customFieldDefinitionId: null });
                                                             }}
                                                             customFields={customFields}
+                                                            masterCategories={masterCategories}
                                                             tableMode
                                                             resolvedDisplay={resolved?.display ?? null}
                                                         />
@@ -1057,11 +1058,34 @@ export function QuestionnaireMapper({ questionnaireId, onBack, standingData, rea
         const categorySections = useMemo(() => {
             const sections: { heading: string; options: any[] }[] = [];
             cats.forEach((cat: any) => {
-                const opts = masterOptions.filter((o: any) => o.category === cat.displayName);
+                const catFieldOrder = new Map<number, number>();
+                (cat.fields ?? []).forEach((f: any, idx: number) => {
+                    catFieldOrder.set(f.fieldNo, idx);
+                });
+
+                const opts = masterOptions
+                    .filter((o: any) => o.category === cat.displayName)
+                    .sort((a: any, b: any) => {
+                        const fieldNoA = parseInt(a.value.replace('master:', ''));
+                        const fieldNoB = parseInt(b.value.replace('master:', ''));
+                        const orderA = catFieldOrder.has(fieldNoA) ? catFieldOrder.get(fieldNoA)! : 999999;
+                        const orderB = catFieldOrder.has(fieldNoB) ? catFieldOrder.get(fieldNoB)! : 999999;
+                        if (orderA !== orderB) return orderA - orderB;
+                        return fieldNoA - fieldNoB;
+                    });
+
                 if (opts.length > 0) sections.push({ heading: cat.displayName, options: opts });
             });
+
             // Uncategorised fields at the bottom
-            const uncategorised = masterOptions.filter((o: any) => o.category === null);
+            const uncategorised = masterOptions
+                .filter((o: any) => o.category === null)
+                .sort((a: any, b: any) => {
+                    const fieldNoA = parseInt(a.value.replace('master:', ''));
+                    const fieldNoB = parseInt(b.value.replace('master:', ''));
+                    return (isNaN(fieldNoA) ? 0 : fieldNoA) - (isNaN(fieldNoB) ? 0 : fieldNoB);
+                });
+
             if (uncategorised.length > 0) sections.push({ heading: 'Other', options: uncategorised });
             return sections;
         }, [cats, masterOptions]);

@@ -275,6 +275,8 @@ function ExperimentalTreeNode({ item, level }: { item: OrgChild; level: number }
                         )}
                     </div>
 
+                    <ExperimentalRowIcon type={item.type} isCQ={isCQ} />
+
                     {item.href && item.href !== "#" ? (
                         <Link
                             href={item.href}

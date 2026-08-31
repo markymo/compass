@@ -13,7 +13,7 @@ interface PageProps {
 export default async function DashboardPage({ searchParams }: PageProps) {
     const sp = searchParams ? await searchParams : {};
     const homeParam = typeof sp.home === "string" ? sp.home : undefined;
-    const isV2 = homeParam === "v2";
+    const isV1 = homeParam === "v1";
 
     const contexts = await getUserContexts();
     const isAdmin = await isSystemAdmin();
@@ -26,16 +26,16 @@ export default async function DashboardPage({ searchParams }: PageProps) {
                 breadcrumbs={[{ label: "Home", href: "/app", icon: Home }]}
                 actions={
                     isAdmin ? (
-                        <HomeVariantSwitcher currentVariant={isV2 ? "v2" : "v1"} />
+                        <HomeVariantSwitcher currentVariant={isV1 ? "v1" : "v2"} />
                     ) : undefined
                 }
             />
 
             <div className="max-w-7xl mx-auto px-6 py-8 space-y-6 w-full">
-                {isV2 ? (
-                    <ExperimentalDashboardContent contexts={contexts} />
-                ) : (
+                {isV1 ? (
                     <DashboardContentV2 contexts={contexts} />
+                ) : (
+                    <ExperimentalDashboardContent contexts={contexts} />
                 )}
             </div>
         </div>

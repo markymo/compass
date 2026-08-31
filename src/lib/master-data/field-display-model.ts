@@ -84,4 +84,6 @@ export interface FieldSource {
     userName?: string | null; // Optional for USER_INPUT
     category: 'REGISTRY' | 'USER' | 'SYSTEM' | 'DEFAULT';
     lastValidatedAt?: string; // ISO String for JSON serialisability
+    entityUrl?: string | null; // Direct external registry URL
+    entityIdentifier?: string | null; // LEI, company number, SIREN, etc.
 }

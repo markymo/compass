@@ -275,14 +275,66 @@ describe("Experimental Homepage V2 Tweaks and Metric Parity", () => {
     });
 
     describe("HomeVariantSwitcher", () => {
-        it("switches to v2 variant while preserving existing search parameters", () => {
+        it("switches to v1 variant by appending ?home=v1 while preserving other params", () => {
             mockSearchParams = new URLSearchParams("filter=active&tab=overview");
+            render(<HomeVariantSwitcher currentVariant="v2" />);
+
+            const currentButton = screen.getByText("Current");
+            currentButton.click();
+
+            expect(mockPush).toHaveBeenCalledWith("/app?filter=active&tab=overview&home=v1");
+        });
+
+        it("switches back to v2 default by removing ?home=v1", () => {
+            mockSearchParams = new URLSearchParams("filter=active&home=v1");
             render(<HomeVariantSwitcher currentVariant="v1" />);
 
             const expButton = screen.getByText("Experimental");
             expButton.click();
 
-            expect(mockPush).toHaveBeenCalledWith("/app?filter=active&tab=overview&home=v2");
+            expect(mockPush).toHaveBeenCalledWith("/app?filter=active");
+        });
+    });
+
+    describe("Supplier Organisation Client Navigation Links", () => {
+        it("renders clickable client links with /app/clients/[id] for client nodes under supplier orgs", () => {
+            const supplierContexts: DashboardContexts = {
+                clients: [],
+                financialInstitutions: [
+                    {
+                        id: "fi-1",
+                        name: "Riskbridge Bank",
+                        role: "SUPPLIER_ADMIN",
+                        metrics: { total: 10, noData: 0, mapped: 10, answered: 10, approved: 10, released: 10 },
+                        v2Metrics: { questionnairesCount: 1, total: 10, external: 10, userInput: 0, defaultResponse: 0, unanswered: 0 },
+                    },
+                ],
+                lawFirms: [],
+                legalEntities: [],
+                relationships: [
+                    {
+                        id: "rel-1",
+                        fiOrgId: "fi-1",
+                        clientId: "client-party-99",
+                        clientName: "Global Trade Corp",
+                        leName: "Global Trade UK Ltd",
+                        clientLEId: "le-trade-1",
+                        supplierName: "Riskbridge Bank",
+                        status: "ACTIVE",
+                        userIsClient: false,
+                        userIsSupplier: true,
+                        metrics: { total: 10, noData: 0, mapped: 10, answered: 10, approved: 10, released: 10 },
+                        v2Metrics: { questionnairesCount: 1, total: 10, external: 10, userInput: 0, defaultResponse: 0, unanswered: 0 },
+                        questionnaires: [],
+                    },
+                ],
+            };
+
+            render(<ExperimentalDashboardContent contexts={supplierContexts} />);
+
+            const clientLink = screen.getByRole("link", { name: "Global Trade Corp" });
+            expect(clientLink).toBeDefined();
+            expect(clientLink.getAttribute("href")).toBe("/app/clients/client-party-99");
         });
     });
 });

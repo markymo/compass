@@ -13,8 +13,8 @@ export function HomeVariantSwitcher({ currentVariant }: HomeVariantSwitcherProps
 
     const setVariant = (variant: "v1" | "v2") => {
         const params = new URLSearchParams(searchParams?.toString() || "");
-        if (variant === "v2") {
-            params.set("home", "v2");
+        if (variant === "v1") {
+            params.set("home", "v1");
         } else {
             params.delete("home");
         }
