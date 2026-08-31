@@ -35,8 +35,8 @@ test.describe('Wave 07 — Preview Verification Pack', () => {
             await expect(switcher).toBeVisible({ timeout: 15000 });
 
             // Default view is Current (v2)
-            const currentBtn = switcher.getByRole('button', { name: 'Current' });
-            const classicBtn = switcher.getByRole('button', { name: 'Classic' });
+            const currentBtn = switcher.getByText('Current', { exact: true });
+            const classicBtn = switcher.getByText('Classic', { exact: true });
             await expect(currentBtn).toBeVisible();
             await expect(classicBtn).toBeVisible();
             await expect(adminPage.locator('[data-testid="experimental-dashboard"]')).toBeVisible();
