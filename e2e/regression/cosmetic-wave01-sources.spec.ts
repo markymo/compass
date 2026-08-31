@@ -90,7 +90,7 @@ test.describe('Cosmetic Wave 01 — Track A: Sources / LE UI Contracts', () => {
         await expect(previewBtn).not.toBeVisible();
     });
 
-    test('ONP-100: User Parties table omits meaningless Active status column and uses direct Trash2 delete button', async ({ page }) => {
+    test('ONP-100A: User Parties table omits meaningless Status column and Active status badge', async ({ page }) => {
         await page.goto(`/app/le/${clientLEId}/sources/user-parties`);
         await page.waitForLoadState('networkidle');
 
@@ -101,13 +101,25 @@ test.describe('Cosmetic Wave 01 — Track A: Sources / LE UI Contracts', () => {
         // 2. Meaningless Active badge must NOT be present in rows
         const activeBadge = page.locator('table').getByText(/^Active$/, { exact: true });
         await expect(activeBadge).not.toBeVisible();
+    });
 
-        // 3. Row actions must offer direct Delete button with Trash2 icon rather than MoreHorizontal indirection
+    test('ONP-100B: User Parties table uses direct Trash2 delete button without MoreHorizontal indirection', async ({ page }) => {
+        await page.goto(`/app/le/${clientLEId}/sources/user-parties`);
+        await page.waitForLoadState('networkidle');
+
+        // 1. MoreHorizontal trigger must NOT be used for sole action
         const moreActionsTrigger = page.locator('button[aria-label="More actions"]').first();
         await expect(moreActionsTrigger).not.toBeVisible();
 
-        const directDeleteBtn = page.locator('button[aria-label="Delete saved party"], button[title="Delete saved party"]').first();
+        // 2. Direct Delete button with accessible name must be visible
+        const directDeleteBtn = page.locator('button[aria-label*="Delete saved party"], button[title*="Delete saved party"]').first();
         await expect(directDeleteBtn).toBeVisible();
+
+        // 3. Clicking direct Delete button opens approved delete confirmation dialog
+        await directDeleteBtn.click();
+        const confirmDialog = page.getByRole('dialog');
+        await expect(confirmDialog).toBeVisible();
+        await expect(confirmDialog.getByText(/Are you sure you want to delete/i)).toBeVisible();
     });
 
     test('ONP-110 (ALREADY COMPLIANT): GLEIF external link uses safe ExternalLink semantics without obsolete status blob', async ({ page }) => {
