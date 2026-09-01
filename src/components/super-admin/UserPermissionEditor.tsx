@@ -374,7 +374,7 @@ function OrganizationCard({ membership, onUpdateClientRole, onUpdateLERole, load
                                         <SelectItem value="ORG_MEMBER">Member (Standard)</SelectItem>
                                         <SelectItem value="ORG_ADMIN">Client Admin</SelectItem>
                                         <SelectItem value="SYSTEM_ADMIN">System Admin</SelectItem>
-                                        <SelectItem value="NONE" className="text-red-600">Remove Access</SelectItem>
+                                        <SelectItem value="NONE" className="text-muted-foreground">None</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
