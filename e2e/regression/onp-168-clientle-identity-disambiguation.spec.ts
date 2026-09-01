@@ -184,17 +184,15 @@ test.describe('ONP-168 / ONP-145 FR-02 + FR-09 — ClientLE Identity & Owning Cl
             const userRowA = page.locator('tr').filter({ hasText: manifest.actors.leUserAlpha.email });
             await expect(userRowA).toBeVisible({ timeout: 10000 });
 
-            // Must display the ClientLE name AND explicitly display the owning Client Organisation name (Client Org A)
-            await expect(userRowA.getByText(duplicateLEName)).toBeVisible();
-            await expect(userRowA.getByText(manifest.clientOrgA.name)).toBeVisible();
+            // Must display the ClientLE name with its owning Client Organisation name (Client Org A)
+            await expect(userRowA.getByText(`${duplicateLEName} (${manifest.clientOrgA.name})`)).toBeVisible();
 
             // Locate the user row for leUserBeta
             const userRowB = page.locator('tr').filter({ hasText: manifest.actors.leUserBeta.email });
             await expect(userRowB).toBeVisible({ timeout: 10000 });
 
-            // Must display the ClientLE name AND explicitly display the owning Client Organisation name (Client Org B)
-            await expect(userRowB.getByText(duplicateLEName)).toBeVisible();
-            await expect(userRowB.getByText(manifest.clientOrgB.name)).toBeVisible();
+            // Must display the ClientLE name with its owning Client Organisation name (Client Org B)
+            await expect(userRowB.getByText(`${duplicateLEName} (${manifest.clientOrgB.name})`)).toBeVisible();
 
             await attachScreenshot(page, testInfo, 'ONP-168-FR02-admin-users');
         } finally {
@@ -236,6 +234,26 @@ test.describe('ONP-168 / ONP-145 FR-02 + FR-09 — ClientLE Identity & Owning Cl
             await expect(page.getByText(question1Text)).toHaveCount(0);
 
             await attachScreenshot(page, testInfo, 'ONP-168-FR09-supplier-questions');
+        } finally {
+            await context.close();
+        }
+    });
+
+    test('ONP-168 — Positive/Non-regression: Standard unique ClientLE renders with owning Client Org context', async ({ browser }, testInfo) => {
+        const context = await browser.newContext();
+        const page = await context.newPage();
+        try {
+            await login(page, manifest.actors.systemAdmin.email, password);
+            await page.goto('/app/admin/users');
+            await expect(page.getByRole('heading', { name: 'System Administrator User Management' })).toBeVisible({ timeout: 20000 });
+
+            // Locate leAdminAlpha who is member of alphaClientLE
+            const userRow = page.locator('tr').filter({ hasText: manifest.actors.leAdminAlpha.email });
+            await expect(userRow).toBeVisible({ timeout: 10000 });
+
+            // Should render alphaClientLE name and clientOrgA name
+            await expect(userRow.getByText(`${manifest.alphaClientLE.name} (${manifest.clientOrgA.name})`)).toBeVisible();
+            await attachScreenshot(page, testInfo, 'ONP-168-unique-clientle-admin');
         } finally {
             await context.close();
         }
