@@ -217,7 +217,9 @@ test.describe('ONP-167 / ONP-145 FR-03 + FR-05 — Admin Users: Independent Org 
             const orgRoleTrigger = orgCard.locator('button[role="combobox"]').first();
             await orgRoleTrigger.click();
             await page.getByRole('option', { name: 'Member (Standard)' }).click();
-            await expect(page.getByText('Organization Role Updated')).toBeVisible({ timeout: 10000 });
+
+            // Wait for page to reflect the new Org role
+            await expect(page.locator('.space-y-4').filter({ hasText: manifest.clientOrgA.name }).getByText('Member (Standard)')).toBeVisible({ timeout: 20000 });
 
             // Verify ClientLE membership remains LE_ADMIN in DB
             const leMembershipAfterPromote = await prisma.membership.findFirst({
@@ -225,14 +227,26 @@ test.describe('ONP-167 / ONP-145 FR-03 + FR-05 — Admin Users: Independent Org 
             });
             expect(leMembershipAfterPromote?.role).toBe('LE_ADMIN');
 
+            const orgMembershipAfterPromote = await prisma.membership.findFirst({
+                where: { userId: leOnlyUserId, organizationId: manifest.clientOrgA.id }
+            });
+            expect(orgMembershipAfterPromote?.role).toBe('ORG_MEMBER');
+
             // 2. Demote Org Role back to None
-            await page.goto(`/app/admin/users/${leOnlyUserId}`);
             const orgRoleTrigger2 = page.locator('.space-y-4').filter({ hasText: manifest.clientOrgA.name }).locator('button[role="combobox"]').first();
             await orgRoleTrigger2.click();
             await page.getByRole('option', { name: 'None' }).click();
-            await expect(page.getByText('Organization Role Updated')).toBeVisible({ timeout: 10000 });
 
-            // Verify ClientLE membership STILL remains LE_ADMIN in DB and is not silently deleted
+            // Wait for page to reflect None
+            await expect(page.locator('.space-y-4').filter({ hasText: manifest.clientOrgA.name }).getByText('None', { exact: true })).toBeVisible({ timeout: 20000 });
+
+            // Verify Org membership is removed
+            const orgMembershipAfterDemote = await prisma.membership.findFirst({
+                where: { userId: leOnlyUserId, organizationId: manifest.clientOrgA.id }
+            });
+            expect(orgMembershipAfterDemote).toBeNull();
+
+            // Verify ClientLE membership STILL remains LE_ADMIN in DB and was not silently deleted
             const leMembershipAfterDemote = await prisma.membership.findFirst({
                 where: { userId: leOnlyUserId, clientLEId: standaloneLEId }
             });
