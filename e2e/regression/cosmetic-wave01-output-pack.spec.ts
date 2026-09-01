@@ -66,7 +66,7 @@ test.describe('Cosmetic Wave 01 — Track B: Output Pack & Relationships Contrac
 
         // On unfixed dev, this assertion FAILS (RED) because RelationshipsPage sets title="Supplier Relationships",
         // replacing the Legal Entity name in the StandardPageHeader
-        const headerTitle = page.locator('header h1').first();
+        const headerTitle = page.locator('h1').first();
         await expect(headerTitle).toContainText(clientLEName);
         await expect(headerTitle).not.toHaveText(/^Supplier Relationships$/i);
     });
@@ -75,7 +75,9 @@ test.describe('Cosmetic Wave 01 — Track B: Output Pack & Relationships Contrac
         await page.goto(`/app/le/${clientLEId}/engagement-new/${relationshipId}?tab=output`);
         await page.waitForLoadState('networkidle');
 
-        const outputPanel = page.locator('#radix-_R_25fiv5uiv5ubriutb_-content-output, [role="tabpanel"]').first();
+        const outputPanel = page
+            .locator('[role="tabpanel"][data-state="active"]')
+            .filter({ has: page.getByText('Output Pack', { exact: true }) });
 
         // 1. Generic single "Questionnaires" section heading must NOT be used
         const genericSectionHeader = outputPanel.locator('span.uppercase', { hasText: /^Questionnaires$/i });
@@ -90,7 +92,9 @@ test.describe('Cosmetic Wave 01 — Track B: Output Pack & Relationships Contrac
         await page.goto(`/app/le/${clientLEId}/engagement-new/${relationshipId}?tab=output`);
         await page.waitForLoadState('networkidle');
 
-        const outputPanel = page.locator('#radix-_R_25fiv5uiv5ubriutb_-content-output, [role="tabpanel"]').first();
+        const outputPanel = page
+            .locator('[role="tabpanel"][data-state="active"]')
+            .filter({ has: page.getByText('Output Pack', { exact: true }) });
 
         // Distinct "Relationship Questionnaires" heading must be visible
         const relQHeader = outputPanel.locator('span', { hasText: /Relationship Questionnaires/i });
@@ -101,7 +105,9 @@ test.describe('Cosmetic Wave 01 — Track B: Output Pack & Relationships Contrac
         await page.goto(`/app/le/${clientLEId}/engagement-new/${relationshipId}?tab=output`);
         await page.waitForLoadState('networkidle');
 
-        const outputPanel = page.locator('#radix-_R_25fiv5uiv5ubriutb_-content-output, [role="tabpanel"]').first();
+        const outputPanel = page
+            .locator('[role="tabpanel"][data-state="active"]')
+            .filter({ has: page.getByText('Output Pack', { exact: true }) });
 
         // 1. Verbose phrase must NOT be present
         const verboseDocsHeader = outputPanel.getByText(/Supporting Documents \(not linked to specific questions\)/i);
