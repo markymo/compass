@@ -28,7 +28,14 @@ export async function getAllUsers() {
             memberships: {
                 include: {
                     organization: true,
-                    clientLE: true // Include ClientLE for workspace context
+                    clientLE: {
+                        include: {
+                            owners: {
+                                where: { endAt: null },
+                                include: { party: { select: { id: true, name: true, shortCode: true } } }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -44,11 +51,14 @@ export async function getAllUsers() {
                     orgType: m.organization.types[0],
                     role: m.role
                 };
-            } else if (m.clientLE) {
+            } else if (m.clientLE && !m.clientLE.isDeleted) {
                 // Handle Workspace Memberships
+                const ownerName = m.clientLE.owners?.[0]?.party?.name;
                 return {
                     orgId: m.clientLE.id,
-                    orgName: m.clientLE.name,
+                    orgName: ownerName ? `${m.clientLE.name} (${ownerName})` : m.clientLE.name,
+                    rawLEName: m.clientLE.name,
+                    clientOrgName: ownerName || undefined,
                     orgType: "WORKSPACE", // Distinct type for UI
                     role: m.role
                 };

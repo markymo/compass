@@ -47,8 +47,8 @@ describe('REL-01 / ONP-67 — FI Workbench lists all authorised active relations
     it('1. getFIWorkbenchData discovers all active relationships across multiple engagements even if only one has questions', async () => {
         // Two active engagements for fi-org-1
         prismaMock.fIEngagement.findMany.mockResolvedValue([
-            { clientLE: { name: 'Alpha Client LE' } },
-            { clientLE: { name: 'Beta Client LE' } },
+            { clientLE: { name: 'Alpha Client LE', owners: [{ party: { name: 'Alpha Client Org' } }] } },
+            { clientLE: { name: 'Beta Client LE', owners: [{ party: { name: 'Beta Client Org' } }] } },
         ]);
 
         // Only Alpha Client LE contributes a question record
@@ -78,13 +78,13 @@ describe('REL-01 / ONP-67 — FI Workbench lists all authorised active relations
 
         const result = await getFIWorkbenchData('fi-org-1');
 
-        // Both active LEs must be available in workbench LE options
-        expect(result.les).toContain('Alpha Client LE');
-        expect(result.les).toContain('Beta Client LE');
+        // Both active LEs must be available in workbench LE options with their owning client org
+        expect(result.les).toContain('Alpha Client LE (Alpha Client Org)');
+        expect(result.les).toContain('Beta Client LE (Beta Client Org)');
         expect(result.les).toHaveLength(2);
 
         // Questions array contains the question for Alpha, while Beta has 0 questions
         expect(result.questions).toHaveLength(1);
-        expect(result.questions[0].clientLEName).toBe('Alpha Client LE');
+        expect(result.questions[0].clientLEName).toBe('Alpha Client LE (Alpha Client Org)');
     });
 });

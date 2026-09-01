@@ -534,6 +534,10 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                 include: {
                     commonForClients: {
                         include: {
+                            owners: {
+                                where: { endAt: null },
+                                include: { party: { select: { name: true } } }
+                            },
                             fiEngagements: {
                                 where: engagementFilter,
                                 include: {
@@ -932,12 +936,14 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                 answerVisibility = "NOT_SHARED";
             }
 
+            const leDisplayName = clientOrgName ? `${clientLE?.name || "Unknown"} (${clientOrgName})` : (clientLE?.name || "Unknown");
+
             items.push({
                 id: q.id,
                 supplierOrgId: fiOrgId,
                 relationshipId: engagement?.id || "",
                 clientLEId: clientLE?.id || "",
-                clientLEName: clientLE?.name || "Unknown",
+                clientLEName: leDisplayName,
                 clientOrganizationName: clientOrgName,
 
                 questionnaireId: q.questionnaire.id,
@@ -964,7 +970,7 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                 releasedAt,
 
                 text: q.text,
-                leName: clientLE?.name || "Unknown",
+                leName: leDisplayName,
                 answerType: q.expectedDataType || "TEXT",
                 appDataType: fieldDef?.appDataType || q.expectedDataType || undefined,
                 isLocked: q.isLocked ?? false,
@@ -986,10 +992,23 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
     const activeEngagements = await prisma.fIEngagement.findMany({
         where: engagementFilter,
         select: {
-            clientLE: { select: { name: true } }
+            clientLE: {
+                select: {
+                    name: true,
+                    owners: {
+                        where: { endAt: null },
+                        select: { party: { select: { name: true } } }
+                    }
+                }
+            }
         }
     });
-    const allActiveLENames = activeEngagements.map((e: any) => e.clientLE?.name).filter(Boolean) as string[];
+    const allActiveLENames = (activeEngagements || []).map((e: any) => {
+        const leName = e.clientLE?.name;
+        if (!leName) return null;
+        const ownerName = e.clientLE?.owners?.[0]?.party?.name;
+        return ownerName ? `${leName} (${ownerName})` : leName;
+    }).filter(Boolean) as string[];
     const combinedLEs = Array.from(new Set([...allActiveLENames, ...questions.map((q) => q.clientLEName)])).sort();
 
     const notSharedCount = questions.filter(q => q.answerVisibility === "NOT_SHARED").length;

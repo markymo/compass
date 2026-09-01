@@ -422,8 +422,56 @@ export async function getUserPermissionsProfile(targetUserId: string) {
         };
     }));
 
+    // 5. Discover standalone ClientLE memberships not covered under direct Org memberships
+    const coveredOrgIds = new Set(orgMemberships.map((om: any) => om.organizationId).filter(Boolean));
+    const userLEIds = Array.from(leRoleMap.keys());
+    const additionalOwners = userLEIds.length > 0
+        ? await prisma.clientLEOwner.findMany({
+            where: {
+                clientLEId: { in: userLEIds },
+                endAt: null,
+                partyId: { notIn: Array.from(coveredOrgIds) }
+            },
+            include: {
+                party: true,
+                clientLE: {
+                    select: { id: true, name: true, status: true, isDeleted: true }
+                }
+            }
+        })
+        : [];
+
+    const additionalOrgMap = new Map<string, { org: any; les: any[] }>();
+    for (const ao of additionalOwners) {
+        if (!ao.party || !ao.clientLE || ao.clientLE.isDeleted || ao.clientLE.status === "ARCHIVED") continue;
+        if (!additionalOrgMap.has(ao.party.id)) {
+            additionalOrgMap.set(ao.party.id, {
+                org: {
+                    id: ao.party.id,
+                    name: ao.party.name,
+                    logoUrl: ao.party.logoUrl,
+                    type: ao.party.types && ao.party.types.length > 0 ? ao.party.types[0] : "CLIENT"
+                },
+                les: []
+            });
+        }
+        additionalOrgMap.get(ao.party.id)!.les.push({
+            id: ao.clientLE.id,
+            name: ao.clientLE.name,
+            status: ao.clientLE.status,
+            isDeleted: ao.clientLE.isDeleted,
+            role: leRoleMap.get(ao.clientLE.id) || "NONE"
+        });
+    }
+
+    const additionalTree = Array.from(additionalOrgMap.values()).map(item => ({
+        org: item.org,
+        role: "NONE",
+        les: item.les.sort((a, b) => a.name.localeCompare(b.name))
+    }));
+
     return {
         user,
-        memberships: tree.filter(Boolean) as any[]
+        memberships: [...tree.filter(Boolean), ...additionalTree] as any[]
     };
 }
