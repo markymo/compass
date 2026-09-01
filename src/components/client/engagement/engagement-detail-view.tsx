@@ -305,7 +305,7 @@ export function EngagementDetailView({ le, engagement, questionnaires, commonQue
                         />
                     </TabsContent>
 
-                    <TabsContent value="output" id="radix-_R_25fiv5uiv5ubriutb_-content-output" className="mt-0">
+                    <TabsContent value="output" className="mt-0">
                         <OutputPackBuilder 
                             engagementId={engagement.id}
                             questionnaires={questionnaires}
