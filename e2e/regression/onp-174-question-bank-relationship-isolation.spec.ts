@@ -12,6 +12,16 @@ async function attachScreenshot(page: Page, testInfo: TestInfo, name: string) {
     await testInfo.attach(`${name}-screenshot.png`, { body: image, contentType: 'image/png' });
 }
 
+const password = process.env.UAT_PASSWORD || 'Password123!';
+
+async function login(page: Page, email: string, pass: string) {
+    await page.goto('/login');
+    await page.locator('#email').fill(email);
+    await page.locator('#password').fill(pass);
+    await page.getByRole('button', { name: 'Sign In' }).click();
+    await expect(page).not.toHaveURL(/login/, { timeout: 20000 });
+}
+
 test.describe('ONP-174 / ONP-145 FR-22A — Question Bank Relationship Isolation Security Boundary', () => {
     test.setTimeout(120000);
     const runId = Date.now();
@@ -78,9 +88,10 @@ test.describe('ONP-174 / ONP-145 FR-22A — Question Bank Relationship Isolation
 
     test('ONP-174 FR-22A — Supplier relationship-only user is denied access to Client Question Bank (/app/le/[id]/workbench4)', async ({ browser }, testInfo) => {
         // relationshipAdminAlpha only holds RELATIONSHIP_ADMIN on manifest.relationshipAlpha
-        const context = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.relationshipAdminAlpha });
+        const context = await browser.newContext();
         const page = await context.newPage();
         try {
+            await login(page, manifest.actors.relationshipAdminAlpha.email, password);
             await page.goto(`/app/le/${manifest.alphaClientLE.id}/workbench4`);
             await attachScreenshot(page, testInfo, 'FR-22A-direct-access');
 
@@ -96,9 +107,10 @@ test.describe('ONP-174 / ONP-145 FR-22A — Question Bank Relationship Isolation
     });
 
     test('ONP-174 FR-22A — Home metric drilldowns for Supplier nodes never direct to Client Question Bank (/app/le/...)', async ({ browser }, testInfo) => {
-        const context = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.relationshipAdminAlpha });
+        const context = await browser.newContext();
         const page = await context.newPage();
         try {
+            await login(page, manifest.actors.relationshipAdminAlpha.email, password);
             await page.goto('/app');
             await expect(page.getByRole('heading', { name: 'Relationships' })).toBeVisible({ timeout: 20000 });
 
@@ -110,6 +122,20 @@ test.describe('ONP-174 / ONP-145 FR-22A — Question Bank Relationship Isolation
             // A Supplier persona must not receive any links pointing to /app/le/.../workbench4
             expect(leHrefs.filter(h => h.includes('/app/le/'))).toEqual([]);
             await attachScreenshot(page, testInfo, 'FR-22A-dashboard-links');
+        } finally {
+            await context.close();
+        }
+    });
+
+    test('ONP-174 FR-22A — Authorized Client LE Admin preserves full access to Client Question Bank', async ({ browser }, testInfo) => {
+        const context = await browser.newContext();
+        const page = await context.newPage();
+        try {
+            await login(page, manifest.actors.leAdminAlpha.email, password);
+            await page.goto(`/app/le/${manifest.alphaClientLE.id}/workbench4`);
+            await expect(page.getByPlaceholder('Search questions...')).toBeVisible({ timeout: 20000 });
+            await expect(page.getByRole('link', { name: 'Question Bank' })).toBeVisible();
+            await attachScreenshot(page, testInfo, 'FR-22A-client-access');
         } finally {
             await context.close();
         }
