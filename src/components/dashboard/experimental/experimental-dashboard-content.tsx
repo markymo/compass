@@ -191,7 +191,7 @@ function ExperimentalOrgCard({ org }: { org: OrgNode }) {
                     <CollapsibleContent>
                         <div className="divide-y divide-border bg-card text-card-foreground">
                             {org.children.map((child) => (
-                                <ExperimentalTreeNode key={child.id} item={child} level={1} />
+                                <ExperimentalTreeNode key={child.id} item={child} level={1} orgType={org.orgType} orgId={org.id} />
                             ))}
                         </div>
                     </CollapsibleContent>
@@ -201,7 +201,7 @@ function ExperimentalOrgCard({ org }: { org: OrgNode }) {
     );
 }
 
-function ExperimentalTreeNode({ item, level }: { item: OrgChild; level: number }) {
+function ExperimentalTreeNode({ item, level, orgType, orgId }: { item: OrgChild; level: number; orgType?: string; orgId?: string }) {
     const { preferences, updatePreference } = usePreferences();
     const prefix = item.type === "client" ? "org" : item.type;
     const nodeKey = `${prefix}:${item.id}`;
@@ -227,8 +227,18 @@ function ExperimentalTreeNode({ item, level }: { item: OrgChild; level: number }
         });
     };
 
-    // Determine linkContext for Workbench4 deep linking
+    // Determine linkContext for Workbench4 / Supplier Questions deep linking
     const linkContext = useMemo((): MetricLinkContext | undefined => {
+        if (orgType === "SUPPLIER") {
+            if (item.type === "le") {
+                return { supplierOrgId: orgId, supplierRelName: item.name };
+            }
+            if (item.type === "questionnaire") {
+                return { supplierOrgId: orgId, questionnaireId: item.id };
+            }
+            return undefined;
+        }
+
         const leIdToUse = item.leId;
         if (!leIdToUse) return undefined;
 
@@ -242,7 +252,7 @@ function ExperimentalTreeNode({ item, level }: { item: OrgChild; level: number }
             return { leId: leIdToUse, questionnaireId: item.id };
         }
         return undefined;
-    }, [item.type, item.id, item.leId]);
+    }, [item.type, item.id, item.leId, item.name, orgType, orgId]);
 
     const isCQ = item.type === "questionnaire" && (item.subtitle === "Common Questionnaire" || item.name === "Common Questionnaires");
 
@@ -315,7 +325,7 @@ function ExperimentalTreeNode({ item, level }: { item: OrgChild; level: number }
                 <CollapsibleContent>
                     <div className="divide-y divide-slate-100">
                         {item.children?.map((child) => (
-                            <ExperimentalTreeNode key={child.id} item={child} level={level + 1} />
+                            <ExperimentalTreeNode key={child.id} item={child} level={level + 1} orgType={orgType} orgId={orgId} />
                         ))}
                     </div>
                 </CollapsibleContent>

@@ -11,6 +11,7 @@ import { SourceType } from "@prisma/client";
 
 import * as Sentry from "@sentry/nextjs";
 import { ActionDomainError, handleActionError } from "@/lib/action-error-handler";
+import { can, Action } from "@/lib/auth/permissions";
 
 // KycWriteService is deprecated in favor of FieldClaimService
 
@@ -43,6 +44,22 @@ export async function updateFieldManually(
 
                 if (!userId) {
                     throw new ActionDomainError("Authentication required for manual updates.");
+                }
+
+                const memberships = await prisma.membership.findMany({
+                    where: { userId },
+                    select: {
+                        organizationId: true,
+                        clientLEId: true,
+                        fiEngagementId: true,
+                        role: true,
+                        clientLE: { select: { isDeleted: true, status: true } }
+                    }
+                });
+
+                const allowed = await can({ id: userId, memberships }, Action.LE_EDIT_MASTER_DATA, { clientLEId }, prisma);
+                if (!allowed) {
+                    throw new ActionDomainError("Unauthorized to update Master data for this Legal Entity.");
                 }
 
                 // 1. Resolve Subject and Scope
@@ -259,6 +276,23 @@ export async function updateCustomFieldManually(
         if (!userId) {
             throw new ActionDomainError("Authentication required for custom field updates.");
         }
+
+        const memberships = await prisma.membership.findMany({
+            where: { userId },
+            select: {
+                organizationId: true,
+                clientLEId: true,
+                fiEngagementId: true,
+                role: true,
+                clientLE: { select: { isDeleted: true, status: true } }
+            }
+        });
+
+        const allowed = await can({ id: userId, memberships }, Action.LE_EDIT_MASTER_DATA, { clientLEId }, prisma);
+        if (!allowed) {
+            throw new ActionDomainError("Unauthorized to update Master data for this Legal Entity.");
+        }
+
         const le = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
         if (!le) throw new ActionDomainError("LE not found");
 

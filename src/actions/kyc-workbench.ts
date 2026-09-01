@@ -18,6 +18,9 @@ import { z } from 'zod';
 import { ensureQuestionNotReferenceSnapshot } from "./questionnaire";
 import { resolveFieldForDisplay, resolveFieldCollectionForDisplay, resolveFieldDisplayContext } from "@/lib/master-data/field-interpreter";
 
+import { getIdentity } from "@/lib/auth";
+import { can, Action } from "@/lib/auth/permissions";
+
 export interface Workbench4Data {
     questions: ConsoleQuestion[];
     masterFields: Array<{ fieldNo: number; label: string; category?: string | null; dataType?: string | null; currentValue?: any; attachmentCount?: number }>;
@@ -38,7 +41,7 @@ export interface Workbench4Data {
  */
 import * as Sentry from "@sentry/nextjs";
 
-export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
+export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | null> {
     return await Sentry.startSpan(
         {
             name: "probe.workbench4.load",
@@ -49,6 +52,26 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
             },
         },
         async () => {
+            const identity = await getIdentity();
+            if (!identity?.userId) return null;
+            const { userId } = identity;
+
+            const memberships = await prisma.membership.findMany({
+                where: { userId },
+                select: {
+                    organizationId: true,
+                    clientLEId: true,
+                    fiEngagementId: true,
+                    role: true,
+                    clientLE: { select: { isDeleted: true, status: true } }
+                }
+            });
+
+            const allowed = await can({ id: userId, memberships }, Action.LE_VIEW_MASTER_DATA, { clientLEId: leId }, prisma);
+            if (!allowed) {
+                return null;
+            }
+
             const questions = await getConsoleQuestions(leId, true);
 
     // 1. Get standard Master Fields & Groups (with sub-field items for batch resolver)
@@ -447,6 +470,26 @@ export async function mapQuestionToField(
 ) {
     try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     try {
+        const identity = await getIdentity();
+        if (!identity?.userId) return { success: false, error: "Unauthorized" };
+        const { userId } = identity;
+
+        const memberships = await prisma.membership.findMany({
+            where: { userId },
+            select: {
+                organizationId: true,
+                clientLEId: true,
+                fiEngagementId: true,
+                role: true,
+                clientLE: { select: { isDeleted: true, status: true } }
+            }
+        });
+
+        const allowed = await can({ id: userId, memberships }, Action.LE_EDIT_MASTER_DATA, { clientLEId: leId }, prisma);
+        if (!allowed) {
+            return { success: false, error: "Unauthorized to modify question mappings for this Legal Entity." };
+        }
+
         const targetStatus = 'DRAFT';
 
         await prisma.question.update({

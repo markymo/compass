@@ -6,9 +6,11 @@ import { cn } from "@/lib/utils";
 import { QuestionStateMetrics } from "@/lib/metrics/question-state-types";
 
 export type MetricLinkContext = {
-    leId: string;
+    leId?: string;
     relationshipId?: string;
     questionnaireId?: string;
+    supplierOrgId?: string;
+    supplierRelName?: string;
 };
 
 export interface ExperimentalMetricSummaryProps {
@@ -25,7 +27,26 @@ export function ExperimentalMetricSummary({
     const { questionnairesCount = 0, total, external, userInput, defaultResponse, unanswered } = metrics;
 
     const buildHref = (answerState?: "external" | "user_input" | "default_response" | "unanswered") => {
-        if (!linkContext || !linkContext.leId) return "#";
+        if (!linkContext) return "#";
+
+        // Supplier Org route
+        if (linkContext.supplierOrgId) {
+            const params = new URLSearchParams();
+            if (linkContext.supplierRelName) {
+                params.set("rel", linkContext.supplierRelName);
+            }
+            if (linkContext.questionnaireId) {
+                params.set("q", linkContext.questionnaireId);
+            }
+            if (answerState) {
+                params.set("status", answerState === "unanswered" ? "UNANSWERED" : "ANSWERED");
+            }
+            const queryString = params.toString();
+            return `/app/s/${linkContext.supplierOrgId}/questions${queryString ? `?${queryString}` : ""}`;
+        }
+
+        // Client LE route
+        if (!linkContext.leId) return "#";
         const params = new URLSearchParams();
 
         if (linkContext.relationshipId) {
@@ -43,6 +64,8 @@ export function ExperimentalMetricSummary({
     };
 
     const isZeroPopulation = total === 0 && questionnairesCount === 0;
+
+    const hasLink = linkContext && (linkContext.leId || linkContext.supplierOrgId);
 
     const renderCell = (
         val: number,
@@ -63,7 +86,7 @@ export function ExperimentalMetricSummary({
             ? "text-sm font-medium font-mono text-slate-300 dark:text-zinc-700"
             : "text-sm font-medium font-mono text-slate-700 dark:text-zinc-300";
 
-        if (linkContext && linkContext.leId && !isStructuralCount) {
+        if (hasLink && !isStructuralCount) {
             const href = buildHref(answerState);
             return (
                 <Link
@@ -95,7 +118,7 @@ export function ExperimentalMetricSummary({
             </span>
         );
 
-        if (linkContext && linkContext.leId) {
+        if (hasLink) {
             const href = buildHref(undefined);
             return (
                 <Link
