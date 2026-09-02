@@ -34,7 +34,7 @@ export function PendingInvitationsBanner({ invitations }: { invitations: Pending
         try {
             const res = await claimPendingInvitation(id);
             if (res.success && res.redirectUrl) {
-                router.push(res.redirectUrl);
+                window.location.href = res.redirectUrl;
             } else {
                 setError(res.error || "Failed to accept invitation");
                 setClaimingId(null);
