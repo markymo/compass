@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
 import { render } from "@react-email/render";
 import { SupplierInviteEmail } from "@/components/emails/supplier-invite-email";
+import { SupplierAccessGrantedEmail } from "@/components/emails/supplier-access-granted-email";
 import crypto from "crypto";
 import { getAppBaseUrl } from "@/lib/env";
 
@@ -50,6 +51,15 @@ export async function inviteSupplier(
         return { success: false, error: "You do not have permission to invite suppliers for this entity." };
     }
 
+    // Role validation: Only RELATIONSHIP_ADMIN and RELATIONSHIP_USER are permitted
+    const ALLOWED_RELATIONSHIP_ROLES = ["RELATIONSHIP_ADMIN", "RELATIONSHIP_USER"];
+    if (!ALLOWED_RELATIONSHIP_ROLES.includes(role)) {
+        return {
+            success: false,
+            error: `Invalid role "${role}". Only RELATIONSHIP_ADMIN and RELATIONSHIP_USER are permitted for Relationship Team members.`
+        };
+    }
+
     // 4. Existing User Fork: Auto-Add Immediate Membership
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -60,15 +70,11 @@ export async function inviteSupplier(
             return { success: false, error: "User is already a member of this relationship." };
         }
 
-        let assignedRole = role;
-        if (assignedRole === "ORG_ADMIN") assignedRole = "RELATIONSHIP_ADMIN";
-        if (assignedRole === "ORG_MEMBER" || assignedRole === "SUPPLIER_CONTACT") assignedRole = "RELATIONSHIP_USER";
-
         await prisma.membership.create({
             data: {
                 userId: existingUser.id,
                 fiEngagementId,
-                role: assignedRole,
+                role,
             }
         });
 
@@ -84,7 +90,7 @@ export async function inviteSupplier(
                 fiEngagementId,
                 userId: existingUser.id,
                 type: "TEAM_MEMBER_ADDED",
-                details: { email, role: assignedRole },
+                details: { email, role },
             },
         });
 
@@ -92,14 +98,13 @@ export async function inviteSupplier(
         try {
             const baseUrl = await getAppBaseUrl();
             const directWorkspaceUrl = `${baseUrl}/app/s/${engagement.fiOrgId}`;
-            const emailHtml = await render(SupplierInviteEmail({
+            const emailHtml = await render(SupplierAccessGrantedEmail({
                 inviterName: (identity as any).name || identity.email || 'OnPro Administrator',
                 inviterEmail: identity.email || 'noreply@onpro.tech',
                 orgName: engagement.org.name,
                 leName: engagement.clientLE.name,
-                role: assignedRole,
-                message: message || "You have been granted access to collaborate on this relationship.",
-                inviteLink: directWorkspaceUrl
+                role,
+                workspaceUrl: directWorkspaceUrl
             }));
 
             const resendApiKey = process.env.RESEND_API_KEY;
@@ -118,7 +123,7 @@ export async function inviteSupplier(
 
         revalidatePath(`/app/s/${engagement.fiOrgId}/team`);
         revalidatePath(`/app/le/${engagement.clientLEId}/relationships`);
-        return { success: true, autoAdded: true, role: assignedRole };
+        return { success: true, autoAdded: true, role };
     }
 
     // 5. Check for Pending Invitation (for unknown email)

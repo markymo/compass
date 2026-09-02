@@ -63,7 +63,7 @@ describe('INV-02 / ONP-69 — FI Team Invite Contract', () => {
         });
     });
 
-    it('1. inviteSupplier creates invitation with canonical SUPPLIER_CONTACT role, hashed token, and fiEngagementId scope', async () => {
+    it('1. inviteSupplier creates invitation with canonical RELATIONSHIP_USER role, hashed token, and fiEngagementId scope', async () => {
         prismaMock.fIEngagement.findUnique.mockResolvedValue({
             id: 'eng-1',
             clientLEId: 'le-1',
@@ -75,18 +75,18 @@ describe('INV-02 / ONP-69 — FI Team Invite Contract', () => {
         prismaMock.invitation.create.mockResolvedValue({
             id: 'inv-supp-1',
             sentToEmail: 'supplier.rep@bank.com',
-            role: 'SUPPLIER_CONTACT',
+            role: 'RELATIONSHIP_USER',
             fiEngagementId: 'eng-1'
         });
 
-        const res = await inviteSupplier('eng-1', 'supplier.rep@bank.com', 'SUPPLIER_CONTACT');
+        const res = await inviteSupplier('eng-1', 'supplier.rep@bank.com', 'RELATIONSHIP_USER');
 
         expect(res.success).toBe(true);
         expect(res.token).toBeDefined();
         expect(prismaMock.invitation.create).toHaveBeenCalledWith({
             data: expect.objectContaining({
                 sentToEmail: 'supplier.rep@bank.com',
-                role: 'SUPPLIER_CONTACT',
+                role: 'RELATIONSHIP_USER',
                 fiEngagementId: 'eng-1',
                 createdByUserId: 'client-admin-1',
                 tokenHash: expect.any(String),

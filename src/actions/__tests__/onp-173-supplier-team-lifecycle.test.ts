@@ -2,9 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import prisma from '@/lib/prisma';
 import { getIdentity } from '@/lib/auth';
 import { inviteSupplier } from '../supplier-invitations';
-import { inviteUser, revokeInvitation, resendInvitation } from '../invitations';
+import { inviteUser, revokeInvitation, resendInvitation, updateInvitationRole, getAuthenticatedPendingInvitations, claimPendingInvitation } from '../invitations';
 import { updateMembershipRole, removeMembership } from '../memberships';
 import { determineRedirectUrl, registerAndAcceptInvitation, acceptInvitation } from '../accept-invitation';
+import { getSupplierTeamMembers } from '../fi';
 import { Action, can, Role } from '@/lib/auth/permissions';
 import { getFIPortalTabs } from '@/config/navigation-tabs';
 import crypto from 'crypto';
@@ -560,6 +561,7 @@ describe('ONP-173 — Supplier Team Membership & Invitation Onboarding Workflow'
             const janeUserId = 'user-jane-authenticated';
 
             vi.mocked(getIdentity).mockResolvedValue({ userId: janeUserId, email: janeEmail } as any);
+            prismaMock.user.findUnique.mockResolvedValue({ id: janeUserId, email: janeEmail, emailVerified: new Date() });
 
             const mockJaneInvite = {
                 id: 'inv-jane-pending',
@@ -683,6 +685,352 @@ describe('ONP-173 — Supplier Team Membership & Invitation Onboarding Workflow'
 
             const canManage = await can(plainMember as any, Action.ENG_MANAGE_USERS, { engagementId: engagementAId }, prismaMock);
             expect(canManage).toBe(false);
+        });
+    });
+
+    // ========================================================================
+    // Boundary Hardening & Review Defect Tests (Items 1-7)
+    // ========================================================================
+    describe('Boundary Hardening & Review Defect Tests (Items 1-7)', () => {
+        // Item 1: FR-15 Email Verification Gate
+        describe('Item 1: FR-15 Email Verification Gate', () => {
+            const userEmail = 'unverified.user@example.com';
+            const userId = 'unverified-user-1';
+            const mockInvite = {
+                id: 'inv-unverified-test',
+                sentToEmail: userEmail,
+                role: 'RELATIONSHIP_USER',
+                fiEngagementId: engagementAId,
+                expiresAt: new Date(Date.now() + 86400000),
+                usedAt: null,
+                revokedAt: null,
+                fiEngagement: {
+                    id: engagementAId,
+                    fiOrgId: supplierOrgAId,
+                    org: { id: supplierOrgAId, name: 'Supplier Org A' },
+                    clientLE: { id: clientLEId, name: 'Client LE Alpha' },
+                },
+            };
+
+            it('User with matching email but emailVerified = null cannot discover or claim pending invitations', async () => {
+                vi.mocked(getIdentity).mockResolvedValue({ userId, email: userEmail } as any);
+                prismaMock.user.findUnique.mockResolvedValue({
+                    id: userId,
+                    email: userEmail,
+                    emailVerified: null,
+                });
+                prismaMock.invitation.findMany.mockResolvedValue([mockInvite]);
+                prismaMock.invitation.findUnique.mockResolvedValue(mockInvite as any);
+
+                const pending = await getAuthenticatedPendingInvitations();
+                expect(pending).toHaveLength(0);
+
+                const claimResult = await claimPendingInvitation('inv-unverified-test');
+                expect(claimResult.success).toBe(false);
+                expect(claimResult.error).toContain('Email must be verified');
+
+                expect(prismaMock.membership.create).not.toHaveBeenCalled();
+                expect(prismaMock.invitation.update).not.toHaveBeenCalled();
+            });
+
+            it('Same user after emailVerified is set can discover and claim pending invitation', async () => {
+                vi.mocked(getIdentity).mockResolvedValue({ userId, email: userEmail } as any);
+                prismaMock.user.findUnique.mockResolvedValue({
+                    id: userId,
+                    email: userEmail,
+                    emailVerified: new Date(),
+                });
+                prismaMock.invitation.findMany.mockResolvedValue([mockInvite]);
+                prismaMock.invitation.findUnique.mockResolvedValue(mockInvite as any);
+
+                const pending = await getAuthenticatedPendingInvitations();
+                expect(pending).toHaveLength(1);
+                expect(pending[0].id).toBe('inv-unverified-test');
+
+                const claimResult = await claimPendingInvitation('inv-unverified-test');
+                expect(claimResult.success).toBe(true);
+                expect(prismaMock.membership.create).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        data: expect.objectContaining({
+                            userId,
+                            fiEngagementId: engagementAId,
+                            role: 'RELATIONSHIP_USER',
+                        }),
+                    })
+                );
+                expect(prismaMock.invitation.update).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        where: { id: 'inv-unverified-test' },
+                        data: expect.objectContaining({
+                            usedAt: expect.any(Date),
+                            acceptedByUserId: userId,
+                        }),
+                    })
+                );
+            });
+        });
+
+        // Item 2: Multi-Grant Independence
+        describe('Item 2: Multi-Grant Independence', () => {
+            it('Target user holding ORG_ADMIN and RELATIONSHIP_ADMIN: updating or removing relationship grant leaves ORG_ADMIN intact', async () => {
+                const targetUserId = 'fred-multi-hat';
+                const orgMemId = 'mem-org-admin-fred';
+                const relMemId = 'mem-rel-alpha-fred';
+
+                vi.mocked(getIdentity).mockResolvedValue({ userId: 'actor-admin', email: 'actor@supplier-a.com' } as any);
+                prismaMock.membership.findMany.mockResolvedValue([
+                    { id: 'actor-mem', userId: 'actor-admin', organizationId: supplierOrgAId, role: 'ORG_ADMIN', organization: { types: ['SUPPLIER', 'FI'] } },
+                ]);
+
+                const rawMemberships = [
+                    {
+                        id: orgMemId,
+                        userId: targetUserId,
+                        organizationId: supplierOrgAId,
+                        role: 'ORG_ADMIN',
+                        createdAt: new Date(),
+                        user: { id: targetUserId, name: 'Fred Multi', email: 'fred@example.com' },
+                    },
+                    {
+                        id: relMemId,
+                        userId: targetUserId,
+                        fiEngagementId: engagementAId,
+                        role: 'RELATIONSHIP_ADMIN',
+                        createdAt: new Date(),
+                        user: { id: targetUserId, name: 'Fred Multi', email: 'fred@example.com' },
+                        fiEngagement: { id: engagementAId, clientLE: { name: 'Client LE Alpha' } },
+                    },
+                ];
+                prismaMock.membership.findMany.mockResolvedValue(rawMemberships);
+                prismaMock.invitation.findMany.mockResolvedValue([]);
+
+                const team = await getSupplierTeamMembers(supplierOrgAId);
+                const fred = team.members.find((m) => m.userId === targetUserId);
+                expect(fred).toBeDefined();
+                expect(fred?.orgRole).toBe('ORG_ADMIN');
+                expect(fred?.orgMembershipId).toBe(orgMemId);
+                expect(fred?.relationshipGrants).toHaveLength(1);
+                expect(fred?.relationshipGrants[0].membershipId).toBe(relMemId);
+                expect(fred?.relationshipGrants[0].role).toBe('RELATIONSHIP_ADMIN');
+
+                // Update relationship role
+                prismaMock.membership.findUnique.mockResolvedValue({
+                    id: relMemId,
+                    userId: targetUserId,
+                    fiEngagementId: engagementAId,
+                    role: 'RELATIONSHIP_ADMIN',
+                });
+                prismaMock.membership.update.mockResolvedValue({ id: relMemId, role: 'RELATIONSHIP_USER' });
+
+                const updateRes = await updateMembershipRole(relMemId, 'RELATIONSHIP_USER');
+                expect(updateRes.success).toBe(true);
+                expect(prismaMock.membership.update).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        where: { id: relMemId },
+                        data: { role: 'RELATIONSHIP_USER' },
+                    })
+                );
+                expect(prismaMock.membership.update).not.toHaveBeenCalledWith(
+                    expect.objectContaining({ where: { id: orgMemId } })
+                );
+
+                // Remove relationship membership
+                prismaMock.membership.delete.mockResolvedValue({ id: relMemId });
+                const removeRes = await removeMembership(relMemId);
+                expect(removeRes.success).toBe(true);
+                expect(prismaMock.membership.delete).toHaveBeenCalledWith(
+                    expect.objectContaining({ where: { id: relMemId } })
+                );
+                expect(prismaMock.membership.delete).not.toHaveBeenCalledWith(
+                    expect.objectContaining({ where: { id: orgMemId } })
+                );
+            });
+
+            it('Target user holding grants on multiple relationships retains both independently', async () => {
+                const targetUserId = 'multi-rel-user';
+                const alphaMemId = 'mem-rel-alpha';
+                const betaMemId = 'mem-rel-beta';
+
+                vi.mocked(getIdentity).mockResolvedValue({ userId: 'actor-admin', email: 'actor@supplier-a.com' } as any);
+                prismaMock.membership.findMany.mockResolvedValue([
+                    { id: 'actor-mem', userId: 'actor-admin', organizationId: supplierOrgAId, role: 'ORG_ADMIN', organization: { types: ['SUPPLIER', 'FI'] } },
+                    {
+                        id: alphaMemId,
+                        userId: targetUserId,
+                        fiEngagementId: engagementAId,
+                        role: 'RELATIONSHIP_ADMIN',
+                        createdAt: new Date(),
+                        user: { id: targetUserId, name: 'Alice', email: 'alice@example.com' },
+                        fiEngagement: { id: engagementAId, clientLE: { name: 'Client LE Alpha' } },
+                    },
+                    {
+                        id: betaMemId,
+                        userId: targetUserId,
+                        fiEngagementId: engagementBId,
+                        role: 'RELATIONSHIP_USER',
+                        createdAt: new Date(),
+                        user: { id: targetUserId, name: 'Alice', email: 'alice@example.com' },
+                        fiEngagement: { id: engagementBId, clientLE: { name: 'Client LE Beta' } },
+                    },
+                ]);
+                prismaMock.invitation.findMany.mockResolvedValue([]);
+
+                const team = await getSupplierTeamMembers(supplierOrgAId);
+                const alice = team.members.find((m) => m.userId === targetUserId);
+                expect(alice?.relationshipGrants).toHaveLength(2);
+                expect(alice?.relationshipGrants.map((g) => g.relationshipId)).toEqual([engagementAId, engagementBId]);
+            });
+        });
+
+        // Item 3: Per-Relationship Scoping & Server Denial
+        describe('Item 3: Per-Relationship Scoping & Server Denial', () => {
+            it('Actor who is RELATIONSHIP_ADMIN on Alpha and RELATIONSHIP_USER on Beta is denied managing Beta', async () => {
+                const actorId = 'scoped-actor';
+                const actorMemberships = [
+                    { id: 'mem-act-alpha', userId: actorId, fiEngagementId: engagementAId, role: 'RELATIONSHIP_ADMIN' },
+                    { id: 'mem-act-beta', userId: actorId, fiEngagementId: engagementBId, role: 'RELATIONSHIP_USER' },
+                ];
+                vi.mocked(getIdentity).mockResolvedValue({ userId: actorId, email: 'actor@domain.com' } as any);
+                prismaMock.membership.findMany.mockResolvedValue(actorMemberships);
+
+                const canAlpha = await can({ id: actorId, memberships: actorMemberships } as any, Action.ENG_MANAGE_USERS, { engagementId: engagementAId }, prismaMock);
+                const canBeta = await can({ id: actorId, memberships: actorMemberships } as any, Action.ENG_MANAGE_USERS, { engagementId: engagementBId }, prismaMock);
+
+                expect(canAlpha).toBe(true);
+                expect(canBeta).toBe(false);
+
+                const targetBetaMemId = 'target-beta-mem';
+                prismaMock.membership.findUnique.mockResolvedValue({
+                    id: targetBetaMemId,
+                    userId: 'other-user',
+                    fiEngagementId: engagementBId,
+                    role: 'RELATIONSHIP_USER',
+                });
+
+                const forgedRes = await removeMembership(targetBetaMemId);
+                expect(forgedRes.success).toBe(false);
+                expect(forgedRes.error).toContain('Unauthorized');
+                expect(prismaMock.membership.delete).not.toHaveBeenCalled();
+            });
+        });
+
+        // Item 4 & Amendment 1: Strict Relationship Role Validation
+        describe('Item 4 & Amendment 1: Strict Relationship Role Validation', () => {
+            beforeEach(() => {
+                vi.mocked(getIdentity).mockResolvedValue({ userId: 'admin-id', email: 'admin@supplier.com' } as any);
+                prismaMock.membership.findMany.mockResolvedValue([
+                    { id: 'mem-admin', userId: 'admin-id', organizationId: supplierOrgAId, role: 'ORG_ADMIN', organization: { types: ['SUPPLIER', 'FI'] } },
+                ]);
+            });
+
+            it('inviteSupplier rejects non-canonical roles (LE_ADMIN, ORG_ADMIN, SYSTEM_ADMIN, SUPPLIER_CONTACT, arbitrary)', async () => {
+                const invalidRoles = ['LE_ADMIN', 'ORG_ADMIN', 'SYSTEM_ADMIN', 'SUPPLIER_CONTACT', 'CUSTOM_ROLE'];
+
+                for (const badRole of invalidRoles) {
+                    const res = await inviteSupplier(engagementAId, 'newbie@domain.com', badRole);
+                    expect(res.success).toBe(false);
+                    expect(res.error).toContain('Only RELATIONSHIP_ADMIN and RELATIONSHIP_USER are permitted');
+                }
+
+                expect(prismaMock.invitation.create).not.toHaveBeenCalled();
+                expect(prismaMock.membership.create).not.toHaveBeenCalled();
+            });
+
+            it('Generic inviteUser rejects non-canonical roles for fiEngagementId scope', async () => {
+                const invalidRoles = ['SUPPLIER_CONTACT', 'ORG_ADMIN', 'LE_ADMIN', 'SYSTEM_ADMIN', 'ARBITRARY_ROLE'];
+
+                for (const badRole of invalidRoles) {
+                    const res = await inviteUser({
+                        fiEngagementId: engagementAId,
+                        email: 'test.invite@example.com',
+                        role: badRole,
+                    });
+                    expect(res.success).toBe(false);
+                    expect(res.error).toMatch(/Invalid delegation|Only RELATIONSHIP_ADMIN and RELATIONSHIP_USER/);
+                }
+
+                expect(prismaMock.invitation.create).not.toHaveBeenCalled();
+            });
+
+            it('updateInvitationRole rejects non-canonical roles for engagement invitations', async () => {
+                prismaMock.invitation.findUnique.mockResolvedValue({
+                    id: 'inv-target',
+                    fiEngagementId: engagementAId,
+                    role: 'RELATIONSHIP_USER',
+                    usedAt: null,
+                    createdByUserId: 'admin-id',
+                });
+
+                const res = await updateInvitationRole('inv-target', 'ORG_ADMIN');
+                expect(res.success).toBe(false);
+                expect(res.error).toContain('Only RELATIONSHIP_ADMIN and RELATIONSHIP_USER are permitted');
+                expect(prismaMock.invitation.update).not.toHaveBeenCalled();
+            });
+        });
+
+        // Item 6 & Amendment 2: Atomic Claim Verification Inside Transaction
+        describe('Item 6 & Amendment 2: Atomic Claim Transaction', () => {
+            it('claimPendingInvitation verifies user within transaction and rolls back atomically on failure', async () => {
+                const userId = 'tx-user';
+                const userEmail = 'tx.user@domain.com';
+                const invId = 'inv-tx-test';
+
+                vi.mocked(getIdentity).mockResolvedValue({ userId, email: userEmail } as any);
+
+                prismaMock.$transaction.mockImplementation(async (txCb: any) => {
+                    return txCb({
+                        ...prismaMock,
+                        user: {
+                            findUnique: vi.fn().mockResolvedValue({
+                                id: userId,
+                                email: userEmail,
+                                emailVerified: null, // Unverified!
+                            }),
+                        },
+                    });
+                });
+
+                const res = await claimPendingInvitation(invId);
+                expect(res.success).toBe(false);
+                expect(res.error).toContain('Email must be verified');
+
+                expect(prismaMock.membership.create).not.toHaveBeenCalled();
+                expect(prismaMock.invitation.update).not.toHaveBeenCalled();
+            });
+        });
+
+        // Item 7: Shared Resend Semantics
+        describe('Item 7: Shared Resend Semantics', () => {
+            it('resendInvitation delivers fresh invitation link for ClientLE and Organization invitations', async () => {
+                vi.mocked(getIdentity).mockResolvedValue({ userId: 'le-admin', email: 'leadmin@corp.com' } as any);
+                prismaMock.membership.findMany.mockResolvedValue([
+                    { id: 'le-mem', userId: 'le-admin', clientLEId, role: 'LE_ADMIN', clientLE: { isDeleted: false } },
+                ]);
+                prismaMock.clientLEOwner.findMany.mockResolvedValue([]);
+                prismaMock.invitation.findUnique.mockResolvedValue({
+                    id: 'inv-le-resend',
+                    clientLEId,
+                    role: 'LE_USER',
+                    sentToEmail: 'le.invitee@corp.com',
+                    usedAt: null,
+                    revokedAt: null,
+                });
+                prismaMock.invitation.update.mockResolvedValue({ id: 'inv-le-resend' });
+
+                const res = await resendInvitation('inv-le-resend');
+                expect(res.success).toBe(true);
+                expect(res.newInviteLink).toBeDefined();
+                expect(res.newInviteLink).toContain('/invite/');
+                expect(prismaMock.invitation.update).toHaveBeenCalledWith(
+                    expect.objectContaining({
+                        where: { id: 'inv-le-resend' },
+                        data: expect.objectContaining({
+                            tokenHash: expect.any(String),
+                            expiresAt: expect.any(Date),
+                        }),
+                    })
+                );
+            });
         });
     });
 });

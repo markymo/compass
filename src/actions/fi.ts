@@ -1070,6 +1070,14 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
     };
 }
 
+export interface SupplierRelationshipGrant {
+    relationshipId: string;
+    relationshipName: string;
+    membershipId: string;
+    role: string;
+    roleLabel: string;
+}
+
 export interface SupplierTeamMemberAccessScope {
     kind: "SUPPLIER" | "RELATIONSHIPS";
     relationships?: {
@@ -1086,6 +1094,10 @@ export interface SupplierTeamMemberSummary {
     fiEngagementId?: string | null;
     name: string | null;
     email: string;
+    orgRole?: string | null;
+    orgRoleLabel?: string | null;
+    orgMembershipId?: string | null;
+    relationshipGrants: SupplierRelationshipGrant[];
     role: string;
     roleLabel: string;
     accessScope: SupplierTeamMemberAccessScope;
@@ -1099,6 +1111,9 @@ export interface SupplierPendingInvitationSummary {
     roleLabel: string;
     accessScope: string;
     fiEngagementId?: string | null;
+    relationshipId?: string | null;
+    relationshipName?: string | null;
+    isOrgWide: boolean;
     invitedAt: Date | string;
     expiresAt: Date | string | null;
 }
@@ -1235,52 +1250,66 @@ export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierT
     rawMemberships.forEach((m: any) => {
         if (!m.user) return;
         const uId = m.user.id;
-        const existing = memberMap.get(uId);
+        let existing = memberMap.get(uId);
 
         const isSupplierWide = m.organizationId === fiOrgId;
         const roleLabel = formatSupplierRoleLabel(m.role);
-        const relEntry = m.fiEngagement
-            ? [{ id: m.fiEngagement.id, clientLEName: m.fiEngagement.clientLE?.name || "Unknown ClientLE", membershipId: m.id, role: m.role }]
-            : [];
 
         if (!existing) {
-            const accessScope: SupplierTeamMemberAccessScope = isSupplierWide
-                ? { kind: "SUPPLIER" }
-                : {
-                      kind: "RELATIONSHIPS",
-                      relationships: relEntry
-                  };
-
-            memberMap.set(uId, {
+            existing = {
                 userId: uId,
                 membershipId: m.id,
                 fiEngagementId: m.fiEngagementId || null,
                 name: m.user.name || null,
                 email: m.user.email || "No Email",
+                orgRole: isSupplierWide ? m.role : null,
+                orgRoleLabel: isSupplierWide ? roleLabel : null,
+                orgMembershipId: isSupplierWide ? m.id : null,
+                relationshipGrants: [],
                 role: m.role,
                 roleLabel,
-                accessScope,
+                accessScope: isSupplierWide ? { kind: "SUPPLIER" } : { kind: "RELATIONSHIPS", relationships: [] },
                 joinedAt: m.createdAt ? m.createdAt.toISOString() : null
-            });
-        } else {
-            // Upgrade access scope to SUPPLIER if supplier-wide membership exists
-            if (isSupplierWide) {
-                existing.accessScope = { kind: "SUPPLIER" };
-                if (m.role === "ORG_ADMIN") {
-                    existing.role = m.role;
-                    existing.roleLabel = roleLabel;
-                    existing.membershipId = m.id;
-                }
-            } else if (existing.accessScope.kind === "RELATIONSHIPS" && m.fiEngagement) {
-                const rels = existing.accessScope.relationships || [];
-                if (!rels.some((r) => r.id === m.fiEngagement.id)) {
-                    rels.push({
-                        id: m.fiEngagement.id,
-                        clientLEName: m.fiEngagement.clientLE?.name || "Unknown ClientLE",
-                        membershipId: m.id,
-                        role: m.role
-                    });
-                }
+            };
+            memberMap.set(uId, existing);
+        }
+
+        if (isSupplierWide) {
+            existing.orgRole = m.role;
+            existing.orgRoleLabel = roleLabel;
+            existing.orgMembershipId = m.id;
+            existing.accessScope.kind = "SUPPLIER";
+            if (m.role === "ORG_ADMIN") {
+                existing.role = m.role;
+                existing.roleLabel = roleLabel;
+                existing.membershipId = m.id;
+            }
+        }
+
+        if (m.fiEngagement) {
+            const relId = m.fiEngagement.id;
+            const relName = m.fiEngagement.clientLE?.name || "Unknown ClientLE";
+
+            if (!existing.relationshipGrants.some((g) => g.membershipId === m.id)) {
+                existing.relationshipGrants.push({
+                    relationshipId: relId,
+                    relationshipName: relName,
+                    membershipId: m.id,
+                    role: m.role,
+                    roleLabel: formatSupplierRoleLabel(m.role),
+                });
+            }
+
+            if (!existing.accessScope.relationships) {
+                existing.accessScope.relationships = [];
+            }
+            if (!existing.accessScope.relationships.some((r) => r.id === relId)) {
+                existing.accessScope.relationships.push({
+                    id: relId,
+                    clientLEName: relName,
+                    membershipId: m.id,
+                    role: m.role
+                });
             }
         }
     });
@@ -1316,10 +1345,11 @@ export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierT
 
     const pendingSummaries: SupplierPendingInvitationSummary[] = pendingInvites.map((inv: any) => {
         const isOrgWide = inv.organizationId === fiOrgId;
+        const relName = inv.fiEngagement?.clientLE?.name || null;
         const scopeStr = isOrgWide
             ? "All Relationships"
-            : inv.fiEngagement?.clientLE?.name
-            ? inv.fiEngagement.clientLE.name
+            : relName
+            ? relName
             : "Relationship Access";
 
         return {
@@ -1329,6 +1359,9 @@ export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierT
             roleLabel: formatSupplierRoleLabel(inv.role),
             accessScope: scopeStr,
             fiEngagementId: inv.fiEngagementId || null,
+            relationshipId: inv.fiEngagementId || null,
+            relationshipName: relName,
+            isOrgWide,
             invitedAt: inv.createdAt ? inv.createdAt.toISOString() : new Date().toISOString(),
             expiresAt: inv.expiresAt ? inv.expiresAt.toISOString() : null
         };

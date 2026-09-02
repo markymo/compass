@@ -9,7 +9,7 @@ import { Resend } from "resend";
 import { render } from "@react-email/render";
 import { TeamInviteEmail } from "@/components/emails/team-invite-email";
 import { SupplierInviteEmail } from "@/components/emails/supplier-invite-email";
-import { determineRedirectUrl } from "./accept-invitation";
+import { determineRedirectUrl, reconcileQuestionAssignments } from "./accept-invitation";
 import { recordActivity, LEActivityType } from "@/lib/le-activity";
 import { logActivity } from "./logging";
 import { BRAND } from "@/config/brand";
@@ -45,9 +45,7 @@ const DELEGATION_TABLE: Record<string, { requiredAction: Action; allowedRoles: s
     // LE scope: LE admins can grant LE_USER
     LE_LE_USER: { requiredAction: Action.LE_MANAGE_USERS, allowedRoles: ["LE_USER"] },
 
-    // Engagement scope: LE admins can invite Supplier contacts
-    ENG_SUPPLIER_CONTACT: { requiredAction: Action.LE_MANAGE_USERS, allowedRoles: ["SUPPLIER_CONTACT"] },
-    // Engagement scope: FI users can invite other FI users
+    // Engagement scope: only canonical RELATIONSHIP_ADMIN / RELATIONSHIP_USER permitted
     ENG_RELATIONSHIP_ADMIN: { requiredAction: Action.ENG_MANAGE_USERS, allowedRoles: ["RELATIONSHIP_ADMIN"] },
     ENG_RELATIONSHIP_USER: { requiredAction: Action.ENG_MANAGE_USERS, allowedRoles: ["RELATIONSHIP_USER"] },
 };
@@ -96,19 +94,23 @@ export async function inviteUser(payload: InvitePayload) {
     const isPlatformAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
 
     if (!isPlatformAdmin) {
-        const authorised = await can(
-            user,
-            rule.requiredAction,
-            {
-                partyId: payload.organizationId,
-                clientLEId: payload.clientLEId ??
-                    (payload.fiEngagementId && rule.requiredAction === Action.LE_MANAGE_USERS
-                        ? (await prisma.fIEngagement.findUnique({ where: { id: payload.fiEngagementId }, select: { clientLEId: true } }))?.clientLEId
-                        : undefined),
-                engagementId: payload.fiEngagementId,
-            },
-            prisma
-        );
+        let authorised = false;
+        if (payload.fiEngagementId) {
+            const eng = await prisma.fIEngagement.findUnique({ where: { id: payload.fiEngagementId }, select: { clientLEId: true } });
+            authorised = (await can(user, Action.ENG_MANAGE_USERS, { engagementId: payload.fiEngagementId }, prisma)) ||
+                         (eng?.clientLEId ? await can(user, Action.LE_MANAGE_USERS, { clientLEId: eng.clientLEId }, prisma) : false);
+        } else {
+            authorised = await can(
+                user,
+                rule.requiredAction,
+                {
+                    partyId: payload.organizationId,
+                    clientLEId: payload.clientLEId,
+                    engagementId: payload.fiEngagementId,
+                },
+                prisma
+            );
+        }
 
         if (!authorised) {
             return { success: false, error: "Unauthorized: you do not have permission to invite with this role." };
@@ -548,6 +550,31 @@ export async function resendInvitation(invitationId: string) {
                         html: emailHtml,
                     });
                 }
+            } else {
+                let scopeLabel = BRAND.name;
+                if (invite.organizationId) {
+                    const org = await prisma.organization.findUnique({ where: { id: invite.organizationId }, select: { name: true } });
+                    if (org) scopeLabel = org.name;
+                } else if (invite.clientLEId) {
+                    const le = await prisma.clientLE.findUnique({ where: { id: invite.clientLEId }, select: { name: true } });
+                    if (le) scopeLabel = le.name;
+                }
+                const inviter = await prisma.user.findUnique({ where: { id: identity.userId }, select: { name: true, email: true } });
+                const inviterName = inviter?.name || inviter?.email || "A team member";
+
+                const emailHtml = await render(TeamInviteEmail({
+                    inviterName,
+                    scopeLabel,
+                    role: invite.role,
+                    inviteLink,
+                    recipientEmail: invite.sentToEmail
+                }));
+                await resend.emails.send({
+                    from: `${BRAND.name} <noreply@mail.onpro.tech>`,
+                    to: invite.sentToEmail,
+                    subject: `Invitation resent: join ${scopeLabel}`,
+                    html: emailHtml,
+                });
             }
         }
     } catch (err) {
@@ -648,6 +675,13 @@ export async function updateInvitationRole(invitationId: string, role: string) {
         }
     }
 
+    if (invite.fiEngagementId && !["RELATIONSHIP_ADMIN", "RELATIONSHIP_USER"].includes(role)) {
+        return {
+            success: false,
+            error: `Invalid role "${role}". Only RELATIONSHIP_ADMIN and RELATIONSHIP_USER are permitted for Relationship invitations.`
+        };
+    }
+
     await prisma.invitation.update({
         where: { id: invitationId },
         data: { role },
@@ -662,11 +696,19 @@ export async function updateInvitationRole(invitationId: string, role: string) {
 
 export async function getAuthenticatedPendingInvitations() {
     const identity = await getIdentity();
-    if (!identity?.email) return [];
+    if (!identity?.userId) return [];
+
+    const user = await prisma.user.findUnique({
+        where: { id: identity.userId },
+        select: { id: true, email: true, emailVerified: true }
+    });
+    if (!user || !user.emailVerified || !user.email) {
+        return [];
+    }
 
     const invitations = await prisma.invitation.findMany({
         where: {
-            sentToEmail: { equals: identity.email, mode: "insensitive" },
+            sentToEmail: { equals: user.email, mode: "insensitive" },
             usedAt: null,
             revokedAt: null,
             expiresAt: { gt: new Date() },
@@ -691,82 +733,129 @@ export async function getAuthenticatedPendingInvitations() {
 
 export async function claimPendingInvitation(invitationId: string) {
     const identity = await getIdentity();
-    if (!identity?.userId || !identity?.email) return { success: false, error: "Unauthorized" };
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
 
-    const invite = await prisma.invitation.findUnique({
-        where: { id: invitationId },
-        include: {
-            fiEngagement: { include: { org: true, clientLE: true } },
-            clientLE: true,
-            organization: true
-        }
-    }) as any;
+    try {
+        let redirectUrl = "/app";
 
-    if (!invite) return { success: false, error: "Invitation not found" };
-    if (invite.usedAt) return { success: false, error: "Invitation already accepted" };
-    if (invite.revokedAt) return { success: false, error: "Invitation has been revoked" };
-    if (new Date(invite.expiresAt) < new Date()) return { success: false, error: "Invitation has expired" };
-
-    if (invite.sentToEmail.toLowerCase() !== identity.email.toLowerCase()) {
-        return { success: false, error: "This invitation was sent to a different email address." };
-    }
-
-    // Determine target role
-    let assignedRole = invite.role;
-    if (invite.fiEngagementId) {
-        if (assignedRole === "ORG_ADMIN") assignedRole = "RELATIONSHIP_ADMIN";
-        if (assignedRole === "ORG_MEMBER" || assignedRole === "SUPPLIER_CONTACT") assignedRole = "RELATIONSHIP_USER";
-    }
-
-    // Check if membership already exists
-    const existingMem = await prisma.membership.findFirst({
-        where: {
-            userId: identity.userId,
-            organizationId: invite.organizationId ?? undefined,
-            clientLEId: invite.clientLEId ?? undefined,
-            fiEngagementId: invite.fiEngagementId ?? undefined,
-        }
-    });
-
-    if (!existingMem) {
-        await prisma.membership.create({
-            data: {
-                userId: identity.userId,
-                organizationId: invite.organizationId ?? null,
-                clientLEId: invite.clientLEId ?? null,
-                fiEngagementId: invite.fiEngagementId ?? null,
-                role: assignedRole,
-            }
-        });
-    }
-
-    if (invite.fiEngagementId) {
-        const eng = await prisma.fIEngagement.findUnique({ where: { id: invite.fiEngagementId } });
-        if (eng?.status === "INVITED") {
-            await prisma.fIEngagement.update({
-                where: { id: invite.fiEngagementId },
-                data: { status: "CONNECTED" },
+        await prisma.$transaction(async (tx: any) => {
+            // 1. Re-fetch current User inside transaction & enforce verified email
+            const user = await tx.user.findUnique({
+                where: { id: identity.userId },
+                select: { id: true, email: true, emailVerified: true }
             });
-        }
-        await prisma.engagementActivity.create({
-            data: {
-                fiEngagementId: invite.fiEngagementId,
-                userId: identity.userId,
-                type: "TEAM_MEMBER_ADDED",
-                details: { email: identity.email, role: assignedRole },
-            },
+
+            if (!user) throw new Error("USER_NOT_FOUND");
+            if (!user.emailVerified) throw new Error("EMAIL_NOT_VERIFIED");
+            if (!user.email) throw new Error("USER_NO_EMAIL");
+
+            // 2. Re-fetch and revalidate invitation inside transaction
+            const invite = await tx.invitation.findUnique({
+                where: { id: invitationId },
+                include: {
+                    fiEngagement: {
+                        include: {
+                            org: { select: { id: true, name: true } },
+                            clientLE: { select: { id: true, name: true } },
+                        }
+                    },
+                    clientLE: { select: { id: true, name: true } },
+                    organization: { select: { id: true, name: true } }
+                }
+            });
+
+            if (!invite) throw new Error("INVITATION_NOT_FOUND");
+            if (invite.usedAt) throw new Error("INVITATION_ALREADY_USED");
+            if (invite.revokedAt) throw new Error("INVITATION_REVOKED");
+            if (new Date() > invite.expiresAt) throw new Error("INVITATION_EXPIRED");
+
+            // 3. Strict email match against database user verified email
+            if (invite.sentToEmail.toLowerCase().trim() !== user.email.toLowerCase().trim()) {
+                throw new Error("EMAIL_MISMATCH");
+            }
+
+            // 4. Determine target role
+            let assignedRole = invite.role;
+            if (invite.fiEngagementId) {
+                if (assignedRole === "ORG_ADMIN") assignedRole = "RELATIONSHIP_ADMIN";
+                if (assignedRole === "ORG_MEMBER" || assignedRole === "SUPPLIER_CONTACT" || assignedRole === "Supplier Contact") {
+                    assignedRole = "RELATIONSHIP_USER";
+                }
+            }
+
+            // 5. Check if target membership already exists
+            const existingMem = await tx.membership.findFirst({
+                where: {
+                    userId: user.id,
+                    organizationId: invite.organizationId ?? undefined,
+                    clientLEId: invite.clientLEId ?? undefined,
+                    fiEngagementId: invite.fiEngagementId ?? undefined,
+                }
+            });
+
+            if (!existingMem) {
+                await tx.membership.create({
+                    data: {
+                        userId: user.id,
+                        organizationId: invite.organizationId ?? null,
+                        clientLEId: invite.clientLEId ?? null,
+                        fiEngagementId: invite.fiEngagementId ?? null,
+                        role: assignedRole,
+                    }
+                });
+            }
+
+            // 6. Update Relationship status/activity
+            if (invite.fiEngagementId) {
+                const eng = await tx.fIEngagement.findUnique({ where: { id: invite.fiEngagementId } });
+                if (eng?.status === "INVITED") {
+                    await tx.fIEngagement.update({
+                        where: { id: invite.fiEngagementId },
+                        data: { status: "CONNECTED" },
+                    });
+                }
+                await tx.engagementActivity.create({
+                    data: {
+                        fiEngagementId: invite.fiEngagementId,
+                        userId: user.id,
+                        type: "INVITE_ACCEPTED",
+                        details: { email: user.email, role: assignedRole },
+                    },
+                });
+            }
+
+            // 7. Reconcile question assignments
+            await reconcileQuestionAssignments(
+                invite.sentToEmail,
+                { clientLEId: invite.clientLEId, fiEngagementId: invite.fiEngagementId, organizationId: invite.organizationId },
+                user.id,
+                tx
+            );
+
+            // 8. Mark invitation used atomically
+            await tx.invitation.update({
+                where: { id: invitationId },
+                data: {
+                    usedAt: new Date(),
+                    acceptedByUserId: user.id,
+                }
+            });
+
+            redirectUrl = await determineRedirectUrl(invite, prisma);
         });
+
+        revalidatePath("/app");
+        return { success: true, redirectUrl };
+    } catch (e: any) {
+        if (e.message === "USER_NOT_FOUND") return { success: false, error: "User account not found." };
+        if (e.message === "EMAIL_NOT_VERIFIED") return { success: false, error: "Email must be verified before claiming pending invitations by authenticated account." };
+        if (e.message === "USER_NO_EMAIL") return { success: false, error: "User has no email address." };
+        if (e.message === "INVITATION_NOT_FOUND") return { success: false, error: "Invitation not found." };
+        if (e.message === "INVITATION_ALREADY_USED") return { success: false, error: "This invitation has already been accepted." };
+        if (e.message === "INVITATION_REVOKED") return { success: false, error: "This invitation has been revoked." };
+        if (e.message === "INVITATION_EXPIRED") return { success: false, error: "This invitation has expired." };
+        if (e.message === "EMAIL_MISMATCH") return { success: false, error: "This invitation was sent to a different email address." };
+        console.error("[claimPendingInvitation] Error:", e);
+        return { success: false, error: "An unexpected error occurred while claiming the invitation." };
     }
-
-    // Mark invitation used
-    await prisma.invitation.update({
-        where: { id: invitationId },
-        data: {
-            usedAt: new Date(),
-            acceptedByUserId: identity.userId,
-        }
-    });
-
-    const redirectUrl = await determineRedirectUrl(invite, prisma);
-    return { success: true, redirectUrl };
 }

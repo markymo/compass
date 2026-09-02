@@ -503,22 +503,22 @@ test.describe('ONP-173 — Supplier Team Membership & Invitation Onboarding Work
     });
 
     // ========================================================================
-    // Journey 7 — FR-15 Authenticated Pending-Invitation Discovery & Acceptance
+    // Journey 7 — FR-15 Authenticated + Email-Verified Pending-Invitation Discovery & Acceptance
     // ========================================================================
-    test('Journey 7: Authenticated user discovers outstanding pending invitation on Home and accepts without token URL', async ({ browser }) => {
+    test('Journey 7: Authenticated + email-verified user discovers outstanding pending invitation on Home and claims it without token URL', async ({ browser }) => {
         const janeEmail = `uat-onp173-jane-${testTimestamp}@onpro-test.com`;
         const janePassword = 'JanePassword123!';
 
         const bcrypt = await import('bcryptjs');
         const hashedPassword = await bcrypt.hash(janePassword, 10);
 
-        // 1. Create Jane's account without any relationship membership
+        // 1. Create Jane's account initially UNVERIFIED (emailVerified: null)
         const janeUser = await prisma.user.create({
             data: {
                 email: janeEmail,
                 name: 'Jane Invitee',
                 password: hashedPassword,
-                emailVerified: new Date(),
+                emailVerified: null,
             },
         });
 
@@ -538,23 +538,32 @@ test.describe('ONP-173 — Supplier Team Membership & Invitation Onboarding Work
             },
         });
 
-        // 3. Jane logs in and goes to Home (/app) WITHOUT following the token URL
+        // 3. Jane logs in with unverified email and visits /app
         const janeContext = await browser.newContext();
         const janePage = await janeContext.newPage();
 
         await login(janePage, janeEmail, janePassword);
         await janePage.goto('/app');
 
-        // AUTHORITATIVE RED ASSERTION:
-        // On current dev: Home displays 0 pending invitation discovery or accept controls:
+        // FR-15 Negative assertion: Unverified account MUST NOT see pending invitation discovery
         const pendingCard = janePage.getByText(/Pending Invitation|You have been invited/i).first();
-        await expect(pendingCard, 'Authoritative RED: Authenticated Home must display outstanding pending invitations').toBeVisible({ timeout: 10000 });
+        await expect(pendingCard).not.toBeVisible({ timeout: 5000 });
+
+        // 4. Now verify Jane's email ownership
+        await prisma.user.update({
+            where: { id: janeUser.id },
+            data: { emailVerified: new Date() },
+        });
+
+        // 5. Reload /app: Verified account MUST now see pending invitation
+        await janePage.reload();
+        await expect(pendingCard, 'Authenticated + email-verified Home must display outstanding pending invitations').toBeVisible({ timeout: 15000 });
 
         const acceptBtn = janePage.getByRole('button', { name: /Accept Invitation|Join Team/i }).first();
         await expect(acceptBtn).toBeVisible();
         await acceptBtn.click();
 
-        // 4. Acceptance creates RELATIONSHIP_USER membership and lands in Supplier workspace
+        // 6. Claim creates RELATIONSHIP_USER membership and lands in Supplier workspace
         await janePage.waitForURL(url => url.pathname.startsWith(`/app/s/${supplierOrgId}`), { timeout: 30000 });
 
         const createdJaneMembership = await prisma.membership.findFirst({

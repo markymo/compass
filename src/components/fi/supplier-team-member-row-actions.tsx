@@ -24,38 +24,53 @@ import { toast } from "sonner";
 import { MoreHorizontal, Shield, UserMinus, Loader2 } from "lucide-react";
 import { updateMembershipRole, removeMembership } from "@/actions/memberships";
 
-interface RelationshipEntry {
-    id: string;
-    clientLEName: string;
-    membershipId?: string;
-    role?: string;
+export interface RelationshipGrantTarget {
+    membershipId: string;
+    relationshipId: string;
+    relationshipName: string;
+    role: string;
 }
 
-interface SupplierTeamMemberRowActionsProps {
-    member: {
+export interface SupplierTeamMemberRowActionsProps {
+    grant?: RelationshipGrantTarget;
+    member?: {
         userId: string;
-        membershipId?: string;
         name: string | null;
         email: string;
         role: string;
-        accessScope: {
-            kind: "SUPPLIER" | "RELATIONSHIPS";
-            relationships?: RelationshipEntry[];
+        relationshipGrants?: RelationshipGrantTarget[];
+        accessScope?: {
+            relationships?: Array<{
+                id: string;
+                clientLEName: string;
+                membershipId?: string;
+                role?: string;
+            }>;
         };
     };
+    memberName?: string;
     canManage: boolean;
 }
 
-export function SupplierTeamMemberRowActions({ member, canManage }: SupplierTeamMemberRowActionsProps) {
+export function SupplierTeamMemberRowActions({ grant, member, memberName, canManage }: SupplierTeamMemberRowActionsProps) {
     const router = useRouter();
     const [isChangeRoleOpen, setIsChangeRoleOpen] = useState(false);
     const [isRemoveOpen, setIsRemoveOpen] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    // Identify target relationship membership to update or remove
-    const rel = member.accessScope.relationships?.[0];
-    const targetMembershipId = member.membershipId || rel?.membershipId;
-    const currentRole = rel?.role || member.role;
+    // Identify target relationship grant (never organisation membership)
+    const fallbackGrant = member?.relationshipGrants?.[0] || (member?.accessScope?.relationships?.[0] ? {
+        membershipId: member.accessScope.relationships[0].membershipId || "",
+        relationshipId: member.accessScope.relationships[0].id,
+        relationshipName: member.accessScope.relationships[0].clientLEName,
+        role: member.accessScope.relationships[0].role || "RELATIONSHIP_USER"
+    } : undefined);
+
+    const activeGrant = grant || fallbackGrant;
+    const targetMembershipId = activeGrant?.membershipId;
+    const targetRelName = activeGrant?.relationshipName || "this Relationship";
+    const targetMemberName = memberName || member?.name || member?.email || "this team member";
+    const currentRole = activeGrant?.role || "RELATIONSHIP_USER";
     const [selectedRole, setSelectedRole] = useState<string>(currentRole);
 
     if (!canManage || !targetMembershipId) {
@@ -138,7 +153,7 @@ export function SupplierTeamMemberRowActions({ member, canManage }: SupplierTeam
                     <DialogHeader>
                         <DialogTitle>Change Role</DialogTitle>
                         <DialogDescription>
-                            Update the relationship access level for {member.name || member.email}.
+                            Update the access level for {targetMemberName} on {targetRelName}.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -180,8 +195,8 @@ export function SupplierTeamMemberRowActions({ member, canManage }: SupplierTeam
                     <DialogHeader>
                         <DialogTitle className="text-rose-600">Remove Relationship Access</DialogTitle>
                         <DialogDescription>
-                            Are you sure you want to remove {member.name || member.email} from this Relationship?
-                            Other organisation and client memberships will remain unaffected.
+                            Are you sure you want to remove {targetMemberName}&apos;s access to {targetRelName}?
+                            Other organisation and relationship memberships will remain unaffected.
                         </DialogDescription>
                     </DialogHeader>
 
@@ -205,3 +220,5 @@ export function SupplierTeamMemberRowActions({ member, canManage }: SupplierTeam
         </>
     );
 }
+
+export const RelationshipGrantActions = SupplierTeamMemberRowActions;

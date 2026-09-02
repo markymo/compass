@@ -25,6 +25,7 @@ export default async function FITeamPage({ params }: { params: Promise<{ id: str
 
     const fiTabs = getFIPortalTabs(org.id, { isOrgAdmin });
     const { members, pendingInvitations } = teamSummary;
+    const manageableRelationshipIds = manageableRelationships.map((r) => r.id);
     const canManageTeam = isOrgAdmin || manageableRelationships.length > 0;
 
     return (
@@ -80,16 +81,15 @@ export default async function FITeamPage({ params }: { params: Promise<{ id: str
                                 <thead className="bg-slate-50/80 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-200/80">
                                     <tr>
                                         <th className="px-6 py-3 font-extrabold">User</th>
-                                        <th className="px-6 py-3 font-extrabold">Role</th>
-                                        <th className="px-6 py-3 font-extrabold">Access Scope</th>
+                                        <th className="px-6 py-3 font-extrabold">Organisation Role</th>
+                                        <th className="px-6 py-3 font-extrabold">Relationship Access &amp; Actions</th>
                                         <th className="px-6 py-3 font-extrabold text-right">Joined</th>
-                                        <th className="px-6 py-3 font-extrabold text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 text-xs">
                                     {members.length === 0 ? (
                                         <tr>
-                                            <td colSpan={5} className="p-8 text-center text-slate-500 italic">
+                                            <td colSpan={4} className="p-8 text-center text-slate-500 italic">
                                                 No team members are currently available for this Supplier.
                                             </td>
                                         </tr>
@@ -119,37 +119,59 @@ export default async function FITeamPage({ params }: { params: Promise<{ id: str
                                                     </td>
 
                                                     <td className="px-6 py-4">
-                                                        <Badge variant="outline" className="text-[11px] font-semibold border-slate-200 text-slate-700 bg-slate-50/50">
-                                                            <Shield className="h-3 w-3 text-teal-600 mr-1.5" />
-                                                            {m.roleLabel}
-                                                        </Badge>
+                                                        {m.orgRole ? (
+                                                            <Badge variant="outline" className="text-[11px] font-semibold border-teal-200 text-teal-800 bg-teal-50/60">
+                                                                <Shield className="h-3 w-3 text-teal-600 mr-1.5" />
+                                                                {m.orgRoleLabel || m.orgRole}
+                                                            </Badge>
+                                                        ) : (
+                                                            <span className="text-slate-400 text-xs italic">—</span>
+                                                        )}
                                                     </td>
 
                                                     <td className="px-6 py-4">
-                                                        {m.accessScope.kind === "SUPPLIER" ? (
-                                                            <Badge variant="outline" className="text-[11px] font-semibold border-teal-200 text-teal-800 bg-teal-50/60">
-                                                                All Relationships
-                                                            </Badge>
-                                                        ) : m.accessScope.relationships && m.accessScope.relationships.length > 0 ? (
-                                                            <div className="flex flex-wrap gap-1.5 max-w-md">
-                                                                {m.accessScope.relationships.map((rel) => (
-                                                                    <Badge key={rel.id} variant="outline" className="text-[11px] font-medium border-slate-200 text-slate-600 bg-white">
-                                                                        <Building2 className="h-3 w-3 text-slate-400 mr-1" />
-                                                                        {rel.clientLEName}
-                                                                    </Badge>
-                                                                ))}
-                                                            </div>
+                                                        {m.relationshipGrants.length === 0 ? (
+                                                            m.orgRole ? (
+                                                                <Badge variant="outline" className="text-[11px] font-semibold border-teal-200 text-teal-800 bg-teal-50/60">
+                                                                    All Relationships
+                                                                </Badge>
+                                                            ) : (
+                                                                <span className="text-slate-400 italic text-xs">No specific relationships</span>
+                                                            )
                                                         ) : (
-                                                            <span className="text-slate-400 italic">No specific relationship</span>
+                                                            <div className="space-y-1.5 max-w-lg">
+                                                                {m.relationshipGrants.map((grant) => {
+                                                                    const canManageGrant = isOrgAdmin || manageableRelationshipIds.includes(grant.relationshipId);
+                                                                    return (
+                                                                        <div
+                                                                            key={grant.membershipId}
+                                                                            className="flex items-center justify-between gap-3 p-1.5 rounded-lg bg-slate-50 border border-slate-200/60"
+                                                                        >
+                                                                            <div className="flex items-center gap-2 min-w-0">
+                                                                                <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                                                                <span className="font-semibold text-xs text-slate-800 truncate">
+                                                                                    {grant.relationshipName}
+                                                                                </span>
+                                                                                <Badge variant="outline" className="text-[10px] font-medium border-slate-200 bg-white text-slate-700">
+                                                                                    {grant.roleLabel}
+                                                                                </Badge>
+                                                                            </div>
+                                                                            {canManageGrant ? (
+                                                                                <SupplierTeamMemberRowActions
+                                                                                    grant={grant}
+                                                                                    memberName={m.name || m.email}
+                                                                                    canManage={true}
+                                                                                />
+                                                                            ) : null}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
                                                         )}
                                                     </td>
 
                                                     <td className="px-6 py-4 text-right text-slate-500 font-medium">
                                                         {m.joinedAt ? format(new Date(m.joinedAt), "dd MMM yyyy") : "—"}
-                                                    </td>
-
-                                                    <td className="px-6 py-4 text-right">
-                                                        <SupplierTeamMemberRowActions member={m} canManage={canManageTeam} />
                                                     </td>
                                                 </tr>
                                             );
@@ -185,27 +207,35 @@ export default async function FITeamPage({ params }: { params: Promise<{ id: str
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 text-xs">
-                                        {pendingInvitations.map((inv) => (
-                                            <tr key={inv.id} className="hover:bg-slate-50/60 transition-colors">
-                                                <td className="px-6 py-4 font-semibold text-slate-900">
-                                                    {inv.email}
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <Badge variant="outline" className="text-[11px] font-semibold border-amber-200 text-amber-800 bg-amber-50/50">
-                                                        {inv.roleLabel}
-                                                    </Badge>
-                                                </td>
-                                                <td className="px-6 py-4 font-medium text-slate-600">
-                                                    {inv.accessScope}
-                                                </td>
-                                                <td className="px-6 py-4 text-right text-slate-500 font-medium">
-                                                    {format(new Date(inv.invitedAt), "dd MMM yyyy")}
-                                                </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <SupplierPendingInvitationRowActions invitation={inv} canManage={canManageTeam} />
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {pendingInvitations.map((inv) => {
+                                            const canManageInvite = isOrgAdmin || (inv.relationshipId ? manageableRelationshipIds.includes(inv.relationshipId) : false);
+
+                                            return (
+                                                <tr key={inv.id} className="hover:bg-slate-50/60 transition-colors">
+                                                    <td className="px-6 py-4 font-semibold text-slate-900">
+                                                        {inv.email}
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <Badge variant="outline" className="text-[11px] font-semibold border-amber-200 text-amber-800 bg-amber-50/50">
+                                                            {inv.roleLabel}
+                                                        </Badge>
+                                                    </td>
+                                                    <td className="px-6 py-4 font-medium text-slate-600">
+                                                        {inv.accessScope}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right text-slate-500 font-medium">
+                                                        {format(new Date(inv.invitedAt), "dd MMM yyyy")}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        {canManageInvite ? (
+                                                            <SupplierPendingInvitationRowActions invitation={inv} canManage={true} />
+                                                        ) : (
+                                                            <span className="text-slate-400 text-xs">—</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
