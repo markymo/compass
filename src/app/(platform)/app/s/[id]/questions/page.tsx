@@ -1,6 +1,7 @@
 import {
     getFIOganization,
     getFIWorkbenchData,
+    checkIsSupplierOrgAdmin,
 } from "@/actions/fi";
 import { notFound } from "next/navigation";
 import { FIDashboardHeader } from "@/components/fi/fi-dashboard-header";
@@ -12,14 +13,15 @@ import { getFIPortalTabs } from "@/config/navigation-tabs";
 export default async function FIQuestionsPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
 
-    const [org, workbenchData] = await Promise.all([
+    const [org, workbenchData, isOrgAdmin] = await Promise.all([
         getFIOganization(id),
         getFIWorkbenchData(id),
+        checkIsSupplierOrgAdmin(id),
     ]);
 
     if (!org) return notFound();
 
-    const fiTabs = getFIPortalTabs(org.id);
+    const fiTabs = getFIPortalTabs(org.id, { isOrgAdmin });
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50/30">

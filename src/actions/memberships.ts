@@ -117,9 +117,6 @@ export async function updateMembershipRole(membershipId: string, role: string) {
     const membership = await prisma.membership.findUnique({ where: { id: membershipId } });
     if (!membership) return { success: false, error: "Not found" };
 
-    const orgIdToCheck = membership.organizationId;
-    if (!orgIdToCheck) return { success: false, error: "Not an organization membership" };
-
     const memberships = await prisma.membership.findMany({
         where: { userId: identity.userId },
         select: { organizationId: true, clientLEId: true, fiEngagementId: true, role: true }
@@ -127,6 +124,36 @@ export async function updateMembershipRole(membershipId: string, role: string) {
     const user: UserWithMemberships = { id: identity.userId, memberships };
 
     const isSysAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
+
+    if (membership.fiEngagementId) {
+        if (!isSysAdmin) {
+            const canEngManage = await can(user, Action.ENG_MANAGE_USERS, { engagementId: membership.fiEngagementId }, prisma);
+            if (!canEngManage) return { success: false, error: "Unauthorized" };
+        }
+
+        const validRoles = ["RELATIONSHIP_ADMIN", "RELATIONSHIP_USER"];
+        if (!validRoles.includes(role)) {
+            return { success: false, error: `Invalid role: ${role} is not valid for a relationship membership.` };
+        }
+
+        await prisma.membership.update({
+            where: { id: membershipId },
+            data: { role },
+        });
+
+        const eng = await prisma.fIEngagement.findUnique({
+            where: { id: membership.fiEngagementId },
+            select: { fiOrgId: true, clientLEId: true }
+        });
+        if (eng?.fiOrgId) revalidatePath(`/app/s/${eng.fiOrgId}/team`);
+        if (eng?.clientLEId) revalidatePath(`/app/le/${eng.clientLEId}/relationships`);
+
+        return { success: true };
+    }
+
+    const orgIdToCheck = membership.organizationId;
+    if (!orgIdToCheck) return { success: false, error: "Not an organization membership" };
+
     if (!isSysAdmin) {
         const canOrgManage = await can(user, Action.ORG_MANAGE_TEAM, { partyId: orgIdToCheck }, prisma);
         if (!canOrgManage) return { success: false, error: "Unauthorized" };
@@ -147,9 +174,6 @@ export async function removeMembership(membershipId: string) {
     const membership = await prisma.membership.findUnique({ where: { id: membershipId } });
     if (!membership) return { success: false, error: "Not found" };
 
-    const orgIdToCheck = membership.organizationId;
-    if (!orgIdToCheck) return { success: false, error: "Not an organization membership" };
-
     const memberships = await prisma.membership.findMany({
         where: { userId: identity.userId },
         select: { organizationId: true, clientLEId: true, fiEngagementId: true, role: true }
@@ -157,6 +181,30 @@ export async function removeMembership(membershipId: string) {
     const user: UserWithMemberships = { id: identity.userId, memberships };
 
     const isSysAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
+
+    if (membership.fiEngagementId) {
+        if (!isSysAdmin) {
+            const canEngManage = await can(user, Action.ENG_MANAGE_USERS, { engagementId: membership.fiEngagementId }, prisma);
+            if (!canEngManage) return { success: false, error: "Unauthorized" };
+        }
+
+        await prisma.membership.delete({
+            where: { id: membershipId },
+        });
+
+        const eng = await prisma.fIEngagement.findUnique({
+            where: { id: membership.fiEngagementId },
+            select: { fiOrgId: true, clientLEId: true }
+        });
+        if (eng?.fiOrgId) revalidatePath(`/app/s/${eng.fiOrgId}/team`);
+        if (eng?.clientLEId) revalidatePath(`/app/le/${eng.clientLEId}/relationships`);
+
+        return { success: true };
+    }
+
+    const orgIdToCheck = membership.organizationId;
+    if (!orgIdToCheck) return { success: false, error: "Not an organization membership" };
+
     if (!isSysAdmin) {
         const canOrgManage = await can(user, Action.ORG_MANAGE_TEAM, { partyId: orgIdToCheck }, prisma);
         if (!canOrgManage) return { success: false, error: "Unauthorized" };

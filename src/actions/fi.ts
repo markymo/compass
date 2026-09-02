@@ -1075,11 +1075,15 @@ export interface SupplierTeamMemberAccessScope {
     relationships?: {
         id: string;
         clientLEName: string;
+        membershipId?: string;
+        role?: string;
     }[];
 }
 
 export interface SupplierTeamMemberSummary {
     userId: string;
+    membershipId?: string;
+    fiEngagementId?: string | null;
     name: string | null;
     email: string;
     role: string;
@@ -1094,6 +1098,7 @@ export interface SupplierPendingInvitationSummary {
     role: string;
     roleLabel: string;
     accessScope: string;
+    fiEngagementId?: string | null;
     invitedAt: Date | string;
     expiresAt: Date | string | null;
 }
@@ -1116,6 +1121,58 @@ function formatSupplierRoleLabel(role: string): string {
         default:
             return role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     }
+}
+
+export async function checkIsSupplierOrgAdmin(fiOrgId: string): Promise<boolean> {
+    const identity = await getIdentity();
+    if (!identity?.userId) return false;
+    const adminMem = await prisma.membership.findFirst({
+        where: { userId: identity.userId, organizationId: fiOrgId, role: "ORG_ADMIN" }
+    });
+    return !!adminMem;
+}
+
+export async function getManageableRelationshipsForSupplier(fiOrgId: string): Promise<{ id: string; clientLEName: string }[]> {
+    const identity = await getIdentity();
+    if (!identity?.userId) return [];
+
+    const memberships = await prisma.membership.findMany({
+        where: { userId: identity.userId },
+        include: { fiEngagement: { select: { fiOrgId: true } } }
+    });
+
+    const isSupplierOrgAdmin = memberships.some(
+        (m: any) => m.organizationId === fiOrgId && m.role === "ORG_ADMIN"
+    );
+
+    if (isSupplierOrgAdmin) {
+        const rels = await prisma.fIEngagement.findMany({
+            where: { fiOrgId, isDeleted: false },
+            include: { clientLE: { select: { name: true } } },
+            orderBy: { createdAt: "desc" }
+        });
+        return rels.map((r: any) => ({
+            id: r.id,
+            clientLEName: r.clientLE?.name || "Unnamed ClientLE"
+        }));
+    }
+
+    const relAdminEngIds = memberships
+        .filter((m: any) => m.role === "RELATIONSHIP_ADMIN" && m.fiEngagementId && m.fiEngagement?.fiOrgId === fiOrgId)
+        .map((m: any) => m.fiEngagementId as string);
+
+    if (relAdminEngIds.length === 0) return [];
+
+    const rels = await prisma.fIEngagement.findMany({
+        where: { id: { in: relAdminEngIds }, isDeleted: false },
+        include: { clientLE: { select: { name: true } } },
+        orderBy: { createdAt: "desc" }
+    });
+
+    return rels.map((r: any) => ({
+        id: r.id,
+        clientLEName: r.clientLE?.name || "Unnamed ClientLE"
+    }));
 }
 
 export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierTeamSummary> {
@@ -1182,19 +1239,22 @@ export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierT
 
         const isSupplierWide = m.organizationId === fiOrgId;
         const roleLabel = formatSupplierRoleLabel(m.role);
+        const relEntry = m.fiEngagement
+            ? [{ id: m.fiEngagement.id, clientLEName: m.fiEngagement.clientLE?.name || "Unknown ClientLE", membershipId: m.id, role: m.role }]
+            : [];
 
         if (!existing) {
             const accessScope: SupplierTeamMemberAccessScope = isSupplierWide
                 ? { kind: "SUPPLIER" }
                 : {
                       kind: "RELATIONSHIPS",
-                      relationships: m.fiEngagement
-                          ? [{ id: m.fiEngagement.id, clientLEName: m.fiEngagement.clientLE?.name || "Unknown ClientLE" }]
-                          : []
+                      relationships: relEntry
                   };
 
             memberMap.set(uId, {
                 userId: uId,
+                membershipId: m.id,
+                fiEngagementId: m.fiEngagementId || null,
                 name: m.user.name || null,
                 email: m.user.email || "No Email",
                 role: m.role,
@@ -1209,13 +1269,16 @@ export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierT
                 if (m.role === "ORG_ADMIN") {
                     existing.role = m.role;
                     existing.roleLabel = roleLabel;
+                    existing.membershipId = m.id;
                 }
             } else if (existing.accessScope.kind === "RELATIONSHIPS" && m.fiEngagement) {
                 const rels = existing.accessScope.relationships || [];
                 if (!rels.some((r) => r.id === m.fiEngagement.id)) {
                     rels.push({
                         id: m.fiEngagement.id,
-                        clientLEName: m.fiEngagement.clientLE?.name || "Unknown ClientLE"
+                        clientLEName: m.fiEngagement.clientLE?.name || "Unknown ClientLE",
+                        membershipId: m.id,
+                        role: m.role
                     });
                 }
             }
@@ -1265,6 +1328,7 @@ export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierT
             role: inv.role,
             roleLabel: formatSupplierRoleLabel(inv.role),
             accessScope: scopeStr,
+            fiEngagementId: inv.fiEngagementId || null,
             invitedAt: inv.createdAt ? inv.createdAt.toISOString() : new Date().toISOString(),
             expiresAt: inv.expiresAt ? inv.expiresAt.toISOString() : null
         };

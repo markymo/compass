@@ -6,12 +6,22 @@ describe("Supplier Navigation & Route Migration", () => {
     const orgId = "test-supplier-123";
     const tabs = getFIPortalTabs(orgId);
 
-    it("1. Supplier navigation contains Client Relationships, Questions & Answers, Admin, Teams", () => {
+    it("1. Supplier navigation contains Client Relationships, Questions & Answers, Admin, Teams for Org Admin", () => {
         const labels = tabs.map((t) => t.label);
         expect(labels).toEqual([
             "Client Relationships",
             "Questions & Answers",
             "Admin",
+            "Teams",
+        ]);
+    });
+
+    it("1a. Supplier navigation omits Admin tab for Relationship-only users", () => {
+        const relOnlyTabs = getFIPortalTabs(orgId, { isOrgAdmin: false });
+        const labels = relOnlyTabs.map((t) => t.label);
+        expect(labels).toEqual([
+            "Client Relationships",
+            "Questions & Answers",
             "Teams",
         ]);
     });

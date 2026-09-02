@@ -37,21 +37,91 @@ export async function inviteSupplier(
 
     if (!engagement) return { success: false, error: "Engagement not found" };
 
-    // 3. Authorization (Must be LE Admin for the Client LE)
+    // 3. Authorization (Must have ENG_MANAGE_USERS or LE_MANAGE_USERS)
     const memberships = await prisma.membership.findMany({
         where: { userId: identity.userId }
     });
     const user = { id: identity.userId, memberships };
 
-    // Strict Context Check: Is user admin for this Client LE?
-    const isAuthorized = await can(user, Action.LE_MANAGE_USERS, { clientLEId: engagement.clientLEId }, prisma);
+    const isAuthorized = await can(user, Action.ENG_MANAGE_USERS, { engagementId: fiEngagementId }, prisma) ||
+                         await can(user, Action.LE_MANAGE_USERS, { clientLEId: engagement.clientLEId }, prisma);
 
     if (!isAuthorized) {
         return { success: false, error: "You do not have permission to invite suppliers for this entity." };
     }
 
-    // 4. Check for Pending Invitation
-    // Valid if: sent to same email, same engagement, not used, not revoked, not expired
+    // 4. Existing User Fork: Auto-Add Immediate Membership
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
+        const isMember = await prisma.membership.findFirst({
+            where: { userId: existingUser.id, fiEngagementId }
+        });
+        if (isMember) {
+            return { success: false, error: "User is already a member of this relationship." };
+        }
+
+        let assignedRole = role;
+        if (assignedRole === "ORG_ADMIN") assignedRole = "RELATIONSHIP_ADMIN";
+        if (assignedRole === "ORG_MEMBER" || assignedRole === "SUPPLIER_CONTACT") assignedRole = "RELATIONSHIP_USER";
+
+        await prisma.membership.create({
+            data: {
+                userId: existingUser.id,
+                fiEngagementId,
+                role: assignedRole,
+            }
+        });
+
+        if (engagement.status === "INVITED") {
+            await prisma.fIEngagement.update({
+                where: { id: fiEngagementId },
+                data: { status: "CONNECTED" },
+            });
+        }
+
+        await prisma.engagementActivity.create({
+            data: {
+                fiEngagementId,
+                userId: existingUser.id,
+                type: "TEAM_MEMBER_ADDED",
+                details: { email, role: assignedRole },
+            },
+        });
+
+        // Communication for Existing User: Access Granted Notification
+        try {
+            const baseUrl = await getAppBaseUrl();
+            const directWorkspaceUrl = `${baseUrl}/app/s/${engagement.fiOrgId}`;
+            const emailHtml = await render(SupplierInviteEmail({
+                inviterName: (identity as any).name || identity.email || 'OnPro Administrator',
+                inviterEmail: identity.email || 'noreply@onpro.tech',
+                orgName: engagement.org.name,
+                leName: engagement.clientLE.name,
+                role: assignedRole,
+                message: message || "You have been granted access to collaborate on this relationship.",
+                inviteLink: directWorkspaceUrl
+            }));
+
+            const resendApiKey = process.env.RESEND_API_KEY;
+            if (resendApiKey) {
+                const resend = new Resend(resendApiKey);
+                await resend.emails.send({
+                    from: 'OnPro Platform <invites@onpro.tech>',
+                    to: email,
+                    subject: `Access granted: ${engagement.clientLE.name} Relationship on OnPro`,
+                    html: emailHtml
+                });
+            }
+        } catch (mailErr) {
+            console.error("Failed to send access notification email", mailErr);
+        }
+
+        revalidatePath(`/app/s/${engagement.fiOrgId}/team`);
+        revalidatePath(`/app/le/${engagement.clientLEId}/relationships`);
+        return { success: true, autoAdded: true, role: assignedRole };
+    }
+
+    // 5. Check for Pending Invitation (for unknown email)
     const pending = await prisma.invitation.findFirst({
         where: {
             sentToEmail: email,
@@ -67,7 +137,7 @@ export async function inviteSupplier(
     }
 
     try {
-        // 5. Create Invitation with Hashed Token
+        // 6. Create Invitation with Hashed Token
         const token = crypto.randomUUID(); // The secret sent to the user
         const tokenHash = crypto.createHash('sha256').update(token).digest('hex'); // The stored proof
 
@@ -85,13 +155,12 @@ export async function inviteSupplier(
             }
         });
 
-        // 6. Send Email via Resend
-        // NOTE: We send the raw `token` (the key), not the hash.
+        // 7. Send Email via Resend
         const baseUrl = await getAppBaseUrl();
         const inviteLink = `${baseUrl}/invite/${token}`;
 
         const emailHtml = await render(SupplierInviteEmail({
-            inviterName: 'OnPro User', // TODO: Get real name
+            inviterName: (identity as any).name || identity.email || 'OnPro User',
             inviterEmail: identity.email || 'noreply@onpro.tech',
             orgName: "OnPro Workspace",
             leName: engagement.clientLE.name,

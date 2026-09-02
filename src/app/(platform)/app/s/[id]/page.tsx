@@ -1,6 +1,7 @@
 import {
     getFIOganization,
     getSupplierRelationshipsSummary,
+    checkIsSupplierOrgAdmin,
 } from "@/actions/fi";
 import { notFound, redirect } from "next/navigation";
 import { FIDashboardHeader } from "@/components/fi/fi-dashboard-header";
@@ -41,14 +42,15 @@ export default async function FIDashboard({
         ? resolvedSearchParams.expand[0]
         : resolvedSearchParams?.expand;
 
-    const [org, relationships] = await Promise.all([
+    const [org, relationships, isOrgAdmin] = await Promise.all([
         getFIOganization(id),
         getSupplierRelationshipsSummary(id),
+        checkIsSupplierOrgAdmin(id),
     ]);
 
     if (!org) return notFound();
 
-    const fiTabs = getFIPortalTabs(org.id);
+    const fiTabs = getFIPortalTabs(org.id, { isOrgAdmin });
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50/30">

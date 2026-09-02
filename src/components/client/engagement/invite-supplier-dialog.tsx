@@ -24,6 +24,7 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
 
     // Form State
     const [email, setEmail] = useState("");
+    const [role, setRole] = useState<'RELATIONSHIP_ADMIN' | 'RELATIONSHIP_USER'>('RELATIONSHIP_ADMIN');
     const [message, setMessage] = useState("");
 
     // Success State
@@ -38,19 +39,26 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
 
         setIsLoading(true);
         try {
-            const result = await inviteSupplier(engagementId, email, "RELATIONSHIP_ADMIN", message);
+            const result = await inviteSupplier(engagementId, email, role, message);
 
-            if (result.success && result.token) {
-                const link = `${window.location.origin}/invite/${result.token}`;
-                setInviteLink(link);
-                setEmailSent(Boolean(result.emailSent));
-                setStep('SUCCESS');
-                if (result.emailSent) {
-                    toast.success("Invitation created and email sent");
-                } else {
-                    toast.success("Invitation created (share link directly)");
+            if (result.success) {
+                if (result.autoAdded) {
+                    toast.success("User already has an account. Relationship access granted immediately.");
+                    handleClose();
+                    return;
                 }
-                onSuccess?.();
+                if (result.token) {
+                    const link = `${window.location.origin}/invite/${result.token}`;
+                    setInviteLink(link);
+                    setEmailSent(Boolean(result.emailSent));
+                    setStep('SUCCESS');
+                    if (result.emailSent) {
+                        toast.success("Invitation created and email sent");
+                    } else {
+                        toast.success("Invitation created (share link directly)");
+                    }
+                    onSuccess?.();
+                }
             } else {
                 toast.error(result.error || "Failed to create invitation");
             }
@@ -99,6 +107,19 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                             />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="role">Relationship Role</Label>
+                            <select
+                                id="role"
+                                value={role}
+                                onChange={(e) => setRole(e.target.value as any)}
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <option value="RELATIONSHIP_ADMIN">Relationship Admin (Can manage team & answers)</option>
+                                <option value="RELATIONSHIP_USER">Relationship User (Can answer questionnaires)</option>
+                            </select>
                         </div>
 
                         <div className="space-y-2">

@@ -1,9 +1,11 @@
 import { getUserContexts } from "@/actions/dashboard";
 import { isSystemAdmin } from "@/actions/security";
+import { getAuthenticatedPendingInvitations } from "@/actions/invitations";
 import { StandardPageHeader } from "@/components/layout/StandardPageHeader";
 import { DashboardContentV2 } from "@/components/dashboard/dashboard-content-v2";
 import { ExperimentalDashboardContent } from "@/components/dashboard/experimental/experimental-dashboard-content";
 import { HomeVariantSwitcher } from "@/components/dashboard/home-variant-switcher";
+import { PendingInvitationsBanner } from "@/components/dashboard/pending-invitations-banner";
 import { Home } from "lucide-react";
 
 interface PageProps {
@@ -15,8 +17,11 @@ export default async function DashboardPage({ searchParams }: PageProps) {
     const homeParam = typeof sp.home === "string" ? sp.home : undefined;
     const isV1 = homeParam === "v1";
 
-    const contexts = await getUserContexts();
-    const isAdmin = await isSystemAdmin();
+    const [contexts, isAdmin, pendingInvitations] = await Promise.all([
+        getUserContexts(),
+        isSystemAdmin(),
+        getAuthenticatedPendingInvitations(),
+    ]);
 
     return (
         <div className="flex flex-col min-h-screen bg-background text-foreground">
@@ -32,6 +37,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
             />
 
             <div className="max-w-7xl mx-auto px-6 py-8 space-y-6 w-full">
+                {pendingInvitations.length > 0 && (
+                    <PendingInvitationsBanner invitations={pendingInvitations} />
+                )}
                 {isV1 ? (
                     <DashboardContentV2 contexts={contexts} />
                 ) : (

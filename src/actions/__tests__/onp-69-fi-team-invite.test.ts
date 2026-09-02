@@ -79,7 +79,7 @@ describe('INV-02 / ONP-69 — FI Team Invite Contract', () => {
             fiEngagementId: 'eng-1'
         });
 
-        const res = await inviteSupplier('eng-1', 'supplier.rep@bank.com');
+        const res = await inviteSupplier('eng-1', 'supplier.rep@bank.com', 'SUPPLIER_CONTACT');
 
         expect(res.success).toBe(true);
         expect(res.token).toBeDefined();

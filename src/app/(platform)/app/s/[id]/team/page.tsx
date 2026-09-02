@@ -1,4 +1,4 @@
-import { getFIOganization, getSupplierTeamMembers } from "@/actions/fi";
+import { getFIOganization, getSupplierTeamMembers, checkIsSupplierOrgAdmin, getManageableRelationshipsForSupplier } from "@/actions/fi";
 import { notFound } from "next/navigation";
 import { FIDashboardHeader } from "@/components/fi/fi-dashboard-header";
 import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
@@ -8,18 +8,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Users, Mail, Shield, Building2 } from "lucide-react";
 import { format } from "date-fns";
+import { AddSupplierTeamMemberDialog } from "@/components/fi/add-supplier-team-member-dialog";
+import { SupplierTeamMemberRowActions } from "@/components/fi/supplier-team-member-row-actions";
+import { SupplierPendingInvitationRowActions } from "@/components/fi/supplier-pending-invitation-row-actions";
 
 export default async function FITeamPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
-    const [org, teamSummary] = await Promise.all([
+    const [org, teamSummary, isOrgAdmin, manageableRelationships] = await Promise.all([
         getFIOganization(id),
         getSupplierTeamMembers(id),
+        checkIsSupplierOrgAdmin(id),
+        getManageableRelationshipsForSupplier(id),
     ]);
 
     if (!org) return notFound();
 
-    const fiTabs = getFIPortalTabs(org.id);
+    const fiTabs = getFIPortalTabs(org.id, { isOrgAdmin });
     const { members, pendingInvitations } = teamSummary;
+    const canManageTeam = isOrgAdmin || manageableRelationships.length > 0;
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50/30">
@@ -45,6 +51,12 @@ export default async function FITeamPage({ params }: { params: Promise<{ id: str
                             People with access to {org.name} and its Client Legal Entity Relationships.
                         </p>
                     </div>
+                    {canManageTeam && manageableRelationships.length > 0 && (
+                        <AddSupplierTeamMemberDialog
+                            orgName={org.name}
+                            manageableRelationships={manageableRelationships}
+                        />
+                    )}
                 </div>
 
                 {/* Current Members Card */}
@@ -71,12 +83,13 @@ export default async function FITeamPage({ params }: { params: Promise<{ id: str
                                         <th className="px-6 py-3 font-extrabold">Role</th>
                                         <th className="px-6 py-3 font-extrabold">Access Scope</th>
                                         <th className="px-6 py-3 font-extrabold text-right">Joined</th>
+                                        <th className="px-6 py-3 font-extrabold text-right">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 text-xs">
                                     {members.length === 0 ? (
                                         <tr>
-                                            <td colSpan={4} className="p-8 text-center text-slate-500 italic">
+                                            <td colSpan={5} className="p-8 text-center text-slate-500 italic">
                                                 No team members are currently available for this Supplier.
                                             </td>
                                         </tr>
@@ -134,6 +147,10 @@ export default async function FITeamPage({ params }: { params: Promise<{ id: str
                                                     <td className="px-6 py-4 text-right text-slate-500 font-medium">
                                                         {m.joinedAt ? format(new Date(m.joinedAt), "dd MMM yyyy") : "—"}
                                                     </td>
+
+                                                    <td className="px-6 py-4 text-right">
+                                                        <SupplierTeamMemberRowActions member={m} canManage={canManageTeam} />
+                                                    </td>
                                                 </tr>
                                             );
                                         })
@@ -164,6 +181,7 @@ export default async function FITeamPage({ params }: { params: Promise<{ id: str
                                             <th className="px-6 py-3 font-extrabold">Role</th>
                                             <th className="px-6 py-3 font-extrabold">Access Scope</th>
                                             <th className="px-6 py-3 font-extrabold text-right">Invited</th>
+                                            <th className="px-6 py-3 font-extrabold text-right">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 text-xs">
@@ -182,6 +200,9 @@ export default async function FITeamPage({ params }: { params: Promise<{ id: str
                                                 </td>
                                                 <td className="px-6 py-4 text-right text-slate-500 font-medium">
                                                     {format(new Date(inv.invitedAt), "dd MMM yyyy")}
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <SupplierPendingInvitationRowActions invitation={inv} canManage={canManageTeam} />
                                                 </td>
                                             </tr>
                                         ))}

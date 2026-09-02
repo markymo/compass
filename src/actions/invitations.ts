@@ -8,6 +8,8 @@ import { Action, can } from "@/lib/auth/permissions";
 import { Resend } from "resend";
 import { render } from "@react-email/render";
 import { TeamInviteEmail } from "@/components/emails/team-invite-email";
+import { SupplierInviteEmail } from "@/components/emails/supplier-invite-email";
+import { determineRedirectUrl } from "./accept-invitation";
 import { recordActivity, LEActivityType } from "@/lib/le-activity";
 import { logActivity } from "./logging";
 import { BRAND } from "@/config/brand";
@@ -448,6 +450,8 @@ export async function revokeInvitation(invitationId: string) {
                     authorized = await can(user, Action.ORG_MANAGE_TEAM, { partyId: owner.partyId }, prisma);
                 }
             }
+        } else if (invite.fiEngagementId) {
+            authorized = await can(user, Action.ENG_MANAGE_USERS, { engagementId: invite.fiEngagementId }, prisma);
         }
         if (!authorized) return { success: false, error: "Unauthorized" };
     }
@@ -463,6 +467,10 @@ export async function revokeInvitation(invitationId: string) {
         if (owner) revalidatePath(`/app/clients/${owner.partyId}`);
         revalidatePath(`/app/le/${invite.clientLEId}`);
     }
+    if (invite.fiEngagementId) {
+        const eng = await prisma.fIEngagement.findUnique({ where: { id: invite.fiEngagementId }, select: { fiOrgId: true } });
+        if (eng?.fiOrgId) revalidatePath(`/app/s/${eng.fiOrgId}/team`);
+    }
     return { success: true };
 }
 
@@ -470,7 +478,6 @@ export async function resendInvitation(invitationId: string) {
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
 
-    // @ts-ignore
     const invite = await prisma.invitation.findUnique({ where: { id: invitationId } }) as any;
     if (!invite) return { success: false, error: "Not found" };
     if (invite.usedAt) return { success: false, error: "Cannot resend a used invitation." };
@@ -492,24 +499,135 @@ export async function resendInvitation(invitationId: string) {
                     authorized = await can(user, Action.ORG_MANAGE_TEAM, { partyId: owner.partyId }, prisma);
                 }
             }
+        } else if (invite.fiEngagementId) {
+            authorized = await can(user, Action.ENG_MANAGE_USERS, { engagementId: invite.fiEngagementId }, prisma);
         }
         if (!authorized) return { success: false, error: "Unauthorized" };
     }
 
-    // Update the expiration date to refresh it (7 days)
+    // Token Rotation for Hashed-Token Security
+    const newToken = crypto.randomUUID();
+    const newTokenHash = crypto.createHash('sha256').update(newToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
     await prisma.invitation.update({
         where: { id: invitationId },
-        data: { expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
+        data: {
+            tokenHash: newTokenHash,
+            expiresAt,
+        },
     });
 
-    return { success: true };
+    const baseUrl = await getAppBaseUrl();
+    const inviteLink = `${baseUrl}/invite/${newToken}`;
+
+    // Actually deliver the new invitation email
+    try {
+        const resendApiKey = process.env.RESEND_API_KEY;
+        if (resendApiKey) {
+            const resend = new Resend(resendApiKey);
+            if (invite.fiEngagementId) {
+                const eng = await prisma.fIEngagement.findUnique({
+                    where: { id: invite.fiEngagementId },
+                    include: { clientLE: true, org: true }
+                });
+                if (eng) {
+                    const emailHtml = await render(SupplierInviteEmail({
+                        inviterName: (identity as any).name || identity.email || 'OnPro Administrator',
+                        inviterEmail: identity.email || '',
+                        orgName: eng.org.name,
+                        leName: eng.clientLE.name,
+                        role: invite.role,
+                        message: "Your invitation has been resent.",
+                        inviteLink,
+                    }));
+                    await resend.emails.send({
+                        from: 'OnPro Platform <invites@onpro.tech>',
+                        to: invite.sentToEmail,
+                        subject: `Invitation resent: ${eng.clientLE.name} Relationship on OnPro`,
+                        html: emailHtml,
+                    });
+                }
+            }
+        }
+    } catch (err) {
+        console.error("Failed to resend invitation email", err);
+    }
+
+    if (invite.fiEngagementId) {
+        const eng = await prisma.fIEngagement.findUnique({ where: { id: invite.fiEngagementId }, select: { fiOrgId: true } });
+        if (eng?.fiOrgId) revalidatePath(`/app/s/${eng.fiOrgId}/team`);
+    }
+
+    return {
+        success: true,
+        message: "Invitation resent successfully.",
+        newInviteLink: inviteLink
+    };
+}
+
+export async function generateNewInvitationLink(invitationId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    const invite = await prisma.invitation.findUnique({ where: { id: invitationId } }) as any;
+    if (!invite) return { success: false, error: "Not found" };
+    if (invite.usedAt) return { success: false, error: "Cannot generate link for a used invitation." };
+    if (invite.revokedAt) return { success: false, error: "Cannot generate link for a revoked invitation." };
+
+    const memberships = await prisma.membership.findMany({ where: { userId: identity.userId } });
+    const user = { id: identity.userId, memberships };
+    const isPlatformAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
+
+    if (!isPlatformAdmin && invite.createdByUserId !== identity.userId) {
+        let authorized = false;
+        if (invite.organizationId) {
+            authorized = await can(user, Action.ORG_MANAGE_TEAM, { partyId: invite.organizationId }, prisma);
+        } else if (invite.clientLEId) {
+            authorized = await can(user, Action.LE_MANAGE_USERS, { clientLEId: invite.clientLEId }, prisma);
+            if (!authorized) {
+                const owner = await prisma.clientLEOwner.findFirst({ where: { clientLEId: invite.clientLEId, endAt: null } });
+                if (owner) {
+                    authorized = await can(user, Action.ORG_MANAGE_TEAM, { partyId: owner.partyId }, prisma);
+                }
+            }
+        } else if (invite.fiEngagementId) {
+            authorized = await can(user, Action.ENG_MANAGE_USERS, { engagementId: invite.fiEngagementId }, prisma);
+        }
+        if (!authorized) return { success: false, error: "Unauthorized" };
+    }
+
+    const newToken = crypto.randomUUID();
+    const newTokenHash = crypto.createHash('sha256').update(newToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    await prisma.invitation.update({
+        where: { id: invitationId },
+        data: {
+            tokenHash: newTokenHash,
+            expiresAt,
+        }
+    });
+
+    const baseUrl = await getAppBaseUrl();
+    const inviteLink = `${baseUrl}/invite/${newToken}`;
+
+    if (invite.fiEngagementId) {
+        const eng = await prisma.fIEngagement.findUnique({ where: { id: invite.fiEngagementId }, select: { fiOrgId: true } });
+        if (eng?.fiOrgId) revalidatePath(`/app/s/${eng.fiOrgId}/team`);
+    }
+
+    return {
+        success: true,
+        inviteLink,
+        message: "New invitation link generated. The previous link is now invalid."
+    };
 }
 
 export async function updateInvitationRole(invitationId: string, role: string) {
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
 
-    // @ts-ignore
     const invite = await prisma.invitation.findUnique({ where: { id: invitationId } }) as any;
     if (!invite) return { success: false, error: "Not found" };
     if (invite.usedAt) return { success: false, error: "Cannot update a used invitation." };
@@ -522,6 +640,9 @@ export async function updateInvitationRole(invitationId: string, role: string) {
         if (orgIdToCheck) {
             const canOrgManage = await can(user, Action.ORG_MANAGE_TEAM, { partyId: orgIdToCheck }, prisma);
             if (!canOrgManage) return { success: false, error: "Unauthorized" };
+        } else if (invite.fiEngagementId) {
+            const canEngManage = await can(user, Action.ENG_MANAGE_USERS, { engagementId: invite.fiEngagementId }, prisma);
+            if (!canEngManage) return { success: false, error: "Unauthorized" };
         } else {
             return { success: false, error: "Unauthorized" };
         }
@@ -533,4 +654,119 @@ export async function updateInvitationRole(invitationId: string, role: string) {
     });
 
     return { success: true };
+}
+
+// ============================================================================
+// FR-15: Authenticated Pending-Invitation Discovery & Deliberate Claim
+// ============================================================================
+
+export async function getAuthenticatedPendingInvitations() {
+    const identity = await getIdentity();
+    if (!identity?.email) return [];
+
+    const invitations = await prisma.invitation.findMany({
+        where: {
+            sentToEmail: { equals: identity.email, mode: "insensitive" },
+            usedAt: null,
+            revokedAt: null,
+            expiresAt: { gt: new Date() },
+        },
+        include: {
+            organization: { select: { id: true, name: true } },
+            clientLE: { select: { id: true, name: true } },
+            fiEngagement: {
+                select: {
+                    id: true,
+                    fiOrgId: true,
+                    clientLE: { select: { id: true, name: true } },
+                    org: { select: { id: true, name: true } },
+                }
+            }
+        },
+        orderBy: { createdAt: "desc" },
+    });
+
+    return invitations;
+}
+
+export async function claimPendingInvitation(invitationId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId || !identity?.email) return { success: false, error: "Unauthorized" };
+
+    const invite = await prisma.invitation.findUnique({
+        where: { id: invitationId },
+        include: {
+            fiEngagement: { include: { org: true, clientLE: true } },
+            clientLE: true,
+            organization: true
+        }
+    }) as any;
+
+    if (!invite) return { success: false, error: "Invitation not found" };
+    if (invite.usedAt) return { success: false, error: "Invitation already accepted" };
+    if (invite.revokedAt) return { success: false, error: "Invitation has been revoked" };
+    if (new Date(invite.expiresAt) < new Date()) return { success: false, error: "Invitation has expired" };
+
+    if (invite.sentToEmail.toLowerCase() !== identity.email.toLowerCase()) {
+        return { success: false, error: "This invitation was sent to a different email address." };
+    }
+
+    // Determine target role
+    let assignedRole = invite.role;
+    if (invite.fiEngagementId) {
+        if (assignedRole === "ORG_ADMIN") assignedRole = "RELATIONSHIP_ADMIN";
+        if (assignedRole === "ORG_MEMBER" || assignedRole === "SUPPLIER_CONTACT") assignedRole = "RELATIONSHIP_USER";
+    }
+
+    // Check if membership already exists
+    const existingMem = await prisma.membership.findFirst({
+        where: {
+            userId: identity.userId,
+            organizationId: invite.organizationId ?? undefined,
+            clientLEId: invite.clientLEId ?? undefined,
+            fiEngagementId: invite.fiEngagementId ?? undefined,
+        }
+    });
+
+    if (!existingMem) {
+        await prisma.membership.create({
+            data: {
+                userId: identity.userId,
+                organizationId: invite.organizationId ?? null,
+                clientLEId: invite.clientLEId ?? null,
+                fiEngagementId: invite.fiEngagementId ?? null,
+                role: assignedRole,
+            }
+        });
+    }
+
+    if (invite.fiEngagementId) {
+        const eng = await prisma.fIEngagement.findUnique({ where: { id: invite.fiEngagementId } });
+        if (eng?.status === "INVITED") {
+            await prisma.fIEngagement.update({
+                where: { id: invite.fiEngagementId },
+                data: { status: "CONNECTED" },
+            });
+        }
+        await prisma.engagementActivity.create({
+            data: {
+                fiEngagementId: invite.fiEngagementId,
+                userId: identity.userId,
+                type: "TEAM_MEMBER_ADDED",
+                details: { email: identity.email, role: assignedRole },
+            },
+        });
+    }
+
+    // Mark invitation used
+    await prisma.invitation.update({
+        where: { id: invitationId },
+        data: {
+            usedAt: new Date(),
+            acceptedByUserId: identity.userId,
+        }
+    });
+
+    const redirectUrl = await determineRedirectUrl(invite, prisma);
+    return { success: true, redirectUrl };
 }
