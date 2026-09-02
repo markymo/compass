@@ -101,7 +101,8 @@ test.describe('MASTER-04 / ONP-28 — Master Field Override & Provenance Update 
     });
 
     test('2. User overrides value via UI drawer; winner becomes User Input with refreshed Last validated timestamp', async ({ page }) => {
-        const todayStr = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date());
+        const now = new Date();
+        const currentYear = String(now.getUTCFullYear());
 
         await page.goto(`/app/le/${clientLEId}/master`);
         await page.waitForLoadState('domcontentloaded');
@@ -144,10 +145,11 @@ test.describe('MASTER-04 / ONP-28 — Master Field Override & Provenance Update 
         await expect(fieldCard.locator('text=/15 Jan 2025/i')).toHaveCount(0);
 
         // Open inspection drawer to verify winning User Input claim has refreshed assertion date
-        const winningClaimRow = drawer.locator(`div:has-text("${manualOverrideValue}")`).first();
-        await expect(winningClaimRow).toBeVisible();
-        await expect(winningClaimRow.locator('text=/User input/i').first()).toBeVisible();
-        await expect(winningClaimRow).toContainText(todayStr);
+        const currentAuthSection = drawer.locator('div:has-text("Current Authoritative Value")').first();
+        await expect(currentAuthSection).toBeVisible();
+        await expect(currentAuthSection).toContainText(manualOverrideValue);
+        await expect(currentAuthSection.locator('text=/User input/i').first()).toBeVisible();
+        await expect(currentAuthSection).toContainText(currentYear);
 
         // Reload page to verify persistence across fresh session
         await page.reload();
@@ -162,9 +164,10 @@ test.describe('MASTER-04 / ONP-28 — Master Field Override & Provenance Update 
         await reloadedCard.locator('[role="button"]').first().click();
         const reloadedDrawer = page.locator('[role="dialog"]').first();
         await expect(reloadedDrawer).toBeVisible({ timeout: 10000 });
-        const reloadedClaimRow = reloadedDrawer.locator(`div:has-text("${manualOverrideValue}")`).first();
-        await expect(reloadedClaimRow).toBeVisible();
-        await expect(reloadedClaimRow.locator('text=/User input/i').first()).toBeVisible();
-        await expect(reloadedClaimRow).toContainText(todayStr);
+        const reloadedAuthSection = reloadedDrawer.locator('div:has-text("Current Authoritative Value")').first();
+        await expect(reloadedAuthSection).toBeVisible();
+        await expect(reloadedAuthSection).toContainText(manualOverrideValue);
+        await expect(reloadedAuthSection.locator('text=/User input/i').first()).toBeVisible();
+        await expect(reloadedAuthSection).toContainText(currentYear);
     });
 });

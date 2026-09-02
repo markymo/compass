@@ -141,8 +141,8 @@ test.describe('QNR-05 / ONP-18 — Relationship Questionnaire Assignment & Visib
         const page = await supplierContext.newPage();
 
         try {
-            // Navigate directly to Questions Workbench with relationship filter
-            await page.goto(`/app/s/${testSupplierOrgId}/questions?rel=${encodeURIComponent(testClientLEName)}&q=${encodeURIComponent(distinctiveTemplateName)}`);
+            // Navigate directly to Questions Workbench with questionnaire filter
+            await page.goto(`/app/s/${testSupplierOrgId}/questions?q=${encodeURIComponent(distinctiveTemplateName)}`);
             await page.waitForLoadState('domcontentloaded');
 
             // Assert navigated to Questions Workbench with question visible

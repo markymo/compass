@@ -24,15 +24,37 @@ test.describe('Cosmetic Wave 01 — Track B: Output Pack & Relationships Contrac
         clientLEName = manifest.alphaClientLE.name;
         relationshipId = manifest.relationshipAlpha.id;
 
-        // Find question with order 2 in Alpha's questionnaire and attach a disposable document for ONP-116 testing
-        const alphaQuestion = await prisma.question.findFirst({
+        // Find or create question with order 2 in Alpha's questionnaire and attach a disposable document for ONP-116 testing
+        let alphaQuestion = await prisma.question.findFirst({
             where: {
                 questionnaire: {
-                    fiEngagementId: relationshipId
+                    fiEngagementId: relationshipId,
+                    isDeleted: false,
+                    kind: 'ENGAGEMENT_QUESTIONNAIRE'
                 },
                 order: 2
             }
         });
+
+        if (!alphaQuestion) {
+            const createdQ = await prisma.questionnaire.create({
+                data: {
+                    name: 'Alpha Relationship Due Diligence',
+                    fiEngagementId: relationshipId,
+                    fiOrgId: manifest.supplierOrgA.id,
+                    status: 'ACTIVE',
+                    kind: 'ENGAGEMENT_QUESTIONNAIRE',
+                    questions: {
+                        create: [
+                            { text: 'Question 1', order: 1, expectedDataType: 'TEXT' },
+                            { text: 'Question 2', order: 2, expectedDataType: 'TEXT' }
+                        ]
+                    }
+                },
+                include: { questions: true }
+            });
+            alphaQuestion = createdQ.questions.find(q => q.order === 2) || createdQ.questions[0];
+        }
 
         if (alphaQuestion) {
             const doc = await prisma.document.create({

@@ -26,8 +26,8 @@ test.describe('MASTER-01 / ONP-20 — Boolean Master Fields Semantics & Display'
 
     test('1. Master UI presents boolean constrained editor (Yes/No), saves and persists canonical boolean state', async ({ page }) => {
         // Navigate to Client LE Master Record page
-        await page.goto(`/app/le/${clientLEId}`);
-        await page.waitForLoadState('networkidle');
+        await page.goto(`/app/le/${clientLEId}/master`);
+        await page.waitForLoadState('domcontentloaded');
 
         // Locate Field 243 row in Master Record
         const fieldRow = page.locator(`[data-field-no="${fieldNo}"], tr:has-text("Cleared derivative trading only?")`).first();
@@ -57,7 +57,7 @@ test.describe('MASTER-01 / ONP-20 — Boolean Master Fields Semantics & Display'
         const saveButton = dialog.getByRole('button', { name: /Save|Confirm/i }).first();
         await expect(saveButton).toBeVisible({ timeout: 5000 });
         await saveButton.click();
-        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(1500);
 
         // Verify Authoritative Value in dialog shows 'Yes'
         await expect(dialog).toContainText('Yes', { timeout: 10000 });
@@ -68,8 +68,8 @@ test.describe('MASTER-01 / ONP-20 — Boolean Master Fields Semantics & Display'
         await expect(dialog).not.toBeVisible();
 
         // Reload page to verify persistence on deployed staging
-        await page.reload();
-        await page.waitForLoadState('networkidle');
+        await page.goto(`/app/le/${clientLEId}/master`);
+        await page.waitForLoadState('domcontentloaded');
 
         // Re-open Field 243 dialog and verify persistence of 'Yes'
         const fieldRowAfterReload = page.locator(`[data-field-no="${fieldNo}"], tr:has-text("Cleared derivative trading only?")`).first();

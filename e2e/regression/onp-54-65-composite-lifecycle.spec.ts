@@ -212,8 +212,8 @@ test.describe('COMP-01 / ONP-54 + ONP-65 — Composite Group Canonical Resolutio
         const page = await supplierContext.newPage();
 
         try {
-            // Navigate to supplier Questions Workbench for this relationship
-            await page.goto(`/app/s/${supplierOrgId}/questions?rel=${encodeURIComponent(disposableLEName)}`);
+            // Navigate to supplier Questions Workbench for this questionnaire
+            await page.goto(`/app/s/${supplierOrgId}/questions?q=${encodeURIComponent(testQuestionnaire.name)}`);
             await page.waitForLoadState('domcontentloaded');
 
             // Fresh context reload to ensure clean server state
