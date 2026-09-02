@@ -233,7 +233,7 @@ export const ACTION_DOCUMENTATION: Record<Action, ActionDocumentation> = {
         scope: "Relationship",
         summary: "Assign and manage users on a specific engagement relationship.",
         description: "Assign, manage, and remove team members (RELATIONSHIP_ADMIN, RELATIONSHIP_USER) on a specific engagement relationship.",
-        restrictions: "Granted to LE_ADMIN (client side) and RELATIONSHIP_ADMIN (supplier side).",
+        restrictions: "Granted to LE_ADMIN (client side), RELATIONSHIP_ADMIN (supplier side), and Supplier ORG_ADMIN for owned relationships.",
     },
 
     // ==========================================
@@ -549,7 +549,7 @@ export const ACTION_MATRIX_ROWS: ActionMatrixRow[] = [
         category: "Relationship Responses & Team",
         categoryColor: "bg-teal-50/40 dark:bg-teal-950/20 text-teal-900 dark:text-teal-300",
         sysAdmin: "—",
-        orgAdmin: "—",
+        orgAdmin: "SUPPLIER",
         orgMember: "—",
         leAdmin: "✓",
         leUser: "—",

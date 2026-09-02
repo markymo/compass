@@ -35,7 +35,8 @@ vi.mock("@/services/masterData/definitionService", () => ({
 
 vi.mock("@/lib/kyc/KycStateService", () => ({
     KycStateService: {
-        getAuthoritativeValue: vi.fn()
+        getAuthoritativeValue: vi.fn(),
+        resolveScopeId: vi.fn().mockImplementation(async (clientLEId: string) => clientLEId)
     }
 }));
 
@@ -62,7 +63,9 @@ describe("Supplier SHARED Live Canonical Resolution & Last Validated Rules", () 
             organizationId: fiOrgId,
             organization: { types: ["FI"] }
         });
-        prismaMock.membership.findMany.mockResolvedValue([]);
+        prismaMock.membership.findMany.mockResolvedValue([
+            { id: "mem-eng-1", userId, fiEngagementId: "eng-1", role: "RELATIONSHIP_ADMIN" }
+        ]);
     });
 
     it("1. SHARED mapped canonical value with q.answer = null: supplier sees live canonical value", async () => {
@@ -103,7 +106,7 @@ describe("Supplier SHARED Live Canonical Resolution & Last Validated Rules", () 
         expect(q.answerVisibility).toBe("SHARED");
         expect(q.answer).toBe("ABERDEEN GROUP PLC");
         expect(getAuthoritativeValueMock).toHaveBeenCalledWith(
-            { subjectLeId: "le-1" },
+            { subjectLeId: "le-1", clientLEId: "cle-1" },
             3,
             "cle-1",
             undefined // snapshotDate = undefined (Live current value)

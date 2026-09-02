@@ -104,12 +104,28 @@ export async function getFIOganization(fiOrgId?: string) {
         const membership = await prisma.membership.findFirst({
             where: {
                 userId,
-                organizationId: fiOrgId,
-                organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } }
+                OR: [
+                    {
+                        organizationId: fiOrgId,
+                        organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } }
+                    },
+                    {
+                        fiEngagement: {
+                            fiOrgId: fiOrgId,
+                            isDeleted: false,
+                            org: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } }
+                        }
+                    }
+                ]
             },
-            include: { organization: true }
+            include: {
+                organization: true,
+                fiEngagement: {
+                    include: { org: true }
+                }
+            }
         });
-        return membership?.organization || null;
+        return membership?.organization || membership?.fiEngagement?.org || null;
     }
 
     const cookieStore = await cookies();
@@ -470,31 +486,28 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
     if (!identity?.userId) return emptyResult;
     const { userId } = identity;
 
-    // 1. Verify access to Supplier Org or specific Relationships
-    const orgMembership = await prisma.membership.findFirst({
+    // 1. Verify explicit operational relationship memberships for this Supplier
+    const engagementMemberships = await prisma.membership.findMany({
         where: {
             userId,
-            organizationId: fiOrgId,
-            organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } }
-        }
-    });
-
-    const engagementMemberships = await prisma.membership.findMany({
-        where: { userId, fiEngagementId: { not: null } },
+            fiEngagementId: { not: null },
+            fiEngagement: { fiOrgId, isDeleted: false }
+        },
         select: { fiEngagementId: true }
     });
     const allowedEngagementIds = engagementMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
 
-    if (!orgMembership && allowedEngagementIds.length === 0) {
+    // Pure ORG_ADMIN or users without explicit relationship membership receive zero operational data
+    if (allowedEngagementIds.length === 0) {
         return emptyResult;
     }
 
     const engagementFilter: any = {
         fiOrgId: fiOrgId,
+        id: { in: allowedEngagementIds },
         isDeleted: false,
         status: { not: "ARCHIVED" },
         clientLE: { isDeleted: false },
-        ...(orgMembership ? {} : { id: { in: allowedEngagementIds } })
     };
 
     // 2. Fetch questions for direct engagement questionnaires AND linked Common Questionnaires for active relationships
@@ -913,7 +926,7 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                 const sharedSourceRef = derivedVal?.sourceReference || null;
                 const sharedSourceLabel = derivedVal ? getSourceDisplayName(sharedSourceType, sharedSourceRef) : "Provisional Shared";
                 const sharedTimestamp = q.sharedAt || derivedVal?.assertedAt || null;
-                const lastValidatedAt = derivedVal?.sourceCheckedAt || derivedVal?.assertedAt || q.sharedAt || null;
+                const lastValidatedAt = derivedVal?.sourceCheckedAt || (sharedSourceType === 'USER_INPUT' ? (derivedVal?.assertedAt || q.sharedAt) : (derivedVal?.assertedAt || null));
 
                 provenance = {
                     source: sharedSourceLabel || "Provisional Shared",
@@ -1613,59 +1626,65 @@ export async function getSupplierRelationshipsSummary(fiOrgId: string): Promise<
         const clientOrgId = ownerParty?.id || `unassigned-${eng.clientLEId}`;
         const clientOrgName = ownerParty?.name || eng.clientLE?.name || "Independent Client Legal Entities";
 
+        const isOperational = userEngagementIds.includes(eng.id);
+
         let engTotal = 0;
         let engNotShared = 0;
         let engShared = 0;
         let engReleased = 0;
 
-        const qSummaries: SupplierRelationshipQuestionnaireSummary[] = (eng.questionnaireInstances || []).map((q: any) => {
-            let qTotal = 0;
-            let qNotShared = 0;
-            let qShared = 0;
-            let qReleased = 0;
-            let latestTimestamp: Date | null = null;
+        let qSummaries: SupplierRelationshipQuestionnaireSummary[] = [];
 
-            (q.questions || []).forEach((quest: any) => {
-                qTotal++;
-                if (quest.status === "SHARED") {
-                    qShared++;
-                    const dt = quest.sharedAt ? new Date(quest.sharedAt) : null;
-                    if (dt && (!latestTimestamp || dt > latestTimestamp)) {
-                        latestTimestamp = dt;
+        if (isOperational) {
+            qSummaries = (eng.questionnaireInstances || []).map((q: any) => {
+                let qTotal = 0;
+                let qNotShared = 0;
+                let qShared = 0;
+                let qReleased = 0;
+                let latestTimestamp: Date | null = null;
+
+                (q.questions || []).forEach((quest: any) => {
+                    qTotal++;
+                    if (quest.status === "SHARED") {
+                        qShared++;
+                        const dt = quest.sharedAt ? new Date(quest.sharedAt) : null;
+                        if (dt && (!latestTimestamp || dt > latestTimestamp)) {
+                            latestTimestamp = dt;
+                        }
+                    } else if (quest.status === "RELEASED") {
+                        qReleased++;
+                        const dt = quest.releasedAt ? new Date(quest.releasedAt) : null;
+                        if (dt && (!latestTimestamp || dt > latestTimestamp)) {
+                            latestTimestamp = dt;
+                        }
+                    } else {
+                        qNotShared++;
                     }
-                } else if (quest.status === "RELEASED") {
-                    qReleased++;
-                    const dt = quest.releasedAt ? new Date(quest.releasedAt) : null;
-                    if (dt && (!latestTimestamp || dt > latestTimestamp)) {
-                        latestTimestamp = dt;
-                    }
-                } else {
-                    qNotShared++;
-                }
+                });
+
+                engTotal += qTotal;
+                engNotShared += qNotShared;
+                engShared += qShared;
+                engReleased += qReleased;
+
+                const latestIso: string | null = latestTimestamp ? (latestTimestamp as Date).toISOString() : null;
+
+                return {
+                    id: q.id,
+                    questionnaireId: q.id,
+                    name: q.name,
+                    version: q.version || null,
+                    referenceCode: q.code || q.referenceCode || null,
+                    questionCounts: {
+                        total: qTotal,
+                        notShared: qNotShared,
+                        shared: qShared,
+                        released: qReleased
+                    },
+                    latestSharedOrReleasedAt: latestIso
+                };
             });
-
-            engTotal += qTotal;
-            engNotShared += qNotShared;
-            engShared += qShared;
-            engReleased += qReleased;
-
-            const latestIso: string | null = latestTimestamp ? (latestTimestamp as Date).toISOString() : null;
-
-            return {
-                id: q.id,
-                questionnaireId: q.id,
-                name: q.name,
-                version: q.version || null,
-                referenceCode: q.code || q.referenceCode || null,
-                questionCounts: {
-                    total: qTotal,
-                    notShared: qNotShared,
-                    shared: qShared,
-                    released: qReleased
-                },
-                latestSharedOrReleasedAt: latestIso
-            };
-        });
+        }
 
         const leSummary: SupplierClientLERelationshipSummary = {
             relationshipId: eng.id,

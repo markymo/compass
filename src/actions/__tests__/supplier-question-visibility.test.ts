@@ -46,7 +46,9 @@ describe("Supplier-Safe Question Visibility & Server-Side Redaction", () => {
             organizationId: fiOrgId,
             organization: { types: ["FI"] }
         });
-        prismaMock.membership.findMany.mockResolvedValue([]);
+        prismaMock.membership.findMany.mockResolvedValue([
+            { id: "mem-eng-1", userId, fiEngagementId: "eng-1", role: "RELATIONSHIP_ADMIN" }
+        ]);
     });
 
     it("1. DRAFT question: text returned, answerVisibility=NOT_SHARED, answer/provenance null, documents empty, internal DRAFT status not exposed", async () => {

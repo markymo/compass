@@ -19,7 +19,7 @@ import { getAppBaseUrl } from "@/lib/env";
 export async function inviteSupplier(
     fiEngagementId: string,
     email: string,
-    role: string = "SUPPLIER_CONTACT",
+    role: string = "RELATIONSHIP_ADMIN",
     message?: string
 ) {
     // 1. Authentication & Context

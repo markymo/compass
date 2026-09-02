@@ -38,7 +38,7 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
 
         setIsLoading(true);
         try {
-            const result = await inviteSupplier(engagementId, email, "SUPPLIER_CONTACT", message);
+            const result = await inviteSupplier(engagementId, email, "RELATIONSHIP_ADMIN", message);
 
             if (result.success && result.token) {
                 const link = `${window.location.origin}/invite/${result.token}`;

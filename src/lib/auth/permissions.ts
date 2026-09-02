@@ -240,10 +240,31 @@ export async function can(
         const engRole = getRoleForEngagement(user, context.engagementId);
         if (engRole && checkPermission(engRole, action)) return true;
 
-        // 2. Downward Inheritance for Client-side ONLY
-        // To inherit Client roles (LE_ADMIN, LE_USER), we must know the ClientLE associated with this engagement.
-        // If clientLEId is not provided in context, fetch it to ensure Client users can manage engagements.
-        if (!context.clientLEId && prisma?.fIEngagement) {
+        // 2. Supplier ORG_ADMIN Team Management (ENG_MANAGE_USERS only)
+        // Supplier Org Admin can manage relationship team members for owned engagements without gaining operational data access
+        if (action === Action.ENG_MANAGE_USERS && prisma?.fIEngagement) {
+            const eng = await prisma.fIEngagement.findUnique({
+                where: { id: context.engagementId },
+                select: { clientLEId: true, fiOrgId: true }
+            });
+            if (eng) {
+                if (!context.clientLEId && eng.clientLEId) {
+                    context.clientLEId = eng.clientLEId;
+                }
+                if (eng.fiOrgId) {
+                    const orgRole = getRoleForOrg(user, eng.fiOrgId);
+                    if (orgRole === Role.ORG_ADMIN) {
+                        const orgTypes = await resolveOrgTypes(eng.fiOrgId, user, prisma);
+                        if (isActionAllowedForOrgTypes(Action.QUESTIONNAIRE_CREATE, orgTypes)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        } else if (!context.clientLEId && prisma?.fIEngagement) {
+            // 3. Downward Inheritance for Client-side ONLY
+            // To inherit Client roles (LE_ADMIN, LE_USER), we must know the ClientLE associated with this engagement.
+            // If clientLEId is not provided in context, fetch it to ensure Client users can manage engagements.
             const eng = await prisma.fIEngagement.findUnique({
                 where: { id: context.engagementId },
                 select: { clientLEId: true }

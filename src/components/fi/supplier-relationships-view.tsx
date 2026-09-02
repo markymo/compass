@@ -181,39 +181,42 @@ function SupplierRelationshipsViewInner({
                                             </h2>
                                             <div className="text-xs text-slate-500 font-medium">
                                                 {clientGroup.legalEntities.length}{" "}
-                                                {clientGroup.legalEntities.length === 1 ? "Legal Entity" : "Legal Entities"} •{" "}
-                                                {clientGroup.questionnaireCount}{" "}
-                                                {clientGroup.questionnaireCount === 1 ? "questionnaire" : "questionnaires"}
+                                                {clientGroup.legalEntities.length === 1 ? "Legal Entity" : "Legal Entities"}
+                                                {clientGroup.questionnaireCount > 0 && (
+                                                    <> • {clientGroup.questionnaireCount} {clientGroup.questionnaireCount === 1 ? "questionnaire" : "questionnaires"}</>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Aggregated Question Count Badges */}
-                                    <div className="flex items-center gap-2 shrink-0">
-                                        <Badge
-                                            variant="outline"
-                                            className="bg-amber-50 text-amber-800 border-amber-200 text-xs font-semibold px-2.5 py-1"
-                                            title="Awaiting Client"
-                                        >
-                                            <Lock className="h-3 w-3 mr-1 text-amber-600" />
-                                            {clientGroup.questionCounts.notShared} awaiting
-                                        </Badge>
-                                        <Badge
-                                            variant="secondary"
-                                            className="bg-blue-50 text-blue-800 border-blue-200 text-xs font-semibold px-2.5 py-1"
-                                            title="Shared (Provisional)"
-                                        >
-                                            <Clock className="h-3 w-3 mr-1 text-blue-600" />
-                                            {clientGroup.questionCounts.shared} shared
-                                        </Badge>
-                                        <Badge
-                                            className="bg-emerald-100 text-emerald-800 border-emerald-300 text-xs font-semibold px-2.5 py-1"
-                                            title="Released (Formal)"
-                                        >
-                                            <ShieldCheck className="h-3 w-3 mr-1 text-emerald-600" />
-                                            {clientGroup.questionCounts.released} released
-                                        </Badge>
-                                    </div>
+                                    {/* Aggregated Question Count Badges (Operational view only) */}
+                                    {clientGroup.questionCounts.total > 0 && (
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <Badge
+                                                variant="outline"
+                                                className="bg-amber-50 text-amber-800 border-amber-200 text-xs font-semibold px-2.5 py-1"
+                                                title="Awaiting Client"
+                                            >
+                                                <Lock className="h-3 w-3 mr-1 text-amber-600" />
+                                                {clientGroup.questionCounts.notShared} awaiting
+                                            </Badge>
+                                            <Badge
+                                                variant="secondary"
+                                                className="bg-blue-50 text-blue-800 border-blue-200 text-xs font-semibold px-2.5 py-1"
+                                                title="Shared (Provisional)"
+                                            >
+                                                <Clock className="h-3 w-3 mr-1 text-blue-600" />
+                                                {clientGroup.questionCounts.shared} shared
+                                            </Badge>
+                                            <Badge
+                                                className="bg-emerald-100 text-emerald-800 border-emerald-300 text-xs font-semibold px-2.5 py-1"
+                                                title="Released (Formal)"
+                                            >
+                                                <ShieldCheck className="h-3 w-3 mr-1 text-emerald-600" />
+                                                {clientGroup.questionCounts.released} released
+                                            </Badge>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Level 2: Nested Client Legal Entity Rows */}
@@ -283,13 +286,15 @@ function SupplierRelationshipsViewInner({
                                                                         </Badge>
                                                                     )}
                                                                 </div>
-                                                                <div className="text-[11px] text-slate-500">
-                                                                    {le.questionnaires.length}{" "}
-                                                                    {le.questionnaires.length === 1 ? "questionnaire" : "questionnaires"} •{" "}
-                                                                    {le.questionCounts.notShared} awaiting •{" "}
-                                                                    {le.questionCounts.shared} shared •{" "}
-                                                                    {le.questionCounts.released} released
-                                                                </div>
+                                                                 {le.questionCounts.total > 0 && (
+                                                                    <div className="text-[11px] text-slate-500">
+                                                                        {le.questionnaires.length}{" "}
+                                                                        {le.questionnaires.length === 1 ? "questionnaire" : "questionnaires"} •{" "}
+                                                                        {le.questionCounts.notShared} awaiting •{" "}
+                                                                        {le.questionCounts.shared} shared •{" "}
+                                                                        {le.questionCounts.released} released
+                                                                    </div>
+                                                                 )}
                                                             </div>
                                                         </div>
                                                     </div>
