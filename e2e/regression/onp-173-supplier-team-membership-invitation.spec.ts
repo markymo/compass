@@ -507,6 +507,7 @@ test.describe('ONP-173 — Supplier Team Membership & Invitation Onboarding Work
         expect(consumedInvite?.usedAt).not.toBeNull();
 
         // Cleanup
+        await prisma.engagementActivity.deleteMany({ where: { userId: janeUser.id } });
         await prisma.membership.deleteMany({ where: { userId: janeUser.id } });
         await prisma.invitation.deleteMany({ where: { id: pendingInvite.id } });
         await prisma.user.deleteMany({ where: { id: janeUser.id } });
