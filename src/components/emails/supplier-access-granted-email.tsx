@@ -34,7 +34,7 @@ export const SupplierAccessGrantedEmail = ({
     return (
         <Html>
             <Head />
-            <Preview>Access granted to {orgName} on OnPro for {leName}</Preview>
+            <Preview>Access granted to {leName} Relationship managed through {orgName} on OnPro</Preview>
             <Tailwind>
                 <Body className="bg-white my-auto mx-auto font-sans">
                     <Container className="border border-solid border-[#eaeaea] rounded my-[40px] mx-auto p-[20px] max-w-[465px]">
@@ -45,7 +45,7 @@ export const SupplierAccessGrantedEmail = ({
                             Hello,
                         </Text>
                         <Text className="text-black text-[14px] leading-[24px]">
-                            <strong>{inviterName}</strong> ({inviterEmail}) has granted your OnPro account access to the <strong>{orgName}</strong> workspace.
+                            <strong>{inviterName}</strong> ({inviterEmail}) has granted your OnPro account access to a Relationship managed through <strong>{orgName}</strong>.
                         </Text>
                         <Text className="text-black text-[14px] leading-[24px]">
                             You have been assigned to the following Relationship:

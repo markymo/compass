@@ -8,6 +8,9 @@ import { determineRedirectUrl, registerAndAcceptInvitation, acceptInvitation } f
 import { getSupplierTeamMembers } from '../fi';
 import { Action, can, Role } from '@/lib/auth/permissions';
 import { getFIPortalTabs } from '@/config/navigation-tabs';
+import { render } from '@react-email/render';
+import { SupplierInviteEmail } from '@/components/emails/supplier-invite-email';
+import { SupplierAccessGrantedEmail } from '@/components/emails/supplier-access-granted-email';
 import crypto from 'crypto';
 
 const { mockPrisma } = vi.hoisted(() => {
@@ -1030,6 +1033,70 @@ describe('ONP-173 — Supplier Team Membership & Invitation Onboarding Workflow'
                         }),
                     })
                 );
+            });
+        });
+
+        // Final Review Polish: Items 1-3
+        describe('Final Review Polish: Items 1-3', () => {
+            it('Item 1: Pure Supplier ORG_ADMIN presentation does not claim operational access to All Relationships', async () => {
+                const pureOrgAdminUserId = 'pure-org-admin-1';
+                vi.mocked(getIdentity).mockResolvedValue({ userId: 'actor-admin', email: 'actor@supplier-a.com' } as any);
+                prismaMock.membership.findMany.mockResolvedValue([
+                    { id: 'actor-mem', userId: 'actor-admin', organizationId: supplierOrgAId, role: 'ORG_ADMIN', organization: { types: ['SUPPLIER', 'FI'] } },
+                    {
+                        id: 'mem-pure-org-admin',
+                        userId: pureOrgAdminUserId,
+                        organizationId: supplierOrgAId,
+                        role: 'ORG_ADMIN',
+                        createdAt: new Date(),
+                        user: { id: pureOrgAdminUserId, name: 'Pure Admin', email: 'pure.admin@supplier.com' },
+                    },
+                ]);
+                prismaMock.invitation.findMany.mockResolvedValue([]);
+
+                const team = await getSupplierTeamMembers(supplierOrgAId);
+                const pureAdmin = team.members.find((m) => m.userId === pureOrgAdminUserId);
+
+                expect(pureAdmin).toBeDefined();
+                expect(pureAdmin?.orgRole).toBe('ORG_ADMIN');
+                expect(pureAdmin?.relationshipGrants).toHaveLength(0); // Zero operational grants!
+            });
+
+            it('Item 2: New-user invitation email context communicates Supplier Org and Relationship onboarding', async () => {
+                const html = await render(SupplierInviteEmail({
+                    inviterName: 'Alice Inviter',
+                    inviterEmail: 'alice@supplier.com',
+                    orgName: 'Barclays Supplier Org',
+                    leName: 'Client LE Alpha',
+                    role: 'RELATIONSHIP_USER',
+                    message: 'Please join our relationship team',
+                    inviteLink: 'https://onpro.tech/invite/test-token',
+                }));
+
+                expect(html).toContain('Barclays Supplier Org');
+                expect(html).toContain('Client LE Alpha');
+                expect(html).toContain('RELATIONSHIP_USER');
+                expect(html).toContain('Alice Inviter');
+                expect(html).toContain('accept the invitation below to set up your account');
+                expect(html).toContain('https://onpro.tech/invite/test-token');
+            });
+
+            it('Item 3: Existing-user access-granted email finesses copy to indicate access managed through Supplier org', async () => {
+                const html = await render(SupplierAccessGrantedEmail({
+                    inviterName: 'Bob Admin',
+                    inviterEmail: 'bob@supplier.com',
+                    orgName: 'Supplier Org A',
+                    leName: 'Client LE Alpha',
+                    role: 'RELATIONSHIP_ADMIN',
+                    workspaceUrl: 'https://onpro.tech/app/s/supplier-org-a',
+                }));
+
+                expect(html).toContain('has granted your OnPro account access to a Relationship managed through');
+                expect(html).toContain('Supplier Org A');
+                expect(html).toContain('Client LE Alpha');
+                expect(html).toContain('RELATIONSHIP_ADMIN');
+                expect(html).toContain('no invitation acceptance or password setup is required');
+                expect(html).toContain('https://onpro.tech/app/s/supplier-org-a');
             });
         });
     });

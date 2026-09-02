@@ -165,9 +165,9 @@ export async function inviteSupplier(
         const inviteLink = `${baseUrl}/invite/${token}`;
 
         const emailHtml = await render(SupplierInviteEmail({
-            inviterName: (identity as any).name || identity.email || 'OnPro User',
+            inviterName: (identity as any).name || identity.email || 'OnPro Administrator',
             inviterEmail: identity.email || 'noreply@onpro.tech',
-            orgName: "OnPro Workspace",
+            orgName: engagement.org.name,
             leName: engagement.clientLE.name,
             role: role,
             message: message,
@@ -181,9 +181,9 @@ export async function inviteSupplier(
             if (process.env.RESEND_API_KEY) {
                 const resend = new Resend(process.env.RESEND_API_KEY);
                 const sendRes = await resend.emails.send({
-                    from: 'OnPro <onboarding@resend.dev>',
+                    from: 'OnPro Platform <invites@onpro.tech>',
                     to: email,
-                    subject: `Invitation to collaborate on ${engagement.clientLE.name}`,
+                    subject: `Invitation: join ${engagement.org.name} for ${engagement.clientLE.name} Relationship on OnPro`,
                     html: emailHtml
                 });
                 if (sendRes?.error) {

@@ -47,10 +47,10 @@ export const SupplierInviteEmail = ({
                             Hello,
                         </Text>
                         <Text className="text-black text-[14px] leading-[24px]">
-                            <strong>{inviterName}</strong> ({inviterEmail}) has invited you to join the <strong>{orgName}</strong> workspace on OnPro.
+                            <strong>{inviterName}</strong> ({inviterEmail}) has invited you to collaborate on the <strong>{orgName}</strong> workspace on OnPro.
                         </Text>
                         <Text className="text-black text-[14px] leading-[24px]">
-                            They are requesting your input for the following entity:
+                            You have been invited to join the following Relationship:
                         </Text>
                         <Section className="bg-slate-50 p-4 rounded-md border border-slate-200 my-4 text-center">
                             <Text className="text-slate-800 font-semibold text-lg m-0">
@@ -60,6 +60,9 @@ export const SupplierInviteEmail = ({
                                 Role: {role}
                             </Text>
                         </Section>
+                        <Text className="text-slate-600 text-[13px] leading-[20px] bg-slate-50 p-3 rounded border border-slate-100">
+                            This is an official invitation to join OnPro. Please accept the invitation below to set up your account and access your Relationship workspace.
+                        </Text>
 
                         {message && (
                             <Section className="bg-yellow-50 p-4 rounded-md border border-yellow-100 my-4">

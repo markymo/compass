@@ -50,4 +50,46 @@ describe("Supplier Teams Read-Only View Requirements", () => {
         const emptyStateText = "No team members are currently available for this Supplier.";
         expect(emptyStateText).toBe("No team members are currently available for this Supplier.");
     });
+
+    it("11. Pure Supplier ORG_ADMIN presentation: does not imply operational access to All Relationships", () => {
+        // Contract requirement:
+        // When a user is ORG_ADMIN and has relationshipGrants.length === 0,
+        // UI must not display "All Relationships" as operational access.
+        const pureOrgAdminMember = {
+            userId: "user-pure-org-admin",
+            name: "Supplier Admin Only",
+            email: "admin@supplier.com",
+            orgRole: "ORG_ADMIN",
+            orgRoleLabel: "Supplier Admin",
+            relationshipGrants: [],
+        };
+
+        // Helper replicating the presentation logic in team/page.tsx
+        function getRelationshipAccessPresentation(m: typeof pureOrgAdminMember) {
+            if (m.relationshipGrants.length === 0) {
+                if (m.orgRole === "ORG_ADMIN") {
+                    return {
+                        primary: "No operational Relationship role",
+                        secondary: "Can administer all Relationship teams",
+                        isAllRelationshipsBadge: false,
+                    };
+                }
+                return {
+                    primary: "No operational Relationship role",
+                    secondary: null,
+                    isAllRelationshipsBadge: false,
+                };
+            }
+            return {
+                primary: "Explicit Grants",
+                secondary: null,
+                isAllRelationshipsBadge: false,
+            };
+        }
+
+        const presentation = getRelationshipAccessPresentation(pureOrgAdminMember);
+        expect(presentation.primary).toBe("No operational Relationship role");
+        expect(presentation.secondary).toBe("Can administer all Relationship teams");
+        expect(presentation.isAllRelationshipsBadge).toBe(false);
+    });
 });

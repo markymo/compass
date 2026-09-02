@@ -131,12 +131,13 @@ export default async function FITeamPage({ params }: { params: Promise<{ id: str
 
                                                     <td className="px-6 py-4">
                                                         {m.relationshipGrants.length === 0 ? (
-                                                            m.orgRole ? (
-                                                                <Badge variant="outline" className="text-[11px] font-semibold border-teal-200 text-teal-800 bg-teal-50/60">
-                                                                    All Relationships
-                                                                </Badge>
+                                                            m.orgRole === "ORG_ADMIN" ? (
+                                                                <div className="flex flex-col gap-0.5">
+                                                                    <span className="text-slate-600 text-xs font-medium">No operational Relationship role</span>
+                                                                    <span className="text-[11px] text-slate-400">Can administer all Relationship teams</span>
+                                                                </div>
                                                             ) : (
-                                                                <span className="text-slate-400 italic text-xs">No specific relationships</span>
+                                                                <span className="text-slate-400 italic text-xs">No operational Relationship role</span>
                                                             )
                                                         ) : (
                                                             <div className="space-y-1.5 max-w-lg">
