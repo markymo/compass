@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import prisma from '@/lib/prisma';
 import { getIdentity } from '@/lib/auth';
-import { getFIWorkbenchData, getSupplierRelationshipsSummary } from '../fi';
+import { getFIWorkbenchData, getSupplierRelationshipsSummary, getFIDashboardStats } from '../fi';
 import { can, Action, Role, UserWithMemberships } from '@/lib/auth/permissions';
 
 const { mockPrisma } = vi.hoisted(() => {
@@ -9,7 +9,7 @@ const { mockPrisma } = vi.hoisted(() => {
         organization: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
         clientLE: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
         clientLEOwner: { findMany: vi.fn() },
-        fIEngagement: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
+        fIEngagement: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), count: vi.fn() },
         membership: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), delete: vi.fn() },
         invitation: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
         questionnaire: { findMany: vi.fn(), count: vi.fn() },
@@ -178,20 +178,17 @@ describe('ONP-170 — Supplier Org Admin Permissions & Relationship Boundary', (
                         isDeleted: false,
                         owners: [{ party: { id: CLIENT_ORG_ID, name: 'Alpha Client Org' } }],
                     },
-                    questionnaireInstances: [
-                        {
-                            id: 'q-1',
-                            name: 'Alpha KYC Questionnaire',
-                            questions: [
-                                { id: 'q1', status: 'RELEASED', releasedAt: new Date() },
-                                { id: 'q2', status: 'SHARED', sharedAt: new Date() },
-                            ],
-                        },
-                    ],
                 },
             ]);
 
             const summary = await getSupplierRelationshipsSummary(SUPPLIER_ORG_ID);
+
+            // Authoritative query check: pure ORG_ADMIN query MUST NOT request questionnaireInstances or questions
+            const findManyArgs = prismaMock.fIEngagement.findMany.mock.calls[0][0];
+            expect(findManyArgs.include).toBeDefined();
+            expect(findManyArgs.include.questionnaireInstances).toBeUndefined();
+            expect(prismaMock.questionnaire.findMany).not.toHaveBeenCalled();
+            expect(prismaMock.question.findMany).not.toHaveBeenCalled();
 
             expect(summary.length).toBe(1);
             expect(summary[0].clientOrganizationName).toBe('Alpha Client Org');
@@ -208,9 +205,116 @@ describe('ONP-170 — Supplier Org Admin Permissions & Relationship Boundary', (
             expect(summary[0].questionnaireCount).toBe(0);
             expect(summary[0].questionCounts).toEqual({ total: 0, notShared: 0, shared: 0, released: 0 });
         });
+
+        it('should query questionnaireInstances ONLY for assigned relationships when user has operational membership', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: 'rel-worker-1' } as any);
+
+            prismaMock.membership.findMany.mockResolvedValue([
+                {
+                    id: 'mem-rel',
+                    userId: 'rel-worker-1',
+                    organizationId: null,
+                    fiEngagementId: ENGAGEMENT_ID,
+                    role: 'RELATIONSHIP_ADMIN',
+                },
+            ]);
+
+            prismaMock.fIEngagement.findMany.mockResolvedValue([
+                {
+                    id: ENGAGEMENT_ID,
+                    fiOrgId: SUPPLIER_ORG_ID,
+                    clientLEId: CLIENT_LE_ID,
+                    status: 'CONNECTED',
+                    isDeleted: false,
+                    clientLE: {
+                        id: CLIENT_LE_ID,
+                        name: 'Alpha LE',
+                        isDeleted: false,
+                        owners: [{ party: { id: CLIENT_ORG_ID, name: 'Alpha Client Org' } }],
+                    },
+                    questionnaireInstances: [
+                        {
+                            id: 'q-1',
+                            name: 'Alpha KYC Questionnaire',
+                            questions: [
+                                { id: 'q1', status: 'RELEASED', releasedAt: new Date() },
+                            ],
+                        },
+                    ],
+                },
+            ]);
+
+            const summary = await getSupplierRelationshipsSummary(SUPPLIER_ORG_ID);
+
+            const findManyArgs = prismaMock.fIEngagement.findMany.mock.calls[0][0];
+            expect(findManyArgs.include.questionnaireInstances).toBeDefined();
+            expect(findManyArgs.include.questionnaireInstances.where.fiEngagementId).toEqual({ in: [ENGAGEMENT_ID] });
+            expect(summary[0].questionCounts.released).toBe(1);
+        });
     });
 
-    describe('3. Permission Engine — Supplier ORG_ADMIN Team Management vs Operational Denial', () => {
+    describe('3. Plain Supplier ORG_MEMBER Relationship Visibility and Data Denial', () => {
+        it('should strictly return EMPTY array (0 relationships) for pure Supplier ORG_MEMBER without relationship membership in getSupplierRelationshipsSummary', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: 'pure-supplier-member' } as any);
+
+            prismaMock.membership.findMany.mockResolvedValue([
+                {
+                    id: 'mem-member-1',
+                    userId: 'pure-supplier-member',
+                    organizationId: SUPPLIER_ORG_ID,
+                    fiEngagementId: null,
+                    role: 'ORG_MEMBER',
+                },
+            ]);
+
+            const summary = await getSupplierRelationshipsSummary(SUPPLIER_ORG_ID);
+
+            expect(summary).toEqual([]);
+            expect(prismaMock.fIEngagement.findMany).not.toHaveBeenCalled();
+        });
+
+        it('should strictly return EMPTY questions and zero data for pure Supplier ORG_MEMBER in getFIWorkbenchData', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: 'pure-supplier-member' } as any);
+
+            prismaMock.membership.findMany.mockResolvedValue([
+                {
+                    id: 'mem-member-1',
+                    userId: 'pure-supplier-member',
+                    organizationId: SUPPLIER_ORG_ID,
+                    fiEngagementId: null,
+                    role: 'ORG_MEMBER',
+                },
+            ]);
+
+            const result = await getFIWorkbenchData(SUPPLIER_ORG_ID);
+
+            expect(result.questions).toEqual([]);
+            expect(result.counts).toEqual({ total: 0, notShared: 0, shared: 0, released: 0 });
+            expect(prismaMock.question.findMany).not.toHaveBeenCalled();
+        });
+
+        it('should return null and perform zero count queries for pure Supplier ORG_MEMBER in getFIDashboardStats', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: 'pure-supplier-member' } as any);
+
+            prismaMock.membership.findMany.mockResolvedValue([
+                {
+                    id: 'mem-member-1',
+                    userId: 'pure-supplier-member',
+                    organizationId: SUPPLIER_ORG_ID,
+                    fiEngagementId: null,
+                    role: 'ORG_MEMBER',
+                },
+            ]);
+
+            const stats = await getFIDashboardStats(SUPPLIER_ORG_ID);
+
+            expect(stats).toBeNull();
+            expect(prismaMock.questionnaire.count).not.toHaveBeenCalled();
+            expect(prismaMock.fIEngagement.count).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('4. Permission Engine — Supplier ORG_ADMIN Team Management vs Operational Denial', () => {
         const supplierOrgAdminUser: UserWithMemberships = {
             id: 'user-supplier-admin',
             memberships: [

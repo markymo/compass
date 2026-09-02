@@ -242,20 +242,20 @@ export async function getFIDashboardStats(fiOrgId?: string) {
 
     const userMemberships = await prisma.membership.findMany({
         where: { userId },
-        select: { organizationId: true, fiEngagementId: true }
+        select: { organizationId: true, fiEngagementId: true, role: true }
     });
 
     let targetFiOrgIds: string[] = [];
 
     if (fiOrgId) {
-        const hasOrgAccess = userMemberships.some((m: any) => m.organizationId === fiOrgId);
+        const isOrgAdmin = userMemberships.some((m: any) => m.organizationId === fiOrgId && m.role === "ORG_ADMIN");
         const userEngIds = userMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
 
-        if (!hasOrgAccess && userEngIds.length === 0) {
+        if (!isOrgAdmin && userEngIds.length === 0) {
             return null;
         }
 
-        if (!hasOrgAccess) {
+        if (!isOrgAdmin) {
             const engInOrg = await prisma.fIEngagement.findFirst({
                 where: { id: { in: userEngIds }, fiOrgId },
                 select: { id: true }
@@ -288,7 +288,7 @@ export async function getFIDashboardStats(fiOrgId?: string) {
 
     if (targetFiOrgIds.length === 0) return null;
 
-    const hasOrgAccessForTarget = userMemberships.some((m: any) => m.organizationId && targetFiOrgIds.includes(m.organizationId));
+    const isOrgAdminForTarget = userMemberships.some((m: any) => m.organizationId && targetFiOrgIds.includes(m.organizationId) && m.role === "ORG_ADMIN");
     const explicitEngagementIds = userMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
 
     const [questionnaires, engagements, queries] = await Promise.all([
@@ -296,7 +296,7 @@ export async function getFIDashboardStats(fiOrgId?: string) {
             where: {
                 fiOrgId: { in: targetFiOrgIds },
                 isDeleted: false,
-                ...(!hasOrgAccessForTarget ? { fiEngagementId: { in: explicitEngagementIds } } : {})
+                ...(!isOrgAdminForTarget ? { fiEngagementId: { in: explicitEngagementIds } } : {})
             }
         }),
         prisma.fIEngagement.count({
@@ -304,14 +304,14 @@ export async function getFIDashboardStats(fiOrgId?: string) {
                 fiOrgId: { in: targetFiOrgIds },
                 isDeleted: false,
                 status: { not: "ARCHIVED" },
-                ...(!hasOrgAccessForTarget ? { id: { in: explicitEngagementIds } } : {})
+                ...(!isOrgAdminForTarget ? { id: { in: explicitEngagementIds } } : {})
             }
         }),
         prisma.query.count({
             where: {
                 engagement: {
                     fiOrgId: { in: targetFiOrgIds },
-                    ...(!hasOrgAccessForTarget ? { id: { in: explicitEngagementIds } } : {})
+                    ...(!isOrgAdminForTarget ? { id: { in: explicitEngagementIds } } : {})
                 },
                 status: "OPEN"
             }
@@ -1571,23 +1571,26 @@ export async function getSupplierRelationshipsSummary(fiOrgId: string): Promise<
 
     const memberships = await prisma.membership.findMany({
         where: { userId },
-        select: { organizationId: true, fiEngagementId: true }
+        select: { organizationId: true, fiEngagementId: true, role: true }
     });
 
     type MembershipRec = typeof memberships[number];
-    const hasOrgAccess = memberships.some((m: MembershipRec) => m.organizationId === fiOrgId);
+    const isSupplierOrgAdmin = memberships.some((m: MembershipRec) => m.organizationId === fiOrgId && m.role === "ORG_ADMIN");
     const userEngagementIds = memberships.map((m: MembershipRec) => m.fiEngagementId).filter(Boolean) as string[];
 
-    if (!hasOrgAccess && userEngagementIds.length === 0) {
+    // Plain Supplier ORG_MEMBER with no Relationship membership receives zero relationships
+    if (!isSupplierOrgAdmin && userEngagementIds.length === 0) {
         return [];
     }
+
+    const hasOperationalAccess = userEngagementIds.length > 0;
 
     const engagements = await prisma.fIEngagement.findMany({
         where: {
             fiOrgId,
             isDeleted: false,
             clientLE: { isDeleted: false },
-            ...(!hasOrgAccess ? { id: { in: userEngagementIds } } : {})
+            ...(!isSupplierOrgAdmin ? { id: { in: userEngagementIds } } : {})
         },
         include: {
             clientLE: {
@@ -1598,19 +1601,24 @@ export async function getSupplierRelationshipsSummary(fiOrgId: string): Promise<
                     }
                 }
             },
-            questionnaireInstances: {
-                where: { isDeleted: false },
-                include: {
-                    questions: {
-                        select: {
-                            id: true,
-                            status: true,
-                            sharedAt: true,
-                            releasedAt: true
+            ...(hasOperationalAccess ? {
+                questionnaireInstances: {
+                    where: {
+                        isDeleted: false,
+                        fiEngagementId: { in: userEngagementIds }
+                    },
+                    include: {
+                        questions: {
+                            select: {
+                                id: true,
+                                status: true,
+                                sharedAt: true,
+                                releasedAt: true
+                            }
                         }
                     }
                 }
-            }
+            } : {})
         },
         orderBy: { clientLE: { name: "asc" } }
     });
@@ -1635,8 +1643,8 @@ export async function getSupplierRelationshipsSummary(fiOrgId: string): Promise<
 
         let qSummaries: SupplierRelationshipQuestionnaireSummary[] = [];
 
-        if (isOperational) {
-            qSummaries = (eng.questionnaireInstances || []).map((q: any) => {
+        if (isOperational && eng.questionnaireInstances) {
+            qSummaries = eng.questionnaireInstances.map((q: any) => {
                 let qTotal = 0;
                 let qNotShared = 0;
                 let qShared = 0;
