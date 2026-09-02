@@ -24,6 +24,30 @@ test.describe('Cosmetic Wave 01 — Track B: Output Pack & Relationships Contrac
         clientLEName = manifest.alphaClientLE.name;
         relationshipId = manifest.relationshipAlpha.id;
 
+        // Ensure a Common Questionnaire is linked to Client LE for ONP-102A testing
+        let commonQ = await prisma.questionnaire.findFirst({
+            where: {
+                commonForClients: { some: { id: clientLEId } },
+                isDeleted: false
+            }
+        });
+
+        if (!commonQ) {
+            await prisma.questionnaire.create({
+                data: {
+                    name: 'Alpha Common Due Diligence',
+                    fiOrgId: manifest.supplierOrgA.id,
+                    status: 'ACTIVE',
+                    commonForClients: { connect: { id: clientLEId } },
+                    questions: {
+                        create: [
+                            { text: 'Common Question 1', order: 1, expectedDataType: 'TEXT' }
+                        ]
+                    }
+                }
+            });
+        }
+
         // Find or create question with order 2 in Alpha's questionnaire and attach a disposable document for ONP-116 testing
         let alphaQuestion = await prisma.question.findFirst({
             where: {

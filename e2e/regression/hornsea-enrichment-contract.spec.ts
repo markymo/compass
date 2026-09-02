@@ -218,6 +218,12 @@ test.describe('Hornsea 1 Live Enrichment Deep Master Data Contract Suite', () =>
         if (process.env.COMPANIES_HOUSE_API_KEY) {
             expect(getFieldVal(73), 'Field 73 (Corporate Registered Number) must equal 07640868').toBe('07640868');
             expect(getFieldVal(22), 'Field 22 (Country of Registration) must be england-wales').toBe('england-wales');
+        } else {
+            test.info().annotations.push({
+                type: 'notice',
+                description: 'COMPANIES_HOUSE_API_KEY not configured in local test-runner process; direct Companies House upstream API assertions skipped in this unit-level enrichment test. Full Companies House enrichment is actively and comprehensively verified via deployed UI in hornsea-master-record.spec.ts.'
+            });
+            console.log('\n[NOTICE] COMPANIES_HOUSE_API_KEY not configured in local runner environment. Direct Companies House API assertions skipped; full Companies House enrichment is verified end-to-end in hornsea-master-record.spec.ts.\n');
         }
 
         // --- Category B: Structured Addresses (GLEIF) ---

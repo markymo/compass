@@ -102,7 +102,12 @@ test.describe('MASTER-04 / ONP-28 — Master Field Override & Provenance Update 
 
     test('2. User overrides value via UI drawer; winner becomes User Input with refreshed Last validated timestamp', async ({ page }) => {
         const now = new Date();
-        const currentYear = String(now.getUTCFullYear());
+        const expectedUtcDate = new Intl.DateTimeFormat('en-GB', {
+            timeZone: 'UTC',
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        }).format(now);
 
         await page.goto(`/app/le/${clientLEId}/master`);
         await page.waitForLoadState('domcontentloaded');
@@ -144,12 +149,14 @@ test.describe('MASTER-04 / ONP-28 — Master Field Override & Provenance Update 
         // Assert historical 2025 date is NO LONGER shown for the active winning value
         await expect(fieldCard.locator('text=/15 Jan 2025/i')).toHaveCount(0);
 
-        // Open inspection drawer to verify winning User Input claim has refreshed assertion date
+        // Open inspection drawer to verify winning User Input claim has refreshed assertion date in UTC
         const currentAuthSection = drawer.locator('div:has-text("Current Authoritative Value")').first();
         await expect(currentAuthSection).toBeVisible();
         await expect(currentAuthSection).toContainText(manualOverrideValue);
         await expect(currentAuthSection.locator('text=/User input/i').first()).toBeVisible();
-        await expect(currentAuthSection).toContainText(currentYear);
+        await expect(currentAuthSection).toContainText('Last validated:');
+        await expect(currentAuthSection).toContainText(expectedUtcDate);
+        await expect(currentAuthSection).toContainText('UTC');
 
         // Reload page to verify persistence across fresh session
         await page.reload();
@@ -168,6 +175,8 @@ test.describe('MASTER-04 / ONP-28 — Master Field Override & Provenance Update 
         await expect(reloadedAuthSection).toBeVisible();
         await expect(reloadedAuthSection).toContainText(manualOverrideValue);
         await expect(reloadedAuthSection.locator('text=/User input/i').first()).toBeVisible();
-        await expect(reloadedAuthSection).toContainText(currentYear);
+        await expect(reloadedAuthSection).toContainText('Last validated:');
+        await expect(reloadedAuthSection).toContainText(expectedUtcDate);
+        await expect(reloadedAuthSection).toContainText('UTC');
     });
 });
