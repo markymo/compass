@@ -5,7 +5,7 @@ import { PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture';
 const prisma = new PrismaClient();
 
 test.describe('QNR-01 / ONP-68 — Supplier Questionnaire Navigation & Review Journey', () => {
-    test.use({ storageState: PERSONA_STORAGE_STATES.supplierOrgAdminA });
+    test.use({ storageState: PERSONA_STORAGE_STATES.relationshipAdminAlpha });
     test.setTimeout(120000);
 
     let supplierOrgId: string;
@@ -16,21 +16,18 @@ test.describe('QNR-01 / ONP-68 — Supplier Questionnaire Navigation & Review Jo
     let questionnaireName: string;
 
     test.beforeAll(async () => {
-        // Query supplier user to get their active supplier organization
+        // Query relationship admin user to get their active engagement and supplier organization
         const supplierUser = await prisma.user.findFirst({
-            where: { email: 'uat+supplier-org-admin@onpro.tech' },
-            include: { memberships: { include: { organization: true } } }
+            where: { email: 'uat+relationship-admin-alpha@onpro.tech' },
+            include: { memberships: { include: { fiEngagement: { include: { org: true } }, organization: true } } }
         });
 
-        const supplierMembership = supplierUser?.memberships.find(m =>
-            m.organization?.types.some(t => ['FI', 'SUPPLIER', 'LAW_FIRM', 'OTHER'].includes(t))
-        );
-
-        if (!supplierMembership?.organizationId) {
-            throw new Error('Could not find supplier organization membership for uat+supplier-org-admin@onpro.tech');
+        const relMembership = supplierUser?.memberships.find(m => m.fiEngagementId && m.fiEngagement?.org);
+        if (!relMembership?.fiEngagement?.fiOrgId) {
+            throw new Error('Could not find supplier engagement membership for uat+relationship-admin-alpha@onpro.tech');
         }
 
-        supplierOrgId = supplierMembership.organizationId;
+        supplierOrgId = relMembership.fiEngagement.fiOrgId;
 
         // Find active engagement for this supplier
         const engagement = await prisma.fIEngagement.findFirst({

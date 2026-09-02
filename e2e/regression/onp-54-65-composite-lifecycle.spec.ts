@@ -95,10 +95,24 @@ test.describe('COMP-01 / ONP-54 + ONP-65 — Composite Group Canonical Resolutio
             data: {
                 clientLEId: disposableLE.id,
                 fiOrgId: supplierOrgId,
-                status: 'INVITED',
+                status: 'CONNECTED',
             }
         });
         engagementId = engagement.id;
+
+        // Add relationship membership for operational persona
+        const relAdminUser = await prisma.user.findFirst({
+            where: { email: manifest.actors.relationshipAdminAlpha.email }
+        });
+        if (relAdminUser) {
+            await prisma.membership.create({
+                data: {
+                    userId: relAdminUser.id,
+                    fiEngagementId: engagement.id,
+                    role: 'RELATIONSHIP_ADMIN'
+                }
+            });
+        }
 
         // Find CONTROLLERS composite group
         compositeGroup = await prisma.masterFieldGroup.findFirst({
@@ -139,14 +153,13 @@ test.describe('COMP-01 / ONP-54 + ONP-65 — Composite Group Canonical Resolutio
                 collectionId: 'DIRECTORS',
                 instanceId: `dir_${testTimestamp}`,
                 claimRole: 'VALUE',
-                status: 'VERIFIED',
                 sourceType: 'USER_INPUT',
-                sourceReference: 'USER_INPUT',
+                sourceReference: `USR_${testTimestamp}`,
+                status: 'VERIFIED',
+                confidenceScore: 1.0,
                 valueJson: {
                     forenames: directorForenames,
                     surname: testDirectorSurname,
-                    organisationName: null,
-                    partyType: 'PERSON',
                     roles: [{ roleTitle, roleType: 'DIRECTOR' }],
                     nationalities: ['British']
                 },
@@ -163,6 +176,7 @@ test.describe('COMP-01 / ONP-54 + ONP-65 — Composite Group Canonical Resolutio
                 await prisma.questionnaire.delete({ where: { id: testQuestionnaire.id } });
             }
             if (engagementId) {
+                await prisma.membership.deleteMany({ where: { fiEngagementId: engagementId } }).catch(() => {});
                 await prisma.fIEngagement.delete({ where: { id: engagementId } }).catch(() => {});
             }
             if (clientLEId) {
@@ -208,7 +222,7 @@ test.describe('COMP-01 / ONP-54 + ONP-65 — Composite Group Canonical Resolutio
     });
 
     test('2. Mapped Workbench displays composite elements without false "No master data available", with fresh context reload', async ({ browser }) => {
-        const supplierContext = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.supplierOrgAdminA });
+        const supplierContext = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.relationshipAdminAlpha });
         const page = await supplierContext.newPage();
 
         try {

@@ -14,7 +14,7 @@ import path from 'path';
 
 test.describe('REL-01 / ONP-67 — FI Workbench lists all authorised active relationships', () => {
     test.use({
-        storageState: path.join(process.cwd(), 'playwright/.auth/supplier-org-admin-a.json')
+        storageState: path.join(process.cwd(), 'playwright/.auth/relationship-admin-alpha.json')
     });
 
     let prisma: PrismaClient;
@@ -22,25 +22,23 @@ test.describe('REL-01 / ONP-67 — FI Workbench lists all authorised active rela
     let alphaEngagementId: string;
     let betaEngagementId: string;
     let disposableQnrId: string | null = null;
+    let createdBetaMem = false;
 
     test.beforeAll(async () => {
         prisma = new PrismaClient();
 
-        // 1. Resolve Supplier Org Admin user & organization
+        // 1. Resolve Relationship Admin user & organization
         const supplierUser = await prisma.user.findFirst({
-            where: { email: 'uat+supplier-org-admin@onpro.tech' },
-            include: { memberships: { include: { organization: true } } }
+            where: { email: 'uat+relationship-admin-alpha@onpro.tech' },
+            include: { memberships: { include: { fiEngagement: { include: { org: true } }, organization: true } } }
         });
 
-        const supplierMembership = supplierUser?.memberships.find(m =>
-            m.organization?.types.some(t => ['FI', 'SUPPLIER', 'LAW_FIRM'].includes(t))
-        );
-
-        if (!supplierMembership?.organizationId) {
-            throw new Error('Could not find supplier organization membership for uat+supplier-org-admin@onpro.tech');
+        const relMembership = supplierUser?.memberships.find(m => m.fiEngagementId && m.fiEngagement?.org);
+        if (!relMembership?.fiEngagement?.fiOrgId) {
+            throw new Error('Could not find supplier engagement membership for uat+relationship-admin-alpha@onpro.tech');
         }
 
-        supplierOrgId = supplierMembership.organizationId;
+        supplierOrgId = relMembership.fiEngagement.fiOrgId;
 
         // 2. Confirm both active relationships exist for UAT Supplier Org A
         const engagements = await prisma.fIEngagement.findMany({
@@ -61,6 +59,17 @@ test.describe('REL-01 / ONP-67 — FI Workbench lists all authorised active rela
 
         alphaEngagementId = alphaEng.id;
         betaEngagementId = betaEng.id;
+
+        // Ensure user has membership on beta engagement as well
+        const hasBetaMem = await prisma.membership.findFirst({
+            where: { userId: supplierUser.id, fiEngagementId: betaEngagementId }
+        });
+        if (!hasBetaMem) {
+            await prisma.membership.create({
+                data: { userId: supplierUser.id, fiEngagementId: betaEngagementId, role: 'RELATIONSHIP_ADMIN' }
+            });
+            createdBetaMem = true;
+        }
 
         // 3. Ensure Alpha has at least one questionnaire with questions so one relationship has questions and Beta has 0 questions
         const alphaQ = await prisma.questionnaire.create({
@@ -93,6 +102,16 @@ test.describe('REL-01 / ONP-67 — FI Workbench lists all authorised active rela
             await prisma.question.deleteMany({ where: { questionnaireId: disposableQnrId } });
             await prisma.questionnaire.deleteMany({ where: { id: disposableQnrId } });
         }
+        if (createdBetaMem && prisma) {
+            const relAdminUser = await prisma.user.findFirst({
+                where: { email: 'uat+relationship-admin-alpha@onpro.tech' }
+            });
+            if (relAdminUser) {
+                await prisma.membership.deleteMany({
+                    where: { userId: relAdminUser.id, fiEngagementId: betaEngagementId }
+                });
+            }
+        }
         if (prisma) {
             await prisma.$disconnect();
         }
@@ -109,8 +128,8 @@ test.describe('REL-01 / ONP-67 — FI Workbench lists all authorised active rela
         await getRelTrigger().click();
 
         // 3. Assert BOTH UAT Alpha Limited and UAT Beta Limited are available options
-        const alphaOption = page.getByRole('option', { name: 'UAT Alpha Limited' });
-        const betaOption = page.getByRole('option', { name: 'UAT Beta Limited' });
+        const alphaOption = page.getByRole('option', { name: /UAT Alpha Limited/ });
+        const betaOption = page.getByRole('option', { name: /UAT Beta Limited/ });
 
         await expect(alphaOption).toBeVisible();
         await expect(betaOption).toBeVisible();
@@ -137,7 +156,7 @@ test.describe('REL-01 / ONP-67 — FI Workbench lists all authorised active rela
         await expect(getRelTrigger()).toBeVisible();
         await getRelTrigger().click();
 
-        await expect(page.getByRole('option', { name: 'UAT Alpha Limited' })).toBeVisible();
-        await expect(page.getByRole('option', { name: 'UAT Beta Limited' })).toBeVisible();
+        await expect(page.getByRole('option', { name: /UAT Alpha Limited/ })).toBeVisible();
+        await expect(page.getByRole('option', { name: /UAT Beta Limited/ })).toBeVisible();
     });
 });

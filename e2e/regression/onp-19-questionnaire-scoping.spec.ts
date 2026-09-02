@@ -137,6 +137,21 @@ test.describe('ONP-19 — Questionnaire Dropdown Scoping & Stale Selection Reset
                 }
             }
         });
+
+        // 7. Ensure relationship admin user has membership on relationshipBeta for multi-relationship testing
+        const relAdminUser = await prisma.user.findFirst({
+            where: { email: manifest.actors.relationshipAdminAlpha.email }
+        });
+        if (relAdminUser) {
+            const hasBetaMem = await prisma.membership.findFirst({
+                where: { userId: relAdminUser.id, fiEngagementId: manifest.relationshipBeta.id }
+            });
+            if (!hasBetaMem) {
+                await prisma.membership.create({
+                    data: { userId: relAdminUser.id, fiEngagementId: manifest.relationshipBeta.id, role: 'RELATIONSHIP_ADMIN' }
+                });
+            }
+        }
     });
 
     test.afterAll(async () => {
@@ -158,6 +173,7 @@ test.describe('ONP-19 — Questionnaire Dropdown Scoping & Stale Selection Reset
                 await prisma.questionnaire.delete({ where: { id: commonQnrC.id } });
             }
             if (engagementB?.id) {
+                await prisma.membership.deleteMany({ where: { fiEngagementId: engagementB.id } });
                 await prisma.fIEngagement.delete({ where: { id: engagementB.id } });
             }
             if (supplierOrgB?.id) {
@@ -269,7 +285,7 @@ test.describe('ONP-19 — Questionnaire Dropdown Scoping & Stale Selection Reset
 
     test('3. Supplier RED A: Questionnaire dropdown under Client LE A excludes Beta-only questionnaire', async ({ browser }) => {
         const supplierContext = await browser.newContext({
-            storageState: PERSONA_STORAGE_STATES.supplierOrgAdminA,
+            storageState: PERSONA_STORAGE_STATES.relationshipAdminAlpha,
         });
         const page = await supplierContext.newPage();
 
@@ -306,7 +322,7 @@ test.describe('ONP-19 — Questionnaire Dropdown Scoping & Stale Selection Reset
 
     test('4. Supplier RED B: Switching Client LE resets stale questionnaire selection and URL parameter', async ({ browser }) => {
         const supplierContext = await browser.newContext({
-            storageState: PERSONA_STORAGE_STATES.supplierOrgAdminA,
+            storageState: PERSONA_STORAGE_STATES.relationshipAdminAlpha,
         });
         const page = await supplierContext.newPage();
 

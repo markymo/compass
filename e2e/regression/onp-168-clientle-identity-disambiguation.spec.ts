@@ -149,6 +149,19 @@ test.describe('ONP-168 / ONP-145 FR-02 + FR-09 — ClientLE Identity & Owning Cl
         });
         q2Id = q2.id;
         question2Id = q2.questions[0].id;
+
+        // 5. Grant operational Relationship Admin memberships for the test user
+        const relAdminUser = await prisma.user.findFirst({
+            where: { email: manifest.actors.relationshipAdminAlpha.email }
+        });
+        if (relAdminUser) {
+            await prisma.membership.createMany({
+                data: [
+                    { userId: relAdminUser.id, fiEngagementId: eng1Id, role: 'RELATIONSHIP_ADMIN' },
+                    { userId: relAdminUser.id, fiEngagementId: eng2Id, role: 'RELATIONSHIP_ADMIN' },
+                ]
+            });
+        }
     });
 
     test.afterAll(async () => {
@@ -160,6 +173,7 @@ test.describe('ONP-168 / ONP-145 FR-02 + FR-09 — ClientLE Identity & Owning Cl
                 await prisma.questionnaire.deleteMany({ where: { id: { in: [q1Id, q2Id].filter(Boolean) } } });
             }
             if (eng1Id || eng2Id) {
+                await prisma.membership.deleteMany({ where: { fiEngagementId: { in: [eng1Id, eng2Id].filter(Boolean) } } });
                 await prisma.fIEngagement.deleteMany({ where: { id: { in: [eng1Id, eng2Id].filter(Boolean) } } });
             }
             if (clientLE1Id || clientLE2Id) {
@@ -204,7 +218,7 @@ test.describe('ONP-168 / ONP-145 FR-02 + FR-09 — ClientLE Identity & Owning Cl
         const context = await browser.newContext();
         const page = await context.newPage();
         try {
-            await login(page, manifest.actors.supplierOrgAdminA.email, password);
+            await login(page, manifest.actors.relationshipAdminAlpha.email, password);
             await page.goto(`/app/s/${manifest.supplierOrgA.id}/questions`);
 
             // Open Relationship selector combobox

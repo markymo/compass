@@ -136,8 +136,8 @@ test.describe('QNR-05 / ONP-18 — Relationship Questionnaire Assignment & Visib
         }
     });
 
-    test('2. Supplier Org Admin sees assigned questionnaire and navigates to Questions Workbench', async ({ browser }) => {
-        const supplierContext = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.supplierOrgAdminA });
+    test('2. Supplier Relationship Admin sees assigned questionnaire and navigates to Questions Workbench', async ({ browser }) => {
+        const supplierContext = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.relationshipAdminAlpha });
         const page = await supplierContext.newPage();
 
         try {

@@ -146,7 +146,7 @@ test.describe('INV-02 / ONP-69 — FI Team Invite End-to-End Regression', () => 
             orderBy: { createdAt: 'desc' }
         });
         expect(inviteRecord).not.toBeNull();
-        expect(inviteRecord?.role).toBe('SUPPLIER_CONTACT');
+        expect(inviteRecord?.role).toBe('RELATIONSHIP_ADMIN');
         expect(inviteRecord?.usedAt).toBeNull();
         expect(inviteRecord?.revokedAt).toBeNull();
 
@@ -192,10 +192,10 @@ test.describe('INV-02 / ONP-69 — FI Team Invite End-to-End Regression', () => 
         expect(updatedUser).not.toBeNull();
         expect(updatedUser?.memberships.length).toBeGreaterThanOrEqual(1);
 
-        // Canonical contract: Accepted engagement membership maps SUPPLIER_CONTACT -> RELATIONSHIP_USER
+        // Canonical contract: Accepted engagement membership creates RELATIONSHIP_ADMIN
         const engagementMembership = updatedUser?.memberships.find(m => m.fiEngagementId === engagementId);
         expect(engagementMembership).toBeDefined();
-        expect(engagementMembership?.role).toBe('RELATIONSHIP_USER');
+        expect(engagementMembership?.role).toBe('RELATIONSHIP_ADMIN');
 
         // Verify Invitation record marked used
         const usedInvite = await prisma.invitation.findUnique({

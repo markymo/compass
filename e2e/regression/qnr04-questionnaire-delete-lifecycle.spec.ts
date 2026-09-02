@@ -123,7 +123,7 @@ test.describe('QNR-04 / ONP-70 — Questionnaire Delete Lifecycle Across Active 
         // =========================================================================
         // Step 2: Confirm initially visible on Supplier Relationships surface
         // =========================================================================
-        const supplierContext = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.supplierOrgAdminA });
+        const supplierContext = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.relationshipAdminAlpha });
         const supplierPage = await supplierContext.newPage();
 
         // Navigate with targeted expand parameter for alphaEngagementId

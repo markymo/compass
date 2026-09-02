@@ -8,7 +8,7 @@ import { loadUATManifest, PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture
 const prisma = new PrismaClient();
 
 test.describe('QNR-03 / ONP-36 — Common Questionnaire Mappings Consumed in Relationship Use', () => {
-    test.use({ storageState: PERSONA_STORAGE_STATES.supplierOrgAdminA });
+    test.use({ storageState: PERSONA_STORAGE_STATES.relationshipAdminAlpha });
     test.setTimeout(90000);
 
     let manifest: ReturnType<typeof loadUATManifest>;

@@ -119,6 +119,20 @@ test.describe('PARTY-05 / ONP-48 — Party Selected Fields & Display Mask Parity
             }
         });
 
+        // Add relationship membership for operational persona
+        const relAdminUser = await prisma.user.findFirst({
+            where: { email: manifest.actors.relationshipAdminAlpha.email }
+        });
+        if (relAdminUser) {
+            await prisma.membership.create({
+                data: {
+                    userId: relAdminUser.id,
+                    fiEngagementId: testEngagement.id,
+                    role: 'RELATIONSHIP_ADMIN'
+                }
+            });
+        }
+
         testQuestionnaire = await prisma.questionnaire.create({
             data: {
                 fiOrg: { connect: { id: manifest.supplierOrgA.id } },
@@ -152,6 +166,7 @@ test.describe('PARTY-05 / ONP-48 — Party Selected Fields & Display Mask Parity
                 await prisma.questionnaire.delete({ where: { id: testQuestionnaire.id } });
             }
             if (testEngagement?.id) {
+                await prisma.membership.deleteMany({ where: { fiEngagementId: testEngagement.id } });
                 await prisma.fIEngagement.delete({ where: { id: testEngagement.id } });
             }
             if (testClaim?.id) {
@@ -199,8 +214,8 @@ test.describe('PARTY-05 / ONP-48 — Party Selected Fields & Display Mask Parity
     });
 
     test('2. Mapped question in Supplier Workbench displays the intended projected Party representation', async ({ browser }) => {
-        // Step 1: Open page as Supplier Org Admin
-        const context = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.supplierOrgAdminA });
+        // Step 1: Open page as Supplier Relationship Admin
+        const context = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.relationshipAdminAlpha });
         const page = await context.newPage();
 
         try {

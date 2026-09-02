@@ -8,7 +8,7 @@ import { PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture';
 const prisma = new PrismaClient();
 
 test.describe('QB-01 / ONP-61 — Mapped Person/Party Master Data Flow to Question Bank/Workbench', () => {
-    test.use({ storageState: PERSONA_STORAGE_STATES.supplierOrgAdminA });
+    test.use({ storageState: PERSONA_STORAGE_STATES.relationshipAdminAlpha });
     test.setTimeout(90000);
 
     let supplierOrgId: string;

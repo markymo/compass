@@ -142,7 +142,7 @@ test.describe('PROV-01 / ONP-33 — Provenance & Last Validated Consistency Acro
     });
 
     test('2. Supplier Questions Workbench displays mapped question answer and Last validated badge', async ({ browser }) => {
-        const supplierContext = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.supplierOrgAdminA });
+        const supplierContext = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.relationshipAdminAlpha });
         const page = await supplierContext.newPage();
         try {
             await page.goto(`/app/s/${supplierOrgId}/questions?s=${encodeURIComponent(testPrefix)}`);
