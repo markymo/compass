@@ -445,6 +445,66 @@ describe('ONP-170 — Supplier Org Admin Permissions & Relationship Boundary', (
             expect(prismaMock.questionnaire.count).not.toHaveBeenCalled();
             expect(prismaMock.query.count).not.toHaveBeenCalled();
         });
+
+        it('should correctly scope aggregate relationship counts for mixed persona: ORG_ADMIN in Supplier A, RELATIONSHIP_USER in Supplier B', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: 'mixed-admin-user' } as any);
+
+            const supplierAId = 'supplier-org-a';
+            const supplierBId = 'supplier-org-b';
+            const explicitEngBId = 'eng-b-assigned';
+
+            // User has ORG_ADMIN on Supplier A, and explicit RELATIONSHIP_USER on one engagement in Supplier B
+            prismaMock.membership.findMany
+                // First call: caller userMemberships
+                .mockResolvedValueOnce([
+                    {
+                        id: 'mem-a',
+                        userId: 'mixed-admin-user',
+                        organizationId: supplierAId,
+                        fiEngagementId: null,
+                        role: 'ORG_ADMIN',
+                    },
+                    {
+                        id: 'mem-b',
+                        userId: 'mixed-admin-user',
+                        organizationId: null,
+                        fiEngagementId: explicitEngBId,
+                        role: 'RELATIONSHIP_USER',
+                    },
+                ])
+                // Second call: orgMemberships query for ORG_ADMIN organisations
+                .mockResolvedValueOnce([
+                    { organizationId: supplierAId }
+                ]);
+
+            // Third call: fIEngagement.findMany to resolve fiOrgId for explicit engagements
+            prismaMock.fIEngagement.findMany.mockResolvedValueOnce([
+                { fiOrgId: supplierBId }
+            ]);
+
+            prismaMock.fIEngagement.count.mockResolvedValue(4);
+            prismaMock.questionnaire.count.mockResolvedValue(1);
+            prismaMock.query.count.mockResolvedValue(1);
+
+            const stats = await getFIDashboardStats();
+
+            // Check Prisma engagement count query args
+            const countArgs = prismaMock.fIEngagement.count.mock.calls[0][0];
+            expect(countArgs.where.isDeleted).toBe(false);
+            expect(countArgs.where.status).toEqual({ not: 'ARCHIVED' });
+            expect(countArgs.where.fiOrgId).toEqual({ in: [supplierAId, supplierBId] });
+            expect(countArgs.where.OR).toEqual([
+                { fiOrgId: { in: [supplierAId] } },
+                { id: { in: [explicitEngBId] } },
+            ]);
+
+            // Operational counts must remain strictly scoped to explicit engagement(s)
+            const qnrCountArgs = prismaMock.questionnaire.count.mock.calls[0][0];
+            expect(qnrCountArgs.where.fiEngagementId).toEqual({ in: [explicitEngBId] });
+
+            const queryCountArgs = prismaMock.query.count.mock.calls[0][0];
+            expect(queryCountArgs.where.engagement.id).toEqual({ in: [explicitEngBId] });
+        });
     });
 
     describe('5. Permission Engine — Supplier ORG_ADMIN Team Management vs Operational Denial', () => {

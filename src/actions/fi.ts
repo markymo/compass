@@ -246,6 +246,7 @@ export async function getFIDashboardStats(fiOrgId?: string) {
     });
 
     let targetFiOrgIds: string[] = [];
+    let supplierOrgAdminIds: string[] = [];
 
     if (fiOrgId) {
         const isOrgAdmin = userMemberships.some((m: any) => m.organizationId === fiOrgId && m.role === "ORG_ADMIN");
@@ -257,13 +258,16 @@ export async function getFIDashboardStats(fiOrgId?: string) {
 
         if (!isOrgAdmin) {
             const engInOrg = await prisma.fIEngagement.findFirst({
-                where: { id: { in: userEngIds }, fiOrgId },
+                where: { id: { in: userEngIds }, fiOrgId, isDeleted: false },
                 select: { id: true }
             });
             if (!engInOrg) return null;
         }
 
         targetFiOrgIds = [fiOrgId];
+        if (isOrgAdmin) {
+            supplierOrgAdminIds = [fiOrgId];
+        }
     } else {
         const orgMemberships = await prisma.membership.findMany({
             where: {
@@ -274,7 +278,8 @@ export async function getFIDashboardStats(fiOrgId?: string) {
             },
             select: { organizationId: true }
         });
-        targetFiOrgIds = orgMemberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
+        supplierOrgAdminIds = orgMemberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
+        targetFiOrgIds = [...supplierOrgAdminIds];
 
         const userEngIds = userMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
         if (userEngIds.length > 0) {
@@ -289,16 +294,25 @@ export async function getFIDashboardStats(fiOrgId?: string) {
 
     if (targetFiOrgIds.length === 0) return null;
 
-    const isOrgAdminForTarget = userMemberships.some((m: any) => m.organizationId && targetFiOrgIds.includes(m.organizationId) && m.role === "ORG_ADMIN");
     const explicitEngagementIds = userMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
     const hasOperationalAccess = explicitEngagementIds.length > 0;
+
+    const relationshipScopeConditions: any[] = [];
+    if (supplierOrgAdminIds.length > 0) {
+        relationshipScopeConditions.push({ fiOrgId: { in: supplierOrgAdminIds } });
+    }
+    if (explicitEngagementIds.length > 0) {
+        relationshipScopeConditions.push({ id: { in: explicitEngagementIds } });
+    }
+
+    if (relationshipScopeConditions.length === 0) return null;
 
     const engagementsPromise = prisma.fIEngagement.count({
         where: {
             fiOrgId: { in: targetFiOrgIds },
             isDeleted: false,
             status: { not: "ARCHIVED" },
-            ...(!isOrgAdminForTarget ? { id: { in: explicitEngagementIds } } : {})
+            OR: relationshipScopeConditions
         }
     });
 
