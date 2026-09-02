@@ -1149,7 +1149,7 @@ export async function getManageableRelationshipsForSupplier(fiOrgId: string): Pr
         const rels = await prisma.fIEngagement.findMany({
             where: { fiOrgId, isDeleted: false },
             include: { clientLE: { select: { name: true } } },
-            orderBy: { createdAt: "desc" }
+            orderBy: { id: "desc" }
         });
         return rels.map((r: any) => ({
             id: r.id,
@@ -1166,7 +1166,7 @@ export async function getManageableRelationshipsForSupplier(fiOrgId: string): Pr
     const rels = await prisma.fIEngagement.findMany({
         where: { id: { in: relAdminEngIds }, isDeleted: false },
         include: { clientLE: { select: { name: true } } },
-        orderBy: { createdAt: "desc" }
+        orderBy: { id: "desc" }
     });
 
     return rels.map((r: any) => ({

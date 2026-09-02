@@ -370,32 +370,81 @@ test.describe('ONP-173 — Supplier Team Membership & Invitation Onboarding Work
     // ========================================================================
     // Journey 5 — Existing User Never Registers Again (Authoritative Contract)
     // ========================================================================
-    test('Journey 5: Adding existing OnPro user never produces Pending Invitation, /invite/{token} requirement, or Create Password UI', async () => {
-        // Check DB state following the add/invite action for existing user:
-        const pendingInvite = await prisma.invitation.findFirst({
-            where: {
-                sentToEmail: existingUserEmail,
-                fiEngagementId: engagementId,
-                usedAt: null,
-                revokedAt: null,
+    test('Journey 5: Adding existing OnPro user never produces Pending Invitation, /invite/{token} requirement, or Create Password UI', async ({ browser }) => {
+        const j5Email = `uat-onp173-j5-${testTimestamp}@onpro-test.com`;
+
+        // 1. Create existing user with LE_ADMIN on Beta
+        const j5User = await prisma.user.create({
+            data: {
+                email: j5Email,
+                name: 'J5 Existing User',
+                emailVerified: new Date(),
+            },
+        });
+        await prisma.membership.create({
+            data: {
+                userId: j5User.id,
+                clientLEId: manifest.betaClientLE.id,
+                role: 'LE_ADMIN',
             },
         });
 
-        const createdMembership = await prisma.membership.findFirst({
-            where: {
-                userId: existingUserId,
-                fiEngagementId: engagementId,
-            },
-        });
+        // 2. LE Admin of Alpha ClientLE adds j5User to Relationship
+        const adminContext = await browser.newContext({ storageState: PERSONA_STORAGE_STATES.leAdminAlpha });
+        const adminPage = await adminContext.newPage();
 
-        // AUTHORITATIVE RED ASSERTIONS:
-        // On current dev: an invitation record is created and no membership is created.
-        // Desired contract:
+        await adminPage.goto(`/app/le/${clientLEId}/relationships`);
+        await expect(adminPage.getByRole('heading', { name: /Supplier Relationships/i }).first()).toBeVisible({ timeout: 20000 });
+
+        const engagementTrigger = adminPage.getByRole('button', { name: /UAT Supplier Org A|Barclays/i }).first();
+        if (await engagementTrigger.isVisible()) {
+            const state = await engagementTrigger.getAttribute('data-state');
+            if (state === 'closed') await engagementTrigger.click();
+        }
+
+        const teamTrigger = adminPage.getByRole('button', { name: /Team/i }).first();
+        if (await teamTrigger.isVisible()) {
+            const state = await teamTrigger.getAttribute('data-state');
+            if (state === 'closed') await teamTrigger.click();
+        }
+
+        const inviteBtn = adminPage.getByRole('button', { name: /Invite/i }).first();
+        await expect(inviteBtn).toBeVisible({ timeout: 15000 });
+        await inviteBtn.click();
+
+        const emailInput = adminPage.locator('#email');
+        await expect(emailInput).toBeVisible();
+        await emailInput.fill(j5Email);
+
+        const sendBtn = adminPage.getByRole('button', { name: 'Send Invitation' });
+        await sendBtn.click();
+        await adminPage.waitForTimeout(3000);
+
+        // Assertions:
         // 1. Zero Pending Invitation records created
-        expect(pendingInvite, 'Authoritative RED: Existing user must have 0 pending invitations').toBeNull();
+        const pendingInvite = await prisma.invitation.findFirst({
+            where: { sentToEmail: j5Email, fiEngagementId: engagementId },
+        });
+        expect(pendingInvite, 'Authoritative Contract: Zero pending invitations created for existing user').toBeNull();
 
-        // 2. Relationship Membership created immediately with requested role
-        expect(createdMembership?.role, 'Authoritative RED: Existing user must have immediate Relationship Membership').toBe('RELATIONSHIP_ADMIN');
+        // 2. Immediate Relationship Membership with requested role
+        const createdMembership = await prisma.membership.findFirst({
+            where: { userId: j5User.id, fiEngagementId: engagementId },
+        });
+        expect(createdMembership?.role, 'Authoritative Contract: Immediate Relationship Membership granted').toBe('RELATIONSHIP_ADMIN');
+
+        // 3. Unrelated memberships preserved
+        const leMembership = await prisma.membership.findFirst({
+            where: { userId: j5User.id, clientLEId: manifest.betaClientLE.id },
+        });
+        expect(leMembership?.role, 'Unrelated LE_ADMIN membership preserved').toBe('LE_ADMIN');
+
+        // Cleanup
+        await prisma.engagementActivity.deleteMany({ where: { userId: j5User.id } });
+        await prisma.membership.deleteMany({ where: { userId: j5User.id } });
+        await prisma.invitation.deleteMany({ where: { sentToEmail: j5Email } });
+        await prisma.user.deleteMany({ where: { id: j5User.id } });
+        await adminContext.close();
     });
 
     // ========================================================================
