@@ -1,4 +1,4 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect, Page, Locator } from '@playwright/test';
 import { PrismaClient } from '@prisma/client';
 import { PERSONA_STORAGE_STATES, loadUATManifest } from '../fixtures/uat-fixture';
 
@@ -8,6 +8,20 @@ async function login(page: Page, email: string, pass: string) {
     await page.locator('#password').fill(pass);
     await page.getByRole('button', { name: 'Sign In' }).click();
     await expect(page).not.toHaveURL(/login/, { timeout: 20000 });
+}
+
+async function expandAccordion(trigger: Locator) {
+    await expect(trigger).toBeVisible({ timeout: 20000 });
+    const state = await trigger.getAttribute('data-state');
+    if (state === 'closed') {
+        await trigger.click();
+        try {
+            await expect(trigger).toHaveAttribute('data-state', 'open', { timeout: 3000 });
+        } catch {
+            await trigger.click();
+            await expect(trigger).toHaveAttribute('data-state', 'open', { timeout: 10000 });
+        }
+    }
 }
 
 // Contract: ONP-173 / ONP-145 FR-14, 15, 16, 17, 18, 20
@@ -101,20 +115,14 @@ test.describe('ONP-173 — Supplier Team Membership & Invitation Onboarding Work
 
         // Expand engagement and team accordions if needed
         const engagementTrigger = adminPage.getByRole('button', { name: /UAT Supplier Org A|Barclays/i }).first();
-        if (await engagementTrigger.isVisible()) {
-            const state = await engagementTrigger.getAttribute('data-state');
-            if (state === 'closed') await engagementTrigger.click();
-        }
+        await expandAccordion(engagementTrigger);
 
         const teamTrigger = adminPage.getByRole('button', { name: /Team/i }).first();
-        if (await teamTrigger.isVisible()) {
-            const state = await teamTrigger.getAttribute('data-state');
-            if (state === 'closed') await teamTrigger.click();
-        }
+        await expandAccordion(teamTrigger);
 
         // Click Invite to open the dialog
         const inviteBtn = adminPage.getByRole('button', { name: /Invite/i }).first();
-        await expect(inviteBtn).toBeVisible({ timeout: 15000 });
+        await expect(inviteBtn).toBeVisible({ timeout: 20000 });
         await inviteBtn.click();
 
         // Fill in existing user's email
@@ -308,10 +316,19 @@ test.describe('ONP-173 — Supplier Team Membership & Invitation Onboarding Work
     // Journey 4 — Relationship Team Lifecycle (Role Change, Remove, Revoke, Resend)
     // ========================================================================
     test('Journey 4: Active membership role change & removal; Pending invitation revoke & resend lifecycle', async ({ browser }) => {
+        const j4Email = `uat-onp173-j4-${testTimestamp}@onpro-test.com`;
+        const j4User = await prisma.user.create({
+            data: {
+                email: j4Email,
+                name: 'J4 Active Member',
+                emailVerified: new Date(),
+            },
+        });
+
         // 1. Create active relationship membership for testing role change and removal
         const testMember = await prisma.membership.create({
             data: {
-                userId: existingUserId,
+                userId: j4User.id,
                 fiEngagementId: engagementId,
                 role: 'RELATIONSHIP_USER',
             },
@@ -329,7 +346,7 @@ test.describe('ONP-173 — Supplier Team Membership & Invitation Onboarding Work
                 fiEngagementId: engagementId,
                 tokenHash: tokHash,
                 expiresAt: new Date(Date.now() + 86400000),
-                createdByUserId: existingUserId,
+                createdByUserId: j4User.id,
             },
         });
 
@@ -341,7 +358,7 @@ test.describe('ONP-173 — Supplier Team Membership & Invitation Onboarding Work
         await expect(supplierPage.getByRole('heading', { name: /Teams|Team Members/i }).first()).toBeVisible({ timeout: 20000 });
 
         // Assert member row and pending row are present
-        await expect(supplierPage.getByText(existingUserEmail).first()).toBeVisible({ timeout: 15000 });
+        await expect(supplierPage.getByText(j4Email).first()).toBeVisible({ timeout: 15000 });
         await expect(supplierPage.getByText(pendingInvite.sentToEmail).first()).toBeVisible({ timeout: 15000 });
 
         // In desired ONP-173 contract:
@@ -350,11 +367,9 @@ test.describe('ONP-173 — Supplier Team Membership & Invitation Onboarding Work
         // - Remove relationship access
         // - Revoke invitation
         // - Resend / Recover invitation
-        // On current dev: the table is strictly read-only; no interactive controls exist!
-        const memberRow = supplierPage.locator('tr', { hasText: existingUserEmail });
+        const memberRow = supplierPage.locator('tr', { hasText: j4Email });
         const pendingRow = supplierPage.locator('tr', { hasText: pendingInvite.sentToEmail });
 
-        // AUTHORITATIVE RED ASSERTIONS:
         const memberActionButtons = memberRow.locator('button, [role="button"]');
         const pendingActionButtons = pendingRow.locator('button, [role="button"]');
 
@@ -364,6 +379,7 @@ test.describe('ONP-173 — Supplier Team Membership & Invitation Onboarding Work
         // Cleanup
         await prisma.invitation.deleteMany({ where: { id: pendingInvite.id } });
         await prisma.membership.deleteMany({ where: { id: testMember.id } });
+        await prisma.user.deleteMany({ where: { id: j4User.id } });
         await supplierContext.close();
     });
 
@@ -397,19 +413,13 @@ test.describe('ONP-173 — Supplier Team Membership & Invitation Onboarding Work
         await expect(adminPage.getByRole('heading', { name: /Supplier Relationships/i }).first()).toBeVisible({ timeout: 20000 });
 
         const engagementTrigger = adminPage.getByRole('button', { name: /UAT Supplier Org A|Barclays/i }).first();
-        if (await engagementTrigger.isVisible()) {
-            const state = await engagementTrigger.getAttribute('data-state');
-            if (state === 'closed') await engagementTrigger.click();
-        }
+        await expandAccordion(engagementTrigger);
 
         const teamTrigger = adminPage.getByRole('button', { name: /Team/i }).first();
-        if (await teamTrigger.isVisible()) {
-            const state = await teamTrigger.getAttribute('data-state');
-            if (state === 'closed') await teamTrigger.click();
-        }
+        await expandAccordion(teamTrigger);
 
         const inviteBtn = adminPage.getByRole('button', { name: /Invite/i }).first();
-        await expect(inviteBtn).toBeVisible({ timeout: 15000 });
+        await expect(inviteBtn).toBeVisible({ timeout: 20000 });
         await inviteBtn.click();
 
         const emailInput = adminPage.locator('#email');
