@@ -153,13 +153,14 @@ test.describe('COMP-01 / ONP-54 + ONP-65 — Composite Group Canonical Resolutio
                 collectionId: 'DIRECTORS',
                 instanceId: `dir_${testTimestamp}`,
                 claimRole: 'VALUE',
-                sourceType: 'USER_INPUT',
-                sourceReference: `USR_${testTimestamp}`,
                 status: 'VERIFIED',
-                confidenceScore: 1.0,
+                sourceType: 'USER_INPUT',
+                sourceReference: 'USER_INPUT',
                 valueJson: {
                     forenames: directorForenames,
                     surname: testDirectorSurname,
+                    organisationName: null,
+                    partyType: 'PERSON',
                     roles: [{ roleTitle, roleType: 'DIRECTOR' }],
                     nationalities: ['British']
                 },

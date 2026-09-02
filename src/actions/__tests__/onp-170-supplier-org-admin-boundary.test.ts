@@ -311,10 +311,143 @@ describe('ONP-170 — Supplier Org Admin Permissions & Relationship Boundary', (
             expect(stats).toBeNull();
             expect(prismaMock.questionnaire.count).not.toHaveBeenCalled();
             expect(prismaMock.fIEngagement.count).not.toHaveBeenCalled();
+            expect(prismaMock.query.count).not.toHaveBeenCalled();
         });
     });
 
-    describe('4. Permission Engine — Supplier ORG_ADMIN Team Management vs Operational Denial', () => {
+    describe('4. Dashboard Stats (getFIDashboardStats) — Operational Data Query Suppression & Role Scoping', () => {
+        it('should return structural engagement count but strictly NOT query questionnaire.count or query.count for pure Supplier ORG_ADMIN', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: 'pure-supplier-admin' } as any);
+
+            prismaMock.membership.findMany.mockResolvedValue([
+                {
+                    id: 'mem-1',
+                    userId: 'pure-supplier-admin',
+                    organizationId: SUPPLIER_ORG_ID,
+                    fiEngagementId: null,
+                    role: 'ORG_ADMIN',
+                },
+            ]);
+
+            prismaMock.fIEngagement.count.mockResolvedValue(5);
+
+            const stats = await getFIDashboardStats(SUPPLIER_ORG_ID);
+
+            expect(stats).toEqual({
+                questionnaires: 0,
+                engagements: 5,
+                queries: 0,
+            });
+
+            // Structural relationship count is queried
+            expect(prismaMock.fIEngagement.count).toHaveBeenCalledTimes(1);
+            // Authoritative query check: operational tables MUST NOT be queried
+            expect(prismaMock.questionnaire.count).not.toHaveBeenCalled();
+            expect(prismaMock.query.count).not.toHaveBeenCalled();
+        });
+
+        it('should query operational questionnaire and query counts when user has explicit engagement memberships', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: 'rel-worker-1' } as any);
+
+            prismaMock.membership.findMany.mockResolvedValue([
+                {
+                    id: 'mem-rel',
+                    userId: 'rel-worker-1',
+                    organizationId: null,
+                    fiEngagementId: ENGAGEMENT_ID,
+                    role: 'RELATIONSHIP_ADMIN',
+                },
+            ]);
+
+            prismaMock.fIEngagement.findFirst.mockResolvedValue({ id: ENGAGEMENT_ID });
+            prismaMock.fIEngagement.count.mockResolvedValue(1);
+            prismaMock.questionnaire.count.mockResolvedValue(3);
+            prismaMock.query.count.mockResolvedValue(2);
+
+            const stats = await getFIDashboardStats(SUPPLIER_ORG_ID);
+
+            expect(stats).toEqual({
+                questionnaires: 3,
+                engagements: 1,
+                queries: 2,
+            });
+
+            expect(prismaMock.fIEngagement.count).toHaveBeenCalledTimes(1);
+            expect(prismaMock.questionnaire.count).toHaveBeenCalledTimes(1);
+            expect(prismaMock.query.count).toHaveBeenCalledTimes(1);
+        });
+
+        it('should NOT treat plain ORG_MEMBER memberships as admin supplier targets in no-fiOrgId path', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: 'mixed-user' } as any);
+
+            // User has ORG_ADMIN on SUPPLIER_ORG_ID, and plain ORG_MEMBER on a foreign org
+            prismaMock.membership.findMany
+                // First call: caller userMemberships
+                .mockResolvedValueOnce([
+                    {
+                        id: 'mem-admin',
+                        userId: 'mixed-user',
+                        organizationId: SUPPLIER_ORG_ID,
+                        fiEngagementId: null,
+                        role: 'ORG_ADMIN',
+                    },
+                    {
+                        id: 'mem-member',
+                        userId: 'mixed-user',
+                        organizationId: 'foreign-org-id',
+                        fiEngagementId: null,
+                        role: 'ORG_MEMBER',
+                    },
+                ])
+                // Second call: orgMemberships query in no-fiOrgId path (filtering role: "ORG_ADMIN")
+                .mockResolvedValueOnce([
+                    { organizationId: SUPPLIER_ORG_ID }
+                ]);
+
+            prismaMock.fIEngagement.count.mockResolvedValue(2);
+
+            const stats = await getFIDashboardStats();
+
+            // Verify orgMemberships query enforced role: "ORG_ADMIN"
+            const orgMembershipsQueryArgs = prismaMock.membership.findMany.mock.calls[1][0];
+            expect(orgMembershipsQueryArgs.where.role).toBe('ORG_ADMIN');
+
+            expect(stats).toEqual({
+                questionnaires: 0,
+                engagements: 2,
+                queries: 0,
+            });
+
+            // Pure ORG_ADMIN with no engagement memberships does not query operational tables
+            expect(prismaMock.questionnaire.count).not.toHaveBeenCalled();
+            expect(prismaMock.query.count).not.toHaveBeenCalled();
+        });
+
+        it('should return null in no-fiOrgId path when user has only plain ORG_MEMBER memberships without engagements', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: 'pure-member' } as any);
+
+            prismaMock.membership.findMany
+                .mockResolvedValueOnce([
+                    {
+                        id: 'mem-member',
+                        userId: 'pure-member',
+                        organizationId: SUPPLIER_ORG_ID,
+                        fiEngagementId: null,
+                        role: 'ORG_MEMBER',
+                    },
+                ])
+                .mockResolvedValueOnce([]); // No ORG_ADMIN memberships
+
+            const stats = await getFIDashboardStats();
+
+            expect(stats).toBeNull();
+            expect(prismaMock.fIEngagement.count).not.toHaveBeenCalled();
+            expect(prismaMock.questionnaire.count).not.toHaveBeenCalled();
+            expect(prismaMock.query.count).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('5. Permission Engine — Supplier ORG_ADMIN Team Management vs Operational Denial', () => {
         const supplierOrgAdminUser: UserWithMemberships = {
             id: 'user-supplier-admin',
             memberships: [

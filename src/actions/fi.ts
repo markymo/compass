@@ -269,7 +269,8 @@ export async function getFIDashboardStats(fiOrgId?: string) {
             where: {
                 userId,
                 organization: { types: { has: "FI" } },
-                organizationId: { not: null }
+                organizationId: { not: null },
+                role: "ORG_ADMIN"
             },
             select: { organizationId: true }
         });
@@ -278,7 +279,7 @@ export async function getFIDashboardStats(fiOrgId?: string) {
         const userEngIds = userMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
         if (userEngIds.length > 0) {
             const engOrgs = await prisma.fIEngagement.findMany({
-                where: { id: { in: userEngIds } },
+                where: { id: { in: userEngIds }, isDeleted: false },
                 select: { fiOrgId: true }
             });
             const engOrgIds = engOrgs.map((e: any) => e.fiOrgId).filter(Boolean);
@@ -290,32 +291,43 @@ export async function getFIDashboardStats(fiOrgId?: string) {
 
     const isOrgAdminForTarget = userMemberships.some((m: any) => m.organizationId && targetFiOrgIds.includes(m.organizationId) && m.role === "ORG_ADMIN");
     const explicitEngagementIds = userMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
+    const hasOperationalAccess = explicitEngagementIds.length > 0;
 
-    const [questionnaires, engagements, queries] = await Promise.all([
-        prisma.questionnaire.count({
+    const engagementsPromise = prisma.fIEngagement.count({
+        where: {
+            fiOrgId: { in: targetFiOrgIds },
+            isDeleted: false,
+            status: { not: "ARCHIVED" },
+            ...(!isOrgAdminForTarget ? { id: { in: explicitEngagementIds } } : {})
+        }
+    });
+
+    const questionnairesPromise = hasOperationalAccess
+        ? prisma.questionnaire.count({
             where: {
                 fiOrgId: { in: targetFiOrgIds },
                 isDeleted: false,
-                ...(!isOrgAdminForTarget ? { fiEngagementId: { in: explicitEngagementIds } } : {})
+                fiEngagementId: { in: explicitEngagementIds }
             }
-        }),
-        prisma.fIEngagement.count({
-            where: {
-                fiOrgId: { in: targetFiOrgIds },
-                isDeleted: false,
-                status: { not: "ARCHIVED" },
-                ...(!isOrgAdminForTarget ? { id: { in: explicitEngagementIds } } : {})
-            }
-        }),
-        prisma.query.count({
+        })
+        : Promise.resolve(0);
+
+    const queriesPromise = hasOperationalAccess
+        ? prisma.query.count({
             where: {
                 engagement: {
                     fiOrgId: { in: targetFiOrgIds },
-                    ...(!isOrgAdminForTarget ? { id: { in: explicitEngagementIds } } : {})
+                    id: { in: explicitEngagementIds }
                 },
                 status: "OPEN"
             }
         })
+        : Promise.resolve(0);
+
+    const [engagements, questionnaires, queries] = await Promise.all([
+        engagementsPromise,
+        questionnairesPromise,
+        queriesPromise
     ]);
 
     return {
@@ -1104,22 +1116,34 @@ export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierT
     });
 
     type UserMemRec = typeof userMemberships[number];
-    const isSupplierMember = userMemberships.some(
-        (m: UserMemRec) => m.organizationId === fiOrgId || m.fiEngagement?.fiOrgId === fiOrgId
+    const isSupplierOrgAdmin = userMemberships.some(
+        (m: UserMemRec) => m.organizationId === fiOrgId && m.role === "ORG_ADMIN"
     );
+    const userEngagementIds = userMemberships
+        .filter((m: UserMemRec) => m.fiEngagementId && m.fiEngagement?.fiOrgId === fiOrgId)
+        .map((m: UserMemRec) => m.fiEngagementId)
+        .filter(Boolean) as string[];
 
-    if (!isSupplierMember) {
+    // Plain Supplier ORG_MEMBER with no Relationship membership receives zero team metadata
+    if (!isSupplierOrgAdmin && userEngagementIds.length === 0) {
         return { members: [], pendingInvitations: [] };
     }
 
-    // Fetch active memberships for this Supplier organization
-    const rawMemberships = await prisma.membership.findMany({
-        where: {
+    const rawMembershipsWhere: any = isSupplierOrgAdmin
+        ? {
             OR: [
                 { organizationId: fiOrgId },
                 { fiEngagement: { fiOrgId, isDeleted: false } }
             ]
-        },
+        }
+        : {
+            fiEngagementId: { in: userEngagementIds },
+            fiEngagement: { isDeleted: false }
+        };
+
+    // Fetch active memberships for this Supplier organization (or caller's scoped relationships)
+    const rawMemberships = await prisma.membership.findMany({
+        where: rawMembershipsWhere,
         include: {
             user: {
                 select: { id: true, name: true, email: true }
@@ -1184,9 +1208,8 @@ export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierT
         }
     });
 
-    // Fetch pending invitations for this Supplier organization or its Relationships
-    const pendingInvites = await prisma.invitation.findMany({
-        where: {
+    const pendingInvitesWhere: any = isSupplierOrgAdmin
+        ? {
             usedAt: null,
             revokedAt: null,
             expiresAt: { gt: new Date() },
@@ -1194,7 +1217,18 @@ export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierT
                 { organizationId: fiOrgId },
                 { fiEngagement: { fiOrgId, isDeleted: false } }
             ]
-        },
+        }
+        : {
+            usedAt: null,
+            revokedAt: null,
+            expiresAt: { gt: new Date() },
+            fiEngagementId: { in: userEngagementIds },
+            fiEngagement: { isDeleted: false }
+        };
+
+    // Fetch pending invitations for this Supplier organization (or caller's scoped relationships)
+    const pendingInvites = await prisma.invitation.findMany({
+        where: pendingInvitesWhere,
         include: {
             fiEngagement: {
                 select: { clientLE: { select: { name: true } } }

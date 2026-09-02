@@ -36,10 +36,10 @@ describe("Supplier Team Members Data Layer (getSupplierTeamMembers)", () => {
     });
 
     it("3, 6, 7. Supplier-wide access vs Relationship-specific access scope derivation", async () => {
-        // User memberships check (calling user belongs to supplierOrgId)
+        // User memberships check (calling user is pure ORG_ADMIN on supplierOrgId)
         prismaMock.membership.findMany
             .mockResolvedValueOnce([
-                { organizationId: supplierOrgId, fiEngagement: null }
+                { organizationId: supplierOrgId, fiEngagement: null, role: "ORG_ADMIN" }
             ])
             // Team memberships query
             .mockResolvedValueOnce([
@@ -81,7 +81,7 @@ describe("Supplier Team Members Data Layer (getSupplierTeamMembers)", () => {
     it("14, 15. DTO Security: Tokens, passwords, and raw prisma auth records are absent", async () => {
         prismaMock.membership.findMany
             .mockResolvedValueOnce([
-                { organizationId: supplierOrgId, fiEngagement: null }
+                { organizationId: supplierOrgId, fiEngagement: null, role: "ORG_ADMIN" }
             ])
             .mockResolvedValueOnce([
                 {
@@ -117,7 +117,7 @@ describe("Supplier Team Members Data Layer (getSupplierTeamMembers)", () => {
     it("17, 18, 19. Pending invitations: Genuine Supplier invitations rendered without token exposure", async () => {
         prismaMock.membership.findMany
             .mockResolvedValueOnce([
-                { organizationId: supplierOrgId, fiEngagement: null }
+                { organizationId: supplierOrgId, fiEngagement: null, role: "ORG_ADMIN" }
             ])
             .mockResolvedValueOnce([]);
 
@@ -138,5 +138,128 @@ describe("Supplier Team Members Data Layer (getSupplierTeamMembers)", () => {
         expect(result.pendingInvitations[0].email).toBe("pending@riskbridge.com");
         expect(result.pendingInvitations[0].accessScope).toBe("Example Solar Holdco");
         expect(result.pendingInvitations[0].roleLabel).toBe("Relationship Admin");
+    });
+
+    describe("Contract Scoping: ORG_ADMIN vs pure ORG_MEMBER vs Scoped Relationship User", () => {
+        it("1. pure ORG_ADMIN -> queries supplier-wide Team metadata and pending invitations", async () => {
+            prismaMock.membership.findMany
+                .mockResolvedValueOnce([
+                    { organizationId: supplierOrgId, fiEngagement: null, role: "ORG_ADMIN" }
+                ])
+                .mockResolvedValueOnce([
+                    {
+                        organizationId: supplierOrgId,
+                        role: "ORG_ADMIN",
+                        createdAt: new Date("2026-01-01"),
+                        user: { id: "admin-1", name: "Admin One", email: "admin@riskbridge.com" },
+                        fiEngagement: null
+                    }
+                ]);
+
+            prismaMock.invitation.findMany.mockResolvedValueOnce([
+                {
+                    id: "inv-org",
+                    sentToEmail: "invitee@riskbridge.com",
+                    role: "RELATIONSHIP_ADMIN",
+                    createdAt: new Date("2026-03-01"),
+                    expiresAt: new Date("2026-04-01"),
+                    organizationId: supplierOrgId,
+                    fiEngagement: null
+                }
+            ]);
+
+            const result = await getSupplierTeamMembers(supplierOrgId);
+            expect(result.members).toHaveLength(1);
+            expect(result.pendingInvitations).toHaveLength(1);
+
+            // Verify supplier-wide query args
+            const teamQueryArgs = prismaMock.membership.findMany.mock.calls[1][0];
+            expect(teamQueryArgs.where).toEqual({
+                OR: [
+                    { organizationId: supplierOrgId },
+                    { fiEngagement: { fiOrgId: supplierOrgId, isDeleted: false } }
+                ]
+            });
+
+            const inviteQueryArgs = prismaMock.invitation.findMany.mock.calls[0][0];
+            expect(inviteQueryArgs.where.OR).toEqual([
+                { organizationId: supplierOrgId },
+                { fiEngagement: { fiOrgId: supplierOrgId, isDeleted: false } }
+            ]);
+        });
+
+        it("2. pure ORG_MEMBER -> no Relationship Team or invitation metadata (zero child queries)", async () => {
+            prismaMock.membership.findMany.mockResolvedValueOnce([
+                { organizationId: supplierOrgId, fiEngagementId: null, fiEngagement: null, role: "ORG_MEMBER" }
+            ]);
+
+            const result = await getSupplierTeamMembers(supplierOrgId);
+            expect(result.members).toEqual([]);
+            expect(result.pendingInvitations).toEqual([]);
+
+            // Only caller's own membership check was performed; team and invitation queries were NOT executed
+            expect(prismaMock.membership.findMany).toHaveBeenCalledTimes(1);
+            expect(prismaMock.invitation.findMany).not.toHaveBeenCalled();
+        });
+
+        it("3. Alpha-only Relationship user -> queries Alpha Team/invites only, never Beta", async () => {
+            const alphaEngId = "eng-alpha";
+
+            // Calling user is assigned strictly to Alpha relationship
+            prismaMock.membership.findMany
+                .mockResolvedValueOnce([
+                    {
+                        organizationId: null,
+                        fiEngagementId: alphaEngId,
+                        role: "RELATIONSHIP_USER",
+                        fiEngagement: { fiOrgId: supplierOrgId }
+                    }
+                ])
+                // Team memberships query scoped to Alpha
+                .mockResolvedValueOnce([
+                    {
+                        organizationId: null,
+                        role: "RELATIONSHIP_USER",
+                        createdAt: new Date("2026-02-01"),
+                        user: { id: "alpha-worker", name: "Alpha Worker", email: "alpha@riskbridge.com" },
+                        fiEngagement: {
+                            id: alphaEngId,
+                            clientLE: { name: "Alpha Client LE" }
+                        }
+                    }
+                ]);
+
+            prismaMock.invitation.findMany.mockResolvedValueOnce([
+                {
+                    id: "inv-alpha",
+                    sentToEmail: "new-alpha@riskbridge.com",
+                    role: "RELATIONSHIP_USER",
+                    createdAt: new Date("2026-03-01"),
+                    expiresAt: new Date("2026-04-01"),
+                    fiEngagementId: alphaEngId,
+                    fiEngagement: { clientLE: { name: "Alpha Client LE" } }
+                }
+            ]);
+
+            const result = await getSupplierTeamMembers(supplierOrgId);
+
+            // Verify membership query was strictly scoped to Alpha engagement
+            const teamQueryArgs = prismaMock.membership.findMany.mock.calls[1][0];
+            expect(teamQueryArgs.where).toEqual({
+                fiEngagementId: { in: [alphaEngId] },
+                fiEngagement: { isDeleted: false }
+            });
+
+            // Verify invitation query was strictly scoped to Alpha engagement
+            const inviteQueryArgs = prismaMock.invitation.findMany.mock.calls[0][0];
+            expect(inviteQueryArgs.where.fiEngagementId).toEqual({ in: [alphaEngId] });
+            expect(inviteQueryArgs.where.fiEngagement).toEqual({ isDeleted: false });
+
+            // Verify returned content contains Alpha only
+            expect(result.members).toHaveLength(1);
+            expect(result.members[0].email).toBe("alpha@riskbridge.com");
+            expect(result.pendingInvitations).toHaveLength(1);
+            expect(result.pendingInvitations[0].email).toBe("new-alpha@riskbridge.com");
+        });
     });
 });
