@@ -6,7 +6,8 @@ import { KycWriteService } from "@/services/kyc/KycWriteService";
 import {
     initializeRegistryDomain,
     deriveRegistryReferencesFromGleif,
-    RegistryEnrichmentService
+    RegistryEnrichmentService,
+    RegistryAuthorityService
 } from "@/domain/registry";
 // CanonicalRegistryMapper removed — RegistryMappingEngine is the sole RA mapping path.
 
@@ -124,12 +125,25 @@ export class LegalEntityEnrichmentService {
                     }
                 }
 
+                const isCH = refData.registryAuthorityId ? RegistryAuthorityService.COMPANIES_HOUSE_RAIDS.has(refData.registryAuthorityId) : false;
+                const canonicalRegistryKey = isCH ? 'GB_COMPANIES_HOUSE' : refData.registryAuthorityId!;
+                const canonicalMappingSourceKey = isCH ? 'COMPANIES_HOUSE' : undefined;
+
                 await prisma.registryAuthority.upsert({
                     where: { id: refData.registryAuthorityId! },
-                    update: {},
+                    update: isCH ? {
+                        registryKey: 'GB_COMPANIES_HOUSE',
+                        mappingSourceKey: 'COMPANIES_HOUSE',
+                        name: authorityName,
+                        countryCode: countryCode
+                    } : {
+                        name: authorityName,
+                        countryCode: countryCode
+                    },
                     create: {
                         id: refData.registryAuthorityId!,
-                        registryKey: refData.registryAuthorityId!,
+                        registryKey: canonicalRegistryKey,
+                        mappingSourceKey: canonicalMappingSourceKey,
                         name: authorityName,
                         countryCode: countryCode
                     }

@@ -16,6 +16,8 @@ import { COLLECTION_FIELD_CONFIG } from "./collection-field-config";
 import { getFallbackPriority, USER_INPUT_PRIORITY } from "./source-priority-config";
 import { fetchProvenanceMap, resolveSourceCheckedAt, resolveSourceEntityIdentifier, ProvenanceMap } from "./provenance-enricher";
 import { extractRegistryEntityIdentifier, getRegistryEntityUrl } from "@/lib/registry-urls";
+import { parsePath, resolveDotPath } from "@/services/kyc/normalization/pathResolver";
+import { applyTransform } from "@/services/kyc/normalization/transforms";
 
 export type FieldClaimWithRelations = FieldClaim & {
     evidence?: EvidenceStore | null;
@@ -203,11 +205,11 @@ export class KycStateService {
      * - applicable mapping was actually evaluated successfully
      */
     static evaluateSyncAttempt(
-        clientLE: { lei?: string | null; gleifFetchedAt?: Date | null; registryReferences?: Array<any> | null } | null | undefined,
-        mappings: Array<{ sourceType: string; sourceReference: string | null }>
-    ): { hasApplicableMapping: boolean; hasApplicableEvaluationAttempt: boolean; evaluatedSourceBadge: string | null; evaluatedSourceTimestamp: Date | null } {
+        clientLE: { lei?: string | null; gleifFetchedAt?: Date | null; gleifData?: any; nationalRegistryData?: any; registryReferences?: Array<any> | null } | null | undefined,
+        mappings: Array<{ sourceType: string; sourceReference: string | null; sourcePath?: string | null; transformType?: string | null; transformConfig?: any }>
+    ): { hasApplicableMapping: boolean; hasApplicableEvaluationAttempt: boolean; evaluatedSourceBadge: string | null; evaluatedSourceTimestamp: Date | null; evaluationOutcome?: 'VALUE' | 'NO_DATA' | 'NOT_APPLICABLE' | 'ERROR' } {
         if (!mappings || mappings.length === 0 || !clientLE) {
-            return { hasApplicableMapping: false, hasApplicableEvaluationAttempt: false, evaluatedSourceBadge: null, evaluatedSourceTimestamp: null };
+            return { hasApplicableMapping: false, hasApplicableEvaluationAttempt: false, evaluatedSourceBadge: null, evaluatedSourceTimestamp: null, evaluationOutcome: 'NOT_APPLICABLE' };
         }
 
         const applicableMappings = mappings.filter(m => KycStateService.isMappingApplicableToLE(m, clientLE));
@@ -216,14 +218,51 @@ export class KycStateService {
         let hasApplicableEvaluationAttempt = false;
         let evaluatedSourceBadge: string | null = null;
         let evaluatedSourceTimestamp: Date | null = null;
+        let evaluationOutcome: 'VALUE' | 'NO_DATA' | 'NOT_APPLICABLE' | 'ERROR' | undefined = undefined;
 
         for (const mapping of applicableMappings) {
             if (mapping.sourceType === "GLEIF") {
                 if (clientLE.gleifFetchedAt !== null && clientLE.gleifFetchedAt !== undefined && Boolean(clientLE.gleifFetchedAt)) {
-                    hasApplicableEvaluationAttempt = true;
-                    evaluatedSourceBadge = "GLEIF";
-                    evaluatedSourceTimestamp = clientLE.gleifFetchedAt instanceof Date ? clientLE.gleifFetchedAt : new Date(clientLE.gleifFetchedAt);
-                    break;
+                    const typedMapping = mapping as any;
+                    const gleifData = (clientLE as any).gleifData;
+                    if (typedMapping.sourcePath && gleifData) {
+                        try {
+                            const attr = gleifData?.data?.attributes || gleifData?.attributes || gleifData;
+                            const segments = parsePath(typedMapping.sourcePath);
+                            const rawValue = resolveDotPath(attr, segments);
+
+                            let hasData = false;
+                            if (rawValue !== null && rawValue !== undefined && rawValue !== '') {
+                                if (typedMapping.transformType) {
+                                    const transformed = applyTransform(rawValue, typedMapping.transformType, typedMapping.transformConfig);
+                                    if (transformed.value !== null && transformed.value !== undefined && transformed.value !== '') {
+                                        hasData = Array.isArray(transformed.value) ? transformed.value.length > 0 : true;
+                                    }
+                                } else {
+                                    hasData = Array.isArray(rawValue) ? rawValue.length > 0 : true;
+                                }
+                            }
+
+                            if (hasData) {
+                                evaluationOutcome = 'VALUE';
+                                hasApplicableEvaluationAttempt = false;
+                            } else {
+                                evaluationOutcome = 'NO_DATA';
+                                hasApplicableEvaluationAttempt = true;
+                                evaluatedSourceBadge = "GLEIF";
+                                evaluatedSourceTimestamp = clientLE.gleifFetchedAt instanceof Date ? clientLE.gleifFetchedAt : new Date(clientLE.gleifFetchedAt);
+                                break;
+                            }
+                        } catch (e) {
+                            evaluationOutcome = 'ERROR';
+                            hasApplicableEvaluationAttempt = false;
+                        }
+                    } else {
+                        hasApplicableEvaluationAttempt = true;
+                        evaluatedSourceBadge = "GLEIF";
+                        evaluatedSourceTimestamp = clientLE.gleifFetchedAt instanceof Date ? clientLE.gleifFetchedAt : new Date(clientLE.gleifFetchedAt);
+                        break;
+                    }
                 }
             }
             if (mapping.sourceType === "REGISTRATION_AUTHORITY" || mapping.sourceType === "COMPANIES_HOUSE" || mapping.sourceType === "NATIONAL_REGISTRY") {
@@ -246,22 +285,54 @@ export class KycStateService {
                         return false;
                     });
                     
-                    // Evaluation Evidence Fix:
-                    // MUST require matchingRef.lastSyncSucceededAt != null (or lastSyncStatus === 'SUCCESS').
-                    // createdAt alone or lastSyncAttemptAt (without lastSyncSucceededAt) MUST NOT count as a successful check!
                     const hasSuccessfulSync = matchingRef && matchingRef.lastSyncSucceededAt !== null && matchingRef.lastSyncSucceededAt !== undefined;
 
                     if (hasSuccessfulSync) {
-                        hasApplicableEvaluationAttempt = true;
-                        evaluatedSourceBadge = mapping.sourceReference || matchingRef.authority?.name || matchingRef.authority?.mappingSourceKey || matchingRef.authority?.registryKey || mapping.sourceType;
-                        evaluatedSourceTimestamp = matchingRef.lastSyncSucceededAt instanceof Date ? matchingRef.lastSyncSucceededAt : new Date(matchingRef.lastSyncSucceededAt);
-                        break;
+                        const typedMapping = mapping as any;
+                        const payload = (clientLE as any).nationalRegistryData || matchingRef.payload;
+                        if (typedMapping.sourcePath && payload) {
+                            try {
+                                const segments = parsePath(typedMapping.sourcePath);
+                                const rawValue = resolveDotPath(payload, segments);
+
+                                let hasData = false;
+                                if (rawValue !== null && rawValue !== undefined && rawValue !== '') {
+                                    if (typedMapping.transformType) {
+                                        const transformed = applyTransform(rawValue, typedMapping.transformType, typedMapping.transformConfig);
+                                        if (transformed.value !== null && transformed.value !== undefined && transformed.value !== '') {
+                                            hasData = Array.isArray(transformed.value) ? transformed.value.length > 0 : true;
+                                        }
+                                    } else {
+                                        hasData = Array.isArray(rawValue) ? rawValue.length > 0 : true;
+                                    }
+                                }
+
+                                if (hasData) {
+                                    evaluationOutcome = 'VALUE';
+                                    hasApplicableEvaluationAttempt = false;
+                                } else {
+                                    evaluationOutcome = 'NO_DATA';
+                                    hasApplicableEvaluationAttempt = true;
+                                    evaluatedSourceBadge = mapping.sourceReference || matchingRef.authority?.name || matchingRef.authority?.mappingSourceKey || matchingRef.authority?.registryKey || mapping.sourceType;
+                                    evaluatedSourceTimestamp = matchingRef.lastSyncSucceededAt instanceof Date ? matchingRef.lastSyncSucceededAt : new Date(matchingRef.lastSyncSucceededAt);
+                                    break;
+                                }
+                            } catch (e) {
+                                evaluationOutcome = 'ERROR';
+                                hasApplicableEvaluationAttempt = false;
+                            }
+                        } else {
+                            hasApplicableEvaluationAttempt = true;
+                            evaluatedSourceBadge = mapping.sourceReference || matchingRef.authority?.name || matchingRef.authority?.mappingSourceKey || matchingRef.authority?.registryKey || mapping.sourceType;
+                            evaluatedSourceTimestamp = matchingRef.lastSyncSucceededAt instanceof Date ? matchingRef.lastSyncSucceededAt : new Date(matchingRef.lastSyncSucceededAt);
+                            break;
+                        }
                     }
                 }
             }
         }
 
-        return { hasApplicableMapping, hasApplicableEvaluationAttempt, evaluatedSourceBadge, evaluatedSourceTimestamp };
+        return { hasApplicableMapping, hasApplicableEvaluationAttempt, evaluatedSourceBadge, evaluatedSourceTimestamp, evaluationOutcome };
     }
 
 

@@ -1023,6 +1023,13 @@ export async function getFullMasterData(clientLEId: string) {
             computedEnrichmentStatus = 'ENRICHED';
         } else if (primaryRef.lastSyncStatus === 'FAILED') {
             computedEnrichmentStatus = 'FAILED';
+        } else if (primaryRef.status === 'UNSUPPORTED') {
+            // Unsupported registry has no connector: check alternative source (GLEIF)
+            if (clientLE.gleifFetchedAt) {
+                computedEnrichmentStatus = 'ENRICHED';
+            } else {
+                computedEnrichmentStatus = 'PENDING_LEI';
+            }
         } else {
             computedEnrichmentStatus = 'PENDING_ENRICHMENT';
         }

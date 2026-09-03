@@ -58,7 +58,12 @@ export class RegistryEnrichmentService {
         if (!connector) {
             await prisma.registryReference.update({
                 where: { id: referenceId },
-                data: { status: "UNSUPPORTED", lastSyncStatus: "FAILED", lastSyncAttemptAt: new Date() }
+                data: {
+                    status: "UNSUPPORTED",
+                    lastSyncStatus: null,
+                    lastSyncSucceededAt: null,
+                    lastSyncAttemptAt: new Date()
+                }
             });
             return { success: false, error: `No connector for authority ${reference.registryAuthorityId}` };
         }

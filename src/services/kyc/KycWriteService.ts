@@ -190,6 +190,7 @@ export class KycWriteService {
 
             if (candidate.syncMode === 'SNAPSHOT_SYNC') {
                 let resolvedEntityId = entityId;
+                const targetClientLEId = entityType === 'CLIENT_LE' ? entityId : undefined;
                 if (entityType === 'CLIENT_LE') {
                     resolvedEntityId = await this.ensureLegalEntity(entityId);
                 }
@@ -200,13 +201,10 @@ export class KycWriteService {
                     : undefined;
 
                 if (expectedCollectionId) {
-                    // LIMITATION: FieldClaim does not store sourceMappingId or payloadSubtype.
-                    // The narrowest safe scope is subjectLeId, fieldNo, sourceType, sourceReference, collectionId.
-                    // If multiple mappings exist for the exact same sourceReference & fieldNo but different subtypes,
-                    // they will overwrite/tombstone each other.
+                    // Scope existing claims strictly to current clientLEId when operating in CLIENT_LE dossier boundary
                     const existingClaims = await prisma.fieldClaim.findMany({
                         where: {
-                            subjectLeId: resolvedEntityId,
+                            ...(targetClientLEId ? { clientLEId: targetClientLEId } : { subjectLeId: resolvedEntityId }),
                             fieldNo: candidate.fieldNo,
                             claimRole: 'VALUE',
                             sourceType: candidate.source,
@@ -235,9 +233,9 @@ export class KycWriteService {
 
                         console.log(`[KycWriteService] SNAPSHOT_SYNC: Tombstoning omitted instanceId="${claim.instanceId}" for Field ${candidate.fieldNo} (Source: ${candidate.source})`);
 
-                        // Use existing emitTombstone mechanism
+                        // Use existing emitTombstone mechanism scoped to the dossier
                         await FieldClaimService.emitTombstone(
-                            { subjectLeId: resolvedEntityId },
+                            { subjectLeId: resolvedEntityId, ...(targetClientLEId ? { clientLEId: targetClientLEId } : {}) },
                             candidate.fieldNo,
                             claim.collectionId || 'GENERAL',
                             claim.instanceId,
@@ -374,7 +372,8 @@ export class KycWriteService {
             provenance.reason, // sourceReference (e.g. raId = 'RA000585') for priority lookup
             rowId,
             undefined,
-            resolvedEntityType
+            resolvedEntityType,
+            clientLEId || undefined
         );
 
         if (!evaluation.allowed) {
@@ -390,7 +389,7 @@ export class KycWriteService {
                 : undefined;
 
             const currentCollection = await KycStateService.getAuthoritativeCollection(
-                { subjectLeId: resolvedEntityId },
+                { subjectLeId: resolvedEntityId, ...(clientLEId ? { clientLEId } : {}) },
                 fieldNo,
                 undefined,
                 undefined,
@@ -401,7 +400,7 @@ export class KycWriteService {
 
             const existingInstance = await prisma.fieldClaim.findFirst({
                 where: {
-                    subjectLeId: resolvedEntityId,
+                    ...(clientLEId ? { clientLEId } : { subjectLeId: resolvedEntityId }),
                     fieldNo,
                     claimRole: 'VALUE',
                     instanceId: rowId,
@@ -450,7 +449,7 @@ export class KycWriteService {
             }
         } else {
             const authoritativeState = await KycStateService.getAuthoritativeValue(
-                { subjectLeId: resolvedEntityId },
+                { subjectLeId: resolvedEntityId, ...(clientLEId ? { clientLEId } : {}) },
                 fieldNo
             );
 
@@ -525,6 +524,7 @@ export class KycWriteService {
                 // Formally establish graph edge via FieldClaim 122
                 await FieldClaimService.assertClaim({
                     fieldNo: 122, // Primary Address (Structured)
+                    clientLEId: clientLEId || undefined,
                     ...subProps,
                     valueAddressId: addr.id,
                     sourceType: (provenance.source as any) === 'USER_INPUT' ? SourceType.USER_INPUT :
@@ -960,7 +960,7 @@ export class KycWriteService {
 
         // 1. Fetch current state via KycStateService
         const derived = await KycStateService.getAuthoritativeValue(
-            { subjectLeId: evalEntityId },
+            { subjectLeId: evalEntityId, ...(entityType === 'CLIENT_LE' ? { clientLEId: entityId } : {}) },
             candidate.fieldNo
         );
 
@@ -986,7 +986,8 @@ export class KycWriteService {
             candidate.sourceKey, // sourceReference (e.g. 'RA000585') for priority lookup
             undefined, // rowId
             undefined, // preFetchedRecord (deprecated)
-            evalEntityType
+            evalEntityType,
+            entityType === 'CLIENT_LE' ? entityId : undefined
         );
 
         return {
@@ -1023,7 +1024,8 @@ export class KycWriteService {
         incomingSourceReference?: string, // e.g. raId 'RA000585' — used for priority lookup
         rowId?: string,
         preFetchedRecord?: any,
-        entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY'
+        entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'LEGAL_ENTITY',
+        clientLEId?: string
     ): Promise<{ allowed: boolean; reason: string }> {
         // Resolve authoritative state via KycStateService
         let derived: any = null;
@@ -1032,7 +1034,7 @@ export class KycWriteService {
             const complexCfg = getComplexFieldConfig(def.fieldNo);
             const expectedCollectionId = complexCfg?.collectionId ?? `FIELD_${def.fieldNo}`;
             const collection = await KycStateService.getAuthoritativeCollection(
-                { subjectLeId: entityId },
+                { subjectLeId: entityId, ...(clientLEId ? { clientLEId } : {}) },
                 def.fieldNo,
                 undefined,
                 undefined,
@@ -1041,7 +1043,7 @@ export class KycWriteService {
             derived = (collection || []).find(c => c.instanceId === rowId) || null;
         } else {
             derived = await KycStateService.getAuthoritativeValue(
-                { subjectLeId: entityId },
+                { subjectLeId: entityId, ...(clientLEId ? { clientLEId } : {}) },
                 def.fieldNo
             );
         }

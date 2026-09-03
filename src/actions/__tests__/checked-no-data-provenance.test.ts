@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('next-auth', () => ({ default: vi.fn(() => ({ handlers: {}, auth: vi.fn(), signIn: vi.fn(), signOut: vi.fn() })), getServerSession: vi.fn() }));
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), unstable_noStore: vi.fn() }));
 
 import prisma from '@/lib/prisma';
 import { KycStateService } from '@/lib/kyc/KycStateService';

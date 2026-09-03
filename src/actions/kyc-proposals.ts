@@ -14,7 +14,8 @@ import {
     initializeRegistryDomain, 
     deriveRegistryReferencesFromGleif, 
     RegistryEnrichmentService, 
-    RegistryConnectorFactory
+    RegistryConnectorFactory,
+    RegistryAuthorityService
 } from "@/domain/registry";
 import { CanonicalRegistryMapper } from "@/services/kyc/normalization/CanonicalRegistryMapper";
 import { RegistryMappingEngine } from "@/services/kyc/normalization/RegistryMappingEngine";
@@ -107,12 +108,25 @@ export async function refreshGleifProposals(legalEntityId: string): Promise<{ su
                 } catch (e) {
                     console.warn(`[refreshGleifProposals] Failed to resolve authority name for ${refData.registryAuthorityId!}`);
                 }
+                const isCH = refData.registryAuthorityId ? RegistryAuthorityService.COMPANIES_HOUSE_RAIDS.has(refData.registryAuthorityId) : false;
+                const canonicalRegistryKey = isCH ? 'GB_COMPANIES_HOUSE' : refData.registryAuthorityId!;
+                const canonicalMappingSourceKey = isCH ? 'COMPANIES_HOUSE' : undefined;
+
                 await prisma.registryAuthority.upsert({
                     where: { id: refData.registryAuthorityId! },
-                    update: {},
+                    update: isCH ? {
+                        registryKey: 'GB_COMPANIES_HOUSE',
+                        mappingSourceKey: 'COMPANIES_HOUSE',
+                        name: authorityName,
+                        countryCode,
+                    } : {
+                        name: authorityName,
+                        countryCode,
+                    },
                     create: {
                         id: refData.registryAuthorityId!,
-                        registryKey: refData.registryAuthorityId!,
+                        registryKey: canonicalRegistryKey,
+                        mappingSourceKey: canonicalMappingSourceKey,
                         name: authorityName,
                         countryCode,
                     }
