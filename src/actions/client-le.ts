@@ -1515,7 +1515,7 @@ export async function getFieldUsageDetails(
             supplier_code: string | null;
         }>>`
             WITH client_questionnaires AS (
-                -- 1. Direct fiEngagementId
+                -- 1. Direct fiEngagementId (templates & instances attached to active engagements)
                 SELECT qn.id AS qn_id, qn.name AS qn_name, e."fiOrgId" AS supplier_id, org.name AS supplier_name, org."shortCode" AS supplier_code
                 FROM "Questionnaire" qn
                 JOIN "FIEngagement" e ON qn."fiEngagementId" = e.id
@@ -1524,7 +1524,6 @@ export async function getFieldUsageDetails(
                   AND e."isDeleted" = false
                   AND e."status" != 'ARCHIVED'
                   AND qn."isDeleted" = false
-                  AND qn."isTemplate" = false
 
                 UNION
 
@@ -1538,7 +1537,6 @@ export async function getFieldUsageDetails(
                   AND e."isDeleted" = false
                   AND e."status" != 'ARCHIVED'
                   AND qn."isDeleted" = false
-                  AND qn."isTemplate" = false
 
                 UNION
 
@@ -1546,10 +1544,9 @@ export async function getFieldUsageDetails(
                 SELECT qn.id AS qn_id, qn.name AS qn_name, qn."fiOrgId" AS supplier_id, org.name AS supplier_name, org."shortCode" AS supplier_code
                 FROM "Questionnaire" qn
                 JOIN "_ClientCommonQuestionnaires" ccq ON qn.id = ccq."B"
-                JOIN "Organization" org ON qn."fiOrgId" = org.id
+                LEFT JOIN "Organization" org ON qn."fiOrgId" = org.id
                 WHERE ccq."A" = ${clientLEId}
                   AND qn."isDeleted" = false
-                  AND qn."isTemplate" = false
             )
             SELECT 
                 q.id AS question_id,
