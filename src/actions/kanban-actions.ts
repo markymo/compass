@@ -1410,7 +1410,36 @@ export async function getEngagementEvidenceDocuments(engagementId: string) {
             }
         });
 
-        // Gather all active questions in this engagement
+        if (!engagement) return { success: false, error: "Engagement not found", documents: [] };
+
+        // Server-side authorization check: Client operational user with LE_VIEW_MASTER_DATA or operational relationship membership
+        const memberships = await prisma.membership.findMany({
+            where: { userId: identity.userId },
+            select: {
+                organizationId: true,
+                clientLEId: true,
+                fiEngagementId: true,
+                role: true,
+            }
+        });
+
+        const user = { id: identity.userId, memberships };
+        let isAuthorized = false;
+
+        if (engagement.clientLEId) {
+            const { can, Action } = await import("@/lib/auth/permissions");
+            isAuthorized = await can(user, Action.LE_VIEW_MASTER_DATA, { clientLEId: engagement.clientLEId }, prisma);
+        }
+
+        if (!isAuthorized) {
+            isAuthorized = memberships.some((m: any) => m.fiEngagementId === engagementId);
+        }
+
+        if (!isAuthorized) {
+            return { success: false, error: "Unauthorized: User lacks authorization for this engagement", documents: [] };
+        }
+
+        // Gather all active questions in this engagement (relationship questionnaires + common questionnaires for this ClientLE)
         const questions = await prisma.question.findMany({
             where: {
                 OR: [
@@ -1425,7 +1454,13 @@ export async function getEngagementEvidenceDocuments(engagementId: string) {
                             isDeleted: false,
                             fiEngagementId: engagementId
                         }
-                    }
+                    },
+                    ...(engagement?.clientLEId ? [{
+                        questionnaire: {
+                            isDeleted: false,
+                            commonForClients: { some: { id: engagement.clientLEId } }
+                        }
+                    }] : [])
                 ]
             },
             select: {

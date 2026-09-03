@@ -109,15 +109,29 @@ export async function POST(req: NextRequest) {
         archive.pipe(passThrough);
 
         // --- Prepare Metadata & Data ---
+        // Validate requested questionnaire IDs against authoritative permitted Output Pack questionnaire set:
+        // relationship questionnaires OR ClientLE Common Questionnaires
         const dbQuestionnaires = await prisma.questionnaire.findMany({
-            where: { id: { in: questionnaireIds }, isDeleted: false },
+            where: {
+                id: { in: questionnaireIds },
+                isDeleted: false,
+                OR: [
+                    { fiEngagementId: engagementId },
+                    { engagements: { some: { id: engagementId } } },
+                    ...(engagement.clientLEId ? [{
+                        commonForClients: { some: { id: engagement.clientLEId } }
+                    }] : [])
+                ]
+            },
             select: { id: true, name: true }
         });
+
+        const validQuestionnaireIds = dbQuestionnaires.map((q: any) => q.id);
 
         // Resolve canonical question attachments for questionnaires in this pack
         const allEngagementQuestions = await prisma.question.findMany({
             where: {
-                questionnaireId: { in: questionnaireIds },
+                questionnaireId: { in: validQuestionnaireIds },
                 questionnaire: { isDeleted: false }
             },
             select: {

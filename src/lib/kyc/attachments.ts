@@ -272,7 +272,39 @@ export async function resolveQuestionAttachmentsBatch(
     }
 
     // 3. Resolve amalgamated attachments
-    const resolvedValuesMap = context.resolvedValuesMap || new Map();
+    let resolvedValuesMap = context.resolvedValuesMap;
+    if (!resolvedValuesMap && (context.subjectLeId || context.clientLEId)) {
+        resolvedValuesMap = new Map();
+        const { KycStateService } = await import("@/lib/kyc/KycStateService");
+        const { getMasterFieldDefinition } = await import("@/services/masterData/definitionService");
+        const resolvedScope = context.clientLEId ? await KycStateService.resolveScopeId(context.clientLEId) : undefined;
+        const ownerScopeId = resolvedScope || undefined;
+        for (const fNo of Array.from(allFieldNos)) {
+            const def = await getMasterFieldDefinition(fNo);
+            if (def?.isMultiValue) {
+                const collection = await KycStateService.getAuthoritativeCollection(
+                    { subjectLeId: context.subjectLeId, clientLEId: context.clientLEId },
+                    fNo,
+                    ownerScopeId
+                );
+                if (collection && collection.length > 0) {
+                    resolvedValuesMap.set(fNo, { value: collection.map((c: any) => c.value) } as any);
+                }
+            } else {
+                const derived = await KycStateService.getAuthoritativeValue(
+                    { subjectLeId: context.subjectLeId, clientLEId: context.clientLEId },
+                    fNo,
+                    ownerScopeId
+                );
+                if (derived) {
+                    resolvedValuesMap.set(fNo, derived);
+                }
+            }
+        }
+    } else if (!resolvedValuesMap) {
+        resolvedValuesMap = new Map();
+    }
+
     const attachmentsByField = await resolveAmalgamatedAttachments(
         { subjectLeId: context.subjectLeId, clientLEId: context.clientLEId },
         Array.from(allFieldNos),
