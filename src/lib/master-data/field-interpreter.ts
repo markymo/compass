@@ -321,6 +321,10 @@ export function parseAnyValue(val: any, displayMask?: string[], codeSystem?: str
     }
 
     if (typeof val === 'object') {
+        // Unwrap envelope { value, source } if present
+        if (val !== null && 'value' in val && ('source' in val || 'sourceType' in val)) {
+            return parseAnyValue(val.value, displayMask, codeSystem, appDataType, fieldNo);
+        }
         if (val.ccPartyId) {
             const rawResolvedParty = val.ccParty?.data || val._resolvedData?.ccParty?.data;
             const norm = normalisePartyReadModel(rawResolvedParty || val);
@@ -493,6 +497,102 @@ function generateTextSummary(resolvedValue: ResolvedFieldValue, defaultText?: st
             return resolvedValue.items.map(i => i.label).join('; ');
         case 'collection':
             return resolvedValue.items.map(i => generateTextSummary(i.value)).filter(Boolean).join('; ');
+        default:
+            return '';
+    }
+}
+
+/**
+ * Canonical shared compact value renderer.
+ * Produces a concise, human-friendly summary suitable for dropdowns, selectors, and compact rows:
+ * - Scalars: "12345678", "Active"
+ * - Single Party: "Acme Holdings Limited"
+ * - Address: "10 Downing Street, London, SW1A 1AA"
+ * - Collections: "3 directors", "2 shareholders", "3 persons of significant control", or single item summary if 1 item
+ * - Never emits generic placeholder strings like "Structured data" or "[Structured value]"
+ */
+export function getCompactCanonicalSummary(
+    modelOrResolved: FieldDisplayModel | ResolvedFieldValue,
+    metadata?: { label?: string; appDataType?: string; isMultiValue?: boolean }
+): string {
+    if (!modelOrResolved) return '';
+
+    let resolvedValue: ResolvedFieldValue;
+    let label = metadata?.label;
+
+    if ('value' in modelOrResolved && 'state' in modelOrResolved) {
+        if (modelOrResolved.state === 'NO_DATA' || modelOrResolved.state === 'UNMAPPED' || modelOrResolved.state === 'CHECKED_NO_DATA' || modelOrResolved.state === 'EXPLICIT_NONE') {
+            return '';
+        }
+        resolvedValue = modelOrResolved.value;
+        if (!label) label = modelOrResolved.label;
+    } else {
+        resolvedValue = modelOrResolved as ResolvedFieldValue;
+    }
+
+    if (!resolvedValue) return '';
+
+    switch (resolvedValue.kind) {
+        case 'empty':
+            return '';
+
+        case 'scalar': {
+            if (resolvedValue.display === '[Structured value]' || resolvedValue.display.startsWith('[Structured')) {
+                const raw: any = resolvedValue.rawValue;
+                if (raw && typeof raw === 'object') {
+                    const fallback = raw.legalName || raw.organisationName || raw.name || raw.label || raw.displayName;
+                    if (fallback) return String(fallback);
+                    if (raw.firstName || raw.lastName || raw.forenames || raw.surname) {
+                        return [raw.firstName || raw.forenames, raw.lastName || raw.surname].filter(Boolean).join(' ');
+                    }
+                    if (Array.isArray(raw)) {
+                        return `${raw.length} ${raw.length === 1 ? 'item' : 'items'}`;
+                    }
+                }
+                return '';
+            }
+            return resolvedValue.display;
+        }
+
+        case 'party':
+        case 'partyRef':
+            return resolvedValue.summary || resolvedValue.partyLabel || '';
+
+        case 'address':
+        case 'addressRef':
+            return resolvedValue.summary || '';
+
+        case 'codeList': {
+            if (!resolvedValue.items || resolvedValue.items.length === 0) return '';
+            if (resolvedValue.items.length === 1) return resolvedValue.items[0].label;
+            return resolvedValue.items.map(i => i.label).join(', ');
+        }
+
+        case 'collection': {
+            const count = resolvedValue.items ? resolvedValue.items.length : 0;
+            if (count === 0) return '';
+            if (count === 1) {
+                const single = getCompactCanonicalSummary(resolvedValue.items[0].value, metadata);
+                if (single && single !== '[Structured value]' && !single.startsWith('[Structured')) return single;
+            }
+
+            const labelLower = (label || '').toLowerCase();
+            if (labelLower.includes('director')) return `${count} ${count === 1 ? 'director' : 'directors'}`;
+            if (labelLower.includes('shareholder')) return `${count} ${count === 1 ? 'shareholder' : 'shareholders'}`;
+            if (labelLower.includes('significant control') || labelLower.includes('controller') || labelLower.includes('psc')) {
+                return `${count} ${count === 1 ? 'person of significant control' : 'persons of significant control'}`;
+            }
+            if (labelLower.includes('previous name')) return `${count} ${count === 1 ? 'previous name' : 'previous names'}`;
+            if (labelLower.includes('owner')) return `${count} ${count === 1 ? 'owner' : 'owners'}`;
+            if (labelLower.includes('individual')) return `${count} ${count === 1 ? 'individual' : 'individuals'}`;
+            if (labelLower.includes('party') || labelLower.includes('parties')) return `${count} ${count === 1 ? 'party' : 'parties'}`;
+            if (labelLower.includes('member')) return `${count} ${count === 1 ? 'member' : 'members'}`;
+            if (labelLower.includes('signator')) return `${count} ${count === 1 ? 'signatory' : 'signatories'}`;
+            if (labelLower.includes('officer')) return `${count} ${count === 1 ? 'officer' : 'officers'}`;
+
+            return `${count} ${count === 1 ? 'item' : 'items'}`;
+        }
+
         default:
             return '';
     }

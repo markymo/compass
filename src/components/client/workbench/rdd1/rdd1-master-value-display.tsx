@@ -7,15 +7,13 @@ import { FieldSourceBadge } from "@/components/client/fields/FieldSourceBadge";
 import { FieldAttachments } from "@/components/client/fields/FieldAttachments";
 import { PersonOrContactValueViewer } from "@/components/client/fields/PersonOrContactValueViewer";
 import { GroupAnswerRenderer } from "@/components/client/engagement/group-answer-renderer";
-import { Button } from "@/components/ui/button";
-import { Pencil, FileText, AlertCircle, Database } from "lucide-react";
+import { FileText, AlertCircle, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Rdd1MasterValueDisplayProps {
     question: ConsoleQuestion;
     leId: string;
     isMapped: boolean;
-    onEditMasterValue: () => void;
     raNameLookup: Record<string, string>;
     disabled?: boolean;
 }
@@ -24,7 +22,6 @@ export function Rdd1MasterValueDisplay({
     question,
     leId,
     isMapped,
-    onEditMasterValue,
     raNameLookup,
     disabled = false
 }: Rdd1MasterValueDisplayProps) {
@@ -45,7 +42,7 @@ export function Rdd1MasterValueDisplay({
 
     return (
         <div className="flex flex-col justify-between h-full space-y-2">
-            {/* Header: Item Count + Source Badge + Explicit Edit Master Value Action */}
+            {/* Header: Item Count + Source Badge */}
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                     {isMapped && itemCount > 0 && (
@@ -58,22 +55,6 @@ export function Rdd1MasterValueDisplay({
                         <FieldSourceBadge source={source} showLastValidated={true} />
                     )}
                 </div>
-
-                {isMapped && (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        data-testid={`edit-master-value-${question.id}`}
-                        onClick={onEditMasterValue}
-                        disabled={disabled || question.status === "RELEASED"}
-                        className="h-7 px-2.5 text-xs font-semibold gap-1.5 border-border hover:bg-muted text-foreground transition-all shrink-0"
-                        title={question.status === "RELEASED" ? "Question is released (locked)" : "Edit canonical Master Field value"}
-                    >
-                        <Pencil className="h-3 w-3 text-muted-foreground" />
-                        Edit Master value
-                    </Button>
-                )}
             </div>
 
             {/* Content Container (Master Record Look & Feel) */}

@@ -835,7 +835,6 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
                             <Rdd1QuestionCard
                                 key={q.id}
                                 question={q}
-                                index={idx}
                                 leId={leId}
                                 masterFields={data.masterFields}
                                 masterGroups={data.masterGroups}
@@ -865,13 +864,6 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
                                             customFields: data.customFields,
                                             disabled: isPending || disabled || q.status === 'RELEASED'
                                         }
-                                    });
-                                }}
-                                onEditMasterValue={() => {
-                                    setSelectedInspectionField({
-                                        fieldNo: q.masterFieldNo || 0,
-                                        name: q.canonicalDisplayModel?.fieldName || q.text,
-                                        customFieldId: (q as any).customFieldDefinitionId
                                     });
                                 }}
                             />

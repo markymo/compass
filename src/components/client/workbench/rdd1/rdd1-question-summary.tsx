@@ -7,16 +7,13 @@ import { Badge } from "@/components/ui/badge";
 
 interface Rdd1QuestionSummaryProps {
     question: ConsoleQuestion;
-    index?: number;
     isMapped: boolean;
 }
 
-export function Rdd1QuestionSummary({ question, index, isMapped }: Rdd1QuestionSummaryProps) {
-    const questionRef = question.text.match(/^Q\d+[:.]?/i)
-        ? ""
-        : typeof index === "number"
-        ? `Q${index + 1}: `
-        : "";
+export function Rdd1QuestionSummary({ question, isMapped }: Rdd1QuestionSummaryProps) {
+    // ONP-186 owns question numbering; do not generate transient Q1, Q2 prefixes from filter index.
+    const authoritativeRef = (question as any).authoritativeReference;
+    const refPrefix = authoritativeRef ? `${authoritativeRef}: ` : "";
 
     const attachmentCount = question.canonicalDisplayModel?.attachments?.length || 0;
 
@@ -24,7 +21,7 @@ export function Rdd1QuestionSummary({ question, index, isMapped }: Rdd1QuestionS
         <div className="flex flex-col justify-between h-full space-y-3">
             <div className="space-y-2">
                 <h3 className="text-sm font-bold text-foreground leading-snug tracking-tight break-words uppercase">
-                    {questionRef}{question.text}
+                    {refPrefix}{question.text}
                 </h3>
 
                 {!isMapped && (

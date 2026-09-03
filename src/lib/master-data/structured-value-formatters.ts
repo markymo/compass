@@ -115,7 +115,10 @@ export function formatIndustryCodeRow(row: any): StructuredValueFormatResult {
 const FIELD_ROW_FORMATTERS: Record<number, (row: any) => StructuredValueFormatResult> = {
     5: formatNameHistoryRow,
     20: formatIndustryCodeRow,
+    23: formatPersonOrContactRow,
+    24: formatPersonOrContactRow,
     63: formatPersonOrContactRow,
+    64: formatPersonOrContactRow,
 };
 
 /**
@@ -132,6 +135,12 @@ export function formatStructuredCollectionRow(fieldNo: number, row: any): Struct
 
     if (!parsedRow || typeof parsedRow !== 'object') {
         return { handled: false };
+    }
+
+    // Unwrap envelope { value, source } if present
+    if ('value' in parsedRow && ('source' in parsedRow || 'sourceType' in parsedRow)) {
+        parsedRow = parsedRow.value;
+        if (!parsedRow || typeof parsedRow !== 'object') return { handled: false };
     }
 
     // Explicit formatters for known complex fields

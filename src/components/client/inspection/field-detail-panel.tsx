@@ -1170,9 +1170,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                 <span className="text-xs font-bold uppercase tracking-wider text-indigo-950 dark:text-indigo-200">
                                     Question Mapping Target
                                 </span>
-                                <Badge variant="secondary" className="text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">
-                                    Alternative Mapping
-                                </Badge>
                             </div>
                             <p className="text-xs text-muted-foreground truncate" title={mappingContext.questionText}>
                                 Question: <strong className="text-foreground font-semibold">{mappingContext.questionText}</strong>

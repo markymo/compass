@@ -9,27 +9,23 @@ import { cn } from "@/lib/utils";
 
 interface Rdd1QuestionCardProps {
     question: ConsoleQuestion;
-    index?: number;
     leId: string;
     masterFields: Array<{ fieldNo: number; label: string }>;
     masterGroups: Array<{ key: string; label: string }>;
     customFields: Array<{ id: string; label: string }>;
     raNameLookup: Record<string, string>;
     onInspectMapping: () => void;
-    onEditMasterValue: () => void;
     disabled?: boolean;
 }
 
 export function Rdd1QuestionCard({
     question,
-    index,
     leId,
     masterFields,
     masterGroups,
     customFields,
     raNameLookup,
     onInspectMapping,
-    onEditMasterValue,
     disabled = false
 }: Rdd1QuestionCardProps) {
     const isMapped = !!(
@@ -61,7 +57,6 @@ export function Rdd1QuestionCard({
                 >
                     <Rdd1QuestionSummary
                         question={question}
-                        index={index}
                         isMapped={isMapped}
                     />
                 </div>
@@ -91,7 +86,6 @@ export function Rdd1QuestionCard({
                         question={question}
                         leId={leId}
                         isMapped={isMapped}
-                        onEditMasterValue={onEditMasterValue}
                         raNameLookup={raNameLookup}
                         disabled={disabled}
                     />

@@ -175,7 +175,8 @@ describe('ONP-60: Fourth View Mode (rdd1) Contract & Workbench4 Invariants', () 
             }
         ],
         masterFields: [
-            { fieldNo: 22, label: 'Country of Registration', category: 'Registry' },
+            { fieldNo: 22, label: 'Country of Registration', category: 'Registry', currentValue: 'United Kingdom' },
+            { fieldNo: 23, label: 'Directors', category: 'Governance', currentValue: [{ name: 'Alice Smith' }, { name: 'Bob Jones' }, { name: 'Charlie Brown' }] },
             { fieldNo: 64, label: 'Persons of significant control', category: 'Controllers' }
         ],
         masterGroups: [
@@ -248,17 +249,24 @@ describe('ONP-60: Fourth View Mode (rdd1) Contract & Workbench4 Invariants', () 
         expect(mappingTile).toBeInTheDocument();
     });
 
-    it('5. "Edit Master value" action opens canonical Master editing experience', async () => {
+    it('5. "Edit Master value" button is removed, and clicking mapping tile opens canonical field inspection/editing drawer', async () => {
         render(<CrossQuestionnaireMapper leId="le-123" initialData={mockInitialData} />);
 
-        const editMasterBtn = screen.getByTestId('edit-master-value-q-scalar-1');
-        expect(editMasterBtn).toHaveTextContent(/edit master value/i);
-        fireEvent.click(editMasterBtn);
+        // No separate "Edit Master value" button on the card
+        expect(screen.queryByText(/edit master value/i)).toBeNull();
+        expect(screen.queryByTestId('edit-master-value-q-scalar-1')).toBeNull();
+
+        // Clicking mapping tile opens FieldDetailPanel
+        const mappingTile = screen.getByTestId('rdd1-mapping-tile-q-scalar-1');
+        fireEvent.click(mappingTile);
 
         // FieldDetailPanel opens for field 22
         await waitFor(() => {
             expect(kycQuery.getFieldDetail).toHaveBeenCalledWith('le-123', 22, 'CLIENT_LE', undefined);
         });
+
+        // The "Alternative Mapping" badge/label is absent
+        expect(screen.queryByText(/alternative mapping/i)).toBeNull();
     });
 
     it('6. Legacy/unexpected unmapped question displays "Mapping required" and NO answer editor', async () => {
@@ -303,5 +311,32 @@ describe('ONP-60: Fourth View Mode (rdd1) Contract & Workbench4 Invariants', () 
 
         expect(questionStage.compareDocumentPosition(mappingStage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
         expect(mappingStage.compareDocumentPosition(valueStage) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('10. RDD1 does not decorate question titles with transient Q1, Q2 prefixes', async () => {
+        render(<CrossQuestionnaireMapper leId="le-123" initialData={mockInitialData} />);
+
+        // Question titles must NOT have transient Q1:, Q2: prefixes generated from filter index
+        expect(screen.queryByText(/^Q1:/)).toBeNull();
+        expect(screen.getByText('Country of Registration')).toBeInTheDocument();
+    });
+
+    it('11. Alternative mapping selector displays compact canonical summaries instead of "Structured data"', async () => {
+        render(<CrossQuestionnaireMapper leId="le-123" initialData={mockInitialData} />);
+
+        // Open inspection drawer
+        const mappingTile = screen.getByTestId('rdd1-mapping-tile-q-scalar-1');
+        fireEvent.click(mappingTile);
+
+        // Open SuperFieldSelector
+        const mappingSelectorCard = await screen.findByTestId('rdd1-alternative-mapping-selector');
+        const selectorBtn = mappingSelectorCard.querySelector('button[role="combobox"]')!;
+        fireEvent.click(selectorBtn);
+
+        // Verify Directors summary renders "3 directors" and NEVER "Structured data"
+        await waitFor(() => {
+            expect(screen.getByText('3 directors')).toBeInTheDocument();
+        });
+        expect(screen.queryByText('Structured data')).toBeNull();
     });
 });
