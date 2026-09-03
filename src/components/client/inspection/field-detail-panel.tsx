@@ -39,6 +39,7 @@ import { NodeCreateDialog } from "@/components/client/graph/node-create-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { CollectionRowDisplay } from "@/lib/master-data/structured-collection-renderers";
+import { SuperFieldSelector } from "../workbench/super-field-selector";
 import { CodeListField } from "@/components/client/fields/CodeListField";
 import { FieldSourceBadge } from "../fields/FieldSourceBadge";
 import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
@@ -112,9 +113,19 @@ interface FieldDetailPanelProps {
     /** Entity-specific GLEIF RA code, e.g. RA000585. Shown in SourceBadge for RA sources only. */
     registrationAuthorityId?: string;
     mappingStats?: { questions: number; questionnaires: number; suppliers: number };
+    mappingContext?: {
+        questionId: string;
+        questionText: string;
+        currentMappingValue?: string | null;
+        onMap: (val: string) => void;
+        masterFields: Array<{ fieldNo: number; label: string; attachmentCount?: number }>;
+        masterGroups: Array<{ key: string; label: string }>;
+        customFields: Array<{ id: string; label: string }>;
+        disabled?: boolean;
+    };
 }
 
-export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fieldName, customFieldId, isLocked, onUpdate, registrationAuthorityId, mappingStats }: FieldDetailPanelProps) {
+export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fieldName, customFieldId, isLocked, onUpdate, registrationAuthorityId, mappingStats, mappingContext }: FieldDetailPanelProps) {
     const [data, setData] = useState<FieldDetailData | null>(null);
     const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -1152,6 +1163,37 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 <SheetHeader className="pb-3 border-b border-slate-100">
                     <SheetTitle className="sr-only">{fieldName}</SheetTitle>
                     <SheetDescription className="sr-only">Details for {fieldName}</SheetDescription>
+
+                    {mappingContext && (
+                        <div data-testid="rdd1-alternative-mapping-selector" className="p-3 bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-lg space-y-2 mb-3 mr-8 text-left">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold uppercase tracking-wider text-indigo-950 dark:text-indigo-200">
+                                    Question Mapping Target
+                                </span>
+                                <Badge variant="secondary" className="text-[10px] font-semibold bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300">
+                                    Alternative Mapping
+                                </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate" title={mappingContext.questionText}>
+                                Question: <strong className="text-foreground font-semibold">{mappingContext.questionText}</strong>
+                            </p>
+                            <SuperFieldSelector
+                                value={mappingContext.currentMappingValue ?? null}
+                                onSelect={(val, type) => {
+                                    if (type === 'clear') mappingContext.onMap("UNMAP");
+                                    else if (type === 'create') mappingContext.onMap("CREATE_NEW");
+                                    else if (type === 'master') mappingContext.onMap(val);
+                                    else if (type === 'group') mappingContext.onMap(`GROUP_${val}`);
+                                    else if (type === 'custom') mappingContext.onMap(`CUSTOM_${val}`);
+                                }}
+                                masterFields={mappingContext.masterFields}
+                                masterGroups={mappingContext.masterGroups}
+                                customFields={mappingContext.customFields}
+                                questionText={mappingContext.questionText}
+                                disabled={mappingContext.disabled}
+                            />
+                        </div>
+                    )}
 
                     {/* Top row: Context + Assignment */}
                     <div className="flex items-start justify-between mr-8">

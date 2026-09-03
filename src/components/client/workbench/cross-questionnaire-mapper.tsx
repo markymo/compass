@@ -48,7 +48,8 @@ import {
     ExternalLink,
     LayoutGrid,
     Rows,
-    TableProperties
+    TableProperties,
+    Columns3
 } from "lucide-react";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { FieldDetailPanel } from "../inspection/field-detail-panel";
@@ -61,10 +62,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Label } from "@/components/ui/label";
 import { usePreferences } from "@/components/providers/user-preferences-provider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Rdd1QuestionCard } from "./rdd1/rdd1-question-card";
 
 interface Props {
     leId: string;
     initialData: Workbench4Data;
+    disabled?: boolean;
 }
 
 // ── Display helpers ───────────────────────────────────────────────────────────
@@ -141,7 +144,7 @@ export function formatAnswerValue(value: unknown): string {
 import { classifyQuestionAnswerState } from "@/lib/metrics/question-state-types";
 import { isQuestionInPopulationScope, deriveEligibleQuestionnaireOptions } from "@/lib/metrics/question-scope";
 
-export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
+export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }: Props) {
     const searchParams = useSearchParams();
     const pathname = usePathname();
     const router = useRouter();
@@ -279,11 +282,11 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     };
 
     const urlView = searchParams.get("view");
-    const viewMode = ((urlView === "flow" || urlView === "classic" || urlView === "compact")
+    const viewMode = ((urlView === "flow" || urlView === "classic" || urlView === "compact" || urlView === "rdd1")
         ? urlView
-        : (preferences as any)?.workbenchCardView || "classic") as "classic" | "flow" | "compact";
+        : (preferences as any)?.workbenchCardView || "classic") as "classic" | "flow" | "compact" | "rdd1";
 
-    const handleViewChange = (mode: "classic" | "flow" | "compact") => {
+    const handleViewChange = (mode: "classic" | "flow" | "compact" | "rdd1") => {
         updateUrl({ view: mode });
         updatePreference("workbenchCardView", mode);
     };
@@ -330,7 +333,12 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
         : "";
 
     // Inspection Drawer State
-    const [selectedInspectionField, setSelectedInspectionField] = useState<{ fieldNo: number; name: string; customFieldId?: string } | null>(null);
+    const [selectedInspectionField, setSelectedInspectionField] = useState<{
+        fieldNo: number;
+        name: string;
+        customFieldId?: string;
+        mappingContext?: any;
+    } | null>(null);
 
     const clearAllFilters = () => {
         clearPinned();
@@ -802,11 +810,81 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         <TableProperties className="h-3.5 w-3.5" />
                         Compact
                     </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                            "h-7 px-2.5 text-xs font-medium gap-1.5 transition-all",
+                            viewMode === "rdd1"
+                                ? "bg-card text-foreground shadow-sm border border-border font-semibold"
+                                : "text-muted-foreground hover:text-foreground"
+                        )}
+                        onClick={() => handleViewChange("rdd1")}
+                    >
+                        <Columns3 className="h-3.5 w-3.5" />
+                        RDD1
+                    </Button>
                 </div>
             </div>
 
             {/* Question List */}
-            {viewMode === "compact" ? (
+            {viewMode === "rdd1" ? (
+                filteredQuestions.length > 0 ? (
+                    <div className="space-y-4">
+                        {filteredQuestions.map((q: any, idx: number) => (
+                            <Rdd1QuestionCard
+                                key={q.id}
+                                question={q}
+                                index={idx}
+                                leId={leId}
+                                masterFields={data.masterFields}
+                                masterGroups={data.masterGroups}
+                                customFields={data.customFields}
+                                raNameLookup={data.raNameLookup}
+                                disabled={isPending || disabled}
+                                onInspectMapping={() => {
+                                    const currentMappingVal = q.masterFieldNo
+                                        ? `master:${q.masterFieldNo}${q.masterFieldProjectionPath ? `:${q.masterFieldProjectionPath}` : ''}`
+                                        : q.masterQuestionGroupId
+                                        ? `group:${q.masterQuestionGroupId}`
+                                        : (q as any).customFieldDefinitionId
+                                        ? `custom:${(q as any).customFieldDefinitionId}`
+                                        : null;
+
+                                    setSelectedInspectionField({
+                                        fieldNo: q.masterFieldNo || 0,
+                                        name: q.canonicalDisplayModel?.fieldName || q.text,
+                                        customFieldId: (q as any).customFieldDefinitionId,
+                                        mappingContext: {
+                                            questionId: q.id,
+                                            questionText: q.text,
+                                            currentMappingValue: currentMappingVal,
+                                            onMap: (val: string) => handleMap(q.id, val),
+                                            masterFields: data.masterFields,
+                                            masterGroups: data.masterGroups,
+                                            customFields: data.customFields,
+                                            disabled: isPending || disabled || q.status === 'RELEASED'
+                                        }
+                                    });
+                                }}
+                                onEditMasterValue={() => {
+                                    setSelectedInspectionField({
+                                        fieldNo: q.masterFieldNo || 0,
+                                        name: q.canonicalDisplayModel?.fieldName || q.text,
+                                        customFieldId: (q as any).customFieldDefinitionId
+                                    });
+                                }}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="py-20 text-center bg-card text-card-foreground rounded-md border border-dashed border-border">
+                        <AlertCircle className="h-10 w-10 text-muted-foreground/50 mx-auto mb-3" />
+                        <h3 className="text-lg font-medium text-foreground">No questions found</h3>
+                        <p className="text-muted-foreground mt-1">Try adjusting your filters or search terms.</p>
+                    </div>
+                )
+            ) : viewMode === "compact" ? (
                 <Card className="shadow-sm border border-border overflow-visible bg-card text-card-foreground">
                     <Table>
                         <TableHeader className="bg-muted/80 border-b border-border">
@@ -931,6 +1009,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                 fieldNo={selectedInspectionField?.fieldNo || 0}
                 fieldName={selectedInspectionField?.name || ""}
                 customFieldId={selectedInspectionField?.customFieldId}
+                mappingContext={selectedInspectionField?.mappingContext}
                 onUpdate={(val, src, date) => {
                     handleFieldUpdate(
                         selectedInspectionField?.fieldNo || 0,
