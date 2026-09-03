@@ -315,6 +315,20 @@ export async function resolveExportAnswer(
                 attachmentFilenames: attachmentFilenames.length > 0 ? attachmentFilenames : undefined,
                 displayContext: displayModel.displayContext
             };
+        } else if (attachmentFilenames.length > 0) {
+            const displayValue = attachmentFilenames.length === 1
+                ? "Document attached"
+                : "Documents attached";
+
+            return {
+                displayValue,
+                rawValue: null,
+                answerState: "HAS_VALUE",
+                sourceCategory: 'USER',
+                sourceLabel: isReleased && releasedByName ? `Released by ${releasedByName}` : "Master Data attachment",
+                sourceTimestamp: snapshotDate || null,
+                attachmentFilenames: attachmentFilenames
+            };
         } else {
             // Check Master Record empty state logic using already resolved fieldDetail
             if (fieldDetail.displayState === 'CHECKED_NO_DATA' || fieldDetail.current?.value?.explicitNone === true) {
@@ -434,12 +448,12 @@ export async function resolveExportAnswer(
                 let attachmentFilenames: string[] = [];
                 let displayContext: string | undefined = undefined;
 
-                if (hv && hv.value !== null && hv.value !== undefined && hv.value !== "") {
-                    const attachments = attachmentsMap.get(item.fieldNo) || [];
-                    if (attachments.length > 0) {
-                        attachmentFilenames = attachments.map((a: any) => a.displayName);
-                    }
+                const attachments = attachmentsMap.get(item.fieldNo) || [];
+                if (attachments.length > 0) {
+                    attachmentFilenames = attachments.map((a: any) => a.displayName);
+                }
 
+                if (hv && hv.value !== null && hv.value !== undefined && hv.value !== "") {
                     const meta = {
                         fieldNo: def.fieldNo,
                         label: def.fieldName,
@@ -471,6 +485,9 @@ export async function resolveExportAnswer(
                     sourceLabel = displayModel.source?.label || (hv.source ? getSourceDisplayName(hv.source, hv.sourceReference || undefined) : undefined);
                     const rawTimestamp = displayModel.source?.lastValidatedAt || displayModel.source?.timestamp || hv.updatedAt || null;
                     sourceTimestamp = rawTimestamp ? (rawTimestamp instanceof Date ? rawTimestamp.toISOString() : new Date(rawTimestamp).toISOString()) : null;
+                } else if (attachmentFilenames.length > 0) {
+                    displayValue = attachmentFilenames.length === 1 ? "Document attached" : "Documents attached";
+                    sourceLabel = "Master Data attachment";
                 }
 
                 if (displayValue !== "None" && displayValue !== "") {

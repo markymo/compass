@@ -181,3 +181,142 @@ export async function resolveAmalgamatedAttachments(
 
     return result;
 }
+
+export interface QuestionAttachmentTarget {
+    id: string;
+    masterFieldNo?: number | null;
+    masterQuestionGroupId?: string | null;
+}
+
+export interface QuestionAttachmentsContext {
+    clientLEId: string;
+    subjectLeId?: string | null;
+    resolvedValuesMap?: Map<number, DerivedValue | DerivedValue[] | null>;
+    fieldDefsMap?: Map<number, { allowAttachments?: boolean; profileConfig?: { displayMask?: string[] } }>;
+}
+
+export interface QuestionAttachmentResult {
+    questionId: string;
+    attachments: ResolvedAttachment[];
+    documentIds: string[];
+    attachmentFilenames: string[];
+    hasAttachments: boolean;
+}
+
+/**
+ * Resolves canonical Master Data attachments for a set of questionnaire questions.
+ * Handles both single mapped fields (masterFieldNo) and field groups (masterQuestionGroupId),
+ * combining and deduplicating by documentId at the question level.
+ */
+export async function resolveQuestionAttachmentsBatch(
+    questions: QuestionAttachmentTarget[],
+    context: QuestionAttachmentsContext
+): Promise<Map<string, QuestionAttachmentResult>> {
+    const resultMap = new Map<string, QuestionAttachmentResult>();
+    if (questions.length === 0) return resultMap;
+
+    // 1. Collect all unique field numbers across all questions (including expanding groups)
+    const allFieldNos = new Set<number>();
+    const groupMap = new Map<string, number[]>(); // groupKey -> fieldNos
+
+    const hasGroups = questions.some(q => q.masterQuestionGroupId);
+    if (hasGroups) {
+        const { listAllMasterGroupsWithItems } = await import("@/services/masterData/definitionService");
+        const allGroups = await listAllMasterGroupsWithItems();
+        for (const g of allGroups) {
+            groupMap.set(g.key, g.fieldNos);
+        }
+    }
+
+    for (const q of questions) {
+        if (q.masterFieldNo) {
+            allFieldNos.add(q.masterFieldNo);
+        }
+        if (q.masterQuestionGroupId) {
+            const groupFields = groupMap.get(q.masterQuestionGroupId) || [];
+            for (const fNo of groupFields) {
+                allFieldNos.add(fNo);
+            }
+        }
+    }
+
+    if (allFieldNos.size === 0) {
+        for (const q of questions) {
+            resultMap.set(q.id, {
+                questionId: q.id,
+                attachments: [],
+                documentIds: [],
+                attachmentFilenames: [],
+                hasAttachments: false
+            });
+        }
+        return resultMap;
+    }
+
+    // 2. Ensure field definitions are loaded for party document displayMask rules
+    let fieldDefsMap = context.fieldDefsMap;
+    if (!fieldDefsMap) {
+        fieldDefsMap = new Map();
+        const { getMasterFieldDefinition } = await import("@/services/masterData/definitionService");
+        await Promise.all(
+            Array.from(allFieldNos).map(async (fNo) => {
+                const def = await getMasterFieldDefinition(fNo);
+                if (def) {
+                    fieldDefsMap!.set(fNo, {
+                        allowAttachments: def.allowAttachments,
+                        profileConfig: (def as any).profileConfig
+                    });
+                }
+            })
+        );
+    }
+
+    // 3. Resolve amalgamated attachments
+    const resolvedValuesMap = context.resolvedValuesMap || new Map();
+    const attachmentsByField = await resolveAmalgamatedAttachments(
+        { subjectLeId: context.subjectLeId, clientLEId: context.clientLEId },
+        Array.from(allFieldNos),
+        resolvedValuesMap,
+        fieldDefsMap
+    );
+
+    // 4. Map back to each question and deduplicate per question
+    for (const q of questions) {
+        const questionFieldNos: number[] = [];
+        if (q.masterFieldNo) {
+            questionFieldNos.push(q.masterFieldNo);
+        }
+        if (q.masterQuestionGroupId) {
+            const groupFields = groupMap.get(q.masterQuestionGroupId) || [];
+            for (const fNo of groupFields) {
+                if (!questionFieldNos.includes(fNo)) {
+                    questionFieldNos.push(fNo);
+                }
+            }
+        }
+
+        const deduped: ResolvedAttachment[] = [];
+        const seenDocIds = new Set<string>();
+
+        for (const fNo of questionFieldNos) {
+            const atts = attachmentsByField.get(fNo) || [];
+            for (const att of atts) {
+                if (!seenDocIds.has(att.documentId)) {
+                    seenDocIds.add(att.documentId);
+                    deduped.push(att);
+                }
+            }
+        }
+
+        resultMap.set(q.id, {
+            questionId: q.id,
+            attachments: deduped,
+            documentIds: Array.from(seenDocIds),
+            attachmentFilenames: deduped.map(d => d.displayName),
+            hasAttachments: deduped.length > 0
+        });
+    }
+
+    return resultMap;
+}
+

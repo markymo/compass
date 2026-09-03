@@ -425,6 +425,15 @@ describe.skipIf(!process.env.DATABASE_URL)("Immutable Questionnaire Submissions 
             data: { answer: null, status: "DRAFT" }
         });
 
+        // Ensure user has operational relationship membership for FI workbench
+        await prisma.membership.create({
+            data: {
+                userId: testUser.id,
+                fiEngagementId: testEngagementA.id,
+                role: "MEMBER"
+            }
+        });
+
         // Submit Questionnaire
         const subRes = await createQuestionnaireSubmission({
             questionnaireId: testQuestionnaire.id,

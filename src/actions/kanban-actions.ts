@@ -11,6 +11,7 @@ import { generateAIAnswers, learnFromAnswer } from "./ai-autofill";
 import { recordActivity, LEActivityType } from "@/lib/le-activity";
 import { logActivity } from "./logging";
 import { ensureNotReferenceSnapshot, ensureQuestionNotReferenceSnapshot } from "./questionnaire";
+import { resolveQuestionAttachmentsBatch } from "@/lib/kyc/attachments";
 
 /**
  * Parses the 'extractedContent' JSON of a Questionnaire and creates individual Question records.
@@ -1399,7 +1400,17 @@ export async function getEngagementEvidenceDocuments(engagementId: string) {
     if (!identity?.userId) return { success: false, error: "Unauthorized", documents: [] };
 
     try {
-        // Gather all questions in this engagement that have at least one document attached
+        const engagement = await prisma.fIEngagement.findUnique({
+            where: { id: engagementId },
+            select: {
+                clientLEId: true,
+                clientLE: {
+                    select: { legalEntityId: true }
+                }
+            }
+        });
+
+        // Gather all active questions in this engagement
         const questions = await prisma.question.findMany({
             where: {
                 OR: [
@@ -1415,8 +1426,7 @@ export async function getEngagementEvidenceDocuments(engagementId: string) {
                             fiEngagementId: engagementId
                         }
                     }
-                ],
-                documents: { some: { isDeleted: false } }
+                ]
             },
             select: {
                 id: true,
@@ -1426,6 +1436,8 @@ export async function getEngagementEvidenceDocuments(engagementId: string) {
                 answer: true,
                 status: true,
                 questionnaireId: true,
+                masterFieldNo: true,
+                masterQuestionGroupId: true,
                 documents: {
                     where: { isDeleted: false },
                     select: {
@@ -1439,18 +1451,62 @@ export async function getEngagementEvidenceDocuments(engagementId: string) {
             }
         });
 
-        const mappedQuestions = questions.map((q: any) => ({
-            ...q,
-            documents: q.documents.map((d: any) => ({
-                id: d.id,
-                name: d.name,
-                fileType: d.mimeType || 'unknown',
-                kbSize: d.sizeBytes ? Math.round(Number(d.sizeBytes) / 1024) : null,
-                createdAt: d.createdAt
-            }))
-        }));
+        // Resolve canonical attachments for mapped questions
+        let canonicalMap = new Map<string, import("@/lib/kyc/attachments").QuestionAttachmentResult>();
+        if (engagement?.clientLEId && questions.length > 0) {
+            canonicalMap = await resolveQuestionAttachmentsBatch(
+                questions.map((q: any) => ({
+                    id: q.id,
+                    masterFieldNo: q.masterFieldNo,
+                    masterQuestionGroupId: q.masterQuestionGroupId,
+                })),
+                {
+                    clientLEId: engagement.clientLEId,
+                    subjectLeId: engagement.clientLE?.legalEntityId,
+                }
+            );
+        }
 
-        return { success: true, documents: mappedQuestions };
+        const mappedQuestions = questions.map((q: any) => {
+            const isMapped = Boolean(q.masterFieldNo || q.masterQuestionGroupId);
+            let formattedDocs: any[] = [];
+
+            if (isMapped && canonicalMap.has(q.id)) {
+                const canonicalResult = canonicalMap.get(q.id)!;
+                formattedDocs = canonicalResult.attachments.map((d: any) => ({
+                    id: d.documentId,
+                    name: d.displayName,
+                    fileType: d.mimeType || 'unknown',
+                    kbSize: d.sizeBytes ? Math.round(Number(d.sizeBytes) / 1024) : null,
+                    createdAt: d.currentDocumentCreatedAt ? new Date(d.currentDocumentCreatedAt) : null
+                }));
+            } else {
+                // Fallback for unmapped questions to legacy direct documents
+                formattedDocs = (q.documents || []).map((d: any) => ({
+                    id: d.id,
+                    name: d.name,
+                    fileType: d.mimeType || 'unknown',
+                    kbSize: d.sizeBytes ? Math.round(Number(d.sizeBytes) / 1024) : null,
+                    createdAt: d.createdAt
+                }));
+            }
+
+            return {
+                id: q.id,
+                order: q.order,
+                text: q.text,
+                compactText: q.compactText,
+                answer: q.answer,
+                status: q.status,
+                questionnaireId: q.questionnaireId,
+                documents: formattedDocs
+            };
+        });
+
+        // Only return questions that have at least one attachment
+        const questionsWithDocs = mappedQuestions.filter((q: any) => q.documents.length > 0);
+
+        return { success: true, documents: questionsWithDocs };
     } catch (e) {
         console.error("Evidence documents fetch error:", e);
         return { success: false, error: "Failed to fetch evidence documents", documents: [] };

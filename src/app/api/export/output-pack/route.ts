@@ -12,6 +12,7 @@ import { buildQuestionnairePdfPath, buildEvidencePath, buildOutputPackFilename, 
 import { ManifestPDF } from "@/components/pdf/manifest-pdf";
 import { QuestionnairePDF } from "@/components/pdf/questionnaire-pdf";
 import { resolveExportAnswer } from "@/lib/export/export-answer-resolver";
+import { resolveQuestionAttachmentsBatch } from "@/lib/kyc/attachments";
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { Action, can, UserWithMemberships } from "@/lib/auth/permissions";
 import * as Sentry from "@sentry/nextjs";
@@ -113,8 +114,78 @@ export async function POST(req: NextRequest) {
             select: { id: true, name: true }
         });
 
+        // Resolve canonical question attachments for questionnaires in this pack
+        const allEngagementQuestions = await prisma.question.findMany({
+            where: {
+                questionnaireId: { in: questionnaireIds },
+                questionnaire: { isDeleted: false }
+            },
+            select: {
+                id: true,
+                text: true,
+                compactText: true,
+                questionnaireId: true,
+                masterFieldNo: true,
+                masterQuestionGroupId: true,
+                questionnaire: {
+                    select: { id: true, name: true }
+                },
+                documents: {
+                    where: { isDeleted: false },
+                    select: { id: true, name: true }
+                }
+            }
+        });
+
+        let canonicalAttachmentsMap = new Map<string, import("@/lib/kyc/attachments").QuestionAttachmentResult>();
+        if (engagement?.clientLEId && allEngagementQuestions.length > 0) {
+            canonicalAttachmentsMap = await resolveQuestionAttachmentsBatch(
+                allEngagementQuestions.map((q: any) => ({
+                    id: q.id,
+                    masterFieldNo: q.masterFieldNo,
+                    masterQuestionGroupId: q.masterQuestionGroupId,
+                })),
+                {
+                    clientLEId: engagement.clientLEId,
+                    subjectLeId: engagement.clientLE?.legalEntityId,
+                }
+            );
+        }
+
+        // Build valid document set and lineage map for this engagement
+        const validEngagementDocumentIds = new Set<string>();
+        const docLineageMap = new Map<string, { questionnaireName: string; questionRef: string }>();
+
+        for (const q of allEngagementQuestions) {
+            const qName = q.questionnaire?.name || "Unknown Questionnaire";
+            const qRef = q.compactText || q.text.substring(0, 15) + "...";
+
+            if (q.masterFieldNo || q.masterQuestionGroupId) {
+                const canonicalRes = canonicalAttachmentsMap.get(q.id);
+                if (canonicalRes) {
+                    for (const att of canonicalRes.attachments) {
+                        validEngagementDocumentIds.add(att.documentId);
+                        if (!docLineageMap.has(att.documentId)) {
+                            docLineageMap.set(att.documentId, { questionnaireName: qName, questionRef: qRef });
+                        }
+                    }
+                }
+            } else {
+                // Unmapped questions legacy fallback
+                for (const d of q.documents || []) {
+                    validEngagementDocumentIds.add(d.id);
+                    if (!docLineageMap.has(d.id)) {
+                        docLineageMap.set(d.id, { questionnaireName: qName, questionRef: qRef });
+                    }
+                }
+            }
+        }
+
+        // Validate requested documentIds against allowed engagement attachments
+        const allowedDocumentIds = (documentIds || []).filter((id: string) => validEngagementDocumentIds.has(id));
+
         const dbDocuments = await prisma.document.findMany({
-            where: { id: { in: documentIds } },
+            where: { id: { in: allowedDocumentIds } },
             include: {
                 question: {
                     include: { questionnaire: true }
@@ -123,8 +194,9 @@ export async function POST(req: NextRequest) {
         });
 
         const documentsForManifest = dbDocuments.map((d: any) => {
-            const qName = d.question?.questionnaire?.name;
-            const qRef = d.question ? (d.question.compactText || d.question.text.substring(0, 15) + "...") : undefined;
+            const lineage = docLineageMap.get(d.id);
+            const qName = lineage?.questionnaireName || d.question?.questionnaire?.name;
+            const qRef = lineage?.questionRef || (d.question ? (d.question.compactText || d.question.text.substring(0, 15) + "...") : undefined);
             const generatedPath = qName 
                 ? buildEvidencePath(qName, qRef || 'Gen', d.name)
                 : buildGeneralEvidencePath(d.name);

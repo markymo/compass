@@ -37,6 +37,19 @@ export async function canUserDownloadDocument(
                         }
                     }
                 }
+            },
+            submissionAttachments: {
+                include: {
+                    submissionAnswer: {
+                        include: {
+                            submission: {
+                                include: {
+                                    relationship: true
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     });
@@ -80,7 +93,20 @@ export async function canUserDownloadDocument(
         }
     }
 
-    // 5. Check Supplier-side access rules
+    // 4. Check Supplier-side access via frozen submission attachments
+    const matchingSubmissionAttachment = document.submissionAttachments?.find((sa: any) => {
+        const rel = sa.submissionAnswer?.submission?.relationship;
+        if (!rel || rel.isDeleted) return false;
+
+        // Supplier user must have operational relationship access (fiEngagementId)
+        return memberships.some((m: UserMembershipRecord) => m.fiEngagementId === rel.id);
+    });
+
+    if (matchingSubmissionAttachment) {
+        return { allowed: true, document, status: 200 };
+    }
+
+    // 5. Check Supplier-side access rules (legacy unmapped question attachment)
     const question = document.question || document.prefilledForQuestion;
     if (!question) {
         // Document is a private ClientLE document not attached to any question

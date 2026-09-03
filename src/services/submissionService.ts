@@ -7,6 +7,7 @@ import { getMasterFieldGroup, getMasterFieldDefinition } from "@/services/master
 import { buildPartyFieldProjection, extractCanonicalPartyIds } from "@/lib/master-data/party-value";
 import { isFieldPermittedByCatalogue } from "@/lib/master-data/party-display-catalogue";
 import { CCPartyDocumentService } from "@/lib/documents/party/CCPartyDocumentService";
+import { resolveQuestionAttachmentsBatch } from "@/lib/kyc/attachments";
 
 export interface CreateSubmissionInput {
     questionnaireId: string;
@@ -171,6 +172,16 @@ export async function createQuestionnaireSubmission(
             include: { documents: { where: { isDeleted: false } } }
         });
 
+        // Resolve canonical attachments for all questions in this questionnaire
+        const canonicalAttachmentsMap = await resolveQuestionAttachmentsBatch(
+            liveQuestions.map((q: any) => ({
+                id: q.id,
+                masterFieldNo: q.masterFieldNo,
+                masterQuestionGroupId: q.masterQuestionGroupId,
+            })),
+            { clientLEId, subjectLeId }
+        );
+
         // Resolve all canonical values
         const resolvedAnswerMap = new Map<string, {
             valueJson: any;
@@ -183,7 +194,16 @@ export async function createQuestionnaireSubmission(
             let valueJson: any = null;
             let explicitNone = false;
             let provenanceJson: any = null;
-            const documentIds: string[] = q.documents.map((d: any) => d.id);
+            
+            let documentIds: string[] = [];
+            if (q.masterFieldNo || q.masterQuestionGroupId) {
+                const canonicalRes = canonicalAttachmentsMap.get(q.id);
+                const canonicalIds = canonicalRes ? [...canonicalRes.documentIds] : [];
+                const legacyIds = (q.documents || []).map((d: any) => d.id);
+                documentIds = Array.from(new Set([...canonicalIds, ...legacyIds]));
+            } else {
+                documentIds = (q.documents || []).map((d: any) => d.id);
+            }
 
             if (q.masterFieldNo) {
                 const derived = await KycStateService.getAuthoritativeValue(
