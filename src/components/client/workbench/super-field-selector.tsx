@@ -9,7 +9,7 @@ import { Loader2, Sparkles, Plus, Check, ChevronRight, XCircle, Type, Calendar, 
 import { getAISemanticMatch } from "@/actions/kyc-workbench";
 import { getAddressSummary } from "@/components/client/fields/AddressValueViewer";
 import { applyMasterDataProjection } from "@/lib/kyc/projection";
-import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
+import { resolveFieldForDisplay, getCompactCanonicalSummary } from "@/lib/master-data/field-interpreter";
 
 function getDataTypeIcon(dataType: string | null | undefined) {
     if (!dataType) return null;
@@ -55,10 +55,8 @@ export function SuperFieldSelector({
     const masterOptions = useMemo(() => {
         const options: any[] = [];
         masterFields.forEach((f: any) => {
-            let previewText = null;
-            if (f.dataType === 'ADDRESS') {
-                previewText = f.currentValue ? getAddressSummary(f.currentValue) : "Structured address";
-            } else if (f.currentValue != null && f.currentValue !== "") {
+            let previewText: string | null = null;
+            if (f.currentValue != null && f.currentValue !== "") {
                 const metadata = {
                     fieldNo: f.fieldNo,
                     label: f.label,
@@ -67,7 +65,8 @@ export function SuperFieldSelector({
                     isMultiValue: Array.isArray(f.currentValue)
                 };
                 const displayModel = resolveFieldForDisplay(f.currentValue, null, metadata);
-                previewText = displayModel.state === 'NO_DATA' ? null : (displayModel.textSummary || (displayModel.value as any)?.display || null);
+                const summary = getCompactCanonicalSummary(displayModel, { label: f.label, appDataType: f.dataType, isMultiValue: Array.isArray(f.currentValue) });
+                previewText = summary || null;
             }
 
             options.push({
@@ -108,9 +107,11 @@ export function SuperFieldSelector({
     }, [masterFields]);
 
     const groupOptions = useMemo(() => masterGroups.map((g: any) => {
-        let previewText = null;
+        let previewText: string | null = null;
         if (g.currentValue != null && g.currentValue !== "") {
-            previewText = Array.isArray(g.currentValue) ? g.currentValue.join(", ") : (typeof g.currentValue === 'object' ? "Structured group" : String(g.currentValue));
+            previewText = Array.isArray(g.currentValue) 
+                ? `${g.currentValue.length} items` 
+                : (typeof g.currentValue === 'object' ? null : String(g.currentValue));
         }
         return {
             value: `group:${g.key}`,
@@ -124,7 +125,7 @@ export function SuperFieldSelector({
     }), [masterGroups]);
 
     const customOptions = useMemo(() => customFields.map((f: any) => {
-        let previewText = null;
+        let previewText: string | null = null;
         if (f.currentValue != null && f.currentValue !== "") {
             const metadata = {
                 fieldNo: -1,
@@ -134,7 +135,8 @@ export function SuperFieldSelector({
                 isMultiValue: Array.isArray(f.currentValue)
             };
             const displayModel = resolveFieldForDisplay(f.currentValue, null, metadata);
-            previewText = displayModel.state === 'NO_DATA' ? null : (displayModel.textSummary || (displayModel.value as any)?.display || null);
+            const summary = getCompactCanonicalSummary(displayModel, { label: f.label, appDataType: f.dataType, isMultiValue: Array.isArray(f.currentValue) });
+            previewText = summary || null;
         }
         return {
             value: `custom:${f.id}`,
