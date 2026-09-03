@@ -91,6 +91,7 @@ export async function resolveCCAddressUsages(
         select: { legalEntityId: true }
     });
     const subject = { clientLEId, subjectLeId: clientLE?.legalEntityId ?? null };
+    const ownerScopeId = (await KycStateService.resolveScopeId(clientLEId)) || undefined;
 
     for (const { fieldNo } of candidateClaims) {
         try {
@@ -98,12 +99,12 @@ export async function resolveCCAddressUsages(
             const foundIds = new Set<string>();
 
             if (def.isMultiValue) {
-                const authoritative = await KycStateService.getAuthoritativeCollection(subject, fieldNo);
+                const authoritative = await KycStateService.getAuthoritativeCollection(subject, fieldNo, ownerScopeId);
                 for (const item of authoritative) {
                     extractIds(item.value, 'ccAddressId', foundIds);
                 }
             } else {
-                const authoritative = await KycStateService.getAuthoritativeValue(subject, fieldNo);
+                const authoritative = await KycStateService.getAuthoritativeValue(subject, fieldNo, ownerScopeId);
                 if (authoritative) {
                     extractIds(authoritative.value, 'ccAddressId', foundIds);
                 }
