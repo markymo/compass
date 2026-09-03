@@ -29,6 +29,14 @@ vi.mock("@/actions/kyc-manual-update", () => ({
     addCodeListEntry: vi.fn(),
 }));
 
+vi.mock("@/actions/system", () => ({
+    getRegistryAuthorityNamesMap: vi.fn().mockResolvedValue({})
+}));
+
+vi.mock("@/actions/kanban-actions", () => ({
+    getLETeamMembers: vi.fn().mockResolvedValue({ success: true, members: [] })
+}));
+
 vi.mock("@/actions/client-le", () => ({
     getFieldUsageDetails: vi.fn().mockResolvedValue({
         totalQuestions: 0,

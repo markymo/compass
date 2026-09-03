@@ -206,22 +206,25 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     });
 
     useEffect(() => {
-        if (open && clientLEId && (fieldNo || customFieldId) && mappingStats && mappingStats.questions > 0) {
+        if (open && clientLEId && (fieldNo || customFieldId)) {
             setLoadingUsageDetails(true);
+            setUsageDetails(null);
             getFieldUsageDetails(clientLEId, fieldNo, customFieldId)
                 .then((res) => {
                     setUsageDetails(res);
                 })
                 .catch((err) => {
                     console.error("Failed to load field usage details:", err);
+                    setUsageDetails({ totalQuestions: 0, totalQuestionnaires: 0, totalSuppliers: 0, relationships: [], questions: [], questionnaires: [], suppliers: [] });
                 })
                 .finally(() => {
                     setLoadingUsageDetails(false);
                 });
         } else {
             setUsageDetails(null);
+            setLoadingUsageDetails(false);
         }
-    }, [open, clientLEId, fieldNo, customFieldId, mappingStats]);
+    }, [open, clientLEId, fieldNo, customFieldId]);
 
     // Date & value formatting helpers
     const isDateType = data?.dataType === 'DATE' || data?.dataType === 'DATETIME';
@@ -2388,29 +2391,35 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     )}
 
                     {/* ─── Usage Section (Hierarchical Relationship Tree) ─── */}
-                    {!customFieldId && (
-                        <div className="pt-6 border-t border-slate-200/80 space-y-3">
-                            {/* Section Header */}
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                                    <Building2 className="w-3.5 h-3.5 text-slate-400" /> Relationships & Usage
-                                </span>
-                                {mappingStats && mappingStats.questions > 0 && (
-                                    <div className="flex items-center gap-1.5">
-                                        <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200 font-medium">
-                                            {mappingStats.suppliers} Relationship{mappingStats.suppliers !== 1 ? 's' : ''}
-                                        </Badge>
-                                        <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200 font-medium">
-                                            {mappingStats.questions} Question{mappingStats.questions !== 1 ? 's' : ''}
-                                        </Badge>
-                                    </div>
-                                )}
-                            </div>
+                    {!customFieldId && (() => {
+                        const effectiveStats = mappingStats || (usageDetails ? {
+                            questions: usageDetails.totalQuestions,
+                            questionnaires: usageDetails.totalQuestionnaires,
+                            suppliers: usageDetails.totalSuppliers
+                        } : undefined);
 
-                            {/* Line-Level Tree Content */}
-                            <div className="text-xs">
-                                {mappingStats && mappingStats.questions > 0 ? (
-                                    loadingUsageDetails ? (
+                        return (
+                            <div className="pt-6 border-t border-slate-200/80 space-y-3">
+                                {/* Section Header */}
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Building2 className="w-3.5 h-3.5 text-slate-400" /> Relationships & Usage
+                                    </span>
+                                    {effectiveStats && effectiveStats.questions > 0 && (
+                                        <div className="flex items-center gap-1.5">
+                                            <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200 font-medium">
+                                                {effectiveStats.suppliers} Relationship{effectiveStats.suppliers !== 1 ? 's' : ''}
+                                            </Badge>
+                                            <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200 font-medium">
+                                                {effectiveStats.questions} Question{effectiveStats.questions !== 1 ? 's' : ''}
+                                            </Badge>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Line-Level Tree Content */}
+                                <div className="text-xs">
+                                    {loadingUsageDetails || (open && !usageDetails) ? (
                                         <div className="flex items-center justify-center py-6 text-slate-400 gap-2">
                                             <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
                                             <span>Loading usage hierarchy...</span>
@@ -2478,17 +2487,15 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-xs text-slate-500 py-1 italic">No relationship or questionnaire mapping details found.</p>
-                                    )
-                                ) : (
-                                    <div className="space-y-1 text-slate-500 py-1">
-                                        <p className="font-medium text-slate-700">Not currently used by any relationships or questionnaires.</p>
-                                        <p className="text-xs text-slate-400">This field can still be completed as part of the Master Record.</p>
-                                    </div>
-                                )}
+                                        <div className="space-y-1 text-slate-500 py-1">
+                                            <p className="font-medium text-slate-700">Not currently used by any relationships or questionnaires.</p>
+                                            <p className="text-xs text-slate-400">This field can still be completed as part of the Master Record.</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     <Tabs defaultValue="note" className="w-full mt-6">
                         <TabsList className="grid w-full grid-cols-2">

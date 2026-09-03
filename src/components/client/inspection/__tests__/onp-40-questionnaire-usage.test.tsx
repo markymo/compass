@@ -19,6 +19,10 @@ vi.mock('@/actions/client-le', () => ({
     getFieldUsageDetails: vi.fn()
 }));
 
+vi.mock('@/actions/system', () => ({
+    getRegistryAuthorityNamesMap: vi.fn().mockResolvedValue({})
+}));
+
 vi.mock('@/actions/kyc-manual-update', () => ({
     updateFieldManually: vi.fn().mockResolvedValue({ success: true }),
     applyCandidate: vi.fn().mockResolvedValue({ success: true }),
