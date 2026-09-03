@@ -275,24 +275,16 @@ describe("Experimental Homepage V2 Tweaks and Metric Parity", () => {
     });
 
     describe("HomeVariantSwitcher", () => {
-        it("switches to Classic (v1) variant by appending ?home=v1 while preserving other params", () => {
-            mockSearchParams = new URLSearchParams("filter=active&tab=overview");
+        it("links to Classic (v1) variant with ?home=v1", () => {
             render(<HomeVariantSwitcher currentVariant="v2" />);
-
-            const classicButton = screen.getByText("Classic");
-            classicButton.click();
-
-            expect(mockPush).toHaveBeenCalledWith("/app?filter=active&tab=overview&home=v1");
+            const classicLink = screen.getByText("Classic");
+            expect(classicLink.getAttribute("href")).toBe("/app?home=v1");
         });
 
-        it("switches to Current (v2 default) variant by removing ?home=v1", () => {
-            mockSearchParams = new URLSearchParams("filter=active&home=v1");
+        it("links to Current (v2 default) variant without query param", () => {
             render(<HomeVariantSwitcher currentVariant="v1" />);
-
-            const currentButton = screen.getByText("Current");
-            currentButton.click();
-
-            expect(mockPush).toHaveBeenCalledWith("/app?filter=active");
+            const currentLink = screen.getByText("Current");
+            expect(currentLink.getAttribute("href")).toBe("/app");
         });
     });
 

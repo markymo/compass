@@ -70,7 +70,7 @@ export function reshapeContexts(ctx: DashboardContexts): OrgNode[] {
                         status: r.status,
                         href: `/app/le/${r.clientLEId}/relationships?engagementId=${r.id}`,
                         metrics: r.metrics,
-                        v2Metrics: r.v2Metrics || emptyQuestionStateMetrics(),
+                        v2Metrics: r.ownV2Metrics || r.v2Metrics || emptyQuestionStateMetrics(),
                     }));
 
                 return {

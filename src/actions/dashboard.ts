@@ -39,6 +39,7 @@ export type DashboardContexts = {
         userIsSupplier: boolean;
         metrics: DashboardMetric;
         v2Metrics?: QuestionStateMetrics;
+        ownV2Metrics?: QuestionStateMetrics;
         questionnaires?: Array<{ id: string; name: string; status: string; updatedAt: Date }>;
     }>;
 };
@@ -376,6 +377,7 @@ async function attachV2QuestionStateMetrics(
         context.relationships.map(async (rel) => {
             const ownV2 = await calculateEngagementQuestionStateMetrics(rel.id);
             relOwnV2MetricsMap.set(rel.id, ownV2);
+            rel.ownV2Metrics = ownV2;
 
             const relEffectiveV2 = { ...ownV2 };
             const leCQs = (context.legalEntities.find((l) => l.id === rel.clientLEId)?.commonQuestionnaires) || [];
