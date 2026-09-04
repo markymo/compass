@@ -1058,6 +1058,39 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     );
 }
 
+const DESCRIPTION_FORMAT_REGEX = /(\*\*\*(?!\s)[^*]+?(?<!\s)\*\*\*|\*\*(?!\s)[^*]+?(?<!\s)\*\*|\*(?!\s)[^*]+?(?<!\s)\*)/g;
+
+export function formatFieldDescription(text: string): React.ReactNode {
+    if (!text) return text;
+    const parts = text.split(DESCRIPTION_FORMAT_REGEX);
+    if (parts.length === 1) return text;
+
+    return parts.map((part, index) => {
+        if (part.startsWith('***') && part.endsWith('***') && part.length >= 6) {
+            return (
+                <strong key={index} className="font-semibold italic">
+                    {part.slice(3, -3)}
+                </strong>
+            );
+        }
+        if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+            return (
+                <strong key={index} className="font-semibold">
+                    {part.slice(2, -2)}
+                </strong>
+            );
+        }
+        if (part.startsWith('*') && part.endsWith('*') && part.length >= 2) {
+            return (
+                <em key={index} className="italic">
+                    {part.slice(1, -1)}
+                </em>
+            );
+        }
+        return part;
+    });
+}
+
 function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, source, sourceReference, sourceCheckedAt, registrationAuthorityId, onClick, description, isCustom, groups = [], displayState, defaultResponse, mappingStats, fieldDef, canonicalDisplayModel, assignment }: {
     label: string,
     fieldNo: number,
@@ -1105,7 +1138,8 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                     {description && (
                         <ExpandableText
                             text={description}
-                            textClassName="text-[10px] text-muted-foreground italic font-normal"
+                            textClassName="text-[10px] text-muted-foreground font-normal leading-snug"
+                            renderContent={formatFieldDescription}
                         />
                     )}
                 </div>

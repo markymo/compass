@@ -82,5 +82,34 @@ describe('ExpandableText Component & Finesse Thresholds', () => {
             fireEvent.click(showLessBtn);
             expect(screen.getByRole('button', { name: /show more/i })).toBeTruthy();
         });
+
+        it('does not format markdown tokens when renderContent is omitted (unrelated consumer isolation)', () => {
+            const rawText = "Plain consumer with **unformatted** and *tokens*.";
+            render(<ExpandableText text={rawText} />);
+
+            expect(screen.getByText(rawText)).toBeTruthy();
+            expect(document.querySelector('strong')).toBeNull();
+            expect(document.querySelector('em')).toBeNull();
+        });
+
+        it('applies custom renderContent to both truncated and expanded text', () => {
+            const longText = "Prefix **bold-start** " + "word ".repeat(90) + "suffix **bold-end**";
+            const mockRender = (str: string) => {
+                const parts = str.split(/(\*\*.*?\*\*)/g);
+                return parts.map((p, i) => p.startsWith('**') ? <strong key={i}>{p.slice(2, -2)}</strong> : p);
+            };
+
+            render(<ExpandableText text={longText} targetChars={300} overflowThreshold={400} renderContent={mockRender} />);
+
+            // When collapsed, bold-start should be rendered inside <strong>
+            expect(screen.getByText('bold-start').tagName).toBe('STRONG');
+            expect(screen.queryByText('bold-end')).toBeNull();
+
+            // Expand
+            fireEvent.click(screen.getByRole('button', { name: /show more/i }));
+            expect(screen.getByText('bold-start').tagName).toBe('STRONG');
+            expect(screen.getByText('bold-end').tagName).toBe('STRONG');
+        });
     });
 });
+
