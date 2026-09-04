@@ -97,9 +97,14 @@ describe("ONP-63 — Surface 3 (Relationships & Common Questionnaires) Metric Pr
             expect(screen.queryByText(/Gap/i)).not.toBeInTheDocument();
             expect(screen.queryByText(/Blank/i)).not.toBeInTheDocument();
 
-            // 2-tier grouped headers
+            // Approved / Released data points are absent per design feedback
+            expect(screen.queryByText(/Approved ·/i)).not.toBeInTheDocument();
+            expect(screen.queryByText(/Released/i)).not.toBeInTheDocument();
+
+            // 2-tier grouped headers and Actions
             expect(screen.getByText("Questions")).toBeInTheDocument();
             expect(screen.getByText("Answers")).toBeInTheDocument();
+            expect(screen.getAllByText("Actions").length).toBeGreaterThan(0);
 
             // Actions remain intact
             expect(screen.getAllByRole("button", { name: /Approve/i }).length).toBeGreaterThan(0);
@@ -146,6 +151,13 @@ describe("ONP-63 — Surface 3 (Relationships & Common Questionnaires) Metric Pr
             expect(screen.queryByText(/Mapped/i)).not.toBeInTheDocument();
             expect(screen.queryByText(/Gap/i)).not.toBeInTheDocument();
             expect(screen.queryByText(/Blank/i)).not.toBeInTheDocument();
+
+            // Approved / Released data points are absent per design feedback
+            expect(screen.queryByText(/Approved ·/i)).not.toBeInTheDocument();
+            expect(screen.queryByText(/Released/i)).not.toBeInTheDocument();
+
+            // Actions header present
+            expect(screen.getAllByText("Actions").length).toBeGreaterThan(0);
         });
     });
 });
