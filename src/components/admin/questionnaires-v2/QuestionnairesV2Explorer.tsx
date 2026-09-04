@@ -12,11 +12,17 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ExplorerTable, DetailPanelContent, EmptyState } from "./ExplorerComponents";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { SupersetControlCard } from "./SupersetControlCard";
 
 type TabKey = "working-copy" | "reference" | "other";
 
 interface Props {
-    data: { workingCopies: QV2Row[]; referenceLibrary: QV2Row[]; other: QV2Row[] };
+    data: {
+        workingCopies: QV2Row[];
+        referenceLibrary: QV2Row[];
+        other: QV2Row[];
+        activeMasterFieldCount?: number;
+    };
     initialTab: TabKey;
 }
 
@@ -87,6 +93,12 @@ export function QuestionnairesV2Explorer({ data, initialTab }: Props) {
                     </div>
 
                     {tab === "reference" && <ReferenceLibraryInfo />}
+                    {tab === "working-copy" && (
+                        <SupersetControlCard
+                            activeMasterFieldCount={data.activeMasterFieldCount ?? 0}
+                            existingSuperset={data.workingCopies.find(r => r.functionalCode === "SUPERSET" && r.kind === "WORKING_COPY") ?? null}
+                        />
+                    )}
 
                     <div className="bg-white border border-slate-200 border-t-0 rounded-b-lg overflow-hidden">
                         {rows.length === 0
