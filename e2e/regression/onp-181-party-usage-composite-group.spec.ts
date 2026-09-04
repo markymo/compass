@@ -109,6 +109,19 @@ test.describe('ONP-181 — Sources / Parties Usage for Composite Groups & Scoped
     });
 
     test('validates party used in composite group Field 274 displays usage in Sources / Parties', async ({ page }) => {
+        const email = manifest.actors.leAdminAlpha.email;
+        const password = process.env.UAT_PASSWORD || 'Password123!';
+
+        // 1. Ensure authenticated on target domain
+        await page.goto('/login');
+        if (page.url().includes('/login')) {
+            await page.locator('input[type="email"], #email').fill(email);
+            await page.locator('input[type="password"], #password').fill(password);
+            await page.getByRole('button', { name: 'Sign In' }).click();
+            await expect(page).not.toHaveURL(/login/, { timeout: 25000 });
+        }
+
+        // 2. Navigate to Sources / Parties for the owner-scoped entity
         await page.goto(`/app/le/${clientLEId}/sources/user-parties`);
         await page.waitForLoadState('domcontentloaded');
 
@@ -127,7 +140,7 @@ test.describe('ONP-181 — Sources / Parties Usage for Composite Groups & Scoped
         await usageText.hover();
 
         // Verify tooltip content mentions Field 274
-        const tooltip = page.locator('[role="tooltip"], [data-radix-popper-content-wrapper]');
+        const tooltip = page.getByRole('tooltip');
         await expect(tooltip).toBeVisible({ timeout: 5000 });
         await expect(tooltip).toContainText('Field 274');
 
