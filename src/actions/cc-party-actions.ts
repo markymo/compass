@@ -276,6 +276,7 @@ export async function getCCPartyUsage(clientLEId: string) {
             select: { legalEntityId: true }
         });
         const subject = { clientLEId, subjectLeId: clientLE?.legalEntityId ?? null };
+        const ownerScopeId = (await KycStateService.resolveScopeId(clientLEId)) || undefined;
 
         const usageMap: Record<string, { fieldNo: number; fieldName: string }[]> = {};
 
@@ -285,12 +286,12 @@ export async function getCCPartyUsage(clientLEId: string) {
                 const foundIds = new Set<string>();
 
                 if (def.isMultiValue) {
-                    const authoritative = await KycStateService.getAuthoritativeCollection(subject, fieldNo);
+                    const authoritative = await KycStateService.getAuthoritativeCollection(subject, fieldNo, ownerScopeId);
                     for (const item of authoritative) {
                         extractIds(item.value, 'ccPartyId', foundIds);
                     }
                 } else {
-                    const authoritative = await KycStateService.getAuthoritativeValue(subject, fieldNo);
+                    const authoritative = await KycStateService.getAuthoritativeValue(subject, fieldNo, ownerScopeId);
                     if (authoritative) {
                         extractIds(authoritative.value, 'ccPartyId', foundIds);
                     }
