@@ -5,43 +5,12 @@ import { revalidatePath } from "next/cache";
 import { invalidateDefinitionCache } from "@/services/masterData/definitionService";
 
 
-export async function getCategoriesWithFields() {
-    const categories = await prisma.masterDataCategory.findMany({
-        where: { isActive: true },
-        orderBy: [
-            { order: 'asc' },
-            { displayName: 'asc' }
-        ],
-        include: {
-            fields: {
-                orderBy: [
-                    { order: 'asc' },
-                    { fieldNo: 'asc' }
-                ],
-                where: {
-                    isActive: true
-                }
-            }
-        }
-    });
+import {
+    getCategoriesWithFields,
+    getMasterRecordOrderedFields
+} from "@/lib/master-data/master-record-order";
 
-    const uncategorizedFields = await prisma.masterFieldDefinition.findMany({
-        where: {
-            categoryId: null,
-            isActive: true
-        },
-        orderBy: [
-            { order: 'asc' },
-            { fieldNo: 'asc' }
-        ]
-    });
-
-    return {
-        customFields: [], // Client UI will likely inject org-specific custom fields, but this handles system master data
-        categories,
-        uncategorizedFields
-    };
-}
+export { getCategoriesWithFields, getMasterRecordOrderedFields };
 
 export async function updateCategoryOrder(payload: { id: string; order: number }[]) {
     await prisma.$transaction(
