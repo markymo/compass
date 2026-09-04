@@ -2,7 +2,7 @@ import prisma from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { generateWorkingCopyTitle } from "@/lib/questionnaires/reference-codes";
 import { syncQuestionsToDatabase } from "./question-sync";
-import { getMasterRecordOrderedFields } from "@/actions/master-data-sort";
+import { getSupersetOrderedMasterFields } from "@/lib/master-data/master-record-order";
 
 export interface SupersetGeneratorOptions {
     dryRun?: boolean;
@@ -24,8 +24,8 @@ export async function generateSupersetWorkingCopy(
     options: SupersetGeneratorOptions = {}
 ): Promise<SupersetGeneratorResult> {
     try {
-        // 1. Query active Master Fields in canonical Master Record order
-        const activeFields = await getMasterRecordOrderedFields(prisma);
+        // 1. Query all active Master Fields in canonical Master Record order + residual active fields
+        const activeFields = await getSupersetOrderedMasterFields(prisma);
 
         // 2. Build canonical question items
         const items = activeFields.map((field: { fieldNo: number; fieldName: string }, idx: number) => ({

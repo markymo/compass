@@ -5,54 +5,12 @@ import { revalidatePath } from "next/cache";
 import { invalidateDefinitionCache } from "@/services/masterData/definitionService";
 
 
-export async function getCategoriesWithFields(client: any = prisma) {
-    const categories = await client.masterDataCategory.findMany({
-        where: { isActive: true },
-        orderBy: [
-            { order: 'asc' },
-            { displayName: 'asc' }
-        ],
-        include: {
-            fields: {
-                orderBy: [
-                    { order: 'asc' },
-                    { fieldNo: 'asc' }
-                ],
-                where: {
-                    isActive: true
-                }
-            }
-        }
-    });
+import {
+    getCategoriesWithFields,
+    getMasterRecordOrderedFields
+} from "@/lib/master-data/master-record-order";
 
-    const uncategorizedFields = await client.masterFieldDefinition.findMany({
-        where: {
-            categoryId: null,
-            isActive: true
-        },
-        orderBy: [
-            { order: 'asc' },
-            { fieldNo: 'asc' }
-        ]
-    });
-
-    return {
-        customFields: [], // Client UI will likely inject org-specific custom fields, but this handles system master data
-        categories,
-        uncategorizedFields
-    };
-}
-
-/**
- * Flattens categories and uncategorized fields in the exact display sequence of the Master Record (/app/le/[id]/master).
- */
-export async function getMasterRecordOrderedFields(client: any = prisma): Promise<Array<{ fieldNo: number; fieldName: string }>> {
-    const { categories, uncategorizedFields } = await getCategoriesWithFields(client);
-    return [
-        ...categories.flatMap((c: any) => c.fields),
-        ...uncategorizedFields
-    ];
-}
+export { getCategoriesWithFields, getMasterRecordOrderedFields };
 
 export async function updateCategoryOrder(payload: { id: string; order: number }[]) {
     await prisma.$transaction(

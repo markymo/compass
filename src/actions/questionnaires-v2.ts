@@ -12,7 +12,7 @@ import { bootstrapSystemOrg } from "./admin";
 import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import { revalidatePath } from "next/cache";
 import { generateSupersetWorkingCopy } from "@/lib/questionnaires/superset-generator";
-import { getMasterRecordOrderedFields } from "@/actions/master-data-sort";
+import { getSupersetOrderedMasterFields } from "@/lib/master-data/master-record-order";
 
 import { QuestionnaireVisibility } from "@prisma/client";
 
@@ -107,7 +107,7 @@ export async function getQuestionnairesV2(): Promise<{
                 _count: { select: { questions: true, derivedVersions: true } },
             },
         }),
-        getMasterRecordOrderedFields().then(fields => fields.length),
+        getSupersetOrderedMasterFields().then(fields => fields.length),
     ]);
 
     const mapped: QV2Row[] = rows.map((r: any) => {

@@ -47,11 +47,10 @@ describe.skipIf(!process.env.DATABASE_URL)('ONP-187 Superset Working Copy Genera
 
     describe('Dry Run Behaviour', () => {
         it('queries active master fields and returns proposed items without writing to database', async () => {
-            const { categories, uncategorizedFields } = await getCategoriesWithFields();
-            const masterRecordFields = [
-                ...categories.flatMap((c: any) => c.fields),
-                ...uncategorizedFields
-            ];
+            const allActiveDefinitions = await prisma.masterFieldDefinition.findMany({
+                where: { isActive: true },
+                select: { fieldNo: true, fieldName: true }
+            });
 
             const countBefore = await prisma.questionnaire.count({
                 where: { functionalCode: 'SUPERSET', kind: 'WORKING_COPY' }
@@ -61,9 +60,9 @@ describe.skipIf(!process.env.DATABASE_URL)('ONP-187 Superset Working Copy Genera
 
             expect(result.success).toBe(true);
             expect(result.dryRun).toBe(true);
-            expect(result.questionCount).toBe(masterRecordFields.length);
-            expect(result.items).toHaveLength(masterRecordFields.length);
-            expect(result.items![0].masterFieldNo).toBe(masterRecordFields[0].fieldNo);
+            expect(result.questionCount).toBe(allActiveDefinitions.length);
+            expect(result.items).toHaveLength(allActiveDefinitions.length);
+            expect(result.items![0].masterFieldNo).toBe(3); // Legal name
 
             const countAfter = await prisma.questionnaire.count({
                 where: { functionalCode: 'SUPERSET', kind: 'WORKING_COPY' }
@@ -73,16 +72,15 @@ describe.skipIf(!process.env.DATABASE_URL)('ONP-187 Superset Working Copy Genera
     });
 
     describe('Core Superset Working Copy Contract', () => {
-        let activeFields: Array<{ fieldNo: number; fieldName: string }>;
+        let allActiveDefinitions: Array<{ fieldNo: number; fieldName: string }>;
         let questionnaire: any;
         let questions: any[];
 
         beforeAll(async () => {
-            const { categories, uncategorizedFields } = await getCategoriesWithFields();
-            activeFields = [
-                ...categories.flatMap((c: any) => c.fields),
-                ...uncategorizedFields
-            ];
+            allActiveDefinitions = await prisma.masterFieldDefinition.findMany({
+                where: { isActive: true },
+                select: { fieldNo: true, fieldName: true }
+            });
 
             // Generate working copy with force=true to ensure fresh test state
             const result = await generateSupersetWorkingCopy({ force: true });
@@ -99,15 +97,15 @@ describe.skipIf(!process.env.DATABASE_URL)('ONP-187 Superset Working Copy Genera
             questions = questionnaire.questions;
         });
 
-        it('1. generated masterFieldNo set exactly equals active MasterFieldDefinition.fieldNo set', () => {
-            const activeFieldNos = new Set(activeFields.map(f => f.fieldNo));
+        it('1. generated masterFieldNo set exactly equals complete active MasterFieldDefinition.fieldNo set', () => {
+            const activeFieldNos = new Set(allActiveDefinitions.map(f => f.fieldNo));
             const questionFieldNos = new Set(questions.map(q => q.masterFieldNo));
 
             expect(questionFieldNos).toEqual(activeFieldNos);
         });
 
-        it('2. exactly one Question per active field', () => {
-            expect(questions.length).toBe(activeFields.length);
+        it('2. exactly one Question per active field (no omissions)', () => {
+            expect(questions.length).toBe(allActiveDefinitions.length);
         });
 
         it('3. no duplicates', () => {
@@ -129,29 +127,59 @@ describe.skipIf(!process.env.DATABASE_URL)('ONP-187 Superset Working Copy Genera
             }
         });
 
-        it('5. questions follow exact Master Record sequence', async () => {
+        it('5. ordering: Master Record prefix sequence, residual active fields appended deterministically, and Question.order = index + 1', async () => {
+            // Fetch canonical Master Record fields directly from the Master Record loader
             const { categories, uncategorizedFields } = await getCategoriesWithFields();
             const masterRecordFields = [
                 ...categories.flatMap((c: any) => c.fields),
                 ...uncategorizedFields
             ];
             const masterRecordFieldNos = masterRecordFields.map((f: any) => f.fieldNo);
+
+            // Determine residual active fields: active MasterFieldDefinitions not returned by Master Record loader
+            const masterRecordSet = new Set(masterRecordFieldNos);
+            const expectedResidualFields = await prisma.masterFieldDefinition.findMany({
+                where: {
+                    isActive: true,
+                    fieldNo: { notIn: Array.from(masterRecordSet) }
+                },
+                orderBy: [
+                    { order: 'asc' },
+                    { fieldNo: 'asc' }
+                ],
+                select: { fieldNo: true, fieldName: true }
+            });
+            const expectedResidualFieldNos = expectedResidualFields.map(f => f.fieldNo);
+
             const questionFieldNos = questions.map((q: any) => q.masterFieldNo);
 
-            // 1. Superset masterFieldNo sequence === Master Record masterFieldNo sequence
-            expect(questionFieldNos).toEqual(masterRecordFieldNos);
+            // 1. Prefix corresponding to Master Record fields exactly equals canonical Master Record sequence
+            const prefixQuestionFieldNos = questionFieldNos.slice(0, masterRecordFieldNos.length);
+            expect(prefixQuestionFieldNos).toEqual(masterRecordFieldNos);
 
-            // 2. Sequential Question.order = index + 1 and text parity
+            // 2. Residual active fields are appended deterministically (order ASC, fieldNo ASC)
+            const suffixQuestionFieldNos = questionFieldNos.slice(masterRecordFieldNos.length);
+            expect(suffixQuestionFieldNos).toEqual(expectedResidualFieldNos);
+
+            // 3. Question.order === index + 1 and text parity across all questions
+            const expectedAllFields = [...masterRecordFields, ...expectedResidualFields];
             for (let i = 0; i < questions.length; i++) {
                 expect(questions[i].order).toBe(i + 1);
-                expect(questions[i].masterFieldNo).toBe(masterRecordFields[i].fieldNo);
-                expect(questions[i].text).toBe(masterRecordFields[i].fieldName);
+                expect(questions[i].masterFieldNo).toBe(expectedAllFields[i].fieldNo);
+                expect(questions[i].text).toBe(expectedAllFields[i].fieldName);
             }
 
-            // 3. Concrete current-schema assertions as supplementary regression checks
+            // 4. Concrete current-schema assertions as supplementary regression checks
             expect(questionFieldNos[0]).toBe(3); // Legal name
             expect(questionFieldNos[1]).toBe(5); // Previous legal names
             expect(questionFieldNos[2]).toBe(4); // Trading names
+
+            // 5. Concrete assertion that Field 121 remains represented despite its inactive category,
+            // while currently placed after the Master Record sequence
+            expect(expectedResidualFieldNos).toContain(121);
+            expect(questionFieldNos).toContain(121);
+            const field121Index = questionFieldNos.indexOf(121);
+            expect(field121Index).toBeGreaterThanOrEqual(masterRecordFieldNos.length);
         });
 
         it('6. every generated question has direct masterFieldNo mapping', () => {
@@ -190,7 +218,7 @@ describe.skipIf(!process.env.DATABASE_URL)('ONP-187 Superset Working Copy Genera
             const v2Data = await getQuestionnairesV2();
             const found = v2Data.workingCopies.find(wc => wc.id === questionnaire.id);
             expect(found).toBeDefined();
-            expect(found?.questionCount).toBe(activeFields.length);
+            expect(found?.questionCount).toBe(allActiveDefinitions.length);
         });
 
         it('10. rerunning normally does not create a duplicate persistent SUPERSET Working Copy', async () => {
@@ -278,9 +306,11 @@ describe.skipIf(!process.env.DATABASE_URL)('ONP-187 Superset Working Copy Genera
 
     describe('System Admin Server Action (generateSupersetAction) & activeMasterFieldCount', () => {
         it('getQuestionnairesV2 returns activeMasterFieldCount', async () => {
-            const masterFields = await getMasterRecordOrderedFields();
+            const activeCount = await prisma.masterFieldDefinition.count({
+                where: { isActive: true }
+            });
             const data = await getQuestionnairesV2();
-            expect(data.activeMasterFieldCount).toBe(masterFields.length);
+            expect(data.activeMasterFieldCount).toBe(activeCount);
         });
 
         it('enforces Action.SYSTEM_MANAGE_PLATFORM and denies unauthorized users', async () => {
