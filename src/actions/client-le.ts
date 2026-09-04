@@ -453,12 +453,12 @@ export async function getEngagementDetails(engagementId: string) {
 
         // Roll up relationship-own v2Metrics
         const engV2 = emptyQuestionStateMetrics();
-        engV2.questionnairesCount = questionnaires.length;
         for (const q of questionnaires) {
             if (q.v2Metrics) {
                 rollupQuestionStateMetrics(engV2, q.v2Metrics);
             }
         }
+        engV2.questionnairesCount = questionnaires.length;
 
         // Fetch metrics for common questionnaires
         const rawCommonQs = (engagement.clientLE as any)?.commonQuestionnaires || [];
