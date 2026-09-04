@@ -1,12 +1,18 @@
 import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
-export async function syncQuestionsToDatabase(id: string, items: any[], userId: string | null = null) {
+export async function syncQuestionsToDatabase(
+    id: string,
+    items: any[],
+    userId: string | null = null,
+    db: Prisma.TransactionClient | typeof prisma = prisma
+) {
     // 1. Delete existing questions for this questionnaire (Template Mode)
-    await prisma.question.deleteMany({
+    await db.question.deleteMany({
         where: { questionnaireId: id }
     });
 
-    const qn = await prisma.questionnaire.findUnique({
+    const qn = await db.questionnaire.findUnique({
         where: { id },
         select: { kind: true, fiEngagementId: true }
     });
@@ -37,7 +43,7 @@ export async function syncQuestionsToDatabase(id: string, items: any[], userId: 
         }));
 
     if (questionsToCreate.length > 0) {
-        await prisma.question.createMany({
+        await db.question.createMany({
             data: questionsToCreate
         });
     }

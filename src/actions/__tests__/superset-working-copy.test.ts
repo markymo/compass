@@ -1,6 +1,7 @@
 import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest';
 import prisma from '@/lib/prisma';
 import { generateSupersetWorkingCopy } from '@/lib/questionnaires/superset-generator';
+import * as questionSync from '@/lib/questionnaires/question-sync';
 import { getQuestionnairesV2 } from '../questionnaires-v2';
 
 // Mock auth so getQuestionnairesV2 returns admin view in tests
@@ -20,19 +21,24 @@ vi.mock('@/lib/auth/permissions', async (importOriginal) => {
 });
 
 describe.skipIf(!process.env.DATABASE_URL)('ONP-187 Superset Working Copy Generator', () => {
+    vi.setConfig({ testTimeout: 30000, hookTimeout: 30000 });
     let createdQuestionnaireId: string | null = null;
 
     afterAll(async () => {
         // Clean up temporary test questionnaire and linked questions
-        if (createdQuestionnaireId) {
+        const supersets = await prisma.questionnaire.findMany({
+            where: { functionalCode: 'SUPERSET', kind: 'WORKING_COPY' },
+            select: { id: true }
+        });
+        for (const s of supersets) {
             await prisma.question.deleteMany({
-                where: { questionnaireId: createdQuestionnaireId }
+                where: { questionnaireId: s.id }
             });
             await prisma.questionnaire.delete({
-                where: { id: createdQuestionnaireId }
+                where: { id: s.id }
             }).catch(() => null);
         }
-    });
+    }, 30000);
 
     describe('Dry Run Behaviour', () => {
         it('queries active master fields and returns proposed items without writing to database', async () => {
@@ -56,7 +62,7 @@ describe.skipIf(!process.env.DATABASE_URL)('ONP-187 Superset Working Copy Genera
                 where: { functionalCode: 'SUPERSET', kind: 'WORKING_COPY' }
             });
             expect(countAfter).toBe(countBefore);
-        });
+        }, 30000);
     });
 
     describe('Core Superset Working Copy Contract', () => {
@@ -178,6 +184,71 @@ describe.skipIf(!process.env.DATABASE_URL)('ONP-187 Superset Working Copy Genera
                 }
             });
             expect(totalSupersets).toBe(1);
+        });
+    });
+
+    describe('Atomic Creation and Replacement Failure Modes', () => {
+        it('leaves no partial SUPERSET questionnaire if question synchronisation fails during creation', async () => {
+            // Ensure clean state: no SUPERSET exists
+            const existingSupersets = await prisma.questionnaire.findMany({
+                where: { functionalCode: 'SUPERSET', kind: 'WORKING_COPY' },
+                select: { id: true }
+            });
+            for (const s of existingSupersets) {
+                await prisma.question.deleteMany({ where: { questionnaireId: s.id } });
+                await prisma.questionnaire.delete({ where: { id: s.id } }).catch(() => null);
+            }
+
+            const syncSpy = vi.spyOn(questionSync, 'syncQuestionsToDatabase').mockRejectedValueOnce(
+                new Error('Simulated sync error during creation')
+            );
+
+            const result = await generateSupersetWorkingCopy({ force: true });
+            expect(result.success).toBe(false);
+
+            // In an atomic transaction, the created questionnaire MUST be rolled back
+            const partial = await prisma.questionnaire.findFirst({
+                where: { functionalCode: 'SUPERSET', kind: 'WORKING_COPY' }
+            });
+            expect(partial).toBeNull();
+
+            syncSpy.mockRestore();
+        });
+
+        it('retains original valid Working Copy and questions intact if replacement fails during --force', async () => {
+            // First, create a valid initial SUPERSET Working Copy
+            const initial = await generateSupersetWorkingCopy({ force: true });
+            expect(initial.success).toBe(true);
+            const initialId = initial.questionnaireId!;
+
+            const initialQuestions = await prisma.question.findMany({
+                where: { questionnaireId: initialId },
+                orderBy: { order: 'asc' }
+            });
+            expect(initialQuestions.length).toBeGreaterThan(0);
+
+            // Now attempt force-replace, but simulate failure during sync
+            const syncSpy = vi.spyOn(questionSync, 'syncQuestionsToDatabase').mockRejectedValueOnce(
+                new Error('Simulated sync error during force replacement')
+            );
+
+            const failedResult = await generateSupersetWorkingCopy({ force: true });
+            expect(failedResult.success).toBe(false);
+
+            // In an atomic transaction, the rollback MUST restore the original questionnaire and questions
+            const preserved = await prisma.questionnaire.findUnique({
+                where: { id: initialId },
+                include: { questions: { orderBy: { order: 'asc' } } }
+            });
+            expect(preserved).not.toBeNull();
+            expect(preserved?.id).toBe(initialId);
+            expect(preserved?.questions.length).toBe(initialQuestions.length);
+
+            syncSpy.mockRestore();
+
+            // Clean up the created questionnaire
+            await prisma.question.deleteMany({ where: { questionnaireId: initialId } });
+            await prisma.questionnaire.delete({ where: { id: initialId } }).catch(() => null);
         });
     });
 });

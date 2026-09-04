@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { generateWorkingCopyTitle } from "@/lib/questionnaires/reference-codes";
 import { syncQuestionsToDatabase } from "./question-sync";
 
@@ -56,39 +57,7 @@ export async function generateSupersetWorkingCopy(
             };
         }
 
-        // 4. Check for existing Working Copy with functionalCode = SUPERSET
-        const existing = await prisma.questionnaire.findFirst({
-            where: {
-                functionalCode: "SUPERSET",
-                kind: "WORKING_COPY",
-                isDeleted: false,
-            },
-            include: {
-                _count: { select: { questions: true } }
-            }
-        });
-
-        if (existing) {
-            if (!options.force) {
-                return {
-                    success: true,
-                    questionnaireId: existing.id,
-                    isExisting: true,
-                    questionCount: existing._count.questions,
-                };
-            }
-
-            // Clarification 1: --force may replace only an existing functionalCode = SUPERSET,
-            // kind = WORKING_COPY questionnaire. It must never alter/delete a published Reference Snapshot.
-            await prisma.question.deleteMany({
-                where: { questionnaireId: existing.id }
-            });
-            await prisma.questionnaire.delete({
-                where: { id: existing.id }
-            });
-        }
-
-        // 5. Resolve platform System Organization
+        // 4. Resolve platform System Organization
         const sysOrg = await prisma.organization.findFirst({
             where: { types: { has: "SYSTEM" } }
         });
@@ -101,29 +70,69 @@ export async function generateSupersetWorkingCopy(
             };
         }
 
-        // 6. Create Questionnaire header with extractedContent
-        const workingCopy = await prisma.questionnaire.create({
-            data: {
-                name: proposedName,
-                functionalCode: "SUPERSET",
-                fiOrgId: sysOrg.id,
-                ownerOrgId: sysOrg.id,
-                kind: "WORKING_COPY",
-                isTemplate: true,
-                isGlobal: false,
-                visibility: "PRIVATE",
-                extractedContent: items,
+        // 5. Atomic creation/replacement inside a Prisma transaction
+        const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+            // Check for existing Working Copy with functionalCode = SUPERSET
+            const existing = await tx.questionnaire.findFirst({
+                where: {
+                    functionalCode: "SUPERSET",
+                    kind: "WORKING_COPY",
+                    isDeleted: false,
+                },
+                include: {
+                    _count: { select: { questions: true } }
+                }
+            });
+
+            if (existing) {
+                if (!options.force) {
+                    return {
+                        success: true,
+                        questionnaireId: existing.id,
+                        isExisting: true,
+                        questionCount: existing._count.questions,
+                    };
+                }
+
+                // Clarification 1: --force may replace only an existing functionalCode = SUPERSET,
+                // kind = WORKING_COPY questionnaire. It must never alter/delete a published Reference Snapshot.
+                await tx.question.deleteMany({
+                    where: { questionnaireId: existing.id }
+                });
+                await tx.questionnaire.delete({
+                    where: { id: existing.id }
+                });
             }
+
+            // Create Questionnaire header with extractedContent
+            const workingCopy = await tx.questionnaire.create({
+                data: {
+                    name: proposedName,
+                    functionalCode: "SUPERSET",
+                    fiOrgId: sysOrg.id,
+                    ownerOrgId: sysOrg.id,
+                    kind: "WORKING_COPY",
+                    isTemplate: true,
+                    isGlobal: false,
+                    visibility: "PRIVATE",
+                    extractedContent: items,
+                }
+            });
+
+            // Synchronize relational Question rows using canonical persistence lifecycle within the transaction
+            await syncQuestionsToDatabase(workingCopy.id, items, null, tx);
+
+            return {
+                success: true,
+                questionnaireId: workingCopy.id,
+                questionCount: items.length,
+            };
+        }, {
+            maxWait: 10000,
+            timeout: 30000,
         });
 
-        // 7. Synchronize relational Question rows using canonical persistence lifecycle
-        await syncQuestionsToDatabase(workingCopy.id, items);
-
-        return {
-            success: true,
-            questionnaireId: workingCopy.id,
-            questionCount: items.length,
-        };
+        return result;
     } catch (e: any) {
         console.error("[generateSupersetWorkingCopy]", e);
         return {
