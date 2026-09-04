@@ -15,7 +15,9 @@ import { EngagementDocumentManager } from "./engagement-document-manager";
 import { OutputPackBuilder } from "./output-pack-builder";
 
 import { ProgressTracker } from "@/components/shared/progress-tracker";
+import { QuestionStateMetricStrip } from "@/components/shared/question-state-metric-strip";
 import { DashboardMetric } from "@/lib/dashboard-metrics";
+import { QuestionStateMetrics } from "@/lib/metrics/question-state-types";
 import { InviteSupplierDialog } from "./invite-supplier-dialog";
 import { ShareQuestionnaireDialog } from "../questionnaire/share-questionnaire-dialog";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
@@ -29,6 +31,7 @@ interface EngagementDetailViewProps {
     evidenceDocuments?: any[];
     initialTab?: string;
     metrics?: DashboardMetric;
+    v2Metrics?: QuestionStateMetrics;
     standingData?: any;
     invitations: any[];
     members: any[];
@@ -51,7 +54,21 @@ import { HeaderNavList } from "@/components/layout/HeaderNavList";
 import { getRelationshipTabs, getQuestionnaireTabs } from "@/config/navigation-tabs";
 import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 
-export function EngagementDetailView({ le, engagement, questionnaires, commonQuestionnaires = [], sharedDocuments, evidenceDocuments = [], invitations, members, initialTab, metrics, standingData, manageQuestionnaireId: propsManageQuestionnaireId }: EngagementDetailViewProps) {
+export function EngagementDetailView({
+    le,
+    engagement,
+    questionnaires,
+    commonQuestionnaires = [],
+    sharedDocuments,
+    evidenceDocuments = [],
+    invitations,
+    members,
+    initialTab,
+    metrics,
+    v2Metrics: propsV2Metrics,
+    standingData,
+    manageQuestionnaireId: propsManageQuestionnaireId
+}: EngagementDetailViewProps) {
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
     const [shareTarget, setShareTarget] = useState<{ id: string, name: string } | null>(null);
@@ -182,11 +199,35 @@ export function EngagementDetailView({ le, engagement, questionnaires, commonQue
                         Invite User
                     </Button>
                 </div>
-                {(activeQuestionnaire?.metrics ?? metrics) && (
-                    <div className="flex-1 w-full md:w-auto">
-                        <ProgressTracker metrics={activeQuestionnaire?.metrics ?? metrics} variant={"v2" as any} className="w-full" />
-                    </div>
-                )}
+                {(() => {
+                    const currentV2 = activeQuestionnaire?.v2Metrics ?? propsV2Metrics ?? engagement.v2Metrics;
+                    if (currentV2) {
+                        return (
+                            <div className="flex-1 w-full md:w-auto">
+                                <QuestionStateMetricStrip
+                                    metrics={currentV2}
+                                    variant="header"
+                                    linkContext={{
+                                        leId: le.id,
+                                        relationshipId: engagement.id,
+                                        questionnaireId: activeQuestionnaire?.id,
+                                        relationshipName: engagement.org?.name,
+                                        questionnaireName: activeQuestionnaire?.name,
+                                    }}
+                                    className="w-full"
+                                />
+                            </div>
+                        );
+                    }
+                    if (activeQuestionnaire?.metrics ?? metrics) {
+                        return (
+                            <div className="flex-1 w-full md:w-auto">
+                                <ProgressTracker metrics={activeQuestionnaire?.metrics ?? metrics} variant={"v2" as any} className="w-full" />
+                            </div>
+                        );
+                    }
+                    return null;
+                })()}
             </div>
 
 
@@ -249,9 +290,24 @@ export function EngagementDetailView({ le, engagement, questionnaires, commonQue
                                                          </div>
                                                          {/* Line 2: Metrics and Actions */}
                                                         <div className="flex items-center gap-6">
-                                                            {q.metrics && (
-                                                                <div className="flex-1 min-w-0">
-                                                                    <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-slate-50/20" />
+                                                            {(q.v2Metrics || q.metrics) && (
+                                                                <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
+                                                                    {q.v2Metrics ? (
+                                                                        <QuestionStateMetricStrip
+                                                                            metrics={q.v2Metrics}
+                                                                            variant="card-row"
+                                                                            disableLinks={true}
+                                                                            linkContext={{
+                                                                                leId: le.id,
+                                                                                relationshipId: engagement.id,
+                                                                                questionnaireId: q.id,
+                                                                                relationshipName: engagement.org?.name,
+                                                                                questionnaireName: q.name,
+                                                                            }}
+                                                                        />
+                                                                    ) : (
+                                                                        <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-slate-50/20" />
+                                                                    )}
                                                                 </div>
                                                             )}
                                                             <div className="shrink-0" onClick={(e) => e.stopPropagation()}>

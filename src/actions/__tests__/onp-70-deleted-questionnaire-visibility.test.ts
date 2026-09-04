@@ -31,6 +31,9 @@ const { mockPrisma } = vi.hoisted(() => {
             findUnique: vi.fn(),
             update: vi.fn(),
         },
+        question: {
+            findMany: vi.fn().mockResolvedValue([]),
+        },
         membership: {
             findMany: vi.fn(),
         },

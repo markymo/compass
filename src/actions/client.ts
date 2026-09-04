@@ -567,9 +567,17 @@ export async function getClientLEData(leId: string) {
     }
 
     const { calculateCommonQuestionnaireMetrics, calculateEngagementMetrics, calculateQuestionnaireMetrics } = await import("@/lib/metrics-calc");
+    const {
+        calculateCQQuestionStateMetrics,
+        calculateQuestionStateMetricsForQuestions,
+        emptyQuestionStateMetrics,
+        rollupQuestionStateMetrics
+    } = await import("@/lib/metrics/question-state-metrics");
+
     if (le.commonQuestionnaires) {
         for (const q of le.commonQuestionnaires) {
             (q as any).metrics = await calculateCommonQuestionnaireMetrics(q.id, le.id);
+            (q as any).v2Metrics = await calculateCQQuestionStateMetrics(q.id, le.id);
         }
     }
 
@@ -583,10 +591,34 @@ export async function getClientLEData(leId: string) {
                 [...(eng.questionnaireInstances || []), ...(eng.questionnaires || [])].map((q: any) => [q.id, q])
             ).values()
         );
+        const engV2 = emptyQuestionStateMetrics();
+        engV2.questionnairesCount = combined.length;
+
         for (const q of combined) {
             (q as any).metrics = await calculateQuestionnaireMetrics((q as any).id);
+            const questions = await prisma.question.findMany({
+                where: { questionnaireId: (q as any).id, questionnaire: { isDeleted: false } },
+                select: {
+                    id: true,
+                    answer: true,
+                    masterFieldNo: true,
+                    masterQuestionGroupId: true,
+                    customFieldDefinitionId: true,
+                    questionnaireId: true,
+                },
+            });
+            const qV2 = await calculateQuestionStateMetricsForQuestions(
+                questions,
+                le.legalEntityId,
+                le.customData as any,
+                le.id
+            );
+            qV2.questionnairesCount = 1;
+            (q as any).v2Metrics = qV2;
+            rollupQuestionStateMetrics(engV2, qV2);
         }
         (eng as any).questionnaires = combined;
+        (eng as any).v2Metrics = engV2;
         console.log(`[getClientLEData] Engagement ${eng.org.name} has ${(eng as any).questionnaires.length} ACTIVE questionnaires`);
     }
 

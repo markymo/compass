@@ -11,6 +11,13 @@ import { getMasterFieldDefinition, listAllMasterFields, listAllMasterGroupsWithI
 import { getIdentity } from "@/lib/auth";
 import { getUserFIOrg } from "./security";
 import { calculateEngagementMetrics, calculateQuestionnaireMetrics } from "@/lib/metrics-calc";
+import {
+    QuestionStateMetrics,
+    emptyQuestionStateMetrics,
+    rollupQuestionStateMetrics,
+    calculateCQQuestionStateMetrics,
+    calculateQuestionStateMetricsForQuestions,
+} from "@/lib/metrics/question-state-metrics";
 import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { KycStateService } from "@/lib/kyc/KycStateService";
@@ -417,17 +424,49 @@ export async function getEngagementDetails(engagementId: string) {
         );
 
         // Fetch metrics for each questionnaire
-        const questionnaires = await Promise.all(combinedQuestionnairesRaw.map(async (q: any) => ({
-            ...q,
-            metrics: await calculateQuestionnaireMetrics(q.id)
-        })));
+        const questionnaires = await Promise.all(combinedQuestionnairesRaw.map(async (q: any) => {
+            const legacyMetrics = await calculateQuestionnaireMetrics(q.id);
+            const questions = await prisma.question.findMany({
+                where: { questionnaireId: q.id, questionnaire: { isDeleted: false } },
+                select: {
+                    id: true,
+                    answer: true,
+                    masterFieldNo: true,
+                    masterQuestionGroupId: true,
+                    customFieldDefinitionId: true,
+                    questionnaireId: true,
+                },
+            });
+            const qV2 = await calculateQuestionStateMetricsForQuestions(
+                questions,
+                engagement.clientLE?.legalEntityId,
+                engagement.clientLE?.customData as any,
+                engagement.clientLE?.id
+            );
+            qV2.questionnairesCount = 1;
+            return {
+                ...q,
+                metrics: legacyMetrics,
+                v2Metrics: qV2,
+            };
+        }));
+
+        // Roll up relationship-own v2Metrics
+        const engV2 = emptyQuestionStateMetrics();
+        engV2.questionnairesCount = questionnaires.length;
+        for (const q of questionnaires) {
+            if (q.v2Metrics) {
+                rollupQuestionStateMetrics(engV2, q.v2Metrics);
+            }
+        }
 
         // Fetch metrics for common questionnaires
         const rawCommonQs = (engagement.clientLE as any)?.commonQuestionnaires || [];
         const commonQuestionnaires = await Promise.all(rawCommonQs.map(async (cq: any) => ({
             ...cq,
             isCommon: true,
-            metrics: await calculateQuestionnaireMetrics(cq.id)
+            metrics: await calculateQuestionnaireMetrics(cq.id),
+            v2Metrics: await calculateCQQuestionStateMetrics(cq.id, engagement.clientLEId),
         })));
 
         // Fetch Pending Invitations
@@ -464,12 +503,16 @@ export async function getEngagementDetails(engagementId: string) {
 
         return {
             success: true,
-            engagement,
+            engagement: {
+                ...engagement,
+                v2Metrics: engV2,
+            },
             questionnaires,
             commonQuestionnaires,
             invitations,
             members,
-            metrics
+            metrics,
+            v2Metrics: engV2,
         };
     } catch (error) {
         console.error("Error fetching engagement details:", error);
