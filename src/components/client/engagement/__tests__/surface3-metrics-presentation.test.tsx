@@ -97,8 +97,12 @@ describe("ONP-63 — Surface 3 (Relationships & Common Questionnaires) Metric Pr
             expect(screen.queryByText(/Gap/i)).not.toBeInTheDocument();
             expect(screen.queryByText(/Blank/i)).not.toBeInTheDocument();
 
+            // 2-tier grouped headers
+            expect(screen.getByText("Questions")).toBeInTheDocument();
+            expect(screen.getByText("Answers")).toBeInTheDocument();
+
             // Actions remain intact
-            expect(screen.getByRole("button", { name: /Approve/i })).toBeInTheDocument();
+            expect(screen.getAllByRole("button", { name: /Approve/i }).length).toBeGreaterThan(0);
         });
     });
 
