@@ -241,6 +241,7 @@ describe('ONP-63 — Inner Page Metrics Contract & CQ Isolation', () => {
             expect(engV2.defaultResponse).toBe(childDefaultSum);
             expect(engV2.unanswered).toBe(childUnansweredSum);
             expect(engV2.total).toBe(childTotalSum);
+            expect(engV2.questionnairesCount).toBe(res.questionnaires.length);
         });
 
         it('strictly enforces Common Questionnaire isolation on relationship question metrics', async () => {
@@ -371,6 +372,7 @@ describe('ONP-63 — Inner Page Metrics Contract & CQ Isolation', () => {
             expect(eng.v2Metrics.total).toBe(
                 eng.questionnaires.reduce((sum: number, q: any) => sum + q.v2Metrics.total, 0)
             );
+            expect(eng.v2Metrics.questionnairesCount).toBe(eng.questionnaires.length);
         });
     });
 });

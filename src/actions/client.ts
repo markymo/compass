@@ -592,7 +592,6 @@ export async function getClientLEData(leId: string) {
             ).values()
         );
         const engV2 = emptyQuestionStateMetrics();
-        engV2.questionnairesCount = combined.length;
 
         for (const q of combined) {
             (q as any).metrics = await calculateQuestionnaireMetrics((q as any).id);
@@ -617,6 +616,7 @@ export async function getClientLEData(leId: string) {
             (q as any).v2Metrics = qV2;
             rollupQuestionStateMetrics(engV2, qV2);
         }
+        engV2.questionnairesCount = combined.length;
         (eng as any).questionnaires = combined;
         (eng as any).v2Metrics = engV2;
         console.log(`[getClientLEData] Engagement ${eng.org.name} has ${(eng as any).questionnaires.length} ACTIVE questionnaires`);
