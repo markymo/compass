@@ -46,8 +46,13 @@ test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
     });
 
     test.afterAll(async () => {
-        // Repeatable and non-destructive: leave the human-review Superset in place!
-        console.log(`[afterAll] Preserving human-review SUPERSET Working Copy (${targetQuestionnaireId}) for manual inspection.`);
+        if (createdByTest && targetQuestionnaireId) {
+            console.log(`[afterAll] Cleaning up disposable test-created SUPERSET Working Copy (${targetQuestionnaireId}).`);
+            await prisma.question.deleteMany({ where: { questionnaireId: targetQuestionnaireId } });
+            await prisma.questionnaire.delete({ where: { id: targetQuestionnaireId } }).catch(() => null);
+        } else {
+            console.log(`[afterAll] Preserving pre-existing human-review SUPERSET Working Copy (${targetQuestionnaireId}).`);
+        }
         await prisma.$disconnect();
     });
 
