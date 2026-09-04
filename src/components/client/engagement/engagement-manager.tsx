@@ -29,38 +29,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { assignQuestionnaireToEngagement, deleteQuestionnaire } from "@/actions/questionnaire";
 import { getDiscoverableReferenceSnapshotsForOrg } from "@/actions/questionnaires-v2";
 import { ProgressTracker } from "@/components/shared/progress-tracker";
-import { QuestionStateMetricStrip } from "@/components/shared/question-state-metric-strip";
+import { QuestionStateMetricStrip, QuestionStateMetricHeader } from "@/components/shared/question-state-metric-strip";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { usePreferences } from "@/components/providers/user-preferences-provider";
 import { InlineDocumentManager, InlineOutputBuilder, InlineTeamManager } from "./inline-engagement-sections";
 import { RelationshipOverviewSection } from "./relationship-overview-section";
 import { CreateApprovalDialog } from "@/components/client/approvals/create-approval-dialog";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-const DASHBOARD_GRID_V2 = "grid-cols-[minmax(180px,1fr)_340px_230px]";
-
-function MicroChart({ value, total, colorClass, emptyClass, numeratorLabel, denominatorLabel }: { value: number, total: number, colorClass: string, emptyClass: string, numeratorLabel: string, denominatorLabel: string }) {
-    if (total === 0) {
-        return <div className="text-[10px] text-slate-300 h-full w-full flex items-center pr-4 italic">No data</div>;
-    }
-    
-    const percent = Math.min(100, Math.max(0, (value / total) * 100));
-    
-    return (
-        <div className="flex flex-col gap-1 w-full pr-4 mt-0.5">
-            <div className="flex justify-between items-baseline leading-none">
-                <span className={cn("text-xs font-bold font-mono", percent > 0 ? colorClass : "text-slate-300")}>
-                    {value}
-                </span>
-                <span className="text-[9px] text-slate-400 font-medium font-mono uppercase tracking-tighter">
-                    {(total - value)} {denominatorLabel}
-                </span>
-            </div>
-            <div className={cn("h-1 w-full rounded-full overflow-hidden flex", emptyClass)}>
-                <div className={cn("h-full transition-all duration-500")} style={{ width: `${percent}%`, backgroundColor: 'currentColor' }} />
-            </div>
-        </div>
-    );
-}
+const DASHBOARD_GRID_V2 = "grid-cols-[1fr_432px_240px]";
 
 interface EngagementManagerProps {
     leId: string;
@@ -418,30 +394,21 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
             </Dialog>
 
             {engagements.length > 0 ? (
-                <div className="flex flex-col gap-3">
-                    {/* --- Canonical Metric Header Row --- */}
-                    <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-border bg-muted/80 text-foreground rounded-t-md border-x border-t", DASHBOARD_GRID_V2)}>
+                <Card className="overflow-hidden border border-border bg-card shadow-none rounded-xl">
+                    {/* --- Grouped 2-Tier Header Row --- */}
+                    <div className={cn("hidden md:grid items-center px-4 py-2.5 bg-muted/40 border-b border-border text-foreground", DASHBOARD_GRID_V2)}>
                         {/* 1. Entity */}
-                        <div className="flex items-center gap-2 pr-4 pl-1">
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-11">Supplier Relationships</span>
+                        <div className="flex items-center gap-2 pl-7">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Supplier Relationships</span>
                         </div>
 
-                        {/* 2. Canonical Metrics */}
-                        <div className="grid grid-cols-[55px_65px_75px_55px_75px] gap-2 items-center text-right pr-2">
-                            <span className="text-[10px] font-bold text-secondary-foreground uppercase tracking-wider">Total</span>
-                            <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider">External</span>
-                            <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">User Input</span>
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Default</span>
-                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Unanswered</span>
-                        </div>
+                        {/* 2. Grouped Canonical Metrics (Questions & Answers) */}
+                        <QuestionStateMetricHeader />
 
-                        {/* 3. Workflow Group */}
-                        <div className="flex flex-col border-l border-border pl-3 h-full justify-center">
-                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Sign-Off & Actions</span>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase min-w-[28px] text-center">Approved</span>
-                                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase min-w-[28px] text-center">Released</span>
-                            </div>
+                        {/* 3. Status & Actions */}
+                        <div className="flex flex-col gap-1 text-right justify-end pr-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-transparent select-none">Status</span>
+                            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Status / Actions</span>
                         </div>
                     </div>
 
@@ -449,7 +416,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                         type="multiple" 
                         value={expandedEngagements}
                         onValueChange={handleAccordionChange}
-                        className="space-y-3"
+                        className="divide-y divide-border"
                     >
                     {engagements.map((eng: any) => {
                         const orgName = typeof eng.org === 'string' ? eng.org : eng.org?.name;
@@ -461,40 +428,42 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                         const qCount = questionnaires.length || 0;
 
                         return (
-                            <AccordionItem key={eng.id} id={`engagement-${eng.id}`} value={eng.id} className="border border-border rounded-md bg-card text-card-foreground shadow-sm overflow-hidden data-[state=open]:border-indigo-500/50 transition-colors">
-                                <div className="flex items-start justify-between pr-3 hover:bg-muted/50 transition-colors">
-                                    <AccordionPrimitive.Header className="flex flex-1">
-                                        <AccordionPrimitive.Trigger className="flex flex-1 items-center gap-3 px-4 py-3 text-left hover:no-underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/20 [&[data-state=open]>svg]:rotate-90">
-                                            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200" />
-                                            <div className={cn("hidden md:grid items-center w-full text-left", DASHBOARD_GRID_V2)}>
-                                                {/* Col 1: Entity */}
-                                                <div className="flex items-center gap-3 overflow-hidden pr-4">
-                                                    <div className="h-8 w-8 rounded bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center shrink-0 border border-emerald-200/50 dark:border-emerald-800/50">
-                                                        <Building2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                                                    </div>
-                                                    <div className="min-w-0 flex-1">
-                                                        <div className="flex items-center gap-2">
-                                                            <h3 className="font-bold text-[15px] text-foreground truncate">
-                                                                {orgName}
-                                                            </h3>
-                                                            <Badge variant="outline" className={cn(
-                                                                "text-[9px] uppercase font-bold px-1.5 py-0 h-4",
-                                                                eng.status === 'INVITED' ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800" :
-                                                                    "bg-muted text-muted-foreground border-border"
-                                                            )}>
-                                                                {eng.status === 'PREPARATION' ? 'DRAFT' : eng.status}
-                                                            </Badge>
+                            <AccordionItem key={eng.id} id={`engagement-${eng.id}`} value={eng.id} className="border-none bg-card transition-colors">
+                                <div className="flex items-center justify-between hover:bg-muted/30 transition-colors">
+                                    <AccordionPrimitive.Header className="flex flex-1 w-full">
+                                        <div className="flex items-center w-full px-4 py-2.5">
+                                            {/* Desktop View */}
+                                            <div className="hidden md:flex items-center w-full">
+                                                <AccordionPrimitive.Trigger className="flex-1 grid grid-cols-[1fr_432px] items-center text-left hover:no-underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/20 [&[data-state=open]_.chevron-icon]:rotate-90">
+                                                    {/* Col 1: Entity */}
+                                                    <div className="flex items-center gap-3 overflow-hidden pr-4 min-w-0">
+                                                        <ChevronRight className="chevron-icon h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200" />
+                                                        <div className="h-7 w-7 rounded bg-muted text-muted-foreground flex items-center justify-center shrink-0 border border-border/60">
+                                                            <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
                                                         </div>
-                                                        <span className="text-xs text-muted-foreground">Supplier Relationship</span>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <h3 className="font-semibold text-sm text-foreground truncate">
+                                                                    {orgName}
+                                                                </h3>
+                                                                <Badge variant="outline" className={cn(
+                                                                    "text-[9px] uppercase font-semibold px-1.5 py-0 h-4 border-border",
+                                                                    eng.status === 'INVITED' ? "bg-muted text-muted-foreground" :
+                                                                        "bg-muted/40 text-muted-foreground"
+                                                                )}>
+                                                                    {eng.status === 'PREPARATION' ? 'DRAFT' : eng.status}
+                                                                </Badge>
+                                                            </div>
+                                                            <span className="text-[11px] text-muted-foreground">Supplier Relationship</span>
+                                                        </div>
                                                     </div>
-                                                </div>
 
-                                                {/* Col 2: Canonical Metrics */}
-                                                <div className="pr-2">
+                                                    {/* Col 2: Canonical Metrics (Home 54 / 3 aggregate format) */}
                                                     {eng.v2Metrics ? (
                                                         <QuestionStateMetricStrip
                                                             metrics={eng.v2Metrics}
                                                             variant="table-row"
+                                                            showQuestionnairesCount={true}
                                                             linkContext={{
                                                                 leId,
                                                                 relationshipId: eng.id,
@@ -502,88 +471,100 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                             }}
                                                         />
                                                     ) : (
-                                                        <div className="text-center font-bold text-foreground text-[15px]">
+                                                        <div className="text-right font-bold font-mono text-sm text-foreground pr-3">
                                                             {eng.metrics?.total || 0}
                                                         </div>
                                                     )}
-                                                </div>
+                                                </AccordionPrimitive.Trigger>
 
-                                                {/* Col 3: Sign-Off */}
-                                                <div className="border-l border-border pl-3 pr-1 flex items-center justify-between h-full">
-                                                    {eng.metrics && (
-                                                        <div className="flex items-center gap-2 shrink-0">
-                                                            <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
-                                                                <span className={cn("text-[13px] font-bold font-mono", eng.metrics.approved > 0 ? "text-indigo-600 dark:text-indigo-400" : "text-muted-foreground/50")}>{eng.metrics.approved}</span>
-                                                                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Approved</span>
-                                                            </div>
-                                                            <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
-                                                                <span className={cn("text-[13px] font-bold font-mono", eng.metrics.released > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/50")}>{eng.metrics.released}</span>
-                                                                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Released</span>
-                                                            </div>
-                                                        </div>
-                                                    )}
+                                                {/* Col 3: Status & Actions (outside trigger, demoted) */}
+                                                <div className="w-[240px] shrink-0 flex items-center justify-end gap-3 text-right">
+                                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                        <span className={cn("font-mono font-medium", eng.metrics?.approved > 0 ? "text-slate-700 dark:text-zinc-200" : "text-muted-foreground/60")}>
+                                                            {eng.metrics?.approved || 0}
+                                                        </span> Approved · <span className={cn("font-mono font-medium", eng.metrics?.released > 0 ? "text-slate-700 dark:text-zinc-200" : "text-muted-foreground/60")}>
+                                                            {eng.metrics?.released || 0}
+                                                        </span> Released
+                                                    </span>
+                                                    <div className="shrink-0 flex items-center">
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
+                                                                    <MoreVertical className="h-4 w-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuItem
+                                                                    className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+                                                                    onClick={() => handleDelete({ id: eng.id, name: orgName })}
+                                                                >
+                                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                                    Delete Relationship
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </div>
                                                 </div>
                                             </div>
 
                                             {/* Mobile View */}
-                                            <div className="md:hidden flex flex-col text-left w-full gap-3">
-                                                <div className="flex items-center justify-between min-w-0 pr-2">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="h-8 w-8 rounded bg-emerald-50 dark:bg-emerald-950/40 flex items-center justify-center shrink-0">
-                                                            <Building2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                            <div className="md:hidden flex flex-col text-left w-full gap-3 py-1">
+                                                <AccordionPrimitive.Trigger className="flex flex-col text-left w-full gap-3 focus-visible:outline-none">
+                                                    <div className="flex items-center justify-between min-w-0 pr-2">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="h-8 w-8 rounded bg-muted text-muted-foreground flex items-center justify-center shrink-0">
+                                                                <Building2 className="h-4 w-4 text-muted-foreground" />
+                                                            </div>
+                                                            <h3 className="font-semibold text-sm text-foreground truncate">
+                                                                {orgName}
+                                                            </h3>
                                                         </div>
-                                                        <h3 className="font-bold text-base text-foreground truncate">
-                                                            {orgName}
-                                                        </h3>
-                                                    </div>
-                                                    <div className="flex flex-wrap items-center gap-2">
-                                                        <Badge variant="outline" className={cn(
-                                                            "text-[10px] uppercase font-bold px-1.5 py-0",
-                                                            eng.status === 'INVITED' ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800" :
-                                                                "bg-muted text-muted-foreground border-border"
-                                                        )}>
+                                                        <Badge variant="outline" className="text-[9px] uppercase font-semibold px-1.5 py-0 h-4 border-border text-muted-foreground">
                                                             {eng.status === 'PREPARATION' ? 'DRAFT' : eng.status}
                                                         </Badge>
                                                     </div>
+                                                    {eng.v2Metrics ? (
+                                                        <div className="w-full pr-2">
+                                                            <QuestionStateMetricStrip
+                                                                metrics={eng.v2Metrics}
+                                                                variant="card-row"
+                                                                showQuestionnairesCount={true}
+                                                                linkContext={{
+                                                                    leId,
+                                                                    relationshipId: eng.id,
+                                                                    relationshipName: orgName,
+                                                                }}
+                                                                className="w-full bg-muted/40 p-2 rounded"
+                                                            />
+                                                        </div>
+                                                    ) : eng.metrics ? (
+                                                        <div className="w-full pr-2">
+                                                            <ProgressTracker metrics={eng.metrics} variant={"v2" as any} className="w-full bg-muted/50" />
+                                                        </div>
+                                                    ) : null}
+                                                </AccordionPrimitive.Trigger>
+                                                <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                                                    <span>{eng.metrics?.approved || 0} Approved · {eng.metrics?.released || 0} Released</span>
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground">
+                                                                <MoreVertical className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem
+                                                                className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+                                                                onClick={() => handleDelete({ id: eng.id, name: orgName })}
+                                                            >
+                                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                                Delete Relationship
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
                                                 </div>
-                                                {eng.v2Metrics ? (
-                                                    <div className="w-full pr-2">
-                                                        <QuestionStateMetricStrip
-                                                            metrics={eng.v2Metrics}
-                                                            variant="card-row"
-                                                            linkContext={{
-                                                                leId,
-                                                                relationshipId: eng.id,
-                                                                relationshipName: orgName,
-                                                            }}
-                                                            className="w-full bg-muted/40 p-2 rounded"
-                                                        />
-                                                    </div>
-                                                ) : eng.metrics ? (
-                                                    <div className="w-full pr-2">
-                                                        <ProgressTracker metrics={eng.metrics} variant={"v2" as any} className="w-full bg-muted/50" />
-                                                    </div>
-                                                ) : null}
                                             </div>
-                                        </AccordionPrimitive.Trigger>
+                                        </div>
                                     </AccordionPrimitive.Header>
-                                    
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground mt-3">
-                                                <MoreVertical className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem
-                                                className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
-                                                onClick={() => handleDelete({ id: eng.id, name: orgName })}
-                                            >
-                                                <Trash2 className="mr-2 h-4 w-4" />
-                                                Delete Relationship
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
                                 </div>
 
                                 <AccordionContent className="border-t border-border bg-card text-card-foreground pb-2 pt-0 px-0">
@@ -675,141 +656,156 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                             </Popover>
                                                         </div>
                                                     </AccordionPrimitive.Header>
-                                                    <AccordionContent className="pl-7 sm:pl-9 pr-4 py-3 border-t border-border bg-card text-card-foreground">
+                                                    <AccordionContent className="px-4 py-2 border-t border-border bg-card text-card-foreground">
                                                         {qCount > 0 ? (
                                                             <div className="divide-y divide-border">
                                                                 {questionnaires.map((q: any) => (
-                                                                    <div key={q.id} className="py-2.5 hover:bg-muted/60 transition-colors group/card">
-                                                                        <div className={cn("hidden md:grid items-center gap-2", DASHBOARD_GRID_V2)}>
-                                                                            {/* Col 1: Name */}
-                                                                            <div className="flex items-center gap-3 overflow-hidden pr-4 pl-2">
+                                                                    <div key={q.id} className="py-2.5 hover:bg-muted/40 transition-colors group/card">
+                                                                        <div className={cn("hidden md:grid items-center", DASHBOARD_GRID_V2)}>
+                                                                            {/* Col 1: Questionnaire Name + Ref (indented pl-7) */}
+                                                                            <div className="flex items-center gap-3 overflow-hidden min-w-0 pl-7 pr-4">
                                                                                 <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                                                                                <div className="min-w-0 flex-1">
+                                                                                <div className="min-w-0 flex-1 flex flex-col">
                                                                                     <div className="flex items-center gap-2">
-                                                                                        <div className="flex flex-col">
-                                                                                            <span className="font-medium text-[13.5px] text-foreground truncate group-hover/card:text-indigo-600 dark:group-hover/card:text-indigo-400 transition-colors" title={q.name}>{q.name}</span>
-                                                                                            {q.referenceCode && <span className="text-[10px] text-muted-foreground font-mono tracking-tight">{q.referenceCode}</span>}
-                                                                                        </div>
+                                                                                        <span className="font-medium text-sm text-foreground truncate group-hover/card:text-indigo-600 dark:group-hover/card:text-indigo-400 transition-colors" title={q.name}>
+                                                                                            {q.name}
+                                                                                        </span>
                                                                                         {q.status === 'DIGITIZING' && (
                                                                                             <Badge variant="outline" className="w-fit text-[9px] h-[16px] py-0 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 animate-pulse">
                                                                                                 Digitizing
                                                                                             </Badge>
                                                                                         )}
                                                                                     </div>
+                                                                                    {q.referenceCode && (
+                                                                                        <span className="text-[10px] text-muted-foreground font-mono tracking-tight">
+                                                                                            {q.referenceCode}
+                                                                                        </span>
+                                                                                    )}
                                                                                 </div>
                                                                             </div>
 
-                                                                            {/* Col 2: Canonical Metrics */}
-                                                                            <div className="pr-2">
-                                                                                {q.v2Metrics ? (
-                                                                                    <QuestionStateMetricStrip
-                                                                                        metrics={q.v2Metrics}
-                                                                                        variant="table-row"
-                                                                                        linkContext={{
-                                                                                            leId,
-                                                                                            relationshipId: eng.id,
-                                                                                            questionnaireId: q.id,
-                                                                                            relationshipName: orgName,
-                                                                                            questionnaireName: q.name,
-                                                                                        }}
-                                                                                    />
-                                                                                ) : (
-                                                                                    <div className="text-center font-bold text-foreground text-[14px]">
-                                                                                        {q.metrics?.total || 0}
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
+                                                                            {/* Col 2: Canonical Metrics (Home 5-part block, single question count, no / 1) */}
+                                                                            {q.v2Metrics ? (
+                                                                                <QuestionStateMetricStrip
+                                                                                    metrics={q.v2Metrics}
+                                                                                    variant="table-row"
+                                                                                    showQuestionnairesCount={false}
+                                                                                    linkContext={{
+                                                                                        leId,
+                                                                                        relationshipId: eng.id,
+                                                                                        questionnaireId: q.id,
+                                                                                        relationshipName: orgName,
+                                                                                        questionnaireName: q.name,
+                                                                                    }}
+                                                                                />
+                                                                            ) : (
+                                                                                <div className="text-right font-bold font-mono text-sm text-foreground pr-3">
+                                                                                    {q.metrics?.total || 0}
+                                                                                </div>
+                                                                            )}
 
-                                                                             {/* Col 3: Sign-Off & Action */}
-                                                                             <div className="border-l border-border pl-3 pr-1 flex items-center justify-between h-full">
-                                                                                 {q.metrics && (
-                                                                                     <div className="flex items-center gap-2 shrink-0">
-                                                                                         <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
-                                                                                             <span className={cn("text-[13px] font-bold font-mono", q.metrics.approved > 0 ? "text-indigo-600 dark:text-indigo-400" : "text-muted-foreground/50")}>{q.metrics.approved}</span>
-                                                                                             <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Approved</span>
-                                                                                         </div>
-                                                                                         <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
-                                                                                             <span className={cn("text-[13px] font-bold font-mono", q.metrics.released > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-muted-foreground/50")}>{q.metrics.released}</span>
-                                                                                             <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Released</span>
-                                                                                         </div>
-                                                                                     </div>
-                                                                                 )}
-                                                                                 <div className="shrink-0 flex items-center gap-1 pl-2">
-                                                                                     {confirmRemoveId === q.id ? (
-                                                                                         <div className="flex items-center gap-1 animate-in fade-in zoom-in duration-200">
-                                                                                             <Button 
-                                                                                                 variant="ghost" 
-                                                                                                 size="sm"
-                                                                                                 onClick={() => handleRemoveQuestionnaire(eng.id, q.id, q.name)}
-                                                                                                 className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 h-7 px-2 text-xs"
-                                                                                                 disabled={isRemoving === q.id}
-                                                                                             >
-                                                                                                 {isRemoving === q.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Yes"}
-                                                                                             </Button>
-                                                                                             <Button 
-                                                                                                 variant="ghost" 
-                                                                                                 size="sm"
-                                                                                                 onClick={() => setConfirmRemoveId(null)}
-                                                                                                 className="text-muted-foreground hover:text-foreground hover:bg-muted h-7 px-2 text-xs"
-                                                                                                 disabled={isRemoving === q.id}
-                                                                                             >
-                                                                                                 No
-                                                                                             </Button>
-                                                                                         </div>
-                                                                                     ) : (
-                                                                                         <>
-                                                                                             <Button
-                                                                                                 variant="ghost"
-                                                                                                 size="sm"
-                                                                                                 onClick={() => setApprovalTarget({ relationshipId: eng.id, questionnaireId: q.id })}
-                                                                                                 className="h-7 text-xs text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 px-2 flex items-center gap-1 font-medium shrink-0"
-                                                                                                 title="Approve Questionnaire"
-                                                                                             >
-                                                                                                 <ShieldCheck className="h-3.5 w-3.5" />
-                                                                                                 Approve
-                                                                                             </Button>
-                                                                                             <Link 
-                                                                                                 href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(orgName || "Unknown")}&q=${encodeURIComponent(q.name)}`}
-                                                                                                 className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                                                                                                 title="Review questionnaire"
-                                                                                             >
-                                                                                                 <ArrowUpRight className="h-4 w-4" />
-                                                                                             </Link>
-                                                                                             <Button 
-                                                                                                 variant="ghost" 
-                                                                                                 size="icon" 
-                                                                                                 className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
-                                                                                                 onClick={() => setConfirmRemoveId(q.id)}
-                                                                                                 title="Remove Questionnaire"
-                                                                                             >
-                                                                                                 <Trash2 className="h-4 w-4" />
-                                                                                             </Button>
-                                                                                         </>
-                                                                                     )}
-                                                                                 </div>
-                                                                             </div>
+                                                                            {/* Col 3: Status & Actions (demoted, outside metric block) */}
+                                                                            <div className="flex items-center justify-end gap-3 text-right">
+                                                                                <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                                                    <span className={cn("font-mono font-medium", q.metrics?.approved > 0 ? "text-slate-700 dark:text-zinc-200" : "text-muted-foreground/60")}>
+                                                                                        {q.metrics?.approved || 0}
+                                                                                    </span> Approved · <span className={cn("font-mono font-medium", q.metrics?.released > 0 ? "text-slate-700 dark:text-zinc-200" : "text-muted-foreground/60")}>
+                                                                                        {q.metrics?.released || 0}
+                                                                                    </span> Released
+                                                                                </span>
+                                                                                <div className="shrink-0 flex items-center gap-1">
+                                                                                    {confirmRemoveId === q.id ? (
+                                                                                        <div className="flex items-center gap-1 animate-in fade-in zoom-in duration-200">
+                                                                                            <Button 
+                                                                                                variant="ghost" 
+                                                                                                size="sm" 
+                                                                                                onClick={() => handleRemoveQuestionnaire(eng.id, q.id, q.name)} 
+                                                                                                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 h-7 px-2 text-xs" 
+                                                                                                disabled={isRemoving === q.id}
+                                                                                            >
+                                                                                                {isRemoving === q.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Yes"}
+                                                                                            </Button>
+                                                                                            <Button 
+                                                                                                variant="ghost" 
+                                                                                                size="sm" 
+                                                                                                onClick={() => setConfirmRemoveId(null)} 
+                                                                                                className="text-muted-foreground hover:text-foreground hover:bg-muted h-7 px-2 text-xs" 
+                                                                                                disabled={isRemoving === q.id}
+                                                                                            >
+                                                                                                No
+                                                                                            </Button>
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <>
+                                                                                            <Button
+                                                                                                variant="ghost"
+                                                                                                size="sm"
+                                                                                                onClick={() => setApprovalTarget({ relationshipId: eng.id, questionnaireId: q.id })}
+                                                                                                className="h-7 text-xs text-muted-foreground hover:text-foreground px-2 flex items-center gap-1 font-medium shrink-0"
+                                                                                                title="Approve Questionnaire"
+                                                                                            >
+                                                                                                <ShieldCheck className="h-3.5 w-3.5" />
+                                                                                                Approve
+                                                                                            </Button>
+                                                                                            <Link 
+                                                                                                href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(orgName || "Unknown")}&q=${encodeURIComponent(q.name)}`}
+                                                                                                className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                                                                                                title="Review questionnaire"
+                                                                                            >
+                                                                                                <ArrowUpRight className="h-4 w-4" />
+                                                                                            </Link>
+                                                                                            <Button 
+                                                                                                variant="ghost" 
+                                                                                                size="icon" 
+                                                                                                className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                                                                                                onClick={() => setConfirmRemoveId(q.id)}
+                                                                                                title="Remove Questionnaire"
+                                                                                            >
+                                                                                                <Trash2 className="h-4 w-4" />
+                                                                                            </Button>
+                                                                                        </>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
                                                                         </div>
                                                                         {/* Mobile View */}
-                                                                        <div className="md:hidden flex flex-col gap-3">
-                                                                            <div className="flex items-center gap-3 pr-4 pl-2">
-                                                                                <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                                                                                <div className="min-w-0 flex-1">
-                                                                                    <div className="flex items-center justify-between w-full">
-                                                                                        <span className="font-medium text-[13.5px] text-foreground truncate transition-colors">{q.name}</span>
-                                                                                        <div className="shrink-0">
-                                                                                            {confirmRemoveId === q.id ? (
-                                                                                                <div className="flex items-center gap-1">
-                                                                                                    <Button variant="ghost" size="sm" onClick={() => handleRemoveQuestionnaire(eng.id, q.id, q.name)} className="text-red-600 h-6 px-2 text-xs" disabled={isRemoving === q.id}>Yes</Button>
-                                                                                                    <Button variant="ghost" size="sm" onClick={() => setConfirmRemoveId(null)} className="text-muted-foreground h-6 px-2 text-xs" disabled={isRemoving === q.id}>No</Button>
-                                                                                                </div>
-                                                                                            ) : (
-                                                                                                <div className="flex items-center gap-1">
-                                                                                                    <Link href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(orgName || "Unknown")}&q=${encodeURIComponent(q.name)}`} className="h-6 w-6 inline-flex items-center justify-center rounded-md text-muted-foreground"><ArrowUpRight className="h-3 w-3" /></Link>
-                                                                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={() => setConfirmRemoveId(q.id)}><Trash2 className="h-3 w-3" /></Button>
-                                                                                                </div>
-                                                                                            )}
-                                                                                        </div>
+                                                                        <div className="md:hidden flex flex-col gap-3 py-1">
+                                                                            <div className="flex items-center justify-between gap-3">
+                                                                                <div className="flex items-center gap-3 min-w-0">
+                                                                                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                                                                                    <div className="flex flex-col gap-0.5 min-w-0">
+                                                                                        <span className="font-medium text-sm text-foreground truncate">{q.name}</span>
+                                                                                        {q.referenceCode && (
+                                                                                            <span className="text-[10px] text-muted-foreground font-mono">{q.referenceCode}</span>
+                                                                                        )}
                                                                                     </div>
+                                                                                </div>
+                                                                                <div className="shrink-0 flex items-center gap-1">
+                                                                                    {confirmRemoveId === q.id ? (
+                                                                                        <div className="flex items-center gap-1">
+                                                                                            <Button variant="ghost" size="sm" onClick={() => handleRemoveQuestionnaire(eng.id, q.id, q.name)} className="text-red-600 h-6 px-2 text-xs" disabled={isRemoving === q.id}>Yes</Button>
+                                                                                            <Button variant="ghost" size="sm" onClick={() => setConfirmRemoveId(null)} className="text-muted-foreground h-6 px-2 text-xs" disabled={isRemoving === q.id}>No</Button>
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <>
+                                                                                            <Button
+                                                                                                variant="ghost"
+                                                                                                size="sm"
+                                                                                                onClick={() => setApprovalTarget({ relationshipId: eng.id, questionnaireId: q.id })}
+                                                                                                className="h-7 text-xs text-muted-foreground hover:text-foreground px-2 flex items-center gap-1 font-medium shrink-0"
+                                                                                                title="Approve Questionnaire"
+                                                                                            >
+                                                                                                <ShieldCheck className="h-3.5 w-3.5" />
+                                                                                                Approve
+                                                                                            </Button>
+                                                                                            <Link href={`/app/le/${leId}/workbench4?rel=${encodeURIComponent(orgName || "Unknown")}&q=${encodeURIComponent(q.name)}`} className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0">
+                                                                                                <ArrowUpRight className="h-4 w-4" />
+                                                                                            </Link>
+                                                                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0" onClick={() => setConfirmRemoveId(q.id)}>
+                                                                                                <Trash2 className="h-4 w-4" />
+                                                                                            </Button>
+                                                                                        </>
+                                                                                    )}
                                                                                 </div>
                                                                             </div>
                                                                             {q.v2Metrics ? (
@@ -828,6 +824,9 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                             ) : q.metrics ? (
                                                                                 <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-muted/50" />
                                                                             ) : null}
+                                                                            <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                                                                                <span>{q.metrics?.approved || 0} Approved · {q.metrics?.released || 0} Released</span>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 ))}
@@ -900,7 +899,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                         );
                     })}
                     </Accordion>
-                </div>
+                </Card>
             ) : (
                 !isAdding && (
                     <div className="text-center py-20 bg-card text-card-foreground rounded-md border-2 border-dashed border-border">

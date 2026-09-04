@@ -16,19 +16,44 @@ export type QuestionStateLinkContext = {
 export interface QuestionStateMetricStripProps {
     metrics?: QuestionStateMetrics;
     variant?: "header" | "card-row" | "table-row";
+    showQuestionnairesCount?: boolean;
     linkContext?: QuestionStateLinkContext;
     disableLinks?: boolean;
     className?: string;
 }
 
+export function QuestionStateMetricHeader({ className }: { className?: string }) {
+    return (
+        <div className={cn("flex flex-col gap-1 shrink-0", className)} data-testid="question-state-metric-header-grouped">
+            {/* Tier 1: Group Headers */}
+            <div className="grid grid-cols-[80px_344px] gap-2 text-[10px] font-bold uppercase tracking-wider">
+                <span className="text-right pr-3 border-r border-border text-foreground">Questions</span>
+                <span className="text-center text-muted-foreground border-b border-border pb-0.5">Answers</span>
+            </div>
+
+            {/* Tier 2: Sub-column Labels */}
+            <div className="grid grid-cols-[80px_80px_80px_75px_85px] gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider items-center text-right">
+                <div className="pr-3 border-r border-border justify-end flex">
+                    <span className="font-bold text-foreground">Total</span>
+                </div>
+                <span>External</span>
+                <span>User Input</span>
+                <span>Default</span>
+                <span>Unanswered</span>
+            </div>
+        </div>
+    );
+}
+
 export function QuestionStateMetricStrip({
     metrics = { questionnairesCount: 0, total: 0, external: 0, userInput: 0, defaultResponse: 0, unanswered: 0 },
     variant = "header",
+    showQuestionnairesCount = false,
     linkContext,
     disableLinks = false,
     className,
 }: QuestionStateMetricStripProps) {
-    const { total, external, userInput, defaultResponse, unanswered } = metrics;
+    const { questionnairesCount = 0, total, external, userInput, defaultResponse, unanswered } = metrics;
 
     const buildHref = (answerState?: "external" | "user_input" | "default_response" | "unanswered") => {
         if (disableLinks || !linkContext?.leId) return undefined;
@@ -90,17 +115,53 @@ export function QuestionStateMetricStrip({
         return <span className={textClass}>{val}</span>;
     };
 
+    const renderTotalCell = () => {
+        const hasQuestionnairesCount = showQuestionnairesCount && questionnairesCount > 0;
+
+        const content = hasQuestionnairesCount ? (
+            <span className="inline-flex items-baseline justify-end gap-0.5">
+                <span className="text-sm font-bold font-mono text-slate-900 dark:text-slate-100">{total}</span>
+                <span className="text-xs font-mono text-slate-400">/</span>
+                <span className="text-xs font-medium font-mono text-slate-500 dark:text-zinc-400">{questionnairesCount}</span>
+            </span>
+        ) : (
+            renderCell(total, undefined, { isTotal: true })
+        );
+
+        const href = buildHref(undefined);
+        if (href && hasQuestionnairesCount) {
+            return (
+                <Link
+                    href={href}
+                    className="hover:underline focus:outline-none hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                    data-testid="metric-link-total"
+                >
+                    {content}
+                </Link>
+            );
+        }
+
+        return content;
+    };
+
     if (variant === "table-row") {
         return (
             <div
                 data-testid="question-state-metric-table-row"
-                className={cn("grid grid-cols-[55px_65px_75px_55px_75px] gap-2 items-center text-right text-xs", className)}
+                className={cn("grid grid-cols-[80px_80px_80px_75px_85px] gap-2 items-center text-right shrink-0", className)}
             >
-                <div>{renderCell(total, undefined, { isTotal: true })}</div>
-                <div>{renderCell(external, "external", { colorClass: "font-mono text-sky-600 dark:text-sky-400" })}</div>
-                <div>{renderCell(userInput, "user_input", { colorClass: "font-mono text-indigo-600 dark:text-indigo-400" })}</div>
+                {/* 1. Total (with right separator matching Home) */}
+                <div className="pr-3 border-r border-slate-200/80 dark:border-zinc-700/80">
+                    {renderTotalCell()}
+                </div>
+                {/* 2. External */}
+                <div>{renderCell(external, "external")}</div>
+                {/* 3. User Input */}
+                <div>{renderCell(userInput, "user_input")}</div>
+                {/* 4. Default */}
                 <div>{renderCell(defaultResponse, "default_response")}</div>
-                <div>{renderCell(unanswered, "unanswered", { colorClass: "font-mono text-amber-600 dark:text-amber-400 font-semibold" })}</div>
+                {/* 5. Unanswered */}
+                <div>{renderCell(unanswered, "unanswered")}</div>
             </div>
         );
     }
@@ -113,15 +174,15 @@ export function QuestionStateMetricStrip({
             >
                 <div className="flex items-center gap-1.5 pr-3 border-r border-slate-200 dark:border-zinc-800">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Total</span>
-                    <span className="text-sm">{renderCell(total, undefined, { isTotal: true })}</span>
+                    <span className="text-sm">{renderTotalCell()}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500">External</span>
-                    <span className="text-xs">{renderCell(external, "external", { colorClass: "text-sky-600 dark:text-sky-400 font-bold" })}</span>
+                    <span className="text-xs">{renderCell(external, "external")}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500">User Input</span>
-                    <span className="text-xs">{renderCell(userInput, "user_input", { colorClass: "text-indigo-600 dark:text-indigo-400 font-bold" })}</span>
+                    <span className="text-xs">{renderCell(userInput, "user_input")}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Default</span>
@@ -129,7 +190,7 @@ export function QuestionStateMetricStrip({
                 </div>
                 <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Unanswered</span>
-                    <span className="text-xs">{renderCell(unanswered, "unanswered", { colorClass: "text-amber-600 dark:text-amber-400 font-bold" })}</span>
+                    <span className="text-xs">{renderCell(unanswered, "unanswered")}</span>
                 </div>
             </div>
         );
@@ -150,7 +211,7 @@ export function QuestionStateMetricStrip({
                     Total
                 </span>
                 <span className="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono leading-none">
-                    {renderCell(total, undefined, { isTotal: true })}
+                    {renderTotalCell()}
                 </span>
             </div>
 
@@ -160,7 +221,7 @@ export function QuestionStateMetricStrip({
                     External
                 </span>
                 <span className="text-lg font-bold font-mono leading-none">
-                    {renderCell(external, "external", { colorClass: "text-sky-600 dark:text-sky-400" })}
+                    {renderCell(external, "external")}
                 </span>
             </div>
 
@@ -170,7 +231,7 @@ export function QuestionStateMetricStrip({
                     User Input
                 </span>
                 <span className="text-lg font-bold font-mono leading-none">
-                    {renderCell(userInput, "user_input", { colorClass: "text-indigo-600 dark:text-indigo-400" })}
+                    {renderCell(userInput, "user_input")}
                 </span>
             </div>
 
@@ -190,7 +251,7 @@ export function QuestionStateMetricStrip({
                     Unanswered
                 </span>
                 <span className="text-lg font-bold font-mono leading-none">
-                    {renderCell(unanswered, "unanswered", { colorClass: "text-amber-600 dark:text-amber-400 font-semibold" })}
+                    {renderCell(unanswered, "unanswered")}
                 </span>
             </div>
         </div>
