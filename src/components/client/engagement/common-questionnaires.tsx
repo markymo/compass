@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 import { CreateApprovalDialog } from "@/components/client/approvals/create-approval-dialog";
 
-const DASHBOARD_GRID_V2 = "grid-cols-[1fr_432px_240px]";
+const DASHBOARD_GRID_V2 = "grid-cols-[1fr_432px_300px] gap-4";
 
 interface CommonQuestionnairesProps {
     leId: string;
