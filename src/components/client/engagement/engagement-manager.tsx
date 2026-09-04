@@ -36,7 +36,7 @@ import { InlineDocumentManager, InlineOutputBuilder, InlineTeamManager } from ".
 import { RelationshipOverviewSection } from "./relationship-overview-section";
 import { CreateApprovalDialog } from "@/components/client/approvals/create-approval-dialog";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-const DASHBOARD_GRID_V2 = "grid-cols-[1fr_432px_240px]";
+const DASHBOARD_GRID_V2 = "grid-cols-[1fr_432px_300px] gap-4";
 
 interface EngagementManagerProps {
     leId: string;
@@ -432,9 +432,9 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                 <div className="flex items-center justify-between hover:bg-muted/30 transition-colors">
                                     <AccordionPrimitive.Header className="flex flex-1 w-full">
                                         <div className="flex items-center w-full px-4 py-2.5">
-                                            {/* Desktop View */}
-                                            <div className="hidden md:flex items-center w-full">
-                                                <AccordionPrimitive.Trigger className="flex-1 grid grid-cols-[1fr_432px] items-center text-left hover:no-underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/20 [&[data-state=open]_.chevron-icon]:rotate-90">
+                                             {/* Desktop View */}
+                                            <div className="hidden md:flex items-center w-full gap-4">
+                                                <AccordionPrimitive.Trigger className="flex-1 grid grid-cols-[1fr_432px] gap-4 items-center text-left hover:no-underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/20 [&[data-state=open]_.chevron-icon]:rotate-90">
                                                     {/* Col 1: Entity */}
                                                     <div className="flex items-center gap-3 overflow-hidden pr-4 min-w-0">
                                                         <ChevronRight className="chevron-icon h-4 w-4 text-muted-foreground shrink-0 transition-transform duration-200" />
@@ -478,7 +478,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                 </AccordionPrimitive.Trigger>
 
                                                 {/* Col 3: Status & Actions (outside trigger, demoted) */}
-                                                <div className="w-[240px] shrink-0 flex items-center justify-end gap-3 text-right">
+                                                <div className="w-[300px] shrink-0 flex items-center justify-end gap-3 text-right">
                                                     <span className="text-xs text-muted-foreground whitespace-nowrap">
                                                         <span className={cn("font-mono font-medium", eng.metrics?.approved > 0 ? "text-slate-700 dark:text-zinc-200" : "text-muted-foreground/60")}>
                                                             {eng.metrics?.approved || 0}
