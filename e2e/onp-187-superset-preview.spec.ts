@@ -12,27 +12,18 @@ test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
     let targetQuestionnaireId: string;
     let createdByTest = false;
     let activeFieldCount = 0;
-    let representativeFields: Array<{ fieldNo: number; fieldName: string; position: 'early' | 'middle' | 'late' }> = [];
+    let activeFields: Array<{ fieldNo: number; fieldName: string }> = [];
 
     test.beforeAll(async () => {
         // Query active master fields from the target database
-        const activeFields = await prisma.masterFieldDefinition.findMany({
+        activeFields = await prisma.masterFieldDefinition.findMany({
             where: { isActive: true },
             orderBy: { fieldNo: 'asc' },
             select: { fieldNo: true, fieldName: true }
         });
         activeFieldCount = activeFields.length;
+        console.log(`[beforeAll] Active field count on target database: ${activeFieldCount}`);
         expect(activeFieldCount).toBeGreaterThan(0);
-
-        const earlyField = activeFields[0];
-        const midField = activeFields[Math.floor(activeFields.length / 2)];
-        const lateField = activeFields[activeFields.length - 1];
-
-        representativeFields = [
-            { ...earlyField, position: 'early' },
-            { ...midField, position: 'middle' },
-            { ...lateField, position: 'late' },
-        ];
 
         // Check for existing SUPERSET Working Copy (non-destructive hygiene)
         const existing = await prisma.questionnaire.findFirst({
@@ -97,7 +88,8 @@ test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
             targetQuestionnaireId = urlMatch![1];
             console.log(`[UI Flow] Generated Superset Working Copy with ID: ${targetQuestionnaireId}`);
         } else {
-            // Case B: Existing Superset - verify "Open Superset" button and click it
+            // Case B: Existing Superset - verify active count badge and "Open Superset" button
+            await expect(page.getByText(`${activeFieldCount} active fields`)).toBeVisible({ timeout: 10000 });
             const openButton = page.getByRole('button', { name: /open superset/i });
             await expect(openButton).toBeVisible({ timeout: 10000 });
             await openButton.click();
@@ -108,33 +100,105 @@ test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
         await expect(page.locator('input[placeholder="Questionnaire Name"]')).toBeVisible({ timeout: 20000 });
         await expect(page.locator('input[placeholder="Questionnaire Name"]')).toHaveValue(/SUPERSET_UNPUBLISHED_ONPRO_/);
 
-        // 5. Verify question count matches active field count
+        // 5. Verify total question count displayed in Mapper header matches active field count
         await expect(page.getByText(`${activeFieldCount} Questions`).first()).toBeVisible({ timeout: 15000 });
 
-        // 6. Strengthened Representative Mapping Assertions (Early, Middle, Late)
+        // 6. Verify first questions in Questionnaire Mapper match canonical Master Record sequence:
+        // 1. [3] Legal name
+        // 2. [5] Previous legal names
+        // 3. [4] Trading names
+        const questionRows = page.locator('div.h-12.border-b.border-slate-100.group.cursor-pointer');
+        await expect(questionRows.first()).toBeVisible({ timeout: 15000 });
+
+        const firstRow = questionRows.nth(0);
+        await expect(firstRow.locator('span.tabular-nums')).toHaveText('1');
+        await expect(firstRow.locator('span.truncate').first()).toContainText('Legal name');
+
+        const secondRow = questionRows.nth(1);
+        await expect(secondRow.locator('span.tabular-nums')).toHaveText('2');
+        await expect(secondRow.locator('span.truncate').first()).toContainText('Previous legal names');
+
+        const thirdRow = questionRows.nth(2);
+        await expect(thirdRow.locator('span.tabular-nums')).toHaveText('3');
+        await expect(thirdRow.locator('span.truncate').first()).toContainText('Trading names');
+
+        // 7. Verify Database Question rows for complete membership, ordering, and absence of duplicates
+        const dbQuestions = await prisma.question.findMany({
+            where: { questionnaireId: targetQuestionnaireId },
+            orderBy: { order: 'asc' }
+        });
+
+        // 7a. Exact count matches activeFieldCount
+        expect(dbQuestions.length).toBe(activeFieldCount);
+
+        // 7b. Sequential Question.order = 1..activeFieldCount
+        for (let i = 0; i < dbQuestions.length; i++) {
+            expect(dbQuestions[i].order).toBe(i + 1);
+        }
+
+        // 7c. No duplicates: activeFieldCount unique masterFieldNos
+        const dbFieldNos = dbQuestions.map(q => q.masterFieldNo);
+        const uniqueFieldNos = new Set(dbFieldNos);
+        expect(uniqueFieldNos.size).toBe(activeFieldCount);
+
+        // 7d. Complete active Master Field membership: zero omissions
+        const activeFieldNos = new Set(activeFields.map(f => f.fieldNo));
+        expect(uniqueFieldNos).toEqual(activeFieldNos);
+
+        // 7e. First questions in DB match canonical Master Record sequence
+        expect(dbQuestions[0].masterFieldNo).toBe(3); // Legal name
+        expect(dbQuestions[1].masterFieldNo).toBe(5); // Previous legal names
+        expect(dbQuestions[2].masterFieldNo).toBe(4); // Trading names
+
+        // 7f. Representative later-category fields follow Master Record relative ordering:
+        // Cat 1 (Identity): Field 3
+        // Cat 2 (Registration): Field 134 (Country of formation)
+        // Cat 3 (Ownership & control): Field 74 (Ownership structure chart)
+        // Cat 12 (LEI): Field 2 (LEI)
+        // Cat 18 (SSI): Field 116 (SSI 1 Currency)
+        // Cat 19 (ZZ): Field 202 (TEST ORG)
+        // Residual inactive-category: Field 121 (temp field)
+        const orderLegalName = dbQuestions.find(q => q.masterFieldNo === 3)!.order;
+        const orderFormation = dbQuestions.find(q => q.masterFieldNo === 134)!.order;
+        const orderOwnership = dbQuestions.find(q => q.masterFieldNo === 74)!.order;
+        const orderLEI = dbQuestions.find(q => q.masterFieldNo === 2)!.order;
+        const orderSSI = dbQuestions.find(q => q.masterFieldNo === 116)!.order;
+        const orderZZ = dbQuestions.find(q => q.masterFieldNo === 202)!.order;
+        const orderField121 = dbQuestions.find(q => q.masterFieldNo === 121)!.order;
+
+        expect(orderLegalName).toBeLessThan(orderFormation);
+        expect(orderFormation).toBeLessThan(orderOwnership);
+        expect(orderOwnership).toBeLessThan(orderLEI);
+        expect(orderLEI).toBeLessThan(orderSSI);
+        expect(orderSSI).toBeLessThan(orderZZ);
+        expect(orderZZ).toBeLessThan(orderField121);
+
+        // 7g. Residual Field 121 remains present after all Master Record sequence fields
+        expect(orderField121).toBe(activeFieldCount);
+        expect(dbQuestions[activeFieldCount - 1].masterFieldNo).toBe(121);
+        expect(dbQuestions[activeFieldCount - 1].text).toBe('temp field');
+
+        // 8. Verify representative fields and residual Field 121 in Mapper filter UI
         const searchInput = page.locator('input[placeholder="Filter questions..."]');
         await expect(searchInput).toBeVisible({ timeout: 15000 });
 
-        for (const rep of representativeFields) {
-            console.log(`[mapping-check] Verifying ${rep.position} field [${rep.fieldNo}] "${rep.fieldName}"`);
+        const fieldsToInspect = [
+            { fieldNo: 3, label: 'Legal name', expectedPosition: 'early' },
+            { fieldNo: 2, label: 'LEI', expectedPosition: 'mid' },
+            { fieldNo: 121, label: 'temp field', expectedPosition: 'residual' },
+        ];
 
-            // Filter questions by field name
-            await searchInput.fill(rep.fieldName.slice(0, 20));
+        for (const f of fieldsToInspect) {
+            console.log(`[filter-ui-check] Verifying ${f.expectedPosition} field [${f.fieldNo}] "${f.label}" in Mapper`);
+            await searchInput.fill(f.label);
             await page.waitForTimeout(600);
 
-            // Locate question row in table
-            const questionRow = page.locator('div.group.cursor-pointer').filter({
-                hasText: rep.fieldName.slice(0, 25)
-            }).first();
-            await expect(questionRow).toBeVisible({ timeout: 10000 });
+            const row = page.locator('div.group.cursor-pointer').filter({ hasText: f.label }).first();
+            await expect(row).toBeVisible({ timeout: 10000 });
+            await expect(row.locator('text=Mapped')).toBeVisible({ timeout: 5000 });
 
-            // Assert question visibly resolves its expected Master Field mapping in the table
-            const mappedBadge = questionRow.locator('text=Mapped');
-            await expect(mappedBadge).toBeVisible({ timeout: 5000 });
-            await expect(questionRow.getByText(rep.fieldName.slice(0, 25)).first()).toBeVisible({ timeout: 5000 });
-
-            // Click question label to inspect mapping in detail sheet (avoid clicking mapping dropdown)
-            await questionRow.locator('span.truncate').first().click();
+            // Click row to inspect detail mapping sheet
+            await row.locator('span.truncate').first().click();
             const detailSheet = page.locator('[role="dialog"]').filter({ hasText: 'Map to Data Field' });
             await expect(detailSheet).toBeVisible({ timeout: 5000 });
             await expect(detailSheet.getByText('Mapped to Standard Field')).toBeVisible({ timeout: 5000 });
@@ -144,7 +208,7 @@ test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
             await expect(detailSheet).toBeHidden({ timeout: 5000 });
             await page.waitForTimeout(200);
 
-            // Clear search filter
+            // Clear filter
             await searchInput.fill('');
             await page.waitForTimeout(300);
         }
@@ -152,20 +216,20 @@ test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
         // Screenshot 1: Editor view with mapped questions
         await page.screenshot({ path: path.join(ARTIFACT_DIR, 'preview-editor.png') });
 
-        // 7. Navigate back to Working Copies tab
+        // 9. Navigate back to Working Copies tab
         await page.goto('/app/admin/questionnaires-v2?tab=working-copy', { waitUntil: 'networkidle' });
 
-        // 8. Verify the Superset row is visible in the table
+        // 10. Verify the Superset row is visible in the table
         const supersetRow = page.locator('tr[role="button"]', { hasText: 'SUPERSET' }).first();
         await expect(supersetRow).toBeVisible({ timeout: 20000 });
 
-        // 9. Verify Superset Control Card displays Open & Refresh buttons
+        // 11. Verify Superset Control Card displays Open & Refresh buttons
         const openBtn = page.getByRole('button', { name: /open superset/i });
         const refreshBtn = page.getByRole('button', { name: /refresh from master schema/i });
         await expect(openBtn).toBeVisible({ timeout: 10000 });
         await expect(refreshBtn).toBeVisible({ timeout: 10000 });
 
-        // 10. Test Refresh Confirmation Dialog (Cancel flow to preserve questionnaire)
+        // 12. Test Refresh Confirmation Dialog (Cancel flow to preserve questionnaire idempotently)
         await refreshBtn.click();
         const confirmDialog = page.locator('div.fixed.inset-0').filter({ hasText: 'Refresh Superset from Master Schema?' });
         await expect(confirmDialog).toBeVisible({ timeout: 5000 });
