@@ -11,11 +11,12 @@ import { Button } from "@/components/ui/button";
 import { getAvailableCommonQuestionnaires, addCommonQuestionnaire, removeCommonQuestionnaire } from "@/actions/client-le";
 import { toast } from "sonner";
 import { ProgressTracker } from "@/components/shared/progress-tracker";
+import { QuestionStateMetricStrip } from "@/components/shared/question-state-metric-strip";
 import { cn } from "@/lib/utils";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 import { CreateApprovalDialog } from "@/components/client/approvals/create-approval-dialog";
 
-const DASHBOARD_GRID_V2 = "grid-cols-[minmax(160px,1fr)_45px_125px_125px_285px]";
+const DASHBOARD_GRID_V2 = "grid-cols-[minmax(180px,1fr)_340px_230px]";
 
 function MicroChart({ value, total, colorClass, emptyClass, numeratorLabel, denominatorLabel }: { value: number, total: number, colorClass: string, emptyClass: string, numeratorLabel: string, denominatorLabel: string }) {
     if (total === 0) {
@@ -198,36 +199,24 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
 
             {linked.length > 0 ? (
                 <div className="flex flex-col gap-3">
-                    {/* --- 2-Tier Header Row --- */}
+                    {/* --- Canonical Metric Header Row --- */}
                     <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-border bg-muted/80 text-foreground rounded-t-md border-x border-t", DASHBOARD_GRID_V2)}>
                         {/* 1. Entity */}
                         <div className="flex items-center gap-2 pr-4 pl-1">
                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-7">Questionnaire</span>
                         </div>
 
-                        {/* 2. Anchor (Total) */}
-                        <div className="text-center pb-0.5">
+                        {/* 2. Canonical Metrics */}
+                        <div className="grid grid-cols-[55px_65px_75px_55px_75px] gap-2 items-center text-right pr-2">
                             <span className="text-[10px] font-bold text-secondary-foreground uppercase tracking-wider">Total</span>
+                            <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider">External</span>
+                            <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">User Input</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Default</span>
+                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Unanswered</span>
                         </div>
 
-                        {/* 3. Sourcing Group */}
-                        <div className="flex flex-col border-l border-border pl-4 h-full">
-                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Data Sourcing</span>
-                            <div className="flex justify-between pr-4 items-end">
-                                <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase">Mapped</span>
-                            </div>
-                        </div>
-
-                        {/* 4. Completion Group */}
-                        <div className="flex flex-col border-l border-border pl-4 h-full">
-                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Completion</span>
-                            <div className="flex justify-between pr-4 items-end">
-                                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase">Answered</span>
-                            </div>
-                        </div>
-
-                        {/* 5. Workflow Group */}
-                        <div className="flex flex-col border-l border-border pl-3 h-full">
+                        {/* 3. Workflow Group */}
+                        <div className="flex flex-col border-l border-border pl-3 h-full justify-center">
                             <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Sign-Off & Actions</span>
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase min-w-[28px] text-center">Approved</span>
@@ -253,22 +242,26 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                         </div>
                                     </div>
 
-                                    {/* Col 2: Total */}
-                                    <div className="text-center font-bold text-foreground text-[14px]">
-                                        {q.metrics?.total || 0}
+                                    {/* Col 2: Canonical Metrics */}
+                                    <div className="pr-2">
+                                        {q.v2Metrics ? (
+                                            <QuestionStateMetricStrip
+                                                metrics={q.v2Metrics}
+                                                variant="table-row"
+                                                linkContext={{
+                                                    leId,
+                                                    relationshipName: "Common",
+                                                    questionnaireName: q.name,
+                                                }}
+                                            />
+                                        ) : (
+                                            <div className="text-center font-bold text-foreground text-[14px]">
+                                                {q.metrics?.total || 0}
+                                            </div>
+                                        )}
                                     </div>
 
-                                    {/* Col 3: Data Sourcing */}
-                                    <div className="border-l border-border pl-4 flex flex-col justify-center h-full text-sky-500">
-                                        {q.metrics && <MicroChart value={q.metrics.mapped} total={q.metrics.total} colorClass="text-sky-500 dark:text-sky-400" emptyClass="bg-muted" numeratorLabel="Mapped" denominatorLabel="Unmapped" />}
-                                    </div>
-
-                                    {/* Col 4: Completion */}
-                                    <div className="border-l border-border pl-4 flex flex-col justify-center h-full text-amber-500">
-                                        {q.metrics && <MicroChart value={q.metrics.answered} total={q.metrics.total} colorClass="text-amber-500 dark:text-amber-400" emptyClass="bg-muted" numeratorLabel="Answered" denominatorLabel="Blank" />}
-                                    </div>
-
-                                    {/* Col 5: Sign-Off and Actions */}
+                                    {/* Col 3: Sign-Off and Actions */}
                                     <div className="border-l border-border pl-3 pr-1 flex items-center justify-between h-full">
                                         {q.metrics ? (
                                             <div className="flex items-center gap-2 shrink-0">
@@ -340,9 +333,20 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                             </Button>
                                         </div>
                                     </div>
-                                    {q.metrics && (
+                                    {q.v2Metrics ? (
+                                        <QuestionStateMetricStrip
+                                            metrics={q.v2Metrics}
+                                            variant="card-row"
+                                            linkContext={{
+                                                leId,
+                                                relationshipName: "Common",
+                                                questionnaireName: q.name,
+                                            }}
+                                            className="w-full bg-muted/40 p-2 rounded"
+                                        />
+                                    ) : q.metrics ? (
                                         <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-muted/50" />
-                                    )}
+                                    ) : null}
                                 </div>
                             </div>
                         ))}
