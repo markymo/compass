@@ -11,6 +11,7 @@ import {
 import { bootstrapSystemOrg } from "./admin";
 import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import { revalidatePath } from "next/cache";
+import { generateSupersetWorkingCopy } from "@/lib/questionnaires/superset-generator";
 
 import { QuestionnaireVisibility } from "@prisma/client";
 
@@ -63,19 +64,20 @@ export async function getQuestionnairesV2(): Promise<{
     workingCopies: QV2Row[];
     referenceLibrary: QV2Row[];
     other: QV2Row[];
+    activeMasterFieldCount: number;
 }> {
     try {
         await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
     } catch {
-        return { workingCopies: [], referenceLibrary: [], other: [] };
+        return { workingCopies: [], referenceLibrary: [], other: [], activeMasterFieldCount: 0 };
     }
 
-
-    const rows = await prisma.questionnaire.findMany({
-        // Exclude hard-deleted and archived rows from the live list.
-        // Archived items are hidden from normal views (status = ARCHIVED).
-        where: { isDeleted: false, status: { not: "ARCHIVED" } },
-        orderBy: { updatedAt: "desc" },
+    const [rows, activeMasterFieldCount] = await Promise.all([
+        prisma.questionnaire.findMany({
+            // Exclude hard-deleted and archived rows from the live list.
+            // Archived items are hidden from normal views (status = ARCHIVED).
+            where: { isDeleted: false, status: { not: "ARCHIVED" } },
+            orderBy: { updatedAt: "desc" },
         select: {
             id: true,
             name: true,
@@ -104,7 +106,11 @@ export async function getQuestionnairesV2(): Promise<{
             // This makes lineage permanent — once a child existed, the parent is forever "used".
             _count: { select: { questions: true, derivedVersions: true } },
         },
-    });
+    }),
+    prisma.masterFieldDefinition.count({
+        where: { isActive: true }
+    }),
+]);
 
     const mapped: QV2Row[] = rows.map((r: any) => {
         const refMeta = (r.processingLogs as any)?._ref;
@@ -158,6 +164,7 @@ export async function getQuestionnairesV2(): Promise<{
         workingCopies:    mapped.filter(r => r.kind === "WORKING_COPY" && r.isOnProOwned),
         referenceLibrary: mapped.filter(r => r.kind === "REFERENCE_SNAPSHOT" && r.isOnProOwned),
         other:            mapped.filter(r => !(r.kind === "WORKING_COPY" && r.isOnProOwned) && !(r.kind === "REFERENCE_SNAPSHOT" && r.isOnProOwned)),
+        activeMasterFieldCount,
     };
 }
 
@@ -725,3 +732,23 @@ export async function deleteReferenceSnapshot(
         return { success: false, error: e.message || "Failed" };
     }
 }
+
+// ── Superset Generator Action ───────────────────────────────────────────────
+
+export async function generateSupersetAction(options?: { force?: boolean }): Promise<{
+    success: boolean;
+    questionnaireId?: string;
+    isExisting?: boolean;
+    questionCount?: number;
+    error?: string;
+}> {
+    await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    const result = await generateSupersetWorkingCopy({ force: options?.force });
+    try {
+        revalidatePath("/app/admin/questionnaires-v2");
+    } catch {
+        // Outside Next.js request context (e.g. test runner)
+    }
+    return result;
+}
+

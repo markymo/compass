@@ -1,6 +1,5 @@
 import { test, expect } from '@playwright/test';
 import { PrismaClient } from '@prisma/client';
-import { execSync } from 'child_process';
 import * as path from 'path';
 
 const prisma = new PrismaClient();
@@ -35,7 +34,7 @@ test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
             { ...lateField, position: 'late' },
         ];
 
-        // 1. Check for existing SUPERSET Working Copy (non-destructive hygiene)
+        // Check for existing SUPERSET Working Copy (non-destructive hygiene)
         const existing = await prisma.questionnaire.findFirst({
             where: {
                 functionalCode: 'SUPERSET',
@@ -48,57 +47,16 @@ test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
         if (existing) {
             targetQuestionnaireId = existing.id;
             createdByTest = false;
-            console.log(`[beforeAll] Existing SUPERSET Working Copy detected (${targetQuestionnaireId}). Reusing without mutation.`);
+            console.log(`[beforeAll] Existing SUPERSET Working Copy detected (${targetQuestionnaireId}). Reusing without force.`);
         } else {
-            // Run generator WITHOUT --force
-            const scriptPath = path.resolve(process.cwd(), 'scripts', 'generate-superset-working-copy.ts');
-            const cmd = `npx ts-node -T -O '{"module":"commonjs","moduleResolution":"node"}' -r tsconfig-paths/register "${scriptPath}"`;
-            const output = execSync(cmd, { cwd: process.cwd(), encoding: 'utf-8' });
-            console.log('[beforeAll] Generator output (without --force):\n', output);
-
-            const created = await prisma.questionnaire.findFirst({
-                where: {
-                    functionalCode: 'SUPERSET',
-                    kind: 'WORKING_COPY',
-                    isDeleted: false
-                },
-                select: { id: true }
-            });
-
-            if (!created) {
-                throw new Error('SUPERSET Working Copy was not created by generator');
-            }
-
-            targetQuestionnaireId = created.id;
             createdByTest = true;
-            console.log(`[beforeAll] Created disposable SUPERSET Working Copy: ${targetQuestionnaireId}`);
+            console.log('[beforeAll] No existing SUPERSET Working Copy found. Will generate through UI.');
         }
     });
 
     test.afterAll(async () => {
-        // Scoped cleanup: never wildcard-delete, never delete pre-existing data
-        if (createdByTest && targetQuestionnaireId) {
-            console.log(`[afterAll] Cleaning up test-created SUPERSET Working Copy: ${targetQuestionnaireId}`);
-            await prisma.question.deleteMany({
-                where: { questionnaireId: targetQuestionnaireId }
-            });
-            await prisma.questionnaire.delete({
-                where: { id: targetQuestionnaireId }
-            }).catch(() => null);
-
-            // Verify the specific test-created questionnaire was deleted
-            const check = await prisma.questionnaire.findUnique({
-                where: { id: targetQuestionnaireId }
-            });
-            expect(check).toBeNull();
-        } else if (!createdByTest && targetQuestionnaireId) {
-            console.log(`[afterAll] Preserving pre-existing SUPERSET Working Copy (${targetQuestionnaireId}) untouched.`);
-            const check = await prisma.questionnaire.findUnique({
-                where: { id: targetQuestionnaireId }
-            });
-            expect(check).not.toBeNull();
-        }
-
+        // Repeatable and non-destructive: leave the human-review Superset in place!
+        console.log(`[afterAll] Preserving human-review SUPERSET Working Copy (${targetQuestionnaireId}) for manual inspection.`);
         await prisma.$disconnect();
     });
 
@@ -119,27 +77,41 @@ test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
         // 2. Navigate to Questionnaire V2 Working Copies
         await page.goto('/app/admin/questionnaires-v2?tab=working-copy', { waitUntil: 'networkidle' });
 
-        // 3. Verify Superset appears in Working Copies list
-        const supersetRow = page.locator('tr[role="button"]', { hasText: 'SUPERSET' }).first();
-        await expect(supersetRow).toBeVisible({ timeout: 20000 });
+        // 3. Verify Superset Control Card is visible
+        const controlTitle = page.getByText('Superset from Master Schema').first();
+        await expect(controlTitle).toBeVisible({ timeout: 20000 });
 
-        // Screenshot 1: Working Copies list showing SUPERSET
-        await page.screenshot({ path: path.join(ARTIFACT_DIR, 'preview-working-copies.png') });
+        if (createdByTest) {
+            // Case A: No existing Superset - verify "Generate Superset from Master Schema" button and active count
+            await expect(page.getByText(`${activeFieldCount} active Master Fields`)).toBeVisible({ timeout: 10000 });
+            const generateButton = page.getByRole('button', { name: /generate superset from master schema/i });
+            await expect(generateButton).toBeVisible({ timeout: 10000 });
 
-        // 4. Click row to inspect drawer details
-        await supersetRow.click();
-        const drawer = page.locator('[role="dialog"]');
-        await expect(drawer).toBeVisible({ timeout: 10000 });
-        await expect(drawer.getByText(String(activeFieldCount))).toBeVisible({ timeout: 10000 });
+            // Click Generate
+            await generateButton.click();
 
-        // 5. Open questionnaire editor
-        await page.goto(`/app/admin/questionnaires/${targetQuestionnaireId}`, { waitUntil: 'networkidle' });
+            // Wait for navigation into Questionnaire Mapper
+            await page.waitForURL(/\/app\/admin\/questionnaires\/[0-9a-f-]+/, { timeout: 30000 });
+            const urlMatch = page.url().match(/\/app\/admin\/questionnaires\/([0-9a-f-]+)/);
+            expect(urlMatch).not.toBeNull();
+            targetQuestionnaireId = urlMatch![1];
+            console.log(`[UI Flow] Generated Superset Working Copy with ID: ${targetQuestionnaireId}`);
+        } else {
+            // Case B: Existing Superset - verify "Open Superset" button and click it
+            const openButton = page.getByRole('button', { name: /open superset/i });
+            await expect(openButton).toBeVisible({ timeout: 10000 });
+            await openButton.click();
+            await page.waitForURL(/\/app\/admin\/questionnaires\/[0-9a-f-]+/, { timeout: 30000 });
+        }
 
-        // 6. Verify questionnaire opens normally
+        // 4. Verify questionnaire opens normally in Mapper
         await expect(page.locator('input[placeholder="Questionnaire Name"]')).toBeVisible({ timeout: 20000 });
         await expect(page.locator('input[placeholder="Questionnaire Name"]')).toHaveValue(/SUPERSET_UNPUBLISHED_ONPRO_/);
 
-        // 7. Strengthened Representative Mapping Assertions (Early, Middle, Late)
+        // 5. Verify question count matches active field count
+        await expect(page.getByText(`${activeFieldCount} Questions`).first()).toBeVisible({ timeout: 15000 });
+
+        // 6. Strengthened Representative Mapping Assertions (Early, Middle, Late)
         const searchInput = page.locator('input[placeholder="Filter questions..."]');
         await expect(searchInput).toBeVisible({ timeout: 15000 });
 
@@ -177,8 +149,33 @@ test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
             await page.waitForTimeout(300);
         }
 
-        // Screenshot 2: Editor view with mapped questions
+        // Screenshot 1: Editor view with mapped questions
         await page.screenshot({ path: path.join(ARTIFACT_DIR, 'preview-editor.png') });
+
+        // 7. Navigate back to Working Copies tab
+        await page.goto('/app/admin/questionnaires-v2?tab=working-copy', { waitUntil: 'networkidle' });
+
+        // 8. Verify the Superset row is visible in the table
+        const supersetRow = page.locator('tr[role="button"]', { hasText: 'SUPERSET' }).first();
+        await expect(supersetRow).toBeVisible({ timeout: 20000 });
+
+        // 9. Verify Superset Control Card displays Open & Refresh buttons
+        const openBtn = page.getByRole('button', { name: /open superset/i });
+        const refreshBtn = page.getByRole('button', { name: /refresh from master schema/i });
+        await expect(openBtn).toBeVisible({ timeout: 10000 });
+        await expect(refreshBtn).toBeVisible({ timeout: 10000 });
+
+        // 10. Test Refresh Confirmation Dialog (Cancel flow to preserve questionnaire)
+        await refreshBtn.click();
+        const confirmDialog = page.locator('div.fixed.inset-0').filter({ hasText: 'Refresh Superset from Master Schema?' });
+        await expect(confirmDialog).toBeVisible({ timeout: 5000 });
+        await expect(confirmDialog.getByText(/any custom edits or manual modifications/i)).toBeVisible({ timeout: 5000 });
+        const cancelBtn = confirmDialog.getByRole('button', { name: /cancel/i });
+        await cancelBtn.click();
+        await expect(confirmDialog).toBeHidden({ timeout: 5000 });
+
+        // Screenshot 2: Working Copies list showing active SUPERSET card and table row
+        await page.screenshot({ path: path.join(ARTIFACT_DIR, 'preview-working-copies.png') });
     });
 
     test('proves an existing persistent SUPERSET survives the E2E lifecycle untouched', async () => {

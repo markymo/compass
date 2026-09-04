@@ -2,7 +2,8 @@ import { describe, it, expect, afterAll, beforeAll, vi } from 'vitest';
 import prisma from '@/lib/prisma';
 import { generateSupersetWorkingCopy } from '@/lib/questionnaires/superset-generator';
 import * as questionSync from '@/lib/questionnaires/question-sync';
-import { getQuestionnairesV2 } from '../questionnaires-v2';
+import { getQuestionnairesV2, generateSupersetAction } from '../questionnaires-v2';
+import * as permissions from '@/lib/auth/permissions';
 
 // Mock auth so getQuestionnairesV2 returns admin view in tests
 vi.mock('@/actions/security', () => ({
@@ -10,6 +11,9 @@ vi.mock('@/actions/security', () => ({
 }));
 vi.mock('@/lib/auth', () => ({
     getIdentity: vi.fn().mockResolvedValue({ userId: 'test-admin-id' }),
+}));
+vi.mock('next/cache', () => ({
+    revalidatePath: vi.fn(),
 }));
 vi.mock('@/lib/auth/permissions', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/lib/auth/permissions')>();
@@ -249,6 +253,61 @@ describe.skipIf(!process.env.DATABASE_URL)('ONP-187 Superset Working Copy Genera
             // Clean up the created questionnaire
             await prisma.question.deleteMany({ where: { questionnaireId: initialId } });
             await prisma.questionnaire.delete({ where: { id: initialId } }).catch(() => null);
+        });
+    });
+
+    describe('System Admin Server Action (generateSupersetAction) & activeMasterFieldCount', () => {
+        it('getQuestionnairesV2 returns activeMasterFieldCount', async () => {
+            const activeCount = await prisma.masterFieldDefinition.count({
+                where: { isActive: true }
+            });
+            const data = await getQuestionnairesV2();
+            expect(data.activeMasterFieldCount).toBe(activeCount);
+        });
+
+        it('enforces Action.SYSTEM_MANAGE_PLATFORM and denies unauthorized users', async () => {
+            const authSpy = vi.spyOn(permissions, 'ensureAuthorization').mockRejectedValueOnce(
+                new Error('Unauthorized: Cannot perform system:manage_platform')
+            );
+
+            await expect(generateSupersetAction()).rejects.toThrow('Unauthorized');
+            authSpy.mockRestore();
+        });
+
+        it('invokes generateSupersetWorkingCopy and returns existing questionnaire idempotently if already present without force', async () => {
+            // First call: create
+            const first = await generateSupersetAction({ force: true });
+            expect(first.success).toBe(true);
+            expect(first.questionnaireId).toBeDefined();
+
+            // Second call without force: must be idempotent and return success with isExisting: true
+            const second = await generateSupersetAction();
+            expect(second.success).toBe(true);
+            expect(second.isExisting).toBe(true);
+            expect(second.questionnaireId).toBe(first.questionnaireId);
+
+            // Clean up
+            await prisma.question.deleteMany({ where: { questionnaireId: first.questionnaireId } });
+            await prisma.questionnaire.delete({ where: { id: first.questionnaireId } }).catch(() => null);
+        });
+
+        it('replaces existing Working Copy atomically when force: true is passed', async () => {
+            const first = await generateSupersetAction({ force: true });
+            expect(first.success).toBe(true);
+            const firstId = first.questionnaireId;
+
+            const second = await generateSupersetAction({ force: true });
+            expect(second.success).toBe(true);
+            expect(second.questionnaireId).toBeDefined();
+            expect(second.questionnaireId).not.toBe(firstId);
+
+            // Old one is gone
+            const oldCheck = await prisma.questionnaire.findUnique({ where: { id: firstId } });
+            expect(oldCheck).toBeNull();
+
+            // Clean up
+            await prisma.question.deleteMany({ where: { questionnaireId: second.questionnaireId } });
+            await prisma.questionnaire.delete({ where: { id: second.questionnaireId } }).catch(() => null);
         });
     });
 });
