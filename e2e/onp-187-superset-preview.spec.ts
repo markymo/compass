@@ -7,6 +7,7 @@ const prisma = new PrismaClient();
 const ARTIFACT_DIR = '/home/mark/.gemini/antigravity/brain/c70b4cd3-f739-4614-90ca-5ffb6e193baf';
 
 test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
+    test.describe.configure({ mode: 'serial' });
     test.setTimeout(120000);
 
     let targetQuestionnaireId: string;
@@ -139,7 +140,7 @@ test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
         await expect(page.locator('input[placeholder="Questionnaire Name"]')).toHaveValue(/SUPERSET_UNPUBLISHED_ONPRO_/);
 
         // 7. Strengthened Representative Mapping Assertions (Early, Middle, Late)
-        const searchInput = page.locator('input[placeholder*="Search" i]').first();
+        const searchInput = page.locator('input[placeholder="Filter questions..."]');
         await expect(searchInput).toBeVisible({ timeout: 15000 });
 
         for (const rep of representativeFields) {
@@ -155,7 +156,7 @@ test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
             }).first();
             await expect(questionRow).toBeVisible({ timeout: 10000 });
 
-            // Assert question visibly resolves its expected Master Field mapping
+            // Assert question visibly resolves its expected Master Field mapping in the table
             const mappedBadge = questionRow.locator('text=Mapped');
             await expect(mappedBadge).toBeVisible({ timeout: 5000 });
             await expect(questionRow.getByText(rep.fieldName.slice(0, 25)).first()).toBeVisible({ timeout: 5000 });
@@ -163,12 +164,13 @@ test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
             // Click question row to inspect mapping in detail sheet
             await questionRow.click();
             const detailSheet = page.locator('[role="dialog"]').first();
-            if (await detailSheet.isVisible()) {
-                await expect(detailSheet.getByText('Mapped to Standard Field')).toBeVisible({ timeout: 5000 });
-                // Close detail sheet
-                await page.keyboard.press('Escape');
-                await page.waitForTimeout(300);
-            }
+            await expect(detailSheet).toBeVisible({ timeout: 5000 });
+            await expect(detailSheet.getByText('Mapped to Standard Field')).toBeVisible({ timeout: 5000 });
+
+            // Close detail sheet
+            await page.keyboard.press('Escape');
+            await expect(detailSheet).toBeHidden({ timeout: 5000 });
+            await page.waitForTimeout(200);
 
             // Clear search filter
             await searchInput.fill('');
