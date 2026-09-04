@@ -36,7 +36,7 @@ import { InlineDocumentManager, InlineOutputBuilder, InlineTeamManager } from ".
 import { RelationshipOverviewSection } from "./relationship-overview-section";
 import { CreateApprovalDialog } from "@/components/client/approvals/create-approval-dialog";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-const DASHBOARD_GRID_V2 = "grid-cols-[1fr_432px_300px] gap-4";
+const DASHBOARD_GRID_V2 = "grid-cols-[1fr_432px_160px] gap-4";
 
 interface EngagementManagerProps {
     leId: string;
@@ -405,10 +405,10 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                         {/* 2. Grouped Canonical Metrics (Questions & Answers) */}
                         <QuestionStateMetricHeader />
 
-                        {/* 3. Status & Actions */}
+                        {/* 3. Actions */}
                         <div className="flex flex-col gap-1 text-right justify-end pr-2">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-transparent select-none">Status</span>
-                            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Status / Actions</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-transparent select-none">Actions</span>
+                            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Actions</span>
                         </div>
                     </div>
 
@@ -477,33 +477,24 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                     )}
                                                 </AccordionPrimitive.Trigger>
 
-                                                {/* Col 3: Status & Actions (outside trigger, demoted) */}
-                                                <div className="w-[300px] shrink-0 flex items-center justify-end gap-3 text-right">
-                                                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                                        <span className={cn("font-mono font-medium", eng.metrics?.approved > 0 ? "text-slate-700 dark:text-zinc-200" : "text-muted-foreground/60")}>
-                                                            {eng.metrics?.approved || 0}
-                                                        </span> Approved · <span className={cn("font-mono font-medium", eng.metrics?.released > 0 ? "text-slate-700 dark:text-zinc-200" : "text-muted-foreground/60")}>
-                                                            {eng.metrics?.released || 0}
-                                                        </span> Released
-                                                    </span>
-                                                    <div className="shrink-0 flex items-center">
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
-                                                                    <MoreVertical className="h-4 w-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end">
-                                                                <DropdownMenuItem
-                                                                    className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
-                                                                    onClick={() => handleDelete({ id: eng.id, name: orgName })}
-                                                                >
-                                                                    <Trash2 className="mr-2 h-4 w-4" />
-                                                                    Delete Relationship
-                                                                </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                    </div>
+                                                {/* Col 3: Actions (outside trigger) */}
+                                                <div className="w-[160px] shrink-0 flex items-center justify-end pr-2">
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground">
+                                                                <MoreVertical className="h-4 w-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end">
+                                                            <DropdownMenuItem
+                                                                className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+                                                                onClick={() => handleDelete({ id: eng.id, name: orgName })}
+                                                            >
+                                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                                Delete Relationship
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
                                                 </div>
                                             </div>
 
@@ -543,8 +534,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                         </div>
                                                     ) : null}
                                                 </AccordionPrimitive.Trigger>
-                                                <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-                                                    <span>{eng.metrics?.approved || 0} Approved · {eng.metrics?.released || 0} Released</span>
+                                                <div className="flex items-center justify-end px-1">
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>
                                                             <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-foreground">
@@ -704,16 +694,8 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                                 </div>
                                                                             )}
 
-                                                                            {/* Col 3: Status & Actions (demoted, outside metric block) */}
-                                                                            <div className="flex items-center justify-end gap-3 text-right">
-                                                                                <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                                                                    <span className={cn("font-mono font-medium", q.metrics?.approved > 0 ? "text-slate-700 dark:text-zinc-200" : "text-muted-foreground/60")}>
-                                                                                        {q.metrics?.approved || 0}
-                                                                                    </span> Approved · <span className={cn("font-mono font-medium", q.metrics?.released > 0 ? "text-slate-700 dark:text-zinc-200" : "text-muted-foreground/60")}>
-                                                                                        {q.metrics?.released || 0}
-                                                                                    </span> Released
-                                                                                </span>
-                                                                                <div className="shrink-0 flex items-center gap-1">
+                                                                            {/* Col 3: Actions */}
+                                                                            <div className="flex items-center justify-end gap-1 text-right">
                                                                                     {confirmRemoveId === q.id ? (
                                                                                         <div className="flex items-center gap-1 animate-in fade-in zoom-in duration-200">
                                                                                             <Button 
@@ -767,7 +749,6 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                                     )}
                                                                                 </div>
                                                                             </div>
-                                                                        </div>
                                                                         {/* Mobile View */}
                                                                         <div className="md:hidden flex flex-col gap-3 py-1">
                                                                             <div className="flex items-center justify-between gap-3">
@@ -824,9 +805,6 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                             ) : q.metrics ? (
                                                                                 <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-muted/50" />
                                                                             ) : null}
-                                                                            <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-                                                                                <span>{q.metrics?.approved || 0} Approved · {q.metrics?.released || 0} Released</span>
-                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 ))}

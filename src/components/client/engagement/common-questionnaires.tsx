@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 import { CreateApprovalDialog } from "@/components/client/approvals/create-approval-dialog";
 
-const DASHBOARD_GRID_V2 = "grid-cols-[1fr_432px_300px] gap-4";
+const DASHBOARD_GRID_V2 = "grid-cols-[1fr_432px_160px] gap-4";
 
 interface CommonQuestionnairesProps {
     leId: string;
@@ -42,87 +42,93 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
             const res = await getAvailableCommonQuestionnaires(leId);
             if (res.success && res.snapshots) {
                 setAvailable(res.snapshots);
-            } else {
-                toast.error(res.error || "Failed to load questionnaires");
             }
         } catch (error) {
-            console.error("Error fetching questionnaires:", error);
-            toast.error("Failed to load questionnaires");
+            console.error("Failed to fetch available common questionnaires", error);
+            toast.error("Failed to load available questionnaires");
         } finally {
             setIsLoading(false);
         }
     };
 
     const handleAdd = async (snapshot: any) => {
-        if (addingId) return;
-
-        // Optimistic UI check for existing linked instance or reference snapshot
-        if (linked.find((q: any) => q.id === snapshot.id || q.sourceId === snapshot.id)) {
-             toast.error("Already added");
-             return;
-        }
-
         setAddingId(snapshot.id);
-        const prev = [...linked];
-        setLinked([...linked, snapshot]);
-        setActivePopover(null);
-
         try {
             const res = await addCommonQuestionnaire(leId, snapshot.id);
             if (res.success) {
-                toast.success(`Added ${snapshot.name}`);
+                toast.success(`Added ${snapshot.name} to Common Questionnaires`);
+                setLinked(prev => [...prev, {
+                    id: snapshot.id,
+                    name: snapshot.name,
+                    referenceCode: snapshot.referenceCode,
+                    description: snapshot.description,
+                    metrics: { total: snapshot.metrics?.total || 0, mapped: 0, answered: 0, approved: 0, released: 0 },
+                    v2Metrics: { total: snapshot.metrics?.total || 0, external: 0, userInput: 0, defaultResponse: 0, unanswered: snapshot.metrics?.total || 0 }
+                }]);
+                setActivePopover(null);
             } else {
-                setLinked(prev);
-                toast.error(res.error || "Failed to add questionnaire");
+                toast.error(res.error || "Failed to add common questionnaire");
             }
         } catch (error) {
-            setLinked(prev);
-            toast.error("Failed to add questionnaire");
+            console.error("Failed to add common questionnaire", error);
+            toast.error("Failed to add common questionnaire");
         } finally {
             setAddingId(null);
         }
     };
 
-    const handleRemoveConfirm = async () => {
+    const handleRemove = async () => {
         if (!removeTarget) return;
-        const { id, name } = removeTarget;
-        const prev = [...linked];
-        setLinked(linked.filter((q: any) => q.id !== id));
-
-        toast.promise(removeCommonQuestionnaire(leId, id), {
-            loading: "Removing...",
-            success: `Removed ${name}`,
-            error: () => {
-                setLinked(prev);
-                return "Failed to remove questionnaire";
+        try {
+            const res = await removeCommonQuestionnaire(leId, removeTarget.id);
+            if (res.success) {
+                toast.success(`Removed ${removeTarget.name} from Common Questionnaires`);
+                setLinked(prev => prev.filter(q => q.id !== removeTarget.id));
+                setRemoveTarget(null);
+            } else {
+                toast.error(res.error || "Failed to remove common questionnaire");
             }
-        });
+        } catch (error) {
+            console.error("Failed to remove common questionnaire", error);
+            toast.error("Failed to remove common questionnaire");
+        }
     };
 
-    const renderPopoverContent = (align: "end" | "center") => (
-        <PopoverContent className="w-full md:w-[400px] p-0" align={align}>
+    const renderPopoverContent = (align: "start" | "center" | "end" = "end") => (
+        <PopoverContent className="w-[320px] p-0" align={align}>
             <Command>
-                <CommandInput placeholder="Search global questionnaires..." />
+                <CommandInput placeholder="Search available questionnaires..." />
                 <CommandList>
                     <CommandEmpty>
-                        {isLoading ? "Loading..." : "No questionnaires found."}
+                        {isLoading ? (
+                            <div className="flex items-center justify-center p-4 text-xs text-muted-foreground">
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin text-indigo-500" />
+                                Loading...
+                            </div>
+                        ) : (
+                            "No common questionnaires found."
+                        )}
                     </CommandEmpty>
-                    <CommandGroup>
+                    <CommandGroup heading="Available Questionnaires">
                         {available.map((snapshot) => {
-                            const isLinked = linked.some((q: any) => q.id === snapshot.id || q.sourceId === snapshot.id);
+                            const isLinked = linked.some(q => q.id === snapshot.id);
                             const isAddingThis = addingId === snapshot.id;
 
                             return (
                                 <CommandItem
                                     key={snapshot.id}
-                                    value={`${snapshot.id} ${snapshot.name} ${snapshot.referenceCode || ""} ${snapshot.functionalCode || ""} ${snapshot.description || ""}`}
-                                    onSelect={() => handleAdd(snapshot)}
+                                    value={`${snapshot.id} ${snapshot.name} ${snapshot.referenceCode || ""} ${snapshot.functionalCode || ""}`}
+                                    onSelect={() => {
+                                        if (!isLinked && !isAddingThis) {
+                                            handleAdd(snapshot);
+                                        }
+                                    }}
                                     onPointerDown={(e) => {
                                         e.preventDefault();
                                         handleAdd(snapshot);
                                     }}
                                     className="flex flex-col items-start py-3 cursor-pointer"
-                                    disabled={isAddingThis}
+                                    disabled={isLinked || isAddingThis}
                                 >
                                     <div className="flex items-center w-full">
                                         <FileText className="mr-2 h-4 w-4 text-indigo-500 shrink-0" />
@@ -135,9 +141,6 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                     </div>
                                     {snapshot.referenceCode && (
                                         <span className="text-xs text-slate-400 mt-1 ml-6">{snapshot.referenceCode}</span>
-                                    )}
-                                    {snapshot.description && (
-                                        <span className="text-xs text-slate-500 mt-0.5 ml-6 line-clamp-1">{snapshot.description}</span>
                                     )}
                                 </CommandItem>
                             );
@@ -156,8 +159,8 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                     <p className="text-sm text-muted-foreground mt-1">Core questionnaires shared across all of your suppliers.</p>
                 </div>
                 
-                <Popover
-                    open={activePopover === 'header'}
+                <Popover 
+                    open={activePopover === 'header'} 
                     onOpenChange={(val) => {
                         setActivePopover(val ? 'header' : null);
                         if (val) fetchAvailable();
@@ -185,10 +188,10 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                         {/* 2. Grouped Canonical Metrics (Questions & Answers) */}
                         <QuestionStateMetricHeader />
 
-                        {/* 3. Status & Actions */}
+                        {/* 3. Actions */}
                         <div className="flex flex-col gap-1 text-right justify-end pr-2">
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-transparent select-none">Status</span>
-                            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Status / Actions</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-transparent select-none">Actions</span>
+                            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Actions</span>
                         </div>
                     </div>
 
@@ -230,43 +233,34 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                         </div>
                                     )}
 
-                                    {/* Col 3: Status & Actions (demoted, outside metric block) */}
-                                    <div className="flex items-center justify-end gap-3 text-right">
-                                        <span className="text-xs text-muted-foreground whitespace-nowrap">
-                                            <span className={cn("font-mono font-medium", q.metrics?.approved > 0 ? "text-slate-700 dark:text-zinc-200" : "text-muted-foreground/60")}>
-                                                {q.metrics?.approved || 0}
-                                            </span> Approved · <span className={cn("font-mono font-medium", q.metrics?.released > 0 ? "text-slate-700 dark:text-zinc-200" : "text-muted-foreground/60")}>
-                                                {q.metrics?.released || 0}
-                                            </span> Released
-                                        </span>
-                                        <div className="flex items-center gap-1 shrink-0">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => setApprovalQuestionnaireId(q.id)}
-                                                className="h-7 text-xs text-muted-foreground hover:text-foreground px-2 flex items-center gap-1 font-medium"
-                                                title="Approve Common Questionnaire"
-                                            >
-                                                <ShieldCheck className="h-3.5 w-3.5" />
-                                                Approve
-                                            </Button>
-                                            <Link 
-                                                href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`}
-                                                className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                                                title="Review in Question Bank"
-                                            >
-                                                <ArrowRight className="h-4 w-4" />
-                                            </Link>
-                                            <Button 
-                                                variant="ghost" 
-                                                size="icon" 
-                                                className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
-                                                onClick={() => setRemoveTarget({ id: q.id, name: q.name })}
-                                                title="Remove Common Questionnaire"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
+                                    {/* Col 3: Actions */}
+                                    <div className="flex items-center justify-end gap-1 text-right">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setApprovalQuestionnaireId(q.id)}
+                                            className="h-7 text-xs text-muted-foreground hover:text-foreground px-2 flex items-center gap-1 font-medium"
+                                            title="Approve Common Questionnaire"
+                                        >
+                                            <ShieldCheck className="h-3.5 w-3.5" />
+                                            Approve
+                                        </Button>
+                                        <Link 
+                                            href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`}
+                                            className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                                            title="Review in Question Bank"
+                                        >
+                                            <ArrowRight className="h-4 w-4" />
+                                        </Link>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                                            onClick={() => setRemoveTarget({ id: q.id, name: q.name })}
+                                            title="Remove Common Questionnaire"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
                                     </div>
                                 </div>
                                 
@@ -318,9 +312,6 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                     ) : q.metrics ? (
                                         <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-muted/50" />
                                     ) : null}
-                                    <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-                                        <span>{q.metrics?.approved || 0} Approved · {q.metrics?.released || 0} Released</span>
-                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -355,7 +346,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                 title="Remove Common Questionnaire?"
                 description={removeTarget ? `This will remove "${removeTarget.name}" from your common questionnaires list.` : ""}
                 confirmLabel="Remove Questionnaire"
-                onConfirm={handleRemoveConfirm}
+                onConfirm={handleRemove}
                 isLoading={isLoading}
             />
 
