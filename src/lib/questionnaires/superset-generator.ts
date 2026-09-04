@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
 import { generateWorkingCopyTitle } from "@/lib/questionnaires/reference-codes";
 import { syncQuestionsToDatabase } from "./question-sync";
+import { getMasterRecordOrderedFields } from "@/actions/master-data-sort";
 
 export interface SupersetGeneratorOptions {
     dryRun?: boolean;
@@ -23,12 +24,8 @@ export async function generateSupersetWorkingCopy(
     options: SupersetGeneratorOptions = {}
 ): Promise<SupersetGeneratorResult> {
     try {
-        // 1. Query all active Master Field definitions strictly in deterministic ascending order
-        const activeFields = await prisma.masterFieldDefinition.findMany({
-            where: { isActive: true },
-            orderBy: { fieldNo: "asc" },
-            select: { fieldNo: true, fieldName: true }
-        });
+        // 1. Query active Master Fields in canonical Master Record order
+        const activeFields = await getMasterRecordOrderedFields(prisma);
 
         // 2. Build canonical question items
         const items = activeFields.map((field: { fieldNo: number; fieldName: string }, idx: number) => ({

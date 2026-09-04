@@ -12,6 +12,7 @@ import { bootstrapSystemOrg } from "./admin";
 import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import { revalidatePath } from "next/cache";
 import { generateSupersetWorkingCopy } from "@/lib/questionnaires/superset-generator";
+import { getMasterRecordOrderedFields } from "@/actions/master-data-sort";
 
 import { QuestionnaireVisibility } from "@prisma/client";
 
@@ -78,39 +79,36 @@ export async function getQuestionnairesV2(): Promise<{
             // Archived items are hidden from normal views (status = ARCHIVED).
             where: { isDeleted: false, status: { not: "ARCHIVED" } },
             orderBy: { updatedAt: "desc" },
-        select: {
-            id: true,
-            name: true,
-            status: true,
-            isGlobal: true,
-            isTemplate: true,
-            kind: true,
-            functionalCode: true,
-            referenceCode: true,
-            sourceId: true, // lineage column
-            visibility: true, // first-class visibility
-            updatedAt: true,
-            createdAt: true,
-            fileName: true,
-            processingLogs: true,
-            fiOrg: { select: { name: true, types: true } },
-            ownerOrgId: true,
-            ownerOrg: { select: { name: true, types: true } },
-            fiEngagement: {
-                select: {
-                    clientLE: { select: { name: true, shortCode: true } },
-                    org: { select: { name: true, shortCode: true } }
-                }
+            select: {
+                id: true,
+                name: true,
+                status: true,
+                isGlobal: true,
+                isTemplate: true,
+                kind: true,
+                functionalCode: true,
+                referenceCode: true,
+                sourceId: true, // lineage column
+                visibility: true, // first-class visibility
+                updatedAt: true,
+                createdAt: true,
+                fileName: true,
+                processingLogs: true,
+                ownerOrg: { select: { id: true, name: true, types: true } },
+                fiOrg: { select: { id: true, name: true, types: true } },
+                fiEngagement: {
+                    select: {
+                        clientLE: { select: { name: true, shortCode: true } },
+                        org: { select: { name: true, shortCode: true } },
+                    },
+                },
+                // descendantCount: count ALL children regardless of their deleted/archived state.
+                // This makes lineage permanent — once a child existed, the parent is forever "used".
+                _count: { select: { questions: true, derivedVersions: true } },
             },
-            // descendantCount: count ALL children regardless of their deleted/archived state.
-            // This makes lineage permanent — once a child existed, the parent is forever "used".
-            _count: { select: { questions: true, derivedVersions: true } },
-        },
-    }),
-    prisma.masterFieldDefinition.count({
-        where: { isActive: true }
-    }),
-]);
+        }),
+        getMasterRecordOrderedFields().then(fields => fields.length),
+    ]);
 
     const mapped: QV2Row[] = rows.map((r: any) => {
         const refMeta = (r.processingLogs as any)?._ref;

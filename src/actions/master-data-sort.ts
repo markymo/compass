@@ -5,8 +5,8 @@ import { revalidatePath } from "next/cache";
 import { invalidateDefinitionCache } from "@/services/masterData/definitionService";
 
 
-export async function getCategoriesWithFields() {
-    const categories = await prisma.masterDataCategory.findMany({
+export async function getCategoriesWithFields(client: any = prisma) {
+    const categories = await client.masterDataCategory.findMany({
         where: { isActive: true },
         orderBy: [
             { order: 'asc' },
@@ -25,7 +25,7 @@ export async function getCategoriesWithFields() {
         }
     });
 
-    const uncategorizedFields = await prisma.masterFieldDefinition.findMany({
+    const uncategorizedFields = await client.masterFieldDefinition.findMany({
         where: {
             categoryId: null,
             isActive: true
@@ -41,6 +41,17 @@ export async function getCategoriesWithFields() {
         categories,
         uncategorizedFields
     };
+}
+
+/**
+ * Flattens categories and uncategorized fields in the exact display sequence of the Master Record (/app/le/[id]/master).
+ */
+export async function getMasterRecordOrderedFields(client: any = prisma): Promise<Array<{ fieldNo: number; fieldName: string }>> {
+    const { categories, uncategorizedFields } = await getCategoriesWithFields(client);
+    return [
+        ...categories.flatMap((c: any) => c.fields),
+        ...uncategorizedFields
+    ];
 }
 
 export async function updateCategoryOrder(payload: { id: string; order: number }[]) {
