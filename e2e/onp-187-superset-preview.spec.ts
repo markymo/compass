@@ -9,13 +9,13 @@ const ARTIFACT_DIR = '/home/mark/.gemini/antigravity/brain/c70b4cd3-f739-4614-90
 test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
     test.setTimeout(120000);
 
-    let disposableQuestionnaireId: string | null = null;
+    let targetQuestionnaireId: string;
+    let createdByTest = false;
     let activeFieldCount = 0;
-    let earlyField: { fieldNo: number; fieldName: string };
-    let midField: { fieldNo: number; fieldName: string };
-    let lateField: { fieldNo: number; fieldName: string };
+    let representativeFields: Array<{ fieldNo: number; fieldName: string; position: 'early' | 'middle' | 'late' }> = [];
 
     test.beforeAll(async () => {
+        // Query active master fields from the target database
         const activeFields = await prisma.masterFieldDefinition.findMany({
             where: { isActive: true },
             orderBy: { fieldNo: 'asc' },
@@ -24,45 +24,79 @@ test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
         activeFieldCount = activeFields.length;
         expect(activeFieldCount).toBeGreaterThan(0);
 
-        earlyField = activeFields[0];
-        midField = activeFields[Math.floor(activeFields.length / 2)];
-        lateField = activeFields[activeFields.length - 1];
+        const earlyField = activeFields[0];
+        const midField = activeFields[Math.floor(activeFields.length / 2)];
+        const lateField = activeFields[activeFields.length - 1];
 
-        // Create disposable SUPERSET working copy using canonical CLI generator
-        const scriptPath = path.resolve(process.cwd(), 'scripts', 'generate-superset-working-copy.ts');
-        const cmd = `npx ts-node -T -O '{"module":"commonjs","moduleResolution":"node"}' -r tsconfig-paths/register "${scriptPath}" --force`;
-        const output = execSync(cmd, { cwd: process.cwd(), encoding: 'utf-8' });
-        console.log('[beforeAll] Generator output:\n', output);
+        representativeFields = [
+            { ...earlyField, position: 'early' },
+            { ...midField, position: 'middle' },
+            { ...lateField, position: 'late' },
+        ];
 
-        const created = await prisma.questionnaire.findFirst({
-            where: { functionalCode: 'SUPERSET', kind: 'WORKING_COPY', isDeleted: false }
+        // 1. Check for existing SUPERSET Working Copy (non-destructive hygiene)
+        const existing = await prisma.questionnaire.findFirst({
+            where: {
+                functionalCode: 'SUPERSET',
+                kind: 'WORKING_COPY',
+                isDeleted: false,
+            },
+            select: { id: true }
         });
-        if (!created) {
-            throw new Error('Superset questionnaire was not created');
+
+        if (existing) {
+            targetQuestionnaireId = existing.id;
+            createdByTest = false;
+            console.log(`[beforeAll] Existing SUPERSET Working Copy detected (${targetQuestionnaireId}). Reusing without mutation.`);
+        } else {
+            // Run generator WITHOUT --force
+            const scriptPath = path.resolve(process.cwd(), 'scripts', 'generate-superset-working-copy.ts');
+            const cmd = `npx ts-node -T -O '{"module":"commonjs","moduleResolution":"node"}' -r tsconfig-paths/register "${scriptPath}"`;
+            const output = execSync(cmd, { cwd: process.cwd(), encoding: 'utf-8' });
+            console.log('[beforeAll] Generator output (without --force):\n', output);
+
+            const created = await prisma.questionnaire.findFirst({
+                where: {
+                    functionalCode: 'SUPERSET',
+                    kind: 'WORKING_COPY',
+                    isDeleted: false
+                },
+                select: { id: true }
+            });
+
+            if (!created) {
+                throw new Error('SUPERSET Working Copy was not created by generator');
+            }
+
+            targetQuestionnaireId = created.id;
+            createdByTest = true;
+            console.log(`[beforeAll] Created disposable SUPERSET Working Copy: ${targetQuestionnaireId}`);
         }
-        disposableQuestionnaireId = created.id;
     });
 
     test.afterAll(async () => {
-        // Clean up disposable test data
-        const supersets = await prisma.questionnaire.findMany({
-            where: { functionalCode: 'SUPERSET', kind: 'WORKING_COPY' },
-            select: { id: true }
-        });
-        for (const s of supersets) {
+        // Scoped cleanup: never wildcard-delete, never delete pre-existing data
+        if (createdByTest && targetQuestionnaireId) {
+            console.log(`[afterAll] Cleaning up test-created SUPERSET Working Copy: ${targetQuestionnaireId}`);
             await prisma.question.deleteMany({
-                where: { questionnaireId: s.id }
+                where: { questionnaireId: targetQuestionnaireId }
             });
             await prisma.questionnaire.delete({
-                where: { id: s.id }
+                where: { id: targetQuestionnaireId }
             }).catch(() => null);
-        }
 
-        const remaining = await prisma.questionnaire.count({
-            where: { functionalCode: 'SUPERSET', kind: 'WORKING_COPY' }
-        });
-        expect(remaining).toBe(0);
-        console.log('[afterAll] Verified remaining SUPERSET working copies in DB:', remaining);
+            // Verify the specific test-created questionnaire was deleted
+            const check = await prisma.questionnaire.findUnique({
+                where: { id: targetQuestionnaireId }
+            });
+            expect(check).toBeNull();
+        } else if (!createdByTest && targetQuestionnaireId) {
+            console.log(`[afterAll] Preserving pre-existing SUPERSET Working Copy (${targetQuestionnaireId}) untouched.`);
+            const check = await prisma.questionnaire.findUnique({
+                where: { id: targetQuestionnaireId }
+            });
+            expect(check).not.toBeNull();
+        }
 
         await prisma.$disconnect();
     });
@@ -98,36 +132,59 @@ test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
         await expect(drawer.getByText(String(activeFieldCount))).toBeVisible({ timeout: 10000 });
 
         // 5. Open questionnaire editor
-        await page.goto(`/app/admin/questionnaires/${disposableQuestionnaireId}`, { waitUntil: 'networkidle' });
+        await page.goto(`/app/admin/questionnaires/${targetQuestionnaireId}`, { waitUntil: 'networkidle' });
 
         // 6. Verify questionnaire opens normally
         await expect(page.locator('input[placeholder="Questionnaire Name"]')).toBeVisible({ timeout: 20000 });
         await expect(page.locator('input[placeholder="Questionnaire Name"]')).toHaveValue(/SUPERSET_UNPUBLISHED_ONPRO_/);
 
-        // 7. Verify representative early, middle, late fields
+        // 7. Strengthened Representative Mapping Assertions (Early, Middle, Late)
         const searchInput = page.locator('input[placeholder*="Search" i]').first();
-        if (await searchInput.isVisible()) {
-            // Early field
-            await searchInput.fill(earlyField.fieldName.slice(0, 20));
-            await page.waitForTimeout(500);
-            await expect(page.getByText(earlyField.fieldName.slice(0, 25)).first()).toBeVisible({ timeout: 10000 });
+        await expect(searchInput).toBeVisible({ timeout: 15000 });
 
-            // Middle field
-            await searchInput.fill(midField.fieldName.slice(0, 20));
-            await page.waitForTimeout(500);
-            await expect(page.getByText(midField.fieldName.slice(0, 25)).first()).toBeVisible({ timeout: 10000 });
+        for (const rep of representativeFields) {
+            console.log(`[mapping-check] Verifying ${rep.position} field [${rep.fieldNo}] "${rep.fieldName}"`);
 
-            // Late field
-            await searchInput.fill(lateField.fieldName.slice(0, 20));
-            await page.waitForTimeout(500);
-            await expect(page.getByText(lateField.fieldName.slice(0, 25)).first()).toBeVisible({ timeout: 10000 });
+            // Filter questions by field name
+            await searchInput.fill(rep.fieldName.slice(0, 20));
+            await page.waitForTimeout(600);
+
+            // Locate question row in table
+            const questionRow = page.locator('div.group.cursor-pointer').filter({
+                hasText: rep.fieldName.slice(0, 25)
+            }).first();
+            await expect(questionRow).toBeVisible({ timeout: 10000 });
+
+            // Assert question visibly resolves its expected Master Field mapping
+            const mappedBadge = questionRow.locator('text=Mapped');
+            await expect(mappedBadge).toBeVisible({ timeout: 5000 });
+            await expect(questionRow.getByText(rep.fieldName.slice(0, 25)).first()).toBeVisible({ timeout: 5000 });
+
+            // Click question row to inspect mapping in detail sheet
+            await questionRow.click();
+            const detailSheet = page.locator('[role="dialog"]').first();
+            if (await detailSheet.isVisible()) {
+                await expect(detailSheet.getByText('Mapped to Standard Field')).toBeVisible({ timeout: 5000 });
+                // Close detail sheet
+                await page.keyboard.press('Escape');
+                await page.waitForTimeout(300);
+            }
 
             // Clear search filter
             await searchInput.fill('');
-            await page.waitForTimeout(500);
+            await page.waitForTimeout(300);
         }
 
         // Screenshot 2: Editor view with mapped questions
         await page.screenshot({ path: path.join(ARTIFACT_DIR, 'preview-editor.png') });
+    });
+
+    test('proves an existing persistent SUPERSET survives the E2E lifecycle untouched', async () => {
+        const check = await prisma.questionnaire.findUnique({
+            where: { id: targetQuestionnaireId },
+            include: { _count: { select: { questions: true } } }
+        });
+        expect(check).not.toBeNull();
+        expect(check?._count.questions).toBe(activeFieldCount);
     });
 });
