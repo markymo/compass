@@ -196,4 +196,142 @@ describe('DataSchemaTab - /master rendering boundary', () => {
         expect(screen.getAllByText('Companies House').length).toBeGreaterThan(0);
         expect(screen.getAllByText('User input').length).toBeGreaterThan(0);
     });
+
+    describe('ONP-30: Master field description formatting on /master', () => {
+        it('applies compact line spacing (leading-snug), removes blanket italic, and avoids artificial paragraph margin', () => {
+            const descriptionWithNewlines = "First paragraph line one.\nFirst paragraph line two.\n\nSecond paragraph.";
+            const categories = [
+                {
+                    id: 'cat-desc',
+                    key: 'cat-desc',
+                    displayName: 'Description Test Category',
+                    icon: () => <svg data-testid="dummy-icon" />,
+                    fields: [
+                        { fieldNo: 70, fieldName: 'Compact Description Field', description: descriptionWithNewlines }
+                    ]
+                }
+            ];
+
+            render(
+                <DataSchemaTab
+                    leId="cle_1"
+                    masterData={{ 70: { value: 'Test Value', displayState: 'HAS_VALUE' } }}
+                    customData={{}}
+                    customDefinitions={[]}
+                    masterFields={[]}
+                    masterGroups={[]}
+                    categories={categories}
+                    uncategorizedFields={[]}
+                />
+            );
+
+            const fieldEl = screen.getByTestId('master-field-70');
+            const descSpan = fieldEl.querySelector('.whitespace-pre-wrap');
+            expect(descSpan).toBeTruthy();
+
+            // A. Compact line spacing: leading-snug, NOT leading-relaxed
+            expect(descSpan?.className).toContain('leading-snug');
+            expect(descSpan?.className).not.toContain('leading-relaxed');
+
+            // Blanket italic removed so explicit formatting is distinguishable
+            expect(descSpan?.className).not.toContain('italic');
+
+            // B. No artificial paragraph margin: should not introduce <p> tags with extra margins
+            expect(descSpan?.querySelectorAll('p')).toHaveLength(0);
+            expect(descSpan?.textContent).toContain('First paragraph line one.\nFirst paragraph line two.\n\nSecond paragraph.');
+        });
+
+        it('renders **bold** and *italic* formatting as strong and em while preserving plain text', () => {
+            const formattedDesc = "This is **important** and this is *additional context*.";
+            const categories = [
+                {
+                    id: 'cat-formatting',
+                    key: 'cat-formatting',
+                    displayName: 'Formatting Category',
+                    icon: () => <svg data-testid="dummy-icon" />,
+                    fields: [
+                        { fieldNo: 71, fieldName: 'Formatted Field', description: formattedDesc }
+                    ]
+                }
+            ];
+
+            render(
+                <DataSchemaTab
+                    leId="cle_1"
+                    masterData={{ 71: { value: 'Test Value', displayState: 'HAS_VALUE' } }}
+                    customData={{}}
+                    customDefinitions={[]}
+                    masterFields={[]}
+                    masterGroups={[]}
+                    categories={categories}
+                    uncategorizedFields={[]}
+                />
+            );
+
+            const fieldEl = screen.getByTestId('master-field-71');
+            const descSpan = fieldEl.querySelector('.whitespace-pre-wrap');
+            expect(descSpan).toBeTruthy();
+
+            // C. Bold and italic rendering
+            const strongEl = descSpan?.querySelector('strong');
+            expect(strongEl).toBeTruthy();
+            expect(strongEl?.textContent).toBe('important');
+            expect(strongEl?.className).toContain('font-semibold');
+
+            const emEl = descSpan?.querySelector('em');
+            expect(emEl).toBeTruthy();
+            expect(emEl?.textContent).toBe('additional context');
+            expect(emEl?.className).toContain('italic');
+
+            // Preserves surrounding plain text
+            expect(descSpan?.textContent).toContain('This is important and this is additional context.');
+        });
+
+        it('applies formatting to custom and uncategorised fields as well', () => {
+            const customDefinitions = [
+                {
+                    id: 'custom-1',
+                    key: 'custom_1',
+                    label: 'Custom Field',
+                    description: 'Custom **bold** description.'
+                }
+            ];
+            const uncategorizedFields = [
+                {
+                    fieldNo: 72,
+                    fieldName: 'Uncategorized Field',
+                    description: 'Uncategorized *italic* description.'
+                }
+            ];
+
+            render(
+                <DataSchemaTab
+                    leId="cle_1"
+                    masterData={{ 72: { value: 'Uncat Value', displayState: 'HAS_VALUE' } }}
+                    customData={{ 'custom-1': { value: 'Custom Value' } }}
+                    customDefinitions={customDefinitions}
+                    masterFields={[]}
+                    masterGroups={[]}
+                    categories={[]}
+                    uncategorizedFields={uncategorizedFields}
+                />
+            );
+
+            // Custom field description formatting
+            const customLabel = screen.getByText('Custom Field');
+            const customContainer = customLabel.closest('.group');
+            const customDescSpan = customContainer?.querySelector('.whitespace-pre-wrap');
+            expect(customDescSpan?.className).toContain('leading-snug');
+            expect(customDescSpan?.className).not.toContain('italic');
+            expect(customDescSpan?.querySelector('strong')?.textContent).toBe('bold');
+
+            // Uncategorized field description formatting
+            const uncatEl = screen.getByTestId('master-field-72');
+            const uncatDescSpan = uncatEl.querySelector('.whitespace-pre-wrap');
+            expect(uncatDescSpan?.className).toContain('leading-snug');
+            expect(uncatDescSpan?.className).not.toContain('italic');
+            expect(uncatDescSpan?.querySelector('em')?.textContent).toBe('italic');
+        });
+    });
 });
+
