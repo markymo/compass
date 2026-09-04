@@ -9,6 +9,7 @@ import { can, Action, UserWithMemberships } from "@/lib/auth/permissions";
 import { generateWorkingCopyTitle, normalizeCode } from "@/lib/questionnaires/reference-codes";
 import { cloneQuestionFields } from "@/lib/questionnaires/question-utils";
 import { isPlatformQuestionnaire } from "@/lib/questionnaires/questionnaire-ownership";
+import { syncQuestionsToDatabase as syncQuestionsToDatabaseLib } from "@/lib/questionnaires/question-sync";
 // NEW CORE ENGINE HELPER
 async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
     const identity = await getIdentity();
@@ -1022,57 +1023,10 @@ export async function appendProcessingLog(id: string, message: string, stage: st
 }
 
 // HELPER: Sync JSON Items to Question Rows
-async function syncQuestionsToDatabase(id: string, items: any[]) {
-    // 1. Delete existing questions for this questionnaire (Template Mode)
-    // NOTE: This is destructive for comments on the template questions, but necessary for full sync.
-    await prisma.question.deleteMany({
-        where: { questionnaireId: id }
-    });
-
-    const qn = await prisma.questionnaire.findUnique({
-        where: { id },
-        select: { kind: true, fiEngagementId: true }
-    });
-    const isEngagementQ = qn?.kind === "ENGAGEMENT_QUESTIONNAIRE" && qn?.fiEngagementId != null;
+export async function syncQuestionsToDatabase(id: string, items: any[]) {
     const identity = await getIdentity().catch(() => null);
     const userId = identity?.userId || null;
-    const now = new Date();
-
-    // 2. Filter for Questions only (or map others if we expand model later)
-    const questionsToCreate = items
-        .filter((i: any) => (i.type || "").toLowerCase() === "question")
-        .map((item: any, index: any) => {
-            console.log(`[syncQuestionsToDatabase] Question "${item.text?.slice(0, 30)}..." has compactText: "${item.compactText}"`);
-
-            // Map the new fields if present in the "items" (which comes from extractedContent or mappings overlay)
-            // The UI "extractedItems" has masterFieldNo/masterQuestionGroupId
-
-            return {
-                questionnaireId: id,
-                text: item.text || item.originalText || "Untitled Question",
-                compactText: item.compactText || null,
-                order: item.order || index + 1,
-                status: isEngagementQ ? ("SHARED" as any) : ("DRAFT" as any),
-                sharedAt: isEngagementQ ? now : null,
-                sharedByUserId: isEngagementQ ? userId : null,
-                // NEW: Persist Mapping
-                masterFieldNo: item.masterFieldNo || null,
-                masterQuestionGroupId: item.masterQuestionGroupId || null,
-                customFieldDefinitionId: item.customFieldDefinitionId || null,
-                masterFieldProjectionPath: item.masterFieldProjectionPath || null,
-                approvedMappingConfig: item.approvedMappingConfig ? JSON.parse(JSON.stringify(item.approvedMappingConfig)) : null,
-                expectedDataType: item.expectedDataType || "TEXT",
-                prefilledValue: item.prefilledValue || null,
-                answer: item.answer || null,
-                allowAttachments: true
-            };
-        });
-
-    if (questionsToCreate.length > 0) {
-        await prisma.question.createMany({
-            data: questionsToCreate
-        });
-    }
+    return syncQuestionsToDatabaseLib(id, items, userId);
 }
 
 /**
