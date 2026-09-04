@@ -161,9 +161,9 @@ test.describe('ONP-187: Superset Working Copy Preview Verification', () => {
             await expect(mappedBadge).toBeVisible({ timeout: 5000 });
             await expect(questionRow.getByText(rep.fieldName.slice(0, 25)).first()).toBeVisible({ timeout: 5000 });
 
-            // Click question row to inspect mapping in detail sheet
-            await questionRow.click();
-            const detailSheet = page.locator('[role="dialog"]').first();
+            // Click question label to inspect mapping in detail sheet (avoid clicking mapping dropdown)
+            await questionRow.locator('span.truncate').first().click();
+            const detailSheet = page.locator('[role="dialog"]').filter({ hasText: 'Map to Data Field' });
             await expect(detailSheet).toBeVisible({ timeout: 5000 });
             await expect(detailSheet.getByText('Mapped to Standard Field')).toBeVisible({ timeout: 5000 });
 
