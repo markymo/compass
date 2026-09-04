@@ -21,7 +21,7 @@ export default async function QuestionnairePage({ params, searchParams }: PagePr
         getEngagementEvidenceDocuments(engagementId),
     ]);
 
-    const { success, engagement, questionnaires, invitations, members, metrics } = detailsRes;
+    const { success, engagement, questionnaires, invitations, members, metrics, v2Metrics } = detailsRes as any;
 
     if (!success || !engagement) {
         return notFound();
@@ -49,6 +49,7 @@ export default async function QuestionnairePage({ params, searchParams }: PagePr
                 members={members || []}
                 initialTab={activeTab}
                 metrics={metrics}
+                v2Metrics={v2Metrics}
                 standingData={standingData}
                 manageQuestionnaireId={questionnaireId}
             />

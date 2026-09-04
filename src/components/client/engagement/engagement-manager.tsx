@@ -29,13 +29,14 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { assignQuestionnaireToEngagement, deleteQuestionnaire } from "@/actions/questionnaire";
 import { getDiscoverableReferenceSnapshotsForOrg } from "@/actions/questionnaires-v2";
 import { ProgressTracker } from "@/components/shared/progress-tracker";
+import { QuestionStateMetricStrip } from "@/components/shared/question-state-metric-strip";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { usePreferences } from "@/components/providers/user-preferences-provider";
 import { InlineDocumentManager, InlineOutputBuilder, InlineTeamManager } from "./inline-engagement-sections";
 import { RelationshipOverviewSection } from "./relationship-overview-section";
 import { CreateApprovalDialog } from "@/components/client/approvals/create-approval-dialog";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
-const DASHBOARD_GRID_V2 = "grid-cols-[minmax(160px,1fr)_45px_125px_125px_285px]";
+const DASHBOARD_GRID_V2 = "grid-cols-[minmax(180px,1fr)_340px_230px]";
 
 function MicroChart({ value, total, colorClass, emptyClass, numeratorLabel, denominatorLabel }: { value: number, total: number, colorClass: string, emptyClass: string, numeratorLabel: string, denominatorLabel: string }) {
     if (total === 0) {
@@ -418,36 +419,24 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
 
             {engagements.length > 0 ? (
                 <div className="flex flex-col gap-3">
-                    {/* --- 2-Tier Header Row --- */}
+                    {/* --- Canonical Metric Header Row --- */}
                     <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-border bg-muted/80 text-foreground rounded-t-md border-x border-t", DASHBOARD_GRID_V2)}>
                         {/* 1. Entity */}
                         <div className="flex items-center gap-2 pr-4 pl-1">
                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pl-11">Supplier Relationships</span>
                         </div>
 
-                        {/* 2. Anchor (Total) */}
-                        <div className="text-center pb-0.5">
+                        {/* 2. Canonical Metrics */}
+                        <div className="grid grid-cols-[55px_65px_75px_55px_75px] gap-2 items-center text-right pr-2">
                             <span className="text-[10px] font-bold text-secondary-foreground uppercase tracking-wider">Total</span>
+                            <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase tracking-wider">External</span>
+                            <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">User Input</span>
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Default</span>
+                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Unanswered</span>
                         </div>
 
-                        {/* 3. Sourcing Group */}
-                        <div className="flex flex-col border-l border-border pl-4 h-full">
-                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Data Sourcing</span>
-                            <div className="flex justify-between pr-4 items-end">
-                                <span className="text-[10px] font-bold text-sky-600 dark:text-sky-400 uppercase">Mapped</span>
-                            </div>
-                        </div>
-
-                        {/* 4. Completion Group */}
-                        <div className="flex flex-col border-l border-border pl-4 h-full">
-                            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Completion</span>
-                            <div className="flex justify-between pr-4 items-end">
-                                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase">Answered</span>
-                            </div>
-                        </div>
-
-                        {/* 5. Workflow Group */}
-                        <div className="flex flex-col border-l border-border pl-3 h-full">
+                        {/* 3. Workflow Group */}
+                        <div className="flex flex-col border-l border-border pl-3 h-full justify-center">
                             <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-0.5">Sign-Off & Actions</span>
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase min-w-[28px] text-center">Approved</span>
@@ -500,22 +489,26 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                     </div>
                                                 </div>
 
-                                                {/* Col 2: Total Items */}
-                                                <div className="text-center font-bold text-foreground text-[15px]">
-                                                    {eng.metrics?.total || 0}
+                                                {/* Col 2: Canonical Metrics */}
+                                                <div className="pr-2">
+                                                    {eng.v2Metrics ? (
+                                                        <QuestionStateMetricStrip
+                                                            metrics={eng.v2Metrics}
+                                                            variant="table-row"
+                                                            linkContext={{
+                                                                leId,
+                                                                relationshipId: eng.id,
+                                                                relationshipName: orgName,
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <div className="text-center font-bold text-foreground text-[15px]">
+                                                            {eng.metrics?.total || 0}
+                                                        </div>
+                                                    )}
                                                 </div>
 
-                                                {/* Col 3: Data Sourcing */}
-                                                <div className="border-l border-border pl-4 flex flex-col justify-center h-full text-sky-500">
-                                                    {eng.metrics && <MicroChart value={eng.metrics.mapped} total={eng.metrics.total} colorClass="text-sky-500 dark:text-sky-400" emptyClass="bg-muted" numeratorLabel="Mapped" denominatorLabel="Unmapped" />}
-                                                </div>
-
-                                                {/* Col 4: Completion */}
-                                                <div className="border-l border-border pl-4 flex flex-col justify-center h-full text-amber-500">
-                                                    {eng.metrics && <MicroChart value={eng.metrics.answered} total={eng.metrics.total} colorClass="text-amber-500 dark:text-amber-400" emptyClass="bg-muted" numeratorLabel="Answered" denominatorLabel="Blank" />}
-                                                </div>
-
-                                                {/* Col 5: Sign-Off */}
+                                                {/* Col 3: Sign-Off */}
                                                 <div className="border-l border-border pl-3 pr-1 flex items-center justify-between h-full">
                                                     {eng.metrics && (
                                                         <div className="flex items-center gap-2 shrink-0">
@@ -553,11 +546,24 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                         </Badge>
                                                     </div>
                                                 </div>
-                                                {eng.metrics && (
+                                                {eng.v2Metrics ? (
+                                                    <div className="w-full pr-2">
+                                                        <QuestionStateMetricStrip
+                                                            metrics={eng.v2Metrics}
+                                                            variant="card-row"
+                                                            linkContext={{
+                                                                leId,
+                                                                relationshipId: eng.id,
+                                                                relationshipName: orgName,
+                                                            }}
+                                                            className="w-full bg-muted/40 p-2 rounded"
+                                                        />
+                                                    </div>
+                                                ) : eng.metrics ? (
                                                     <div className="w-full pr-2">
                                                         <ProgressTracker metrics={eng.metrics} variant={"v2" as any} className="w-full bg-muted/50" />
                                                     </div>
-                                                )}
+                                                ) : null}
                                             </div>
                                         </AccordionPrimitive.Trigger>
                                     </AccordionPrimitive.Header>
@@ -604,7 +610,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                              orgName={orgName || "Supplier"}
                                                              createdAt={eng.createdAt}
                                                              hasSupplierAccess={(eng._count?.memberships || 0) > 0 || eng.status === 'ACTIVE'}
-                                                             unansweredCount={eng.metrics ? Math.max(0, (eng.metrics.total || 0) - (eng.metrics.answered || 0)) : 24}
+                                                             unansweredCount={eng.v2Metrics ? eng.v2Metrics.unanswered : eng.metrics ? Math.max(0, (eng.metrics.total || 0) - (eng.metrics.answered || 0)) : 24}
                                                              clientLEId={leId}
                                                          />
                                                     </AccordionContent>
@@ -693,22 +699,28 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                                 </div>
                                                                             </div>
 
-                                                                            {/* Col 2: Total */}
-                                                                            <div className="text-center font-bold text-foreground text-[14px]">
-                                                                                {q.metrics?.total || 0}
+                                                                            {/* Col 2: Canonical Metrics */}
+                                                                            <div className="pr-2">
+                                                                                {q.v2Metrics ? (
+                                                                                    <QuestionStateMetricStrip
+                                                                                        metrics={q.v2Metrics}
+                                                                                        variant="table-row"
+                                                                                        linkContext={{
+                                                                                            leId,
+                                                                                            relationshipId: eng.id,
+                                                                                            questionnaireId: q.id,
+                                                                                            relationshipName: orgName,
+                                                                                            questionnaireName: q.name,
+                                                                                        }}
+                                                                                    />
+                                                                                ) : (
+                                                                                    <div className="text-center font-bold text-foreground text-[14px]">
+                                                                                        {q.metrics?.total || 0}
+                                                                                    </div>
+                                                                                )}
                                                                             </div>
 
-                                                                            {/* Col 3: Data Sourcing */}
-                                                                            <div className="border-l border-border pl-4 flex flex-col justify-center h-full text-sky-500">
-                                                                                {q.metrics && <MicroChart value={q.metrics.mapped} total={q.metrics.total} colorClass="text-sky-500 dark:text-sky-400" emptyClass="bg-muted" numeratorLabel="Mapped" denominatorLabel="Unmapped" />}
-                                                                            </div>
-
-                                                                            {/* Col 4: Completion */}
-                                                                            <div className="border-l border-border pl-4 flex flex-col justify-center h-full text-amber-500">
-                                                                                {q.metrics && <MicroChart value={q.metrics.answered} total={q.metrics.total} colorClass="text-amber-500 dark:text-amber-400" emptyClass="bg-muted" numeratorLabel="Answered" denominatorLabel="Blank" />}
-                                                                            </div>
-
-                                                                             {/* Col 5: Sign-Off & Action */}
+                                                                             {/* Col 3: Sign-Off & Action */}
                                                                              <div className="border-l border-border pl-3 pr-1 flex items-center justify-between h-full">
                                                                                  {q.metrics && (
                                                                                      <div className="flex items-center gap-2 shrink-0">
@@ -800,9 +812,22 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                                                                                     </div>
                                                                                 </div>
                                                                             </div>
-                                                                            {q.metrics && (
+                                                                            {q.v2Metrics ? (
+                                                                                <QuestionStateMetricStrip
+                                                                                    metrics={q.v2Metrics}
+                                                                                    variant="card-row"
+                                                                                    linkContext={{
+                                                                                        leId,
+                                                                                        relationshipId: eng.id,
+                                                                                        questionnaireId: q.id,
+                                                                                        relationshipName: orgName,
+                                                                                        questionnaireName: q.name,
+                                                                                    }}
+                                                                                    className="w-full bg-muted/40 p-2 rounded"
+                                                                                />
+                                                                            ) : q.metrics ? (
                                                                                 <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-muted/50" />
-                                                                            )}
+                                                                            ) : null}
                                                                         </div>
                                                                     </div>
                                                                 ))}

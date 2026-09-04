@@ -22,7 +22,7 @@ export default async function EngagementPage({ params, searchParams }: PageProps
         getEngagementEvidenceDocuments(engagementId),
     ]);
 
-    const { success, engagement, questionnaires, commonQuestionnaires, invitations, members, metrics } = detailsRes;
+    const { success, engagement, questionnaires, commonQuestionnaires, invitations, members, metrics, v2Metrics } = detailsRes as any;
 
     if (!success || !engagement) {
         return notFound();
@@ -52,6 +52,7 @@ export default async function EngagementPage({ params, searchParams }: PageProps
                 members={members || []}
                 initialTab={activeTab}
                 metrics={metrics}
+                v2Metrics={v2Metrics}
                 standingData={standingData}
             />
         </div>
