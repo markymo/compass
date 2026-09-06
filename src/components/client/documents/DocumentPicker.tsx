@@ -41,7 +41,7 @@ export function DocumentPicker({ isOpen, onClose, documents, onSelect, disabledD
 
     return (
         <Dialog open={isOpen} onOpenChange={(o) => { if (!o) onClose(); }}>
-            <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
+            <DialogContent className="sm:max-w-4xl max-h-[85vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Choose a document</DialogTitle>
                     <DialogDescription>
@@ -101,7 +101,7 @@ export function DocumentPicker({ isOpen, onClose, documents, onSelect, disabledD
 
                                     return (
                                         <tr key={doc.id} className={isDisabled ? "bg-slate-50 opacity-60" : "hover:bg-slate-50 transition-colors"}>
-                                            <td className="px-4 py-3 font-medium text-slate-700 truncate max-w-[250px]" title={doc.fileName}>
+                                            <td className="px-4 py-3 font-medium text-slate-700 break-words" title={doc.fileName}>
                                                 {doc.fileName}
                                             </td>
                                             <td className="px-4 py-3 text-slate-500">{ext}</td>

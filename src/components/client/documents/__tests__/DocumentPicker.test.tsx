@@ -112,4 +112,44 @@ describe('DocumentPicker', () => {
         expect(screen.getByText('passport.pdf')).toBeInTheDocument();
         expect(screen.queryByText('company-structure.png')).not.toBeInTheDocument();
     });
+
+    describe('ONP-196: Attachment chooser sizing and filename wrapping', () => {
+        it('renders modal with wide breakpoint max-width to avoid narrow dialog and horizontal scrolling', () => {
+            render(
+                <DocumentPicker
+                    isOpen={true}
+                    onClose={() => {}}
+                    documents={MOCK_DOCS}
+                    onSelect={() => {}}
+                    mode={{ type: 'ADD' }}
+                />
+            );
+            const dialog = screen.getByRole('dialog');
+            expect(dialog.className).toContain('sm:max-w-4xl');
+            expect(dialog.className).not.toContain('sm:max-w-lg');
+        });
+
+        it('renders filenames without truncation and allows text wrapping for long filenames', () => {
+            const longDoc = {
+                id: 'doc-long',
+                fileName: 'RDD TEST / BENBRACK - Certificate of Incorporation and Corporate Governance 2026.pdf',
+                mimeType: 'application/pdf',
+                sizeBytes: 1024 * 1024,
+                createdAt: '2025-01-01T10:00:00Z'
+            };
+            render(
+                <DocumentPicker
+                    isOpen={true}
+                    onClose={() => {}}
+                    documents={[longDoc]}
+                    onSelect={() => {}}
+                    mode={{ type: 'ADD' }}
+                />
+            );
+            const nameCell = screen.getByText(longDoc.fileName).closest('td');
+            expect(nameCell).not.toHaveClass('truncate');
+            expect(nameCell).not.toHaveClass('max-w-[250px]');
+            expect(nameCell).toHaveClass('break-words');
+        });
+    });
 });
