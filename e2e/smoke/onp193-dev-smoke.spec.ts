@@ -120,8 +120,8 @@ test.describe('ONP-193: Live Smoke Tests on dev.onpro.tech', () => {
         });
 
         const contrast = getContrastRatio(cardBg, checkboxBorder);
-        // High contrast border in dark mode (dark:border-slate-500) against card
-        expect(contrast).toBeGreaterThanOrEqual(2.5);
+        // High contrast border in dark mode (dark:border-slate-500) against card (WCAG 3.0:1 requirement)
+        expect(contrast).toBeGreaterThanOrEqual(3.0);
 
         // Click checkbox to test toggling to checked state
         await fiCheckbox.click();
