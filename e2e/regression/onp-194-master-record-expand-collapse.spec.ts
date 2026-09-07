@@ -45,11 +45,9 @@ test.describe('ONP-194: Master Record Category Expand/Collapse Persistence & Def
 
         // ONP-194 CONTRACT UNDER TEST:
         // On initial visit (uninitialised preference), all categories must default to COLLAPSED.
-        // On current unpatched baseline (dev.onpro.tech), categories default to EXPANDED,
-        // so Field 1 ("Legal name") is immediately visible in the DOM.
-        // Under ONP-194, category contents are collapsed, so Field 1 must NOT be visible.
-        const field1Badge = page.getByText('Field 1', { exact: true }).first();
-        await expect(field1Badge).not.toBeVisible({ timeout: 5000 });
+        // Category contents are collapsed, so Field 3 ("Legal name") must NOT be visible.
+        const field3Badge = page.getByText('Field 3', { exact: true }).first();
+        await expect(field3Badge).not.toBeVisible({ timeout: 5000 });
     });
 
     test('2. Toggling a category expands it and persists across page reload', async ({ page }) => {
@@ -62,9 +60,9 @@ test.describe('ONP-194: Master Record Category Expand/Collapse Persistence & Def
         // Click category header to expand
         await identityToggle.click();
 
-        // Field 1 within Identity category must now be visible
-        const field1Badge = page.getByText('Field 1', { exact: true }).first();
-        await expect(field1Badge).toBeVisible({ timeout: 10000 });
+        // Field 3 within Identity category must now be visible
+        const field3Badge = page.getByText('Field 3', { exact: true }).first();
+        await expect(field3Badge).toBeVisible({ timeout: 10000 });
 
         // Allow preference persistence server action to complete
         await page.waitForTimeout(1000);
@@ -75,56 +73,56 @@ test.describe('ONP-194: Master Record Category Expand/Collapse Persistence & Def
 
         // Identity category must remain expanded after reload
         await expect(page.getByRole('button', { name: /Toggle Identity category/i }).first()).toBeVisible({ timeout: 15000 });
-        await expect(field1Badge).toBeVisible({ timeout: 10000 });
+        await expect(field3Badge).toBeVisible({ timeout: 10000 });
     });
 
     test('3. Expand all and Collapse all buttons mutate and persist across reload', async ({ page }) => {
         await page.goto(`/app/le/${clientLEId}/master`);
         await page.waitForLoadState('domcontentloaded');
 
-        const field1Badge = page.getByText('Field 1', { exact: true }).first();
+        const field3Badge = page.getByText('Field 3', { exact: true }).first();
 
         // Click "Collapse all"
         const collapseAllBtn = page.getByRole('button', { name: 'Collapse all', exact: true });
         await expect(collapseAllBtn).toBeVisible({ timeout: 15000 });
         await collapseAllBtn.click();
 
-        // Field 1 should now be hidden
-        await expect(field1Badge).not.toBeVisible({ timeout: 5000 });
+        // Field 3 should now be hidden
+        await expect(field3Badge).not.toBeVisible({ timeout: 5000 });
 
         await page.waitForTimeout(1000);
         await page.reload();
         await page.waitForLoadState('domcontentloaded');
 
         // Remains collapsed after reload
-        await expect(field1Badge).not.toBeVisible({ timeout: 5000 });
+        await expect(field3Badge).not.toBeVisible({ timeout: 5000 });
 
         // Click "Expand all"
         const expandAllBtn = page.getByRole('button', { name: 'Expand all', exact: true });
         await expect(expandAllBtn).toBeVisible({ timeout: 15000 });
         await expandAllBtn.click();
 
-        // Field 1 is visible again
-        await expect(field1Badge).toBeVisible({ timeout: 10000 });
+        // Field 3 is visible again
+        await expect(field3Badge).toBeVisible({ timeout: 10000 });
 
         await page.waitForTimeout(1000);
         await page.reload();
         await page.waitForLoadState('domcontentloaded');
 
         // Remains expanded after reload
-        await expect(field1Badge).toBeVisible({ timeout: 10000 });
+        await expect(field3Badge).toBeVisible({ timeout: 10000 });
     });
 
     test('4. Search temporarily reveals matching category without mutating underlying preference', async ({ page }) => {
         await page.goto(`/app/le/${clientLEId}/master`);
         await page.waitForLoadState('domcontentloaded');
 
-        const field1Badge = page.getByText('Field 1', { exact: true }).first();
+        const field3Badge = page.getByText('Field 3', { exact: true }).first();
 
         // Collapse all first
         const collapseAllBtn = page.getByRole('button', { name: 'Collapse all', exact: true });
         await collapseAllBtn.click();
-        await expect(field1Badge).not.toBeVisible({ timeout: 5000 });
+        await expect(field3Badge).not.toBeVisible({ timeout: 5000 });
         await page.waitForTimeout(1000);
 
         // Search for "Legal name"
@@ -132,7 +130,7 @@ test.describe('ONP-194: Master Record Category Expand/Collapse Persistence & Def
         await searchInput.fill('Legal name');
 
         // Matching category should be temporarily revealed
-        await expect(field1Badge).toBeVisible({ timeout: 10000 });
+        await expect(field3Badge).toBeVisible({ timeout: 10000 });
 
         // Clear search
         const clearBtn = page.getByRole('button', { name: 'Clear search' });
@@ -143,6 +141,6 @@ test.describe('ONP-194: Master Record Category Expand/Collapse Persistence & Def
         }
 
         // Must return to collapsed state without needing explicit collapse action
-        await expect(field1Badge).not.toBeVisible({ timeout: 5000 });
+        await expect(field3Badge).not.toBeVisible({ timeout: 5000 });
     });
 });
