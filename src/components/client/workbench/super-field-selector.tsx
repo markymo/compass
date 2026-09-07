@@ -61,6 +61,7 @@ export function SuperFieldSelector({
                     fieldNo: f.fieldNo,
                     label: f.label,
                     appDataType: f.dataType as any,
+                    profileConfig: f.profileConfig,
                     displayState: 'HAS_VALUE' as const,
                     isMultiValue: Array.isArray(f.currentValue)
                 };

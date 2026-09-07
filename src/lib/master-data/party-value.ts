@@ -380,6 +380,11 @@ export function getPartySummary(v: PartyValue, displayMask?: string[]): string {
         name = personName || permittedDisplayName || permittedOrgName || '';
     }
 
+    // Party label / identifier is an invariant fallback outside the mask
+    if (!name && v.displayName) {
+        name = v.displayName;
+    }
+
     let roleLabel: string | null = null;
     if (!isMasked('roles')) {
         const rolesList = v.roles || [];
@@ -388,13 +393,29 @@ export function getPartySummary(v: PartyValue, displayMask?: string[]): string {
         
         if (role) {
             const roleIndex = rolesList.indexOf(role);
-            if (!isMasked(`roles[${roleIndex}].roleTitle`)) {
+            if (!isMasked(`roles[${roleIndex}].roleTitle`) || !isMasked('role.roleTitle')) {
                 roleLabel = role.roleTitle;
             }
         }
     }
 
-    const summary = roleLabel ? `${name} (${roleLabel})` : name;
+    let phoneLabel: string | null = null;
+    if (displayMask !== undefined && !isMasked('phones')) {
+        const phonesList = Array.isArray(v.phones) ? v.phones : [];
+        if (phonesList.length > 0) {
+            const primaryPhone = phonesList.find((p: any) => p && (p as any).isPrimary) || phonesList[0];
+            if (primaryPhone && primaryPhone.number) {
+                phoneLabel = primaryPhone.type ? `${primaryPhone.type}: ${primaryPhone.number}` : primaryPhone.number;
+            }
+        }
+    }
+
+    const parts = [
+        roleLabel ? `${name} (${roleLabel})` : name,
+        phoneLabel
+    ].filter(Boolean);
+
+    const summary = parts.join(' · ');
     return summary.trim() !== '' ? summary.trim() : '';
 }
 
@@ -645,6 +666,18 @@ export function getPartyDisplayProjection(value: any, displayMask?: string[], fa
     const emailVal = poc.email || (Array.isArray(poc.emails) && poc.emails.length > 0 ? poc.emails[0] : null);
     if (showField('email') && emailVal) {
         secondaryParts.push(emailVal);
+    }
+
+    const showPhones = showField('phones') || showField('contact.phones');
+    if (showPhones && Array.isArray(poc.phones) && poc.phones.length > 0) {
+        for (const phone of poc.phones) {
+            if (phone && phone.number) {
+                const label = phone.type ? `${phone.type}: ${phone.number}` : phone.number;
+                if (!secondaryParts.includes(label)) {
+                    secondaryParts.push(label);
+                }
+            }
+        }
     }
 
     let addressText = "";

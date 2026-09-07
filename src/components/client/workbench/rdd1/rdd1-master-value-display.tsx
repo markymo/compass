@@ -83,6 +83,7 @@ export function Rdd1MasterValueDisplay({
                                             value={item.value.kind === "partyRef" ? (item.value as any).resolved : item.value.data}
                                             partyLabel={(item.value as any).partyLabel}
                                             layout="row"
+                                            displayMask={(item.value as any).displayMask}
                                             attachments={item.attachments}
                                         />
                                     ) : (
@@ -105,7 +106,7 @@ export function Rdd1MasterValueDisplay({
                     </div>
                 ) : canonicalModel ? (
                     <div className="p-3 space-y-2">
-                        <FieldValueRenderer field={canonicalModel} itemLimit={10} />
+                        <FieldValueRenderer field={canonicalModel} layout="row" itemLimit={10} />
                         {canonicalModel.attachments && canonicalModel.attachments.length > 0 && (
                             <div className="pt-2 border-t border-border">
                                 <FieldAttachments

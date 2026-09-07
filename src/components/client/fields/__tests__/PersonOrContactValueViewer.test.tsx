@@ -217,4 +217,123 @@ describe('PersonOrContactValueViewer Field 104 hideStatusBadge scoping', () => {
     });
 });
 
+describe('ONP-123 — PersonOrContactValueViewer undefined phones regression', () => {
+    const baseParty = {
+        contactType: 'PERSON' as const,
+        partyType: 'INDIVIDUAL' as const,
+        forenames: 'Alex',
+        surname: 'Taylor',
+        roles: [],
+        sourceIdentifiers: [],
+        nationality: [],
+        countryOfResidence: null,
+        placeOfBirth: null,
+        title: null,
+        isActiveParty: true,
+        isActivePersonOrContact: true,
+        visibility: { scope: 'CLIENT_LE' as const }
+    };
+
+    it('email + no phones (phones undefined): renders email without throwing and without phantom phone row', () => {
+        const partyWithEmailNoPhones = {
+            ...baseParty,
+            email: 'alex.taylor@example.com',
+            phones: undefined as any
+        };
+
+        const result = PersonOrContactValueViewer({
+            value: partyWithEmailNoPhones,
+            layout: 'detailed'
+        });
+
+        const html = renderToStaticMarkup(result as any);
+        expect(html).toContain('alex.taylor@example.com');
+        expect(html).toContain('Email');
+        expect(html).not.toContain('MOBILE');
+        expect(html).not.toContain('LANDLINE');
+    });
+
+    it('phones + no email: renders phones without email field', () => {
+        const partyWithPhonesNoEmail = {
+            ...baseParty,
+            email: null,
+            phones: [
+                { type: 'MOBILE' as const, number: '+44 7700 900123' },
+                { type: 'LANDLINE' as const, number: '+44 20 7946 0123' }
+            ]
+        };
+
+        const result = PersonOrContactValueViewer({
+            value: partyWithPhonesNoEmail,
+            layout: 'detailed'
+        });
+
+        const html = renderToStaticMarkup(result as any);
+        expect(html).not.toContain('alex.taylor@example.com');
+        expect(html).not.toContain('Email');
+        expect(html).toContain('MOBILE');
+        expect(html).toContain('+44 7700 900123');
+        expect(html).toContain('LANDLINE');
+        expect(html).toContain('+44 20 7946 0123');
+    });
+
+    it('email + phones: renders both email and phones', () => {
+        const partyWithEmailAndPhones = {
+            ...baseParty,
+            email: 'alex.taylor@example.com',
+            phones: [
+                { type: 'MOBILE' as const, number: '+44 7700 900123' }
+            ]
+        };
+
+        const result = PersonOrContactValueViewer({
+            value: partyWithEmailAndPhones,
+            layout: 'detailed'
+        });
+
+        const html = renderToStaticMarkup(result as any);
+        expect(html).toContain('alex.taylor@example.com');
+        expect(html).toContain('Email');
+        expect(html).toContain('MOBILE');
+        expect(html).toContain('+44 7700 900123');
+    });
+
+    it('neither email nor phones: does not render contact info section or phantom rows', () => {
+        const partyWithNeither = {
+            ...baseParty,
+            email: null,
+            phones: undefined as any
+        };
+
+        const result = PersonOrContactValueViewer({
+            value: partyWithNeither,
+            layout: 'detailed'
+        });
+
+        const html = renderToStaticMarkup(result as any);
+        expect(html).not.toContain('Email');
+        expect(html).not.toContain('MOBILE');
+        expect(html).not.toContain('LANDLINE');
+    });
+
+    it('respects displayMask when masking email and phones is undefined', () => {
+        const partyWithEmailNoPhones = {
+            ...baseParty,
+            email: 'alex.taylor@example.com',
+            phones: undefined as any
+        };
+
+        const result = PersonOrContactValueViewer({
+            value: partyWithEmailNoPhones,
+            layout: 'detailed',
+            displayMask: ['forenames', 'surname', 'phones'] // email is not permitted
+        });
+
+        const html = renderToStaticMarkup(result as any);
+        expect(html).not.toContain('alex.taylor@example.com');
+        expect(html).not.toContain('Email');
+    });
+});
+
+
 

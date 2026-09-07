@@ -206,7 +206,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
             currentValue: hv ? hv.value : null,
             attachmentCount: hv?.attachmentCount ?? 0,
             displayState,
-            defaultText
+            defaultText,
+            profileConfig: def.profileConfig as { displayMask?: string[] } | undefined
         };
     });
 
@@ -419,6 +420,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
                             displayState: displayState,
                             defaultText: def?.defaultResponse ?? undefined,
                             appDataType: def?.appDataType || 'JSON',
+                            profileConfig: def?.profileConfig as { displayMask?: string[] } | undefined,
                             isMultiValue: isMulti,
                             codeSystem,
                             attachments: fv.attachments,
@@ -586,6 +588,7 @@ export async function mapQuestionToField(
                                 label: def?.fieldName || '',
                                 displayState: fv.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA',
                                 appDataType: (def?.appDataType || 'JSON') as any,
+                                profileConfig: def?.profileConfig as { displayMask?: string[] } | undefined,
                                 isMultiValue: def?.isMultiValue || false
                             }
                         );

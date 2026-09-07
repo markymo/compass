@@ -258,7 +258,9 @@ export function PersonOrContactValueViewer({
     };
 
     if (layout === "compact") {
-        const summary = partyLabel || getPersonOrContactSummary(poc);
+        const summary = (displayMask && displayMask.length > 0)
+            ? getPersonOrContactSummary(poc, displayMask)
+            : (partyLabel || getPersonOrContactSummary(poc));
         return (
             <span className="inline-flex items-center gap-1.5 text-sm text-foreground font-medium">
                 {summary || <span className="text-muted-foreground italic">—</span>}
@@ -354,11 +356,15 @@ export function PersonOrContactValueViewer({
             {/* Contact info */}
             {(() => {
                 const emailVal = poc.email || (Array.isArray((poc as any).emails) && (poc as any).emails.length > 0 ? (poc as any).emails[0] : null);
-                if ((showField('email') || showField('phones')) && (emailVal || poc.phones?.length > 0)) {
+                const hasEmail = Boolean(showField('email') && emailVal);
+                const phonesList = Array.isArray(poc.phones) ? poc.phones : [];
+                const hasPhones = Boolean(showField('phones') && phonesList.length > 0);
+
+                if (hasEmail || hasPhones) {
                     return (
                         <div className="grid grid-cols-2 gap-4 border-b border-border pb-3">
-                            {showField('email') && emailVal && <Field label="Email" value={emailVal} />}
-                            {showField('phones') && poc.phones.map((p, i) => (
+                            {hasEmail && <Field label="Email" value={emailVal} />}
+                            {hasPhones && phonesList.map((p, i) => (
                                 <Field key={i} label={p.type} value={p.number} />
                             ))}
                         </div>
