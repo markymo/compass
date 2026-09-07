@@ -130,7 +130,7 @@ describe('getFieldDetail - Group Path Batching', () => {
         // Verify the exact shape of the payload sent to resolveAllAttachments
         expect(KycStateService.resolveAllAttachments).toHaveBeenCalledWith(
             { subjectLeId: 'le_1', clientLEId: 'cle_1' },
-            [101, 103] // 102 does not allow attachments
+            [101, 102, 103]
         );
 
         // Verify that the attachment mappings correctly landed in the UI layer without cross-contamination

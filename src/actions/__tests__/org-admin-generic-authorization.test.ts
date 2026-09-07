@@ -7,6 +7,10 @@ import { getSupplierTeamMembers, getFIEngagementById } from '../fi';
 import { cloneQuestionnaire } from '../questionnaire';
 import { inviteUser } from '../invitations';
 
+vi.mock('@/actions/ai-actions', () => ({
+    generateLEDescription: vi.fn().mockResolvedValue({ success: false })
+}));
+
 const { mockPrisma } = vi.hoisted(() => {
     const mockPrisma = {
         user: {

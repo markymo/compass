@@ -23,7 +23,7 @@ vi.mock('@sentry/nextjs', () => ({
 }));
 
 vi.mock('next-auth', () => ({ default: vi.fn(() => ({ handlers: {}, auth: vi.fn(), signIn: vi.fn(), signOut: vi.fn() })), getServerSession: vi.fn() }));
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), unstable_noStore: vi.fn() }));
 vi.mock('next/navigation', () => ({ notFound: vi.fn() }));
 vi.mock('@/context/breadcrumb-context', () => ({ SetPageBreadcrumbs: () => null }));
 vi.mock('@/components/client/kyc/enrichment-gate', () => ({ EnrichmentGate: ({ children }: any) => children }));

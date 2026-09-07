@@ -97,6 +97,8 @@ vi.mock('@/lib/prisma', () => ({
         masterFieldNote: { deleteMany: vi.fn() },
         lEActivity: { deleteMany: vi.fn(), findMany: vi.fn() },
         customFieldDefinition: { count: vi.fn() },
+        masterDataCategory: { findMany: vi.fn().mockResolvedValue([]) },
+        masterFieldDefinition: { findMany: vi.fn().mockResolvedValue([]), count: vi.fn() },
         fISchema: { count: vi.fn() },
         questionnaireVisibilityGrant: { count: vi.fn() },
         usageLog: { findMany: vi.fn() },
@@ -667,7 +669,7 @@ describe('Platform-Only SYSTEM_ADMIN — Comprehensive Security & Denial Suite',
             expect(mapRes).toEqual({ success: false, error: 'Unauthorized' });
 
             const q2Res = await getQuestionnairesV2();
-            expect(q2Res).toEqual({ workingCopies: [], referenceLibrary: [], other: [] });
+            expect(q2Res).toEqual({ workingCopies: [], referenceLibrary: [], other: [], activeMasterFieldCount: 0 });
         });
 
         it('denies non-System-Admin user from SYSTEM_MANAGE_TENANTS operations', async () => {

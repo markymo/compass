@@ -21,6 +21,10 @@ const { mockPrisma } = vi.hoisted(() => {
             },
             cCPartyDocument: {
                 findMany: vi.fn()
+            },
+            fieldClaim: {
+                findMany: vi.fn().mockResolvedValue([]),
+                findFirst: vi.fn().mockResolvedValue(null)
             }
         }
     };

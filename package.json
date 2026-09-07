@@ -23,6 +23,8 @@
     "gleif:generate-elf": "ts-node -O '{\"module\":\"commonjs\"}' scripts/generate-elf-codes.ts",
     "vercel:build": "node scripts/vercel-build.mjs",
     "test": "NODE_OPTIONS=\"--experimental-require-module\" vitest run --fileParallelism=false",
+    "test:unit": "NODE_OPTIONS=\"--experimental-require-module\" vitest run --fileParallelism=false",
+    "test:integration": "DOTENV_CONFIG_PATH=.env.uat.local ONPRO_DB_TEST_ENV=uat NODE_OPTIONS=\"--experimental-require-module -r dotenv/config\" vitest run --config vitest.integration.config.ts",
     "test:watch": "NODE_OPTIONS=\"--experimental-require-module\" vitest",
     "typecheck": "tsc --noEmit",
     "test:permissions": "vitest run src/lib/auth/__tests__/permissions.test.ts",

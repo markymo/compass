@@ -26,7 +26,7 @@ describe("Supplier Relationships Summary Data Layer (getSupplierRelationshipsSum
 
     it("1, 2. Reads questionnaireInstances relation and ignores questionnaires m2m relation", async () => {
         prismaMock.membership.findMany.mockResolvedValue([
-            { organizationId: supplierOrgId, fiEngagementId: null }
+            { organizationId: supplierOrgId, fiEngagementId: "eng-1", role: "RELATIONSHIP_ADMIN" }
         ]);
 
         prismaMock.fIEngagement.findMany.mockResolvedValue([
@@ -79,7 +79,7 @@ describe("Supplier Relationships Summary Data Layer (getSupplierRelationshipsSum
 
     it("Regression Test Inverse: m2m questionnaires relation with 0 questionnaireInstances returns 0 questionnaires", async () => {
         prismaMock.membership.findMany.mockResolvedValue([
-            { organizationId: supplierOrgId, fiEngagementId: null }
+            { organizationId: supplierOrgId, fiEngagementId: "eng-1", role: "RELATIONSHIP_ADMIN" }
         ]);
 
         prismaMock.fIEngagement.findMany.mockResolvedValue([
@@ -109,7 +109,7 @@ describe("Supplier Relationships Summary Data Layer (getSupplierRelationshipsSum
 
     it("3. Multiple questionnaireInstances under one Relationship are all counted", async () => {
         prismaMock.membership.findMany.mockResolvedValue([
-            { organizationId: supplierOrgId, fiEngagementId: null }
+            { organizationId: supplierOrgId, fiEngagementId: "eng-1", role: "RELATIONSHIP_ADMIN" }
         ]);
 
         prismaMock.fIEngagement.findMany.mockResolvedValue([
@@ -142,7 +142,7 @@ describe("Supplier Relationships Summary Data Layer (getSupplierRelationshipsSum
 
     it("9, 10, 11. Question counts reconcile at Client Org, ClientLE, and Questionnaire levels", async () => {
         prismaMock.membership.findMany.mockResolvedValue([
-            { organizationId: supplierOrgId, fiEngagementId: null }
+            { organizationId: supplierOrgId, fiEngagementId: "eng-1", role: "RELATIONSHIP_ADMIN" }
         ]);
 
         prismaMock.fIEngagement.findMany.mockResolvedValue([
@@ -193,7 +193,7 @@ describe("Supplier Relationships Summary Data Layer (getSupplierRelationshipsSum
 
     it("Task 4A.1. Uses releasedAt for RELEASED and sharedAt for SHARED; ignores updatedAt", async () => {
         prismaMock.membership.findMany.mockResolvedValue([
-            { organizationId: supplierOrgId, fiEngagementId: null }
+            { organizationId: supplierOrgId, fiEngagementId: "eng-1", role: "RELATIONSHIP_ADMIN" }
         ]);
 
         prismaMock.fIEngagement.findMany.mockResolvedValue([

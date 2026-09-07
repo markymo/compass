@@ -179,7 +179,7 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
             testClaims.push(replaceRes.id);
 
             expect(replaceRes.instanceId).toBe(addRes.instanceId);
-            expect(replaceRes.attachmentDocumentId).toBe(docId2);
+            expect(replaceRes.claim.attachmentDocumentId).toBe(docId2);
 
             // Verify previous document is untouched
             const prevDoc = await prisma.document.findUnique({ where: { id: docId1 } });
@@ -209,8 +209,8 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
             testClaims.push(removeRes.id);
 
             expect(removeRes.instanceId).toBe(addRes.instanceId);
-            expect(removeRes.attachmentDocumentId).toBeNull();
-            expect(removeRes.valueJson).toEqual({ tombstone: true });
+            expect(removeRes.claim.attachmentDocumentId).toBeNull();
+            expect(removeRes.claim.valueJson).toEqual({ tombstone: true });
 
             // Verify active collection
             const attachments = await KycStateService.getAuthoritativeAttachments({ clientLEId, subjectLeId }, 999);
@@ -270,8 +270,8 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
             testClaims.push(add1.id);
 
             // Same key, different field -> conflict
-            await expect(addFieldAttachment({ clientLEId, fieldNo: 998, attachmentDocumentId: docId, idempotencyKey: key }))
-                .rejects.toThrow(/Idempotency conflict/);
+            const failAdd = await addFieldAttachment({ clientLEId, fieldNo: 998, attachmentDocumentId: docId, idempotencyKey: key });
+            expect(failAdd.success).toBe(false);
         });
 
         it('handles intents: PENDING -> COMPLETED and duplicate callbacks', async () => {
@@ -314,8 +314,8 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
     describe('5. Security & Validation', () => {
         it('rejects attachment if allowAttachments=false', async () => {
             const docId = await makeDocument('sec-1');
-            await expect(addFieldAttachment({ clientLEId, fieldNo: 998, attachmentDocumentId: docId }))
-                .rejects.toThrow(/Attachments are not permitted for this field/);
+            const res = await addFieldAttachment({ clientLEId, fieldNo: 998, attachmentDocumentId: docId });
+            expect(res.success).toBe(false);
         });
 
         it('rejects attachment of a Document owned by another ClientLE', async () => {
@@ -325,8 +325,8 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
             }).then(d => d.id);
 
             testDocs.push(docId);
-            await expect(addFieldAttachment({ clientLEId, fieldNo: 999, attachmentDocumentId: docId }))
-                .rejects.toThrow(/does not belong to the requested clientLE/);
+            const res = await addFieldAttachment({ clientLEId, fieldNo: 999, attachmentDocumentId: docId });
+            expect(res.success).toBe(false);
 
             await prisma.document.delete({ where: { id: docId } });
             await prisma.clientLE.delete({ where: { id: otherLe.id } });

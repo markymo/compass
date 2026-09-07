@@ -28,7 +28,7 @@ describe("ONP-66 — FI Overview Relationship Display Semantics Proof", () => {
 
         // User is member of FI organization fi-bank-1
         vi.mocked(prisma.membership.findMany).mockResolvedValue([
-            { organizationId: "fi-bank-1", fiEngagementId: null },
+            { organizationId: "fi-bank-1", fiEngagementId: null, role: "ORG_ADMIN" },
         ] as any);
 
         // FI has 3 relationships across 2 client organizations

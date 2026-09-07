@@ -63,6 +63,10 @@ describe.skipIf(!process.env.DATABASE_URL)("Legacy RELEASED Fallback Integration
             }
         });
 
+        await prisma.membership.create({
+            data: { userId: testUser.id, fiEngagementId: testEngagement.id, role: "RELATIONSHIP_ADMIN" }
+        });
+
         testQuestionnaire = await prisma.questionnaire.create({
             data: {
                 name: "Legacy Fallback QN",

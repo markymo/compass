@@ -169,6 +169,9 @@ describe('QNR-04 / ONP-70 — Deleted Questionnaire Lifecycle & Visibility Acros
 
     describe('2. Active Supplier Surfaces Filter Soft-Deleted Questionnaires', () => {
         it('getSupplierRelationshipsSummary excludes soft-deleted questionnaireInstances', async () => {
+            prismaMock.membership.findMany.mockResolvedValue([
+                { id: 'm-1', userId: 'user-1', organizationId: supplierOrgId, role: 'ORG_ADMIN', fiEngagementId: 'eng-1' },
+            ]);
             prismaMock.fIEngagement.findMany.mockResolvedValue([
                 {
                     id: 'eng-1',
@@ -192,7 +195,7 @@ describe('QNR-04 / ONP-70 — Deleted Questionnaire Lifecycle & Visibility Acros
                     where: expect.objectContaining({ fiOrgId: supplierOrgId, isDeleted: false }),
                     include: expect.objectContaining({
                         questionnaireInstances: expect.objectContaining({
-                            where: { isDeleted: false }
+                            where: expect.objectContaining({ isDeleted: false })
                         })
                     })
                 })

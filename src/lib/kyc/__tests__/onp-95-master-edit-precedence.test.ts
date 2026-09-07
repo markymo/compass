@@ -33,6 +33,7 @@ describe('ONP-95 — Master Edit Claim Precedence, Hydration & Immutability Cont
 
     afterAll(async () => {
         await prisma.fieldClaim.deleteMany({ where: { clientLEId } });
+        await prisma.membership.deleteMany({ where: { userId: 'usr-test-123' } });
         await prisma.clientLE.deleteMany({ where: { id: clientLEId } });
         await prisma.legalEntity.deleteMany({ where: { id: subjectLeId } });
         await prisma.user.deleteMany({ where: { id: 'usr-test-123' } });
@@ -42,6 +43,9 @@ describe('ONP-95 — Master Edit Claim Precedence, Hydration & Immutability Cont
         // Clean up test data
         await prisma.fieldClaim.deleteMany({
             where: { clientLEId }
+        });
+        await prisma.membership.deleteMany({
+            where: { userId: 'usr-test-123' }
         });
         await prisma.clientLE.deleteMany({
             where: { id: clientLEId }
@@ -75,6 +79,13 @@ describe('ONP-95 — Master Edit Claim Precedence, Hydration & Immutability Cont
                 id: clientLEId,
                 legalEntityId: subjectLeId,
                 name: 'Test Fund Client LE'
+            }
+        });
+        await prisma.membership.create({
+            data: {
+                userId: 'usr-test-123',
+                clientLEId: clientLEId,
+                role: 'LE_ADMIN',
             }
         });
     });

@@ -65,7 +65,7 @@ describe('Security Remediation — Authorization Gaps', () => {
                 attachmentDocumentId: 'doc-1'
             });
 
-            expect(result).toEqual({ success: true });
+            expect(result).toMatchObject({ success: true });
             expect(FieldClaimService.addAttachment).toHaveBeenCalled();
         });
 
@@ -75,13 +75,17 @@ describe('Security Remediation — Authorization Gaps', () => {
                 { clientLEId: 'cle-OTHER', role: 'LE_ADMIN', fiEngagementId: null }
             ]);
 
-            await expect(
-                addFieldAttachment({
-                    clientLEId: 'cle-1',
-                    fieldNo: 101,
-                    attachmentDocumentId: 'doc-1'
-                })
-            ).rejects.toThrow('Unauthorized');
+            const result = await addFieldAttachment({
+                clientLEId: 'cle-1',
+                fieldNo: 101,
+                attachmentDocumentId: 'doc-1'
+            });
+
+            expect(result).toMatchObject({
+                success: false,
+                kind: 'domain',
+                message: 'Unauthorized'
+            });
 
             expect(FieldClaimService.addAttachment).not.toHaveBeenCalled();
             expect(prismaMock.clientLE.findUnique).not.toHaveBeenCalled();
@@ -93,14 +97,18 @@ describe('Security Remediation — Authorization Gaps', () => {
                 { role: 'RELATIONSHIP_USER', fiEngagementId: 'eng-1' }
             ]);
 
-            await expect(
-                replaceFieldAttachment({
-                    clientLEId: 'cle-1',
-                    fieldNo: 101,
-                    instanceId: 'inst-1',
-                    attachmentDocumentId: 'doc-2'
-                })
-            ).rejects.toThrow('Unauthorized');
+            const result = await replaceFieldAttachment({
+                clientLEId: 'cle-1',
+                fieldNo: 101,
+                instanceId: 'inst-1',
+                attachmentDocumentId: 'doc-2'
+            });
+
+            expect(result).toMatchObject({
+                success: false,
+                kind: 'domain',
+                message: 'Unauthorized'
+            });
 
             expect(FieldClaimService.replaceAttachment).not.toHaveBeenCalled();
         });
@@ -109,13 +117,17 @@ describe('Security Remediation — Authorization Gaps', () => {
             vi.mocked(getIdentity).mockResolvedValue({ userId: 'unauthorized-user' } as any);
             prismaMock.membership.findMany.mockResolvedValue([]);
 
-            await expect(
-                removeFieldAttachment({
-                    clientLEId: 'cle-1',
-                    fieldNo: 101,
-                    instanceId: 'inst-1'
-                })
-            ).rejects.toThrow('Unauthorized');
+            const result = await removeFieldAttachment({
+                clientLEId: 'cle-1',
+                fieldNo: 101,
+                instanceId: 'inst-1'
+            });
+
+            expect(result).toMatchObject({
+                success: false,
+                kind: 'domain',
+                message: 'Unauthorized'
+            });
 
             expect(FieldClaimService.removeAttachment).not.toHaveBeenCalled();
         });
@@ -269,14 +281,15 @@ describe('Security Remediation — Authorization Gaps', () => {
         it('allows ORG_ADMIN to get dashboard stats for their FI org', async () => {
             vi.mocked(getIdentity).mockResolvedValue({ userId: 'supplier-admin-1' } as any);
             prismaMock.membership.findMany.mockResolvedValue([
-                { organizationId: 'fi-org-1', fiEngagementId: null }
+                { organizationId: 'fi-org-1', role: 'ORG_ADMIN', fiEngagementId: null }
             ]);
-            prismaMock.questionnaire.count.mockResolvedValue(5);
             prismaMock.fIEngagement.count.mockResolvedValue(3);
-            prismaMock.query.count.mockResolvedValue(2);
 
             const stats = await getFIDashboardStats('fi-org-1');
-            expect(stats).toEqual({ questionnaires: 5, engagements: 3, queries: 2 });
+            expect(stats).toEqual({ questionnaires: 0, engagements: 3, queries: 0 });
+            expect(prismaMock.fIEngagement.count).toHaveBeenCalledTimes(1);
+            expect(prismaMock.questionnaire.count).not.toHaveBeenCalled();
+            expect(prismaMock.query.count).not.toHaveBeenCalled();
         });
 
         it('denies supplier user from accessing stats of an arbitrary fiOrgId that they have no access to', async () => {

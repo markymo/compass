@@ -9,6 +9,10 @@ vi.mock('next/cache', () => ({
 vi.mock('@/lib/auth', () => ({
     getIdentity: vi.fn().mockResolvedValue({ userId: 'user-123' })
 }));
+vi.mock('@/lib/auth/permissions', () => ({
+    can: vi.fn().mockResolvedValue(true),
+    Action: { LE_EDIT_MASTER_DATA: 'LE_EDIT_MASTER_DATA' }
+}));
 vi.mock('@/lib/kyc/KycStateService', () => ({
     KycStateService: {
         resolveScopeId: vi.fn().mockResolvedValue('scope-123')
@@ -33,6 +37,9 @@ vi.mock('@/lib/prisma', () => {
         default: {
             clientLE: {
                 findUnique: vi.fn().mockResolvedValue({ id: 'le-123', legalEntityId: 'le-abc' })
+            },
+            membership: {
+                findMany: vi.fn().mockResolvedValue([])
             }
         }
     };

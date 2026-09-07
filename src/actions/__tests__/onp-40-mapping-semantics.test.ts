@@ -136,7 +136,7 @@ describe("Track B: ONP-40 Questionnaire Mapping Semantics (DB Integration)", () 
             data: {
                 name: "ONP40 Template Questionnaire",
                 fiOrgId: TEST_ORG_ID,
-                fiEngagementId: TEST_ENGAGEMENT_ACTIVE,
+                fiEngagementId: null,
                 isDeleted: false,
                 isTemplate: true
             }

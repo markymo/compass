@@ -13,6 +13,10 @@ vi.mock('next/cache', () => ({
 vi.mock('@/lib/auth', () => ({
     getIdentity: vi.fn().mockResolvedValue({ userId: 'user-123' })
 }));
+vi.mock('@/lib/auth/permissions', () => ({
+    can: vi.fn().mockResolvedValue(true),
+    Action: { LE_EDIT_MASTER_DATA: 'LE_EDIT_MASTER_DATA' }
+}));
 vi.mock('@/lib/kyc/FieldClaimService', () => ({
     FieldClaimService: {
         assertClaim: vi.fn().mockResolvedValue({ id: 'claim-1' })
@@ -31,6 +35,9 @@ const { mockPrisma } = vi.hoisted(() => {
         clientLE: {
             findUnique: vi.fn(),
             update: vi.fn()
+        },
+        membership: {
+            findMany: vi.fn().mockResolvedValue([])
         },
         fieldClaim: {
             findUnique: vi.fn()

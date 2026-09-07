@@ -169,7 +169,10 @@ describe('ClientLE Team Access & Pending Invitations Workflow', () => {
             expect(res.success).toBe(true);
             expect(prismaMock.invitation.update).toHaveBeenCalledWith({
                 where: { id: 'inv-123' },
-                data: { expiresAt: expect.any(Date) }
+                data: {
+                    expiresAt: expect.any(Date),
+                    tokenHash: expect.stringMatching(/^[a-f0-9]{64}$/)
+                }
             });
         });
     });

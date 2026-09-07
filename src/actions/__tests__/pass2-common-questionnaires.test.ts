@@ -176,7 +176,7 @@ describe("Pass 2: Shared-by-Default for Common Questionnaires", () => {
         // Supplier A setup
         getIdentityMock.mockResolvedValue({ userId: "user-sup-a" });
         prismaMock.membership.findFirst.mockResolvedValue({ id: "mem-a", userId: "user-sup-a", organizationId: supplierOrgA, organization: { types: ["FI"] } });
-        prismaMock.membership.findMany.mockResolvedValue([]);
+        prismaMock.membership.findMany.mockResolvedValue([{ fiEngagementId: "eng-a" }]);
 
         prismaMock.question.findMany.mockResolvedValue([commonQuestionRecordForA]);
 
@@ -213,6 +213,7 @@ describe("Pass 2: Shared-by-Default for Common Questionnaires", () => {
 
         getIdentityMock.mockResolvedValue({ userId: "user-sup-b" });
         prismaMock.membership.findFirst.mockResolvedValue({ id: "mem-b", userId: "user-sup-b", organizationId: supplierOrgB, organization: { types: ["FI"] } });
+        prismaMock.membership.findMany.mockResolvedValue([{ fiEngagementId: "eng-b" }]);
 
         prismaMock.question.findMany.mockResolvedValue([commonQuestionRecordForB]);
 
@@ -227,7 +228,7 @@ describe("Pass 2: Shared-by-Default for Common Questionnaires", () => {
         const supplierOrgA = "supplier-org-a";
 
         prismaMock.membership.findFirst.mockResolvedValue({ id: "mem-a", userId: "user-sup-a", organizationId: supplierOrgA, organization: { types: ["FI"] } });
-        prismaMock.membership.findMany.mockResolvedValue([]);
+        prismaMock.membership.findMany.mockResolvedValue([{ fiEngagementId: "eng-a" }]);
 
         prismaMock.question.findMany.mockResolvedValue([
             {
@@ -271,7 +272,7 @@ describe("Pass 2: Shared-by-Default for Common Questionnaires", () => {
         const clientLEYId = "cle-y";
 
         prismaMock.membership.findFirst.mockResolvedValue({ id: "mem-c", userId: "user-sup-c", organizationId: supplierOrgC, organization: { types: ["FI"] } });
-        prismaMock.membership.findMany.mockResolvedValue([]);
+        prismaMock.membership.findMany.mockResolvedValue([{ fiEngagementId: "eng-c" }]);
 
         prismaMock.question.findMany.mockResolvedValue([]);
 

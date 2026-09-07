@@ -41,7 +41,10 @@ describe('REL-01 / ONP-67 — FI Workbench lists all authorised active relations
             organizationId: 'fi-org-1',
             role: 'ORG_ADMIN',
         });
-        prismaMock.membership.findMany.mockResolvedValue([]);
+        prismaMock.membership.findMany.mockResolvedValue([
+            { fiEngagementId: 'eng-1' },
+            { fiEngagementId: 'eng-2' },
+        ]);
     });
 
     it('1. getFIWorkbenchData discovers all active relationships across multiple engagements even if only one has questions', async () => {
