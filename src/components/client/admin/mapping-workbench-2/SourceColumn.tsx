@@ -125,7 +125,7 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
                                     "flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg border cursor-pointer transition-colors select-none",
                                     isChecked
                                         ? cn("border", accent.check)
-                                        : "border-slate-100 hover:bg-slate-50"
+                                        : "border-slate-100 hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800/50"
                                 )}
                             >
                                 <div
@@ -133,7 +133,7 @@ export function SourceColumn({ sources, activeSources, onSourceToggle, selection
                                         "w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors",
                                         isChecked
                                             ? "bg-emerald-500 border-emerald-500"
-                                            : "border-slate-300 bg-white"
+                                            : "border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-900/60"
                                     )}
                                     onClick={() => onSourceToggle(src.sourceKey)}
                                 >

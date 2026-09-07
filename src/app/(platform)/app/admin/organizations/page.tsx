@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -392,14 +393,12 @@ export default function OrganizationsPage() {
                             </div>
                             <div className="space-y-2">
                                 <Label>Roles (Multi-select)</Label>
-                                <div className="flex flex-col gap-3 p-3 border rounded-md bg-slate-50/50">
+                                <div className="flex flex-col gap-3 p-3 border rounded-md bg-slate-50/50 dark:bg-slate-900/40 dark:border-slate-800">
                                     <div className="flex items-center space-x-3">
-                                        <input
-                                            type="checkbox"
+                                        <Checkbox
                                             id="chk-client"
                                             checked={types.includes("CLIENT")}
-                                            onChange={() => toggleType("CLIENT")}
-                                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                            onCheckedChange={() => toggleType("CLIENT")}
                                         />
                                         <div className="grid gap-0.5 pointer-events-none">
                                             <Label htmlFor="chk-client" className="cursor-pointer pointer-events-auto">Client (Asset Manager / Corporate)</Label>
@@ -407,16 +406,14 @@ export default function OrganizationsPage() {
                                         </div>
                                     </div>
 
-                                    <div className="mt-2 pt-3 border-t">
+                                    <div className="mt-2 pt-3 border-t dark:border-slate-800">
                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Supplier Roles</p>
                                         <div className="space-y-3">
                                             <div className="flex items-center space-x-3">
-                                                <input
-                                                    type="checkbox"
+                                                <Checkbox
                                                     id="chk-fi"
                                                     checked={types.includes("FI")}
-                                                    onChange={() => toggleType("FI")}
-                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                    onCheckedChange={() => toggleType("FI")}
                                                 />
                                                 <div className="grid gap-0.5 pointer-events-none">
                                                     <Label htmlFor="chk-fi" className="cursor-pointer pointer-events-auto">Financial Institution (FI)</Label>
@@ -424,12 +421,10 @@ export default function OrganizationsPage() {
                                                 </div>
                                             </div>
                                             <div className="flex items-center space-x-3">
-                                                <input
-                                                    type="checkbox"
+                                                <Checkbox
                                                     id="chk-law"
                                                     checked={types.includes("LAW_FIRM")}
-                                                    onChange={() => toggleType("LAW_FIRM")}
-                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                    onCheckedChange={() => toggleType("LAW_FIRM")}
                                                 />
                                                 <div className="grid gap-0.5 pointer-events-none">
                                                     <Label htmlFor="chk-law" className="cursor-pointer pointer-events-auto">Law Firm</Label>
@@ -437,12 +432,10 @@ export default function OrganizationsPage() {
                                                 </div>
                                             </div>
                                             <div className="flex items-center space-x-3">
-                                                <input
-                                                    type="checkbox"
+                                                <Checkbox
                                                     id="chk-other"
                                                     checked={types.includes("OTHER")}
-                                                    onChange={() => toggleType("OTHER")}
-                                                    className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                    onCheckedChange={() => toggleType("OTHER")}
                                                 />
                                                 <div className="grid gap-0.5 pointer-events-none">
                                                     <Label htmlFor="chk-other" className="cursor-pointer pointer-events-auto">Other Supplier</Label>
