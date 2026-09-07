@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowLeft, UserPlus, Mail, FileText, Upload, Plus, Pen, Check, X, Trash2, Clock, Building, CheckCircle2, AlertCircle, Shield, Eye, Info } from "lucide-react";
 import Link from "next/link";
@@ -762,12 +763,10 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                                     <CardDescription>Manage digitized questionnaires for this FI.</CardDescription>
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                    <input
-                                        type="checkbox"
+                                    <Checkbox
                                         id="showArchived"
                                         checked={showArchived}
-                                        onChange={(e) => setShowArchived(e.target.checked)}
-                                        className="h-4 w-4"
+                                        onCheckedChange={(checked) => setShowArchived(!!checked)}
                                     />
                                     <label htmlFor="showArchived" className="text-sm text-muted-foreground cursor-pointer select-none">Show Archived</label>
                                 </div>

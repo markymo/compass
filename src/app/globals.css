@@ -28,6 +28,7 @@
 }
 
 :root {
+  color-scheme: light;
   /* Navy & Gold - Professional Services Theme (Light Mode Baseline) */
   --background: #ffffff;
   --foreground: #0f172a;           /* Slate 900 */
@@ -60,6 +61,7 @@
 
 /* Dark mode theme variables (Restrained Neutral Polarity) */
 .dark {
+  color-scheme: dark;
   --background: #090d16;           /* Slate 950 canvas tone */
   --foreground: #f8fafc;           /* Slate 50 */
 

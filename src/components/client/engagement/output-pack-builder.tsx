@@ -349,7 +349,7 @@ export function OutputPackBuilder({
                                                     Common
                                                 </Badge>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="font-medium text-sm text-slate-900">{q.name}</span>
+                                                    <span className="font-medium text-sm text-slate-900 dark:text-slate-100">{q.name}</span>
                                                     <Badge variant="secondary" className="text-[10px] py-0 px-1.5 bg-slate-100 text-slate-500">
                                                         {q.answeredCount}/{q.questionCount} answered
                                                     </Badge>
@@ -417,7 +417,7 @@ export function OutputPackBuilder({
                                                         key={f.id}
                                                         className={cn(
                                                             "flex items-center gap-3 py-1.5 px-2 rounded-md transition-colors",
-                                                            selectedFiles.has(f.id) ? "bg-indigo-50/60" : "hover:bg-white"
+                                                            selectedFiles.has(f.id) ? "bg-indigo-50/60 dark:bg-indigo-950/40" : "hover:bg-white dark:hover:bg-slate-800/50"
                                                         )}
                                                     >
                                                         <Checkbox
@@ -426,7 +426,7 @@ export function OutputPackBuilder({
                                                             className="h-3.5 w-3.5 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
                                                         />
                                                         {fileIcon(f.name)}
-                                                        <span className="text-sm text-slate-700 flex-1 truncate">{f.name}</span>
+                                                        <span className="text-sm text-slate-700 dark:text-slate-200 flex-1 truncate">{f.name}</span>
                                                         <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-mono border-slate-200 text-slate-400 shrink-0">
                                                             {f.questionRef}
                                                         </Badge>
@@ -494,7 +494,7 @@ export function OutputPackBuilder({
                                             />
                                             <div className="flex-1 min-w-0 flex flex-col items-start">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="font-medium text-sm text-slate-900">{q.name}</span>
+                                                    <span className="font-medium text-sm text-slate-900 dark:text-slate-100">{q.name}</span>
                                                     <Badge variant="secondary" className="text-[10px] py-0 px-1.5 bg-slate-100 text-slate-500">
                                                         {q.answeredCount}/{q.questionCount} answered
                                                     </Badge>
@@ -562,7 +562,7 @@ export function OutputPackBuilder({
                                                         key={f.id}
                                                         className={cn(
                                                             "flex items-center gap-3 py-1.5 px-2 rounded-md transition-colors",
-                                                            selectedFiles.has(f.id) ? "bg-indigo-50/60" : "hover:bg-white"
+                                                            selectedFiles.has(f.id) ? "bg-indigo-50/60 dark:bg-indigo-950/40" : "hover:bg-white dark:hover:bg-slate-800/50"
                                                         )}
                                                     >
                                                         <Checkbox
@@ -571,7 +571,7 @@ export function OutputPackBuilder({
                                                             className="h-3.5 w-3.5 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
                                                         />
                                                         {fileIcon(f.name)}
-                                                        <span className="text-sm text-slate-700 flex-1 truncate">{f.name}</span>
+                                                        <span className="text-sm text-slate-700 dark:text-slate-200 flex-1 truncate">{f.name}</span>
                                                         <Badge variant="outline" className="text-[10px] py-0 px-1.5 font-mono border-slate-200 text-slate-400 shrink-0">
                                                             {f.questionRef}
                                                         </Badge>
@@ -610,7 +610,7 @@ export function OutputPackBuilder({
                                 key={doc.id}
                                 className={cn(
                                     "flex items-center gap-3 px-4 py-3 transition-colors",
-                                    selectedDocs.has(doc.id) ? "bg-indigo-50/30" : "hover:bg-slate-50/50"
+                                    selectedDocs.has(doc.id) ? "bg-indigo-50/30 dark:bg-indigo-950/40" : "hover:bg-slate-50/50 dark:hover:bg-slate-800/50"
                                 )}
                             >
                                 <Checkbox
@@ -619,7 +619,7 @@ export function OutputPackBuilder({
                                     className="data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
                                 />
                                 {fileIcon(doc.name)}
-                                <span className="text-sm font-medium text-slate-700 flex-1 truncate">{doc.name}</span>
+                                <span className="text-sm font-medium text-slate-700 dark:text-slate-200 flex-1 truncate">{doc.name}</span>
                                 <div className="flex items-center gap-2 shrink-0">
                                     <span className="text-[11px] text-slate-400">{doc.size}</span>
                                     <StandardTooltip content="Download Document">

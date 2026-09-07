@@ -7,6 +7,7 @@ import {
     ChevronDown, ChevronUp, Filter
 } from "lucide-react";
 import { getPulseData } from "@/actions/pulse";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // ============================================================================
 // Types — mirrors getPulseData return shape
@@ -86,12 +87,10 @@ export function PulseClient({ data: initialData }: { data: PulseData }) {
                     <Filter className="h-3.5 w-3.5" />
                     {showAllEnvs ? "All environments" : "Production only"}
                 </button>
-                <label className="flex items-center gap-2 text-slate-500 cursor-pointer">
-                    <input
-                        type="checkbox"
+                <label className="flex items-center gap-2 text-slate-500 dark:text-slate-400 cursor-pointer">
+                    <Checkbox
                         checked={hideDemoActors}
-                        onChange={() => setHideDemoActors(!hideDemoActors)}
-                        className="rounded border-slate-300"
+                        onCheckedChange={() => setHideDemoActors(!hideDemoActors)}
                     />
                     Hide demo actors
                 </label>
