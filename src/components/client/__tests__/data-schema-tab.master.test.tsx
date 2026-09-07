@@ -30,6 +30,20 @@ vi.mock('@/actions/system', () => ({
     getRegistryAuthorityNamesMap: vi.fn(() => Promise.resolve({})),
 }));
 
+const mockMasterPrefs = {
+    masterRecord: {
+        expandedCategories: ['cat-1', 'cat-2', 'cat-desc', 'cat-formatting', 'CUSTOM', 'UNCATEGORIZED']
+    }
+};
+
+vi.mock('@/components/providers/user-preferences-provider', () => ({
+    usePreferences: () => ({
+        preferences: mockMasterPrefs,
+        isLoading: false,
+        updatePreference: vi.fn().mockResolvedValue(undefined),
+    }),
+}));
+
 describe('DataSchemaTab - /master rendering boundary', () => {
     it('renders Field 62 repeated legacy Companies House Party objects using canonical model (no blanks, no unknown RA)', () => {
         // Construct canonical model simulating getFullMasterData output after our fix

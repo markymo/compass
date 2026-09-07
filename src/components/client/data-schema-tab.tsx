@@ -36,6 +36,7 @@ import {
     SelectTrigger,
     SelectValue
 } from "@/components/ui/select";
+import { usePreferences } from "@/components/providers/user-preferences-provider";
 
 const MASTER_CATEGORY_CARD_CLASS = "rounded-md shadow-sm overflow-hidden animate-in fade-in duration-300";
 
@@ -76,9 +77,10 @@ interface DataSchemaTabProps {
     /** The GLEIF RA code for this specific entity, e.g. RA000585. Threaded into SourceBadge
      *  to show the entity-specific authority identifier alongside the canonical source name. */
     registrationAuthorityId?: string;
+    initialExpandedCategories?: string[];
 }
 
-export function DataSchemaTab({ leId, masterData, customData = {}, customDefinitions = [], gleifLastSynced, masterFields = [], masterGroups = [], categories = [], uncategorizedFields = [], nationalRegistryData, registrationAuthorityId }: DataSchemaTabProps) {
+export function DataSchemaTab({ leId, masterData, customData = {}, customDefinitions = [], gleifLastSynced, masterFields = [], masterGroups = [], categories = [], uncategorizedFields = [], nationalRegistryData, registrationAuthorityId, initialExpandedCategories }: DataSchemaTabProps) {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [updateNotices, setUpdateNotices] = useState<FieldProposal[] | null>(null);
     const [selectedField, setSelectedField] = useState<{ fieldNo: number; name: string; customFieldId?: string; mappingStats?: { questions: number; questionnaires: number; suppliers: number } } | null>(null);
@@ -95,13 +97,42 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     const [, startTransition] = useTransition();
 
     const [search, setSearch] = useState(searchParams.get("search") || "");
+    const urlSearch = searchParams.get("search") || "";
+    useEffect(() => {
+        setSearch(urlSearch);
+    }, [urlSearch]);
     const catFilter = searchParams.get("category") || "ALL";
     const popFilter = searchParams.get("status") || "ALL";
     const usageFilter = searchParams.get("usage") || "ALL";
     const assignStateFilter = searchParams.get("assignment") || "ALL";
     const assigneeFilter = searchParams.get("assignee") || "ALL";
     const workFilter = searchParams.get("work") || "ALL";
-    const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+
+    const { preferences, updatePreference, isLoading } = usePreferences();
+
+    const [persistedExpandedCategories, setPersistedExpandedCategories] = useState<string[]>(() => {
+        if (initialExpandedCategories !== undefined) return initialExpandedCategories;
+        return preferences.masterRecord?.expandedCategories ?? [];
+    });
+    const [isPrefsInitialized, setIsPrefsInitialized] = useState(initialExpandedCategories !== undefined);
+
+    useEffect(() => {
+        if (!isLoading) {
+            const saved = preferences.masterRecord?.expandedCategories;
+            if (saved !== undefined) {
+                setPersistedExpandedCategories(prev => {
+                    if (prev.length === saved.length && prev.every((val, idx) => val === saved[idx])) {
+                        return prev;
+                    }
+                    return saved;
+                });
+                setIsPrefsInitialized(true);
+            } else if (!isPrefsInitialized) {
+                setPersistedExpandedCategories(prev => (prev.length === 0 ? prev : []));
+                setIsPrefsInitialized(true);
+            }
+        }
+    }, [isLoading, isPrefsInitialized, preferences.masterRecord?.expandedCategories]);
 
     const [teamMembers, setTeamMembers] = useState<any[]>([]);
     useEffect(() => {
@@ -189,20 +220,7 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
         });
     };
 
-    const toggleCategory = (id: string) => {
-        setCollapsedCategories(prev => {
-            const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            return next;
-        });
-    };
 
-    const expandAll = () => setCollapsedCategories(new Set());
-    const collapseAll = () => {
-        const allIds = ["CUSTOM", "UNCATEGORIZED", ...categoryList.map((c: any) => c.id)];
-        setCollapsedCategories(new Set(allIds));
-    };
 
     const fieldGroupMap = useMemo(() => {
         const map = new Map<number, { id: string; label: string }[]>();
@@ -328,6 +346,81 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
     }, [uncategorizedFields, masterData, search, catFilter, popFilter, usageFilter, assignStateFilter, assigneeFilter, workFilter, currentUserId]);
 
     const totalVisible = filteredCustomFields.length + filteredCategories.reduce((acc: any, c: any) => acc + c.fields.length, 0) + filteredUncategorized.length;
+
+    const findCategoryIdForField = (fieldNo: number): string | null => {
+        if (fieldNo === 0) return "CUSTOM";
+        for (const cat of categoryList) {
+            if (cat.fields?.some((f: any) => f.fieldNo === fieldNo)) return cat.id;
+        }
+        if (uncategorizedFields?.some((f: any) => f.fieldNo === fieldNo)) return "UNCATEGORIZED";
+        return null;
+    };
+
+    // Read-only derived presentation state for which categories are currently open
+    const effectiveExpandedCategories = useMemo(() => {
+        const set = new Set(persistedExpandedCategories);
+
+        // Transient presentation override 1: active search query
+        if (search.trim() !== "") {
+            if (filteredCustomFields.length > 0) set.add("CUSTOM");
+            if (filteredUncategorized.length > 0) set.add("UNCATEGORIZED");
+            filteredCategories.forEach((cat: any) => {
+                if (cat.fields.length > 0) set.add(cat.id);
+            });
+        }
+
+        // Transient presentation override 2: active structured filter
+        if (hasActiveStructuredFilters) {
+            if (filteredCustomFields.length > 0) set.add("CUSTOM");
+            if (filteredUncategorized.length > 0) set.add("UNCATEGORIZED");
+            filteredCategories.forEach((cat: any) => {
+                if (cat.fields.length > 0) set.add(cat.id);
+            });
+        }
+
+        // Transient presentation override 3: deep linked field ?fieldNo=X
+        if (fieldNoParam) {
+            const num = parseInt(fieldNoParam, 10);
+            if (!isNaN(num)) {
+                const targetCatId = findCategoryIdForField(num);
+                if (targetCatId) set.add(targetCatId);
+            }
+        }
+
+        return set;
+    }, [
+        persistedExpandedCategories,
+        search,
+        hasActiveStructuredFilters,
+        fieldNoParam,
+        filteredCustomFields,
+        filteredCategories,
+        filteredUncategorized,
+        categoryList,
+        uncategorizedFields
+    ]);
+
+    // Mutations operate strictly and only on persistedExpandedCategories
+    const toggleCategory = async (id: string) => {
+        const isCurrentlyPersistedExpanded = persistedExpandedCategories.includes(id);
+        const nextPersisted = isCurrentlyPersistedExpanded
+            ? persistedExpandedCategories.filter(catId => catId !== id)
+            : [...persistedExpandedCategories, id];
+
+        setPersistedExpandedCategories(nextPersisted);
+        await updatePreference("masterRecord", { expandedCategories: nextPersisted });
+    };
+
+    const expandAll = async () => {
+        const allIds = ["CUSTOM", "UNCATEGORIZED", ...categoryList.map((c: any) => c.id)];
+        setPersistedExpandedCategories(allIds);
+        await updatePreference("masterRecord", { expandedCategories: allIds });
+    };
+
+    const collapseAll = async () => {
+        setPersistedExpandedCategories([]);
+        await updatePreference("masterRecord", { expandedCategories: [] });
+    };
 
 
     // Auto-collapse timer: when proposals are shown, start a 6s countdown then collapse.
@@ -872,11 +965,11 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                         <span className="text-sm font-medium hidden sm:inline-block">
                                             {filteredCustomFields.length}{filteredCustomFields.length !== customDefinitions.length ? ` of ${customDefinitions.length}` : ''} fields
                                         </span>
-                                        {collapsedCategories.has("CUSTOM") ? <ChevronDown className="h-5 w-5 group-hover/header:text-slate-800 transition-colors" /> : <ChevronUp className="h-5 w-5 group-hover/header:text-slate-800 transition-colors" />}
+                                        {effectiveExpandedCategories.has("CUSTOM") ? <ChevronUp className="h-5 w-5 group-hover/header:text-slate-800 transition-colors" /> : <ChevronDown className="h-5 w-5 group-hover/header:text-slate-800 transition-colors" />}
                                     </div>
                                 </div>
                             </CardHeader>
-                            {!collapsedCategories.has("CUSTOM") && (
+                            {effectiveExpandedCategories.has("CUSTOM") && (
                             <CardContent className="pt-6 space-y-4">
                                 {filteredCustomFields.map((def: any) => {
                                     const value = customData[def.id] || customData[def.key];
@@ -929,11 +1022,11 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                             <span className="text-sm font-medium hidden sm:inline-block">
                                                 {group.fields.length}{group.fields.length !== (categoryList.find((c: any) => c.id === group.id)?.fields.length || 0) ? ` of ${categoryList.find((c: any) => c.id === group.id)?.fields.length || 0}` : ''} fields
                                             </span>
-                                            {collapsedCategories.has(group.id) ? <ChevronDown className="h-5 w-5 group-hover/header:text-foreground transition-colors" /> : <ChevronUp className="h-5 w-5 group-hover/header:text-foreground transition-colors" />}
+                                            {effectiveExpandedCategories.has(group.id) ? <ChevronUp className="h-5 w-5 group-hover/header:text-foreground transition-colors" /> : <ChevronDown className="h-5 w-5 group-hover/header:text-foreground transition-colors" />}
                                         </div>
                                     </div>
                                 </CardHeader>
-                                {!collapsedCategories.has(group.id) && (
+                                {effectiveExpandedCategories.has(group.id) && (
                                 <CardContent className="pt-6 space-y-4">
                                     {group.fields.map((field: any) => {
                                         const data = masterData[field.fieldNo];
@@ -990,11 +1083,11 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                         <span className="text-sm font-medium hidden sm:inline-block">
                                             {filteredUncategorized.length}{filteredUncategorized.length !== uncategorizedFields.length ? ` of ${uncategorizedFields.length}` : ''} fields
                                         </span>
-                                        {collapsedCategories.has("UNCATEGORIZED") ? <ChevronDown className="h-5 w-5 group-hover/header:text-foreground transition-colors" /> : <ChevronUp className="h-5 w-5 group-hover/header:text-foreground transition-colors" />}
+                                        {effectiveExpandedCategories.has("UNCATEGORIZED") ? <ChevronUp className="h-5 w-5 group-hover/header:text-foreground transition-colors" /> : <ChevronDown className="h-5 w-5 group-hover/header:text-foreground transition-colors" />}
                                     </div>
                                 </div>
                             </CardHeader>
-                            {!collapsedCategories.has("UNCATEGORIZED") && (
+                            {effectiveExpandedCategories.has("UNCATEGORIZED") && (
                             <CardContent className="pt-6 space-y-4">
                                 {filteredUncategorized.map((field: any) => {
                                     const data = masterData[field.fieldNo];

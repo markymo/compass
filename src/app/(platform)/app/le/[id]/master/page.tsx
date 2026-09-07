@@ -1,9 +1,11 @@
 import { getFullMasterData } from "@/actions/client-le";
 import { getCategoriesWithFields } from "@/actions/master-data-sort";
+import { getAccountSettings } from "@/actions/account";
 import { notFound } from "next/navigation";
 import { DataSchemaTab } from "@/components/client/data-schema-tab";
 import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 import { EnrichmentGate } from "@/components/client/kyc/enrichment-gate";
+import { UserPreferences } from "@/components/providers/user-preferences-provider";
 import * as Sentry from "@sentry/nextjs";
 
 export const dynamic = 'force-dynamic';
@@ -93,6 +95,10 @@ export default async function MasterRecordPage({ params }: { params: Promise<{ i
                 }
             );
 
+            const accountResult = await getAccountSettings();
+            const userPrefs = (accountResult.success && accountResult.data?.preferences ? accountResult.data.preferences : undefined) as UserPreferences | undefined;
+            const initialExpandedCategories = userPrefs?.masterRecord?.expandedCategories ?? [];
+
             return (
                 <div className="p-6 max-w-[1600px] mx-auto">
                     <SetPageBreadcrumbs items={[]} />
@@ -115,6 +121,7 @@ export default async function MasterRecordPage({ params }: { params: Promise<{ i
                             categories={dataSort.categories}
                             uncategorizedFields={dataSort.uncategorizedFields}
                             registrationAuthorityId={registrationAuthorityId ?? undefined}
+                            initialExpandedCategories={initialExpandedCategories}
                         />
                     </EnrichmentGate>
                 </div>
