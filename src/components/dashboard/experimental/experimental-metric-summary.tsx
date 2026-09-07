@@ -9,6 +9,7 @@ export type MetricLinkContext = {
     leId?: string;
     relationshipId?: string;
     questionnaireId?: string;
+    scope?: "common" | string;
     supplierOrgId?: string;
     supplierRelName?: string;
 };
@@ -49,6 +50,9 @@ export function ExperimentalMetricSummary({
         if (!linkContext.leId) return "#";
         const params = new URLSearchParams();
 
+        if (linkContext.scope === "common") {
+            params.set("scope", "common");
+        }
         if (linkContext.relationshipId) {
             params.set("relationshipId", linkContext.relationshipId);
         } else if (linkContext.questionnaireId) {

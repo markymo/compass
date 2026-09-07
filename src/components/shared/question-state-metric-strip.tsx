@@ -11,6 +11,7 @@ export type QuestionStateLinkContext = {
     questionnaireId?: string;
     relationshipName?: string;
     questionnaireName?: string;
+    scope?: "common" | string;
 };
 
 export interface QuestionStateMetricStripProps {
@@ -59,7 +60,9 @@ export function QuestionStateMetricStrip({
         if (disableLinks || !linkContext?.leId) return undefined;
         const params = new URLSearchParams();
 
-        if (linkContext.relationshipId) {
+        if (linkContext.scope === "common" || linkContext.relationshipName === "Common") {
+            params.set("scope", "common");
+        } else if (linkContext.relationshipId) {
             params.set("relationshipId", linkContext.relationshipId);
         } else if (linkContext.relationshipName) {
             params.set("rel", linkContext.relationshipName);

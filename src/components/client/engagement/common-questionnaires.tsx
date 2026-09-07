@@ -223,6 +223,8 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                             showQuestionnairesCount={false}
                                             linkContext={{
                                                 leId,
+                                                scope: "common",
+                                                questionnaireId: q.id,
                                                 relationshipName: "Common",
                                                 questionnaireName: q.name,
                                             }}
@@ -246,7 +248,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                             Approve
                                         </Button>
                                         <Link 
-                                            href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`}
+                                            href={`/app/le/${leId}/workbench4?scope=common&questionnaireId=${q.id}`}
                                             className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
                                             title="Review in Question Bank"
                                         >
@@ -304,6 +306,8 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                             showQuestionnairesCount={false}
                                             linkContext={{
                                                 leId,
+                                                scope: "common",
+                                                questionnaireId: q.id,
                                                 relationshipName: "Common",
                                                 questionnaireName: q.name,
                                             }}

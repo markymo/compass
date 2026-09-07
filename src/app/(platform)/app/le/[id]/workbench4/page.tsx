@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getWorkbench4Data } from "@/actions/kyc-workbench";
 import { CrossQuestionnaireMapper } from "@/components/client/workbench/cross-questionnaire-mapper";
 import { notFound } from "next/navigation";
@@ -17,10 +18,12 @@ export default async function Workbench4Page({ params }: { params: Promise<{ id:
                 isWide={true}
             />
 
-            <CrossQuestionnaireMapper
-                leId={leId}
-                initialData={data}
-            />
+            <Suspense fallback={<div className="py-20 text-center text-muted-foreground">Loading Workbench...</div>}>
+                <CrossQuestionnaireMapper
+                    leId={leId}
+                    initialData={data}
+                />
+            </Suspense>
         </div>
     );
 }

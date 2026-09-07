@@ -115,6 +115,7 @@ function ExperimentalOrgCard({ org }: { org: OrgNode }) {
     const meta = orgMeta[org.orgType];
     const Icon = meta.icon;
     const hasChildren = org.children && org.children.length > 0;
+    const orgHref = org.orgType === "SUPPLIER" ? `/app/s/${org.id}` : org.orgType === "CLIENT" ? `/app/clients/${org.id}` : undefined;
 
     return (
         <Card variant="structural" className={cn("shadow-xs overflow-hidden border bg-card text-card-foreground", meta.borderColor)}>
@@ -135,8 +136,24 @@ function ExperimentalOrgCard({ org }: { org: OrgNode }) {
                         ) : (
                             <div className="w-6 shrink-0" />
                         )}
-                        <Icon className="h-4 w-4 shrink-0" style={{ color: meta.primary }} />
-                        <span className="truncate">{org.name}</span>
+                        {orgHref ? (
+                            <Link
+                                href={orgHref}
+                                className={cn(
+                                    "flex items-center gap-2 min-w-0 hover:underline transition-colors",
+                                    org.orgType === "CLIENT" && "hover:text-indigo-600",
+                                    org.orgType === "SUPPLIER" && "hover:text-teal-600"
+                                )}
+                            >
+                                <Icon className="h-4 w-4 shrink-0" style={{ color: meta.primary }} />
+                                <span className="truncate">{org.name}</span>
+                            </Link>
+                        ) : (
+                            <>
+                                <Icon className="h-4 w-4 shrink-0" style={{ color: meta.primary }} />
+                                <span className="truncate">{org.name}</span>
+                            </>
+                        )}
                         <Badge variant="outline" className="text-[9px] font-medium px-1 py-0 h-3.5 uppercase shrink-0">
                             {org.role}
                         </Badge>
@@ -249,10 +266,15 @@ function ExperimentalTreeNode({ item, level, orgType, orgId }: { item: OrgChild;
             return { leId: leIdToUse, relationshipId: item.id };
         }
         if (item.type === "questionnaire") {
-            return { leId: leIdToUse, questionnaireId: item.id };
+            const isCommon = item.subtitle === "Common Questionnaire" || item.name === "Common Questionnaires";
+            return {
+                leId: leIdToUse,
+                questionnaireId: item.id,
+                scope: isCommon ? "common" : undefined,
+            };
         }
         return undefined;
-    }, [item.type, item.id, item.leId, item.name, orgType, orgId]);
+    }, [item.type, item.id, item.leId, item.name, item.subtitle, orgType, orgId]);
 
     const isCQ = item.type === "questionnaire" && (item.subtitle === "Common Questionnaire" || item.name === "Common Questionnaires");
 
