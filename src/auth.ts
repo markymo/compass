@@ -59,7 +59,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                         prisma.membership.findFirst({
                             where: {
                                 userId: token.sub,
-                                organization: { types: { has: "SYSTEM" } }
+                                role: "SYSTEM_ADMIN"
                             }
                         }),
                         prisma.user.findUnique({

@@ -3,7 +3,8 @@ import {
     validateTimezone,
     resolveSystemTimezone,
     formatSystemDateTime,
-    formatBusinessDate
+    formatBusinessDate,
+    formatUKDate
 } from '../date-utils';
 
 describe('validateTimezone', () => {
@@ -98,3 +99,18 @@ describe('formatBusinessDate', () => {
         expect(formatBusinessDate(undefined)).toBeNull();
     });
 });
+
+describe('formatUKDate', () => {
+    it('formats dates deterministically in UK numerical format DD/MM/YYYY', () => {
+        const date = new Date('2026-08-20T12:00:00Z');
+        expect(formatUKDate(date)).toBe('20/08/2026');
+        expect(formatUKDate('2026-08-20T12:00:00Z')).toBe('20/08/2026');
+    });
+
+    it('returns null for null/undefined/invalid inputs', () => {
+        expect(formatUKDate(null)).toBeNull();
+        expect(formatUKDate(undefined)).toBeNull();
+        expect(formatUKDate('invalid-date')).toBeNull();
+    });
+});
+

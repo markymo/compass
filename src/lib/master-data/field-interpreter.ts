@@ -1,10 +1,12 @@
 import { FieldDisplayModel, ResolvedFieldValue, FieldSource, ResolvedAttachment } from './field-display-model';
 import { getSourceDisplayName } from '@/lib/source-display';
-import { isPartyValue, getPartySummary } from './party-value';
+import { isPartyValue, getPartySummary, buildPartyFieldProjection } from './party-value';
+import { isFieldPermittedByCatalogue } from './party-display-catalogue';
 import { isAddressValue, getAddressSummary } from './address-value';
 import { formatStructuredCollectionRow } from './structured-value-formatters';
 import { FIELD_DEFINITIONS } from '@/domain/kyc/FieldDefinitions';
 import { applyTransform } from '@/services/kyc/normalization/transforms';
+import { getRegistryEntityUrl } from '../registry-urls';
 
 export interface FieldInterpreterMetadata {
     fieldNo: number;
@@ -48,6 +50,8 @@ export interface RawFieldSource {
     timestamp?: Date | string | null;
     sourceCheckedAt?: Date | string | null;
     userName?: string | null;
+    entityIdentifier?: string | null;
+    entityUrl?: string | null;
 }
 
 export interface CollectionItemEnvelope {
@@ -66,9 +70,10 @@ export function resolveFieldCollectionForDisplay(
 
     const state = resolveState(metadata.displayState, items);
     
-    // We parse each envelope individually to preserve per-item provenance
-    const resolvedItems = items.map((envelope, idx) => {
-        let innerVal = envelope.value;
+    // We parse each envelope or raw item individually to preserve per-item provenance
+    const resolvedItems = items.map((envelope: any, idx) => {
+        const isEnv = envelope && typeof envelope === 'object' && ('value' in envelope || 'source' in envelope);
+        let innerVal = isEnv ? envelope.value : envelope;
         if (typeof innerVal === 'string' && (innerVal.startsWith('{') || innerVal.startsWith('['))) {
             try { innerVal = JSON.parse(innerVal); } catch (e) {}
         }
@@ -87,10 +92,13 @@ export function resolveFieldCollectionForDisplay(
             partyNameStr = val.partyLabel || getPartySummary(pd) || [pd?.forenames, pd?.surname].filter(Boolean).join(' ') || pd?.organisationName || pd?.displayName || undefined;
         }
 
+        const permitsPartyDocs = isFieldPermittedByCatalogue('party.documents', metadata.profileConfig?.displayMask);
+
         if (metadata.attachments && metadata.attachments.length > 0) {
             const matched = metadata.attachments.filter(att =>
                 att.provenance?.some(p => {
                     if (p.type !== 'PARTY') return false;
+                    if (!permitsPartyDocs) return false;
                     if (ccPartyId && p.partyId === ccPartyId) return true;
                     if (partyNameStr && p.partyName && p.partyName.trim().toLowerCase() === partyNameStr.trim().toLowerCase()) return true;
                     return false;
@@ -101,10 +109,12 @@ export function resolveFieldCollectionForDisplay(
             }
         }
 
+        const itemSource = isEnv ? envelope.source : null;
+
         return {
-            stableKey: envelope.instanceId || `item-${idx}`,
+            stableKey: (envelope && envelope.instanceId) || `item-${idx}`,
             value: val,
-            source: envelope.source ? (resolveSource(envelope.source, 'POPULATED') ?? undefined) : undefined,
+            source: itemSource ? (resolveSource(itemSource, 'POPULATED') ?? undefined) : undefined,
             attachments: itemAttachments
         };
     });
@@ -156,6 +166,16 @@ export function resolveFieldForDisplay(
             parsedValue = JSON.parse(rawValue);
         } catch (e) {
             // Leave as string if invalid JSON
+        }
+    }
+
+    // If parsedValue is a group map { [fieldNo]: value }, unpack and resolve dynamically
+    if (parsedValue && typeof parsedValue === 'object' && !Array.isArray(parsedValue) && Object.keys(parsedValue).length > 0 && Object.keys(parsedValue).every(k => /^\d+$/.test(k))) {
+        const flatItems = Object.values(parsedValue).flatMap((v: any) => Array.isArray(v) ? v : [v]);
+        if (flatItems.length > 1 || Object.values(parsedValue).some(v => Array.isArray(v))) {
+            return resolveFieldCollectionForDisplay(flatItems, { ...metadata, rawSource });
+        } else if (flatItems.length === 1) {
+            return resolveFieldForDisplay(flatItems[0], rawSource, metadata);
         }
     }
 
@@ -240,7 +260,7 @@ function resolveValue(
 import { normaliseCCPartyData as normalisePartyReadModel } from './party-v2/normaliser';
 import { getPartyLabel } from './party-v2/label-helper';
 
-function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, appDataType?: string, fieldNo?: number): ResolvedFieldValue {
+export function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, appDataType?: string, fieldNo?: number): ResolvedFieldValue {
     if (val === null || val === undefined) return { kind: 'empty' };
 
     if (val instanceof Date) {
@@ -301,17 +321,22 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
     }
 
     if (typeof val === 'object') {
+        // Unwrap envelope { value, source } if present
+        if (val !== null && 'value' in val && ('source' in val || 'sourceType' in val)) {
+            return parseAnyValue(val.value, displayMask, codeSystem, appDataType, fieldNo);
+        }
         if (val.ccPartyId) {
-            const resolvedParty = val.ccParty?.data || val._resolvedData?.ccParty?.data;
-            const norm = normalisePartyReadModel(resolvedParty || val);
+            const rawResolvedParty = val.ccParty?.data || val._resolvedData?.ccParty?.data;
+            const norm = normalisePartyReadModel(rawResolvedParty || val);
             const partyLabel = norm ? getPartyLabel(norm) : `ID:${val.ccPartyId.slice(0, 8)}…`;
+            const projectedResolved = rawResolvedParty ? buildPartyFieldProjection(rawResolvedParty, displayMask, partyLabel) : undefined;
             
             return {
                 kind: 'partyRef',
                 refId: val.ccPartyId,
-                summary: resolvedParty ? getPartySummary(resolvedParty, displayMask) : `ID:${val.ccPartyId.slice(0, 8)}…`,
+                summary: projectedResolved ? getPartySummary(projectedResolved, displayMask) : `ID:${val.ccPartyId.slice(0, 8)}…`,
                 partyLabel,
-                resolved: resolvedParty,
+                resolved: projectedResolved,
                 displayMask
             };
         }
@@ -364,11 +389,13 @@ function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, ap
         if (isParty) {
             const norm = normalisePartyReadModel(val);
             if (norm) {
+                const partyLabel = getPartyLabel(norm);
+                const projectedData = buildPartyFieldProjection(val, displayMask, partyLabel);
                 return {
                     kind: 'party',
-                    data: val as any,
-                    summary: getPartySummary(val as any, displayMask),
-                    partyLabel: getPartyLabel(norm),
+                    data: projectedData as any,
+                    summary: getPartySummary(projectedData, displayMask),
+                    partyLabel,
                     displayMask
                 };
             }
@@ -435,6 +462,12 @@ function resolveSource(rawSource: RawFieldSource | null | undefined, state: Fiel
         lastValidatedAt = checkTime instanceof Date ? checkTime.toISOString() : String(checkTime);
     }
 
+    const entityUrl = rawSource.entityUrl || getRegistryEntityUrl({
+        sourceType: type,
+        sourceReference: rawSource.reference,
+        entityIdentifier: rawSource.entityIdentifier
+    });
+
     return {
         type,
         reference: rawSource.reference || null,
@@ -443,7 +476,9 @@ function resolveSource(rawSource: RawFieldSource | null | undefined, state: Fiel
         timestamp,
         userName: rawSource.userName || null,
         category,
-        lastValidatedAt
+        lastValidatedAt,
+        entityIdentifier: rawSource.entityIdentifier || null,
+        entityUrl: entityUrl || undefined
     };
 }
 
@@ -462,6 +497,102 @@ function generateTextSummary(resolvedValue: ResolvedFieldValue, defaultText?: st
             return resolvedValue.items.map(i => i.label).join('; ');
         case 'collection':
             return resolvedValue.items.map(i => generateTextSummary(i.value)).filter(Boolean).join('; ');
+        default:
+            return '';
+    }
+}
+
+/**
+ * Canonical shared compact value renderer.
+ * Produces a concise, human-friendly summary suitable for dropdowns, selectors, and compact rows:
+ * - Scalars: "12345678", "Active"
+ * - Single Party: "Acme Holdings Limited"
+ * - Address: "10 Downing Street, London, SW1A 1AA"
+ * - Collections: "3 directors", "2 shareholders", "3 persons of significant control", or single item summary if 1 item
+ * - Never emits generic placeholder strings like "Structured data" or "[Structured value]"
+ */
+export function getCompactCanonicalSummary(
+    modelOrResolved: FieldDisplayModel | ResolvedFieldValue,
+    metadata?: { label?: string; appDataType?: string; isMultiValue?: boolean }
+): string {
+    if (!modelOrResolved) return '';
+
+    let resolvedValue: ResolvedFieldValue;
+    let label = metadata?.label;
+
+    if ('value' in modelOrResolved && 'state' in modelOrResolved) {
+        if (modelOrResolved.state === 'NO_DATA' || modelOrResolved.state === 'UNMAPPED' || modelOrResolved.state === 'CHECKED_NO_DATA' || modelOrResolved.state === 'EXPLICIT_NONE') {
+            return '';
+        }
+        resolvedValue = modelOrResolved.value;
+        if (!label) label = modelOrResolved.label;
+    } else {
+        resolvedValue = modelOrResolved as ResolvedFieldValue;
+    }
+
+    if (!resolvedValue) return '';
+
+    switch (resolvedValue.kind) {
+        case 'empty':
+            return '';
+
+        case 'scalar': {
+            if (resolvedValue.display === '[Structured value]' || resolvedValue.display.startsWith('[Structured')) {
+                const raw: any = resolvedValue.rawValue;
+                if (raw && typeof raw === 'object') {
+                    const fallback = raw.legalName || raw.organisationName || raw.name || raw.label || raw.displayName;
+                    if (fallback) return String(fallback);
+                    if (raw.firstName || raw.lastName || raw.forenames || raw.surname) {
+                        return [raw.firstName || raw.forenames, raw.lastName || raw.surname].filter(Boolean).join(' ');
+                    }
+                    if (Array.isArray(raw)) {
+                        return `${raw.length} ${raw.length === 1 ? 'item' : 'items'}`;
+                    }
+                }
+                return '';
+            }
+            return resolvedValue.display;
+        }
+
+        case 'party':
+        case 'partyRef':
+            return resolvedValue.summary || resolvedValue.partyLabel || '';
+
+        case 'address':
+        case 'addressRef':
+            return resolvedValue.summary || '';
+
+        case 'codeList': {
+            if (!resolvedValue.items || resolvedValue.items.length === 0) return '';
+            if (resolvedValue.items.length === 1) return resolvedValue.items[0].label;
+            return resolvedValue.items.map(i => i.label).join(', ');
+        }
+
+        case 'collection': {
+            const count = resolvedValue.items ? resolvedValue.items.length : 0;
+            if (count === 0) return '';
+            if (count === 1) {
+                const single = getCompactCanonicalSummary(resolvedValue.items[0].value, metadata);
+                if (single && single !== '[Structured value]' && !single.startsWith('[Structured')) return single;
+            }
+
+            const labelLower = (label || '').toLowerCase();
+            if (labelLower.includes('director')) return `${count} ${count === 1 ? 'director' : 'directors'}`;
+            if (labelLower.includes('shareholder')) return `${count} ${count === 1 ? 'shareholder' : 'shareholders'}`;
+            if (labelLower.includes('significant control') || labelLower.includes('controller') || labelLower.includes('psc')) {
+                return `${count} ${count === 1 ? 'person of significant control' : 'persons of significant control'}`;
+            }
+            if (labelLower.includes('previous name')) return `${count} ${count === 1 ? 'previous name' : 'previous names'}`;
+            if (labelLower.includes('owner')) return `${count} ${count === 1 ? 'owner' : 'owners'}`;
+            if (labelLower.includes('individual')) return `${count} ${count === 1 ? 'individual' : 'individuals'}`;
+            if (labelLower.includes('party') || labelLower.includes('parties')) return `${count} ${count === 1 ? 'party' : 'parties'}`;
+            if (labelLower.includes('member')) return `${count} ${count === 1 ? 'member' : 'members'}`;
+            if (labelLower.includes('signator')) return `${count} ${count === 1 ? 'signatory' : 'signatories'}`;
+            if (labelLower.includes('officer')) return `${count} ${count === 1 ? 'officer' : 'officers'}`;
+
+            return `${count} ${count === 1 ? 'item' : 'items'}`;
+        }
+
         default:
             return '';
     }

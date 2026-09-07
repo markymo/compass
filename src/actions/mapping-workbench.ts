@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { isSystemAdmin } from "@/actions/admin";
+import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import { generateFieldWarnings, WarningInputField } from "@/lib/mapping-workbench/warnings";
 import { getPathHint } from "@/lib/mapping-workbench/semantic-hints";
 
@@ -82,8 +82,7 @@ function raDisplayName(sourceType: string, sourceReference: string | null): stri
 }
 
 export async function getMappingWorkbenchData(): Promise<WorkbenchPageData> {
-    const isAdmin = await isSystemAdmin();
-    if (!isAdmin) throw new Error("Unauthorized");
+    await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
 
     // ── Parallel data fetch ──────────────────────────────────────────────
     const [fields, allQuestions, samplePayloads, groups] = await Promise.all([

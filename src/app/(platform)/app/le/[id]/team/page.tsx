@@ -13,7 +13,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
             />
             <LEUsersTab 
                 leId={id} 
-                canManageUsers={leRole === "LE_ADMIN" || leRole === "ORG_ADMIN" || leRole === "SYSTEM_ADMIN"}
+                canManageUsers={leRole === "LE_ADMIN" || leRole === "ORG_ADMIN"}
             />
         </>
     );

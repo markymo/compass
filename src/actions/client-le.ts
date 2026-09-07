@@ -2,14 +2,22 @@
 
 import prisma from "@/lib/prisma";
 import { EngagementStatus, SourceType, Prisma } from "@prisma/client";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_noStore } from "next/cache";
 import { ExtractedItem } from "./ai-mapper"; // Importing type
 import { MasterSchemaDefinition } from "@/types/schema";
-import { Action, can } from "@/lib/auth/permissions";
+import { Action, can, ensureAuthorization } from "@/lib/auth/permissions";
+import { ensureApiAuthorization } from "@/lib/auth/api-auth";
 import { getMasterFieldDefinition, listAllMasterFields, listAllMasterGroupsWithItems } from "@/services/masterData/definitionService";
 import { getIdentity } from "@/lib/auth";
-import { getUserFIOrg, isSystemAdmin } from "./security";
+import { getUserFIOrg } from "./security";
 import { calculateEngagementMetrics, calculateQuestionnaireMetrics } from "@/lib/metrics-calc";
+import {
+    QuestionStateMetrics,
+    emptyQuestionStateMetrics,
+    rollupQuestionStateMetrics,
+    calculateCQQuestionStateMetrics,
+    calculateQuestionStateMetricsForQuestions,
+} from "@/lib/metrics/question-state-metrics";
 import { generateText } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { KycStateService } from "@/lib/kyc/KycStateService";
@@ -23,18 +31,6 @@ import { compareAndLogShadowRender } from "@/lib/master-data/shadow-logger";
 import { FieldDisplayModel } from "@/lib/master-data/field-display-model";
 import * as Sentry from "@sentry/nextjs";
 import { ensureNotReferenceSnapshot } from "./questionnaire";
-async function ensureAuthorization(action: Action, context: { partyId?: string, clientLEId?: string, engagementId?: string }) {
-    const identity = await getIdentity();
-    if (!identity?.userId) throw new Error("Unauthorized: Not logged in");
-
-    const userWithMemberships = {
-        id: identity.userId,
-        memberships: await prisma.membership.findMany({ where: { userId: identity.userId } })
-    };
-
-    const hasAccess = await can(userWithMemberships, action, context, prisma);
-    if (!hasAccess) throw new Error(`Unauthorized: Missing ${action} for context`);
-}
 
 export async function createLegalEntity(data: { name: string; jurisdiction: string; clientOrgId: string }) {
     if (!data.name || !data.clientOrgId) {
@@ -47,11 +43,15 @@ export async function createLegalEntity(data: { name: string; jurisdiction: stri
     }
 
     try {
-        // Fetch Client Org name for AI Prompt
+        // Fetch Client Org name for AI Prompt and verify CLIENT type
         const clientOrg = await prisma.organization.findUnique({
             where: { id: data.clientOrgId },
-            select: { name: true }
+            select: { name: true, types: true }
         });
+
+        if (!clientOrg || !clientOrg.types.includes("CLIENT")) {
+            return { success: false, error: "Cannot create Legal Entities under a non-Client organization." };
+        }
 
         // Generate preliminary description using AI
         let aiDescription = null;
@@ -400,7 +400,13 @@ export async function getEngagementDetails(engagementId: string) {
                     where: { isDeleted: false },
                     orderBy: { createdAt: 'desc' }
                 },
-                clientLE: true // Context
+                clientLE: {
+                    include: {
+                        commonQuestionnaires: {
+                            where: { isDeleted: false }
+                        }
+                    }
+                }
             }
         });
 
@@ -418,9 +424,49 @@ export async function getEngagementDetails(engagementId: string) {
         );
 
         // Fetch metrics for each questionnaire
-        const questionnaires = await Promise.all(combinedQuestionnairesRaw.map(async (q: any) => ({
-            ...q,
-            metrics: await calculateQuestionnaireMetrics(q.id)
+        const questionnaires = await Promise.all(combinedQuestionnairesRaw.map(async (q: any) => {
+            const legacyMetrics = await calculateQuestionnaireMetrics(q.id);
+            const questions = await prisma.question.findMany({
+                where: { questionnaireId: q.id, questionnaire: { isDeleted: false } },
+                select: {
+                    id: true,
+                    answer: true,
+                    masterFieldNo: true,
+                    masterQuestionGroupId: true,
+                    customFieldDefinitionId: true,
+                    questionnaireId: true,
+                },
+            });
+            const qV2 = await calculateQuestionStateMetricsForQuestions(
+                questions,
+                engagement.clientLE?.legalEntityId,
+                engagement.clientLE?.customData as any,
+                engagement.clientLE?.id
+            );
+            qV2.questionnairesCount = 1;
+            return {
+                ...q,
+                metrics: legacyMetrics,
+                v2Metrics: qV2,
+            };
+        }));
+
+        // Roll up relationship-own v2Metrics
+        const engV2 = emptyQuestionStateMetrics();
+        for (const q of questionnaires) {
+            if (q.v2Metrics) {
+                rollupQuestionStateMetrics(engV2, q.v2Metrics);
+            }
+        }
+        engV2.questionnairesCount = questionnaires.length;
+
+        // Fetch metrics for common questionnaires
+        const rawCommonQs = (engagement.clientLE as any)?.commonQuestionnaires || [];
+        const commonQuestionnaires = await Promise.all(rawCommonQs.map(async (cq: any) => ({
+            ...cq,
+            isCommon: true,
+            metrics: await calculateQuestionnaireMetrics(cq.id),
+            v2Metrics: await calculateCQQuestionStateMetrics(cq.id, engagement.clientLEId),
         })));
 
         // Fetch Pending Invitations
@@ -457,11 +503,16 @@ export async function getEngagementDetails(engagementId: string) {
 
         return {
             success: true,
-            engagement,
+            engagement: {
+                ...engagement,
+                v2Metrics: engV2,
+            },
             questionnaires,
+            commonQuestionnaires,
             invitations,
             members,
-            metrics
+            metrics,
+            v2Metrics: engV2,
         };
     } catch (error) {
         console.error("Error fetching engagement details:", error);
@@ -484,8 +535,8 @@ export async function createFIEngagement(clientLEId: string, fiOrgId: string) {
             return { success: false, error: "Organization not found" };
         }
 
-        if (!fiOrg.types.includes("FI")) {
-            return { success: false, error: "Selected organization is not a financial institution" };
+        if (!fiOrg.types.some((t: any) => ["FI", "SUPPLIER", "LAW_FIRM"].includes(t))) {
+            return { success: false, error: "Selected organization is not a supplier or financial institution" };
         }
 
         // 2. Check for Existing Engagement using canonical composite key [fiOrgId, clientLEId]
@@ -552,13 +603,12 @@ export async function createFIEngagement(clientLEId: string, fiOrgId: string) {
  * This is used for the Questionnaire Mapper to show existing values.
  */
 export async function getFullMasterData(clientLEId: string) {
+    unstable_noStore();
     if (!clientLEId) return { success: false, data: {} };
 
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, data: {} };
     const { userId } = identity;
-
-    const sysAdmin = await isSystemAdmin();
 
     // 1. Authorization check using central engine
     const memberships = await prisma.membership.findMany({
@@ -573,15 +623,16 @@ export async function getFullMasterData(clientLEId: string) {
     });
 
     const allowed = await can({ id: userId, memberships }, Action.LE_VIEW_MASTER_DATA, { clientLEId }, prisma);
-    if (!allowed && !sysAdmin) {
+    if (!allowed) {
         return { success: false, data: {} };
     }
 
-    // 2. Fetch ClientLE (link to LegalEntity), filtering deleted unless SysAdmin
+    // 2. Fetch ClientLE (link to LegalEntity), filtering deleted/archived
     const clientLE = await prisma.clientLE.findFirst({
         where: {
             id: clientLEId,
-            ...(sysAdmin ? {} : { isDeleted: false, status: { not: "ARCHIVED" } })
+            isDeleted: false,
+            status: { not: "ARCHIVED" }
         },
         include: {
             legalEntity: true,
@@ -624,7 +675,7 @@ export async function getFullMasterData(clientLEId: string) {
         mappingsByField.set(m.targetFieldNo, list);
     }
 
-    if (subjectLeId) {
+    if (clientLE) {
         const allFields = await listAllMasterFields();
 
         // Batch fetch master field assignments for this Legal Entity
@@ -724,13 +775,15 @@ export async function getFullMasterData(clientLEId: string) {
             )
         );
 
-        const fieldsWithAttachments = allFields.filter(f => f.allowAttachments).map(f => f.fieldNo);
+        const allFieldNos = allFields.map(f => f.fieldNo);
+        const fieldDefsMap = new Map(allFields.map(f => [f.fieldNo, { allowAttachments: f.allowAttachments, profileConfig: f.profileConfig as any }]));
         const resolvedAttachments = await Sentry.startSpan(
             { name: "master.resolveAttachments", op: "function.data" },
             async () => resolveAmalgamatedAttachments(
                 { subjectLeId, clientLEId: clientLE.id },
-                fieldsWithAttachments,
-                resolved
+                allFieldNos,
+                resolved,
+                fieldDefsMap
             )
         );
 
@@ -800,6 +853,8 @@ export async function getFullMasterData(clientLEId: string) {
                     let sourceRefToSet: string | undefined = undefined;
                     let timestampToSet: Date | undefined = undefined;
                     let sourceCheckedAtToSet: Date | undefined = undefined;
+                    let entityIdentifierToSet: string | undefined = undefined;
+                    let entityUrlToSet: string | undefined = undefined;
 
                     if (val !== null && val !== undefined) {
                         if (Array.isArray(val)) {
@@ -811,11 +866,15 @@ export async function getFullMasterData(clientLEId: string) {
                                         type: c.sourceType,
                                         reference: c.sourceReference || null,
                                         timestamp: c.assertedAt || null,
-                                        sourceCheckedAt: c.sourceCheckedAt || null
+                                        sourceCheckedAt: c.sourceCheckedAt || null,
+                                        entityIdentifier: c.entityIdentifier || null,
+                                        entityUrl: c.entityUrl || null
                                     } : undefined,
                                     instanceId: c.instanceId
                                 }));
                                 sourceToSet = val[0].isScoped ? 'USER_INPUT' : (val[0].evidenceProvider || val[0].sourceType || 'MASTER_RECORD');
+                                entityIdentifierToSet = val[0].entityIdentifier || undefined;
+                                entityUrlToSet = val[0].entityUrl || undefined;
                             }
                         } else {
                             claimsCount += 1;
@@ -824,6 +883,8 @@ export async function getFullMasterData(clientLEId: string) {
                             sourceRefToSet = val.sourceReference ?? undefined;
                             timestampToSet = val.assertedAt || undefined;
                             sourceCheckedAtToSet = val.sourceCheckedAt || undefined;
+                            entityIdentifierToSet = val.entityIdentifier || undefined;
+                            entityUrlToSet = val.entityUrl || undefined;
                         }
                     }
 
@@ -857,7 +918,9 @@ export async function getFullMasterData(clientLEId: string) {
                         reference: sourceRefToSet,
                         timestamp: timestampToSet || null,
                         sourceCheckedAt: sourceCheckedAtToSet || null,
-                        userName: null
+                        userName: null,
+                        entityIdentifier: entityIdentifierToSet || null,
+                        entityUrl: entityUrlToSet || null
                     } : null;
 
                     const t2 = performance.now();
@@ -1003,6 +1066,13 @@ export async function getFullMasterData(clientLEId: string) {
             computedEnrichmentStatus = 'ENRICHED';
         } else if (primaryRef.lastSyncStatus === 'FAILED') {
             computedEnrichmentStatus = 'FAILED';
+        } else if (primaryRef.status === 'UNSUPPORTED') {
+            // Unsupported registry has no connector: check alternative source (GLEIF)
+            if (clientLE.gleifFetchedAt) {
+                computedEnrichmentStatus = 'ENRICHED';
+            } else {
+                computedEnrichmentStatus = 'PENDING_LEI';
+            }
         } else {
             computedEnrichmentStatus = 'PENDING_ENRICHMENT';
         }
@@ -1348,8 +1418,13 @@ export async function removeCommonQuestionnaire(clientLEId: string, questionnair
 }
 
 export async function getEngagementTeam(engagementId: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+    if (!engagementId) return { success: false, error: "Engagement ID is required" };
+
+    try {
+        await ensureAuthorization(Action.ENG_VIEW, { engagementId });
+    } catch (e) {
+        return { success: false, error: "Unauthorized" };
+    }
 
     try {
         const engagement = await prisma.fIEngagement.findUnique({
@@ -1380,7 +1455,12 @@ export async function getEngagementTeam(engagementId: string) {
         }));
 
         const members = await prisma.membership.findMany({
-            where: { clientLEId: engagement.clientLEId },
+            where: {
+                OR: [
+                    { clientLEId: engagement.clientLEId },
+                    { fiEngagementId: engagementId }
+                ]
+            },
             include: { user: { select: { name: true, email: true, image: true } } },
             orderBy: { createdAt: 'desc' }
         });
@@ -1468,6 +1548,8 @@ export async function getFieldUsageDetails(
         return { totalQuestions: 0, totalQuestionnaires: 0, totalSuppliers: 0, relationships: [], questions: [], questionnaires: [], suppliers: [] };
     }
 
+    await ensureApiAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId });
+
     try {
         const fieldCondition = masterFieldNo
             ? Prisma.sql`q."masterFieldNo" = ${masterFieldNo}`
@@ -1483,7 +1565,7 @@ export async function getFieldUsageDetails(
             supplier_code: string | null;
         }>>`
             WITH client_questionnaires AS (
-                -- 1. Direct fiEngagementId
+                -- 1. Direct fiEngagementId (templates & instances attached to active engagements)
                 SELECT qn.id AS qn_id, qn.name AS qn_name, e."fiOrgId" AS supplier_id, org.name AS supplier_name, org."shortCode" AS supplier_code
                 FROM "Questionnaire" qn
                 JOIN "FIEngagement" e ON qn."fiEngagementId" = e.id
@@ -1492,7 +1574,6 @@ export async function getFieldUsageDetails(
                   AND e."isDeleted" = false
                   AND e."status" != 'ARCHIVED'
                   AND qn."isDeleted" = false
-                  AND qn."isTemplate" = false
 
                 UNION
 
@@ -1506,7 +1587,6 @@ export async function getFieldUsageDetails(
                   AND e."isDeleted" = false
                   AND e."status" != 'ARCHIVED'
                   AND qn."isDeleted" = false
-                  AND qn."isTemplate" = false
 
                 UNION
 
@@ -1514,10 +1594,9 @@ export async function getFieldUsageDetails(
                 SELECT qn.id AS qn_id, qn.name AS qn_name, qn."fiOrgId" AS supplier_id, org.name AS supplier_name, org."shortCode" AS supplier_code
                 FROM "Questionnaire" qn
                 JOIN "_ClientCommonQuestionnaires" ccq ON qn.id = ccq."B"
-                JOIN "Organization" org ON qn."fiOrgId" = org.id
+                LEFT JOIN "Organization" org ON qn."fiOrgId" = org.id
                 WHERE ccq."A" = ${clientLEId}
                   AND qn."isDeleted" = false
-                  AND qn."isTemplate" = false
             )
             SELECT 
                 q.id AS question_id,

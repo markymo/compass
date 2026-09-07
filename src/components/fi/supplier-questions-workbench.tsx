@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -48,6 +48,7 @@ import { resolveFieldForDisplay, RawFieldSource } from "@/lib/master-data/field-
 import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
 import { FieldSourceBadge } from "@/components/client/fields/FieldSourceBadge";
 import { usePreferences } from "@/components/providers/user-preferences-provider";
+import { deriveEligibleSupplierQuestionnaires } from "@/lib/metrics/question-scope";
 
 interface SupplierQuestionsWorkbenchProps {
     orgId: string;
@@ -59,11 +60,15 @@ type ViewMode = "classic" | "flow" | "compact";
 function getQuestionDisplayModel(q: SupplierQuestionView) {
     if (q.answerVisibility === "NOT_SHARED") return null;
 
+    const lastValidated = q.provenance?.lastValidatedAt || q.provenance?.timestamp;
+
     const rawSource: RawFieldSource | null = q.provenance ? {
         type: q.provenance.sourceType || (q.provenance.source === "Provisional Shared" ? "USER_INPUT" : q.provenance.source) || "USER_INPUT",
         reference: q.provenance.sourceReference || (q.provenance.releaseProvenance as any)?.sourceReference || null,
-        timestamp: q.provenance.timestamp ? new Date(q.provenance.timestamp) : undefined,
-        sourceCheckedAt: q.provenance.lastValidatedAt ? new Date(q.provenance.lastValidatedAt) : (q.provenance.timestamp ? new Date(q.provenance.timestamp) : undefined)
+        timestamp: q.provenance.timestamp ? new Date(q.provenance.timestamp) : (lastValidated ? new Date(lastValidated) : undefined),
+        sourceCheckedAt: lastValidated ? new Date(lastValidated) : undefined,
+        entityIdentifier: q.provenance.entityIdentifier || (q.provenance.releaseProvenance as any)?.entityIdentifier || null,
+        entityUrl: q.provenance.entityUrl || (q.provenance.releaseProvenance as any)?.entityUrl || null
     } : null;
 
     return resolveFieldForDisplay(
@@ -79,7 +84,7 @@ function getQuestionDisplayModel(q: SupplierQuestionView) {
     );
 }
 
-export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWorkbenchProps) {
+function SupplierQuestionsWorkbenchInner({ orgId, data }: SupplierQuestionsWorkbenchProps) {
     const searchParams = useSearchParams();
     const pathname = usePathname();
     const router = useRouter();
@@ -199,11 +204,15 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
         return unique.length > 0 ? unique : data.les;
     }, [relFilter, scopeFilteredQuestions, data.les]);
 
-    const activeQuestionnairesList = useMemo(() => {
-        if (qFilter !== "ALL") return [qFilter];
-        const unique = Array.from(new Set(scopeFilteredQuestions.map((q) => q.questionnaireName).filter(Boolean)));
-        return unique.length > 0 ? unique : data.questionnaires;
-    }, [qFilter, scopeFilteredQuestions, data.questionnaires]);
+    const relationshipQuestionnairesList = useMemo(() => {
+        return deriveEligibleSupplierQuestionnaires(
+            data.questions.map((q) => ({
+                clientLEName: q.clientLEName || (q as any).leName,
+                questionnaireName: q.questionnaireName,
+            })),
+            relFilter
+        );
+    }, [relFilter, data.questions]);
 
     return (
         <div className="space-y-6 w-full pb-20">
@@ -229,7 +238,14 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                        <Select value={relFilter} onValueChange={(val) => handleFilterChange("rel", val, setRelFilter)}>
+                        <Select
+                            value={relFilter}
+                            onValueChange={(val) => {
+                                handleFilterChange("rel", val, setRelFilter);
+                                setQFilter("ALL");
+                                updateUrl({ rel: val, q: null });
+                            }}
+                        >
                             <SelectTrigger className="w-[170px] bg-slate-50/50 border-slate-200 text-xs h-10 rounded-xl">
                                 <Building2 className="h-3.5 w-3.5 mr-2 text-slate-400" />
                                 <SelectValue placeholder="Relationship" />
@@ -249,7 +265,7 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                             </SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="ALL">All Questionnaires</SelectItem>
-                                {data.questionnaires.map((q) => (
+                                {relationshipQuestionnairesList.map((q) => (
                                     <SelectItem key={q} value={q}>{q}</SelectItem>
                                 ))}
                             </SelectContent>
@@ -322,9 +338,9 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                             <span>
                                 {qFilter !== "ALL"
                                     ? qFilter
-                                    : activeQuestionnairesList.length === 1
-                                    ? activeQuestionnairesList[0]
-                                    : `${activeQuestionnairesList.length} Questionnaires`}
+                                    : relationshipQuestionnairesList.length === 1
+                                    ? relationshipQuestionnairesList[0]
+                                    : `${relationshipQuestionnairesList.length} Questionnaires`}
                             </span>
                         </div>
 
@@ -880,5 +896,13 @@ export function SupplierQuestionsWorkbench({ orgId, data }: SupplierQuestionsWor
                 </Card>
             )}
         </div>
+    );
+}
+
+export function SupplierQuestionsWorkbench(props: SupplierQuestionsWorkbenchProps) {
+    return (
+        <Suspense fallback={null}>
+            <SupplierQuestionsWorkbenchInner {...props} />
+        </Suspense>
     );
 }

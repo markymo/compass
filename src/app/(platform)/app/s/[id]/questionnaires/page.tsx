@@ -1,4 +1,4 @@
-import { getFIOganization } from "@/actions/fi";
+import { getFIOganization, checkIsSupplierOrgAdmin } from "@/actions/fi";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Settings } from "lucide-react";
 import { notFound } from "next/navigation";
@@ -10,10 +10,13 @@ import { getFIPortalTabs } from "@/config/navigation-tabs";
 export default async function FIAdminPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
 
-    const org = await getFIOganization(id);
-    if (!org) return notFound();
+    const [org, isOrgAdmin] = await Promise.all([
+        getFIOganization(id),
+        checkIsSupplierOrgAdmin(id),
+    ]);
+    if (!org || !isOrgAdmin) return notFound();
 
-    const fiTabs = getFIPortalTabs(org.id);
+    const fiTabs = getFIPortalTabs(org.id, { isOrgAdmin: true });
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50/30">

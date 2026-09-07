@@ -177,6 +177,7 @@ export default function LEManageQuestionnairePage() {
                     <QuestionnaireFiller
                         leId={leId}
                         questionnaireId={qId}
+                        relationshipId={questionnaire.fiEngagementId || undefined}
                         initialQuestions={items}
                         questionnaireName={questionnaire.name}
                     />

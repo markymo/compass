@@ -10,8 +10,8 @@ import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import { SourceType } from "@prisma/client";
 
 import * as Sentry from "@sentry/nextjs";
-import { applyTransform } from "@/services/kyc/normalization/transforms";
-import { isPartyValue } from "@/lib/master-data/party-value";
+import { ActionDomainError, handleActionError } from "@/lib/action-error-handler";
+import { can, Action } from "@/lib/auth/permissions";
 
 // KycWriteService is deprecated in favor of FieldClaimService
 
@@ -26,7 +26,7 @@ export async function updateFieldManually(
     reason: string,
     rowId?: string,
     entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'CLIENT_LE'
-): Promise<{ success: boolean; message?: string; claimId?: string }> {
+): Promise<{ success: boolean; message?: string; claimId?: string; kind?: 'domain' | 'unexpected'; errorRef?: string; timestamp?: string; operation?: string; technicalDetails?: string }> {
     return await Sentry.startSpan(
         {
             name: "probe.field_claim.save",
@@ -40,89 +40,118 @@ export async function updateFieldManually(
         async () => {
             try {
                 const identity = await getIdentity();
-        const userId = identity?.userId;
+                const userId = identity?.userId;
 
-        if (!userId) {
-            return { success: false, message: "Authentication required for manual updates." };
-        }
-        // Reason is now optional
+                if (!userId) {
+                    throw new ActionDomainError("Authentication required for manual updates.");
+                }
 
-        // 1. Resolve Subject and Scope
-        const clientLE = await prisma.clientLE.findUnique({
-            where: { id: clientLEId }
-        });
-        const subjectLeId = clientLE?.legalEntityId;
-        const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
+                const memberships = await prisma.membership.findMany({
+                    where: { userId },
+                    select: {
+                        organizationId: true,
+                        clientLEId: true,
+                        fiEngagementId: true,
+                        role: true,
+                        clientLE: { select: { isDeleted: true, status: true } }
+                    }
+                });
 
-        if (!subjectLeId) {
-            return { success: false, message: "Could not resolve LegalEntity subject." };
-        }
+                const allowed = await can({ id: userId, memberships }, Action.LE_EDIT_MASTER_DATA, { clientLEId }, prisma);
+                if (!allowed) {
+                    throw new ActionDomainError("Unauthorized to update Master data for this Legal Entity.");
+                }
 
-        // 2. Map value to correct slot based on FieldDefinition
-        const def = await getMasterFieldDefinition(fieldNo);
+                // 1. Resolve Subject and Scope
+                const clientLE = await prisma.clientLE.findUnique({
+                    where: { id: clientLEId }
+                });
+                if (!clientLE) {
+                    throw new ActionDomainError("ClientLE not found.");
+                }
+                const subjectLeId = clientLE.legalEntityId ?? null;
+                const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
 
-        if (['PARTY', 'PARTY_REF'].includes(def.appDataType) && (def.profileConfig as any)?.partyPopulationPolicy === 'SYSTEM_ONLY') {
-            // Check if we are merely asserting a none/empty state which might be allowed? No, block all manual claims for this field.
-            return { success: false, message: `Field ${fieldNo} is locked to authoritative sources. Manual curation is disabled.` };
-        }
+                // 2. Map value to correct slot based on FieldDefinition
+                const def = await getMasterFieldDefinition(fieldNo);
 
-        const complexCfg = getComplexFieldConfig(fieldNo);
-        const collectionId = def.isMultiValue
-            ? (complexCfg?.collectionId || def.categoryId || 'GENERAL')
-            : undefined;
+                if (['PARTY', 'PARTY_REF'].includes(def.appDataType) && (def.profileConfig as any)?.partyPopulationPolicy === 'SYSTEM_ONLY') {
+                    throw new ActionDomainError(`Field ${fieldNo} is locked to authoritative sources. Manual curation is disabled.`);
+                }
 
-        const claimInput: any = {
-            fieldNo,
-            subjectLeId,
-            ownerScopeId,
-            sourceType: SourceType.USER_INPUT,
-            sourceReference: reason,
-            collectionId,
-            instanceId: rowId // For multi-value, rowId is the stable instance key
-        };
+                const complexCfg = getComplexFieldConfig(fieldNo);
+                const collectionId = def.isMultiValue
+                    ? (complexCfg?.collectionId || def.categoryId || 'GENERAL')
+                    : undefined;
 
-        // Assign value to the correct slot
-        if (value && typeof value === 'object' && value.explicitNone) {
-            claimInput.valueJson = value;
-        } else {
-            switch (def.appDataType) {
-            case 'TEXT':
-            case 'SELECT': // Option-set fields store the selected value as text
-                claimInput.valueText = value; break;
-            case 'NUMBER': claimInput.valueNumber = value; break;
-            case 'DATE':
-            case 'DATETIME': claimInput.valueDate = new Date(value); break;
-            case 'PERSON_REF': claimInput.valuePersonId = value; break;
-            case 'ORG_REF': claimInput.valueLeId = value; break;
-            case 'ADDRESS_REF': claimInput.valueAddressId = value; break;
-            case 'DOCUMENT_REF': claimInput.valueText = value; break; // Manual edits store as text; valueDocId requires valid FK
-            case 'PARTY_REF':
-            case 'JSONB':
-            case 'ADDRESS':
-            case 'BOOLEAN':
-            case 'PARTY':
-            case 'PERSON_OR_CONTACT':
-                claimInput.valueJson = value; break;
+                const claimInput: any = {
+                    fieldNo,
+                    subjectLeId,
+                    ownerScopeId,
+                    sourceType: SourceType.USER_INPUT,
+                    sourceReference: reason,
+                    collectionId,
+                    instanceId: rowId // For multi-value, rowId is the stable instance key
+                };
+
+                // Assign value to the correct slot
+                if (value && typeof value === 'object' && value.explicitNone) {
+                    claimInput.valueJson = value;
+                } else {
+                    switch (def.appDataType) {
+                    case 'TEXT':
+                    case 'SELECT': // Option-set fields store the selected value as text
+                        claimInput.valueText = value; break;
+                    case 'NUMBER': claimInput.valueNumber = value; break;
+                    case 'DATE':
+                    case 'DATETIME': claimInput.valueDate = new Date(value); break;
+                    case 'PERSON_REF': claimInput.valuePersonId = value; break;
+                    case 'ORG_REF': claimInput.valueLeId = value; break;
+                    case 'ADDRESS_REF': claimInput.valueAddressId = value; break;
+                    case 'DOCUMENT_REF': claimInput.valueText = value; break; // Manual edits store as text; valueDocId requires valid FK
+                    case 'BOOLEAN': {
+                        let boolVal: boolean;
+                        if (typeof value === 'boolean') {
+                            boolVal = value;
+                        } else if (typeof value === 'string' && (value.toLowerCase() === 'true' || value.toLowerCase() === 'yes')) {
+                            boolVal = true;
+                        } else if (typeof value === 'string' && (value.toLowerCase() === 'false' || value.toLowerCase() === 'no')) {
+                            boolVal = false;
+                        } else {
+                            throw new ActionDomainError("Invalid boolean value. Must be a boolean (true/false).");
+                        }
+                        claimInput.valueJson = boolVal;
+                        break;
+                    }
+                    case 'PARTY_REF':
+                    case 'JSONB':
+                    case 'ADDRESS':
+                    case 'PARTY':
+                    case 'PERSON_OR_CONTACT':
+                        claimInput.valueJson = value; break;
+                    }
+                }
+
+                const claim = await FieldClaimService.assertClaim({
+                    ...claimInput,
+                    clientLEId,  // required for graph edge write-back on graph-bound fields (e.g. F63 DIRECTOR)
+                    verifiedByUserId: userId,
+                    status: SourceType.USER_INPUT === SourceType.USER_INPUT ? 'VERIFIED' : 'ASSERTED' // manual updates are verified
+                });
+
+                if (claim) {
+                    revalidatePath(`/app/le/${clientLEId}`, 'layout');
+                    return { success: true, claimId: claim.id };
+                } else {
+                    throw new ActionDomainError("Update failed.");
+                }
+            } catch (error: any) {
+                return handleActionError(error, {
+                    operation: "Save Master field",
+                    fallbackMessage: "We couldn’t save this field.",
+                    context: { clientLEId, fieldNo, rowId, entityType }
+                });
             }
-        }
-
-        const claim = await FieldClaimService.assertClaim({
-            ...claimInput,
-            clientLEId,  // required for graph edge write-back on graph-bound fields (e.g. F63 DIRECTOR)
-            verifiedByUserId: userId,
-            status: SourceType.USER_INPUT === SourceType.USER_INPUT ? 'VERIFIED' : 'ASSERTED' // manual updates are verified
-        });
-
-        if (claim) {
-            revalidatePath(`/app/le/${clientLEId}`, 'layout');
-            return { success: true, claimId: claim.id };
-        } else {
-            return { success: false, message: "Update failed." };
-        }
-    } catch (error: any) {
-        console.error("updateFieldManually error:", error);
-        return { success: false, message: error.message };
-    }
         }
     );
 }
@@ -139,10 +168,6 @@ export async function applyManualOverride(
     rowId?: string,
     entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'CLIENT_LE'
 ) {
-    // Get real userId from session
-    const identity = await getIdentity();
-    const userId = identity?.userId || "SYSTEM_USER";
-
     const num = Number(fieldNo);
 
     // 1. Try Standard Field Update
@@ -170,18 +195,18 @@ export async function promoteClaim(
     claimId: string,
     rowId?: string,
     entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'CLIENT_LE'
-): Promise<{ success: boolean; message?: string }> {
+) {
     try {
         const identity = await getIdentity();
         const userId = identity?.userId;
-        if (!userId) return { success: false, message: "Authentication required." };
+        if (!userId) throw new ActionDomainError("Authentication required.");
 
         // 1. Fetch the claim to promote
         const claim = await prisma.fieldClaim.findUnique({
             where: { id: claimId }
         });
 
-        if (!claim) return { success: false, message: "Claim not found." };
+        if (!claim) throw new ActionDomainError("Claim not found.");
 
         const val = (claim.valueText ?? claim.valueNumber ?? claim.valueDate ?? claim.valueJson ?? claim.valueLeId ?? claim.valuePersonId ?? claim.valueOrgId ?? claim.valueDocId) ?? null;
 
@@ -195,8 +220,11 @@ export async function promoteClaim(
             entityType
         );
     } catch (error: any) {
-        console.error("promoteClaim error:", error);
-        return { success: false, message: error.message };
+        return handleActionError(error, {
+            operation: "Promote claim",
+            fallbackMessage: "We couldn’t promote this value.",
+            context: { clientLEId, rowId, entityType }
+        });
     }
 }
 
@@ -209,10 +237,8 @@ export async function applyCandidate(
     candidatePayload: any,
     rowId?: string,
     entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'CLIENT_LE'
-): Promise<{ success: boolean; message?: string }> {
+) {
     try {
-        // In the new architecture, applying a candidate means asserting it as a USER_INPUT claim
-        // This is a simplified version:
         return await updateFieldManually(
             clientLEId,
             candidatePayload.fieldNo,
@@ -222,8 +248,11 @@ export async function applyCandidate(
             entityType
         );
     } catch (error: any) {
-        console.error("applyCandidate error:", error);
-        return { success: false, message: error.message };
+        return handleActionError(error, {
+            operation: "Apply candidate value",
+            fallbackMessage: "We couldn’t apply this candidate value.",
+            context: { clientLEId, fieldNo: candidatePayload?.fieldNo, rowId, entityType }
+        });
     }
 }
 
@@ -233,6 +262,7 @@ export async function applyFieldCandidate(
 ) {
     return applyCandidate(leId, candidate);
 }
+
 export async function updateCustomFieldManually(
     clientLEId: string,
     fieldKey: string,
@@ -244,10 +274,27 @@ export async function updateCustomFieldManually(
         const userId = identity?.userId;
 
         if (!userId) {
-            return { success: false, message: "Authentication required for custom field updates." };
+            throw new ActionDomainError("Authentication required for custom field updates.");
         }
+
+        const memberships = await prisma.membership.findMany({
+            where: { userId },
+            select: {
+                organizationId: true,
+                clientLEId: true,
+                fiEngagementId: true,
+                role: true,
+                clientLE: { select: { isDeleted: true, status: true } }
+            }
+        });
+
+        const allowed = await can({ id: userId, memberships }, Action.LE_EDIT_MASTER_DATA, { clientLEId }, prisma);
+        if (!allowed) {
+            throw new ActionDomainError("Unauthorized to update Master data for this Legal Entity.");
+        }
+
         const le = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
-        if (!le) return { success: false, message: "LE not found" };
+        if (!le) throw new ActionDomainError("LE not found");
 
         const currentData = (le.customData as Record<string, any>) || {};
 
@@ -274,8 +321,11 @@ export async function updateCustomFieldManually(
         return { success: true };
 
     } catch (e: any) {
-        console.error("Failed to update custom field:", e);
-        return { success: false, message: e.message };
+        return handleActionError(e, {
+            operation: "Save custom field",
+            fallbackMessage: "We couldn’t save this custom field.",
+            context: { clientLEId, customFieldId: fieldKey }
+        });
     }
 }
 
@@ -288,13 +338,13 @@ export async function addMultiValueEntry(
     fieldNo: number,
     value: any,
     reason?: string
-): Promise<{ success: boolean; message?: string; claimId?: string }> {
+) {
     try {
         const def = await getMasterFieldDefinition(fieldNo);
-        if (!def.isMultiValue) return { success: false, message: "Field is not multi-value" };
+        if (!def.isMultiValue) throw new ActionDomainError("Field is not multi-value");
 
         if (!value || (typeof value === 'string' && !value.trim())) {
-            return { success: false, message: "A value is required" };
+            throw new ActionDomainError("A value is required");
         }
 
         const instanceId = `row_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -313,8 +363,11 @@ export async function addMultiValueEntry(
         }
         return result;
     } catch (e: any) {
-        console.error("addMultiValueEntry error:", e);
-        return { success: false, message: e.message };
+        return handleActionError(e, {
+            operation: "Add collection entry",
+            fallbackMessage: "We couldn’t add this item.",
+            context: { clientLEId, fieldNo }
+        });
     }
 }
 
@@ -326,16 +379,16 @@ export async function removeMultiValueEntry(
     clientLEId: string,
     fieldNo: number,
     claimId: string
-): Promise<{ success: boolean; message?: string }> {
+) {
     try {
         const identity = await getIdentity();
         const userId = identity?.userId;
         if (!userId) {
-            return { success: false, message: "Authentication required." };
+            throw new ActionDomainError("Authentication required.");
         }
 
         const def = await getMasterFieldDefinition(fieldNo);
-        if (!def.isMultiValue) return { success: false, message: "Field is not multi-value" };
+        if (!def.isMultiValue) throw new ActionDomainError("Field is not multi-value");
 
         // 1. Check for Graph Binding
         const bindings = await prisma.masterFieldGraphBinding.findMany({
@@ -345,12 +398,9 @@ export async function removeMultiValueEntry(
 
         // 2. Resolve subject/scope
         const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
-        const subjectLeId = clientLE?.legalEntityId;
+        if (!clientLE) throw new ActionDomainError("ClientLE not found");
+        const subjectLeId = clientLE.legalEntityId ?? null;
         const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
-
-        if (!subjectLeId) {
-            return { success: false, message: "Could not resolve subject." };
-        }
 
         // 3. Handle Graph Edge Deactivation
         if (graphBinding) {
@@ -361,12 +411,11 @@ export async function removeMultiValueEntry(
                     data: { isActive: false }
                 });
 
-                // Also emit tombstone for Master Data consistency
                 await FieldClaimService.emitTombstone(
                     { subjectLeId, clientLEId },
                     fieldNo,
                     def.categoryId || 'GENERAL',
-                    claimId, // Use edge ID as instanceId for graph-bound fields
+                    claimId,
                     ownerScopeId
                 );
 
@@ -381,7 +430,7 @@ export async function removeMultiValueEntry(
         });
 
         if (!claim) {
-            return { success: false, message: "Claim not found" };
+            throw new ActionDomainError("Claim not found");
         }
 
         let instanceId = claim.instanceId;
@@ -393,7 +442,6 @@ export async function removeMultiValueEntry(
             });
         }
 
-        // Emit tombstone
         const tombstone = await FieldClaimService.emitTombstone(
             { subjectLeId, clientLEId },
             fieldNo,
@@ -402,14 +450,16 @@ export async function removeMultiValueEntry(
             ownerScopeId
         );
 
-        // Auto-verify user deletions for immediate effect
         await FieldClaimService.verifyClaim(tombstone.id, userId);
 
         revalidatePath(`/app/le/${clientLEId}`, 'layout');
         return { success: true };
     } catch (e: any) {
-        console.error("removeMultiValueEntry error:", e);
-        return { success: false, message: e.message };
+        return handleActionError(e, {
+            operation: "Remove collection entry",
+            fallbackMessage: "We couldn’t remove this item.",
+            context: { clientLEId, fieldNo, instanceId: claimId }
+        });
     }
 }
 
@@ -419,26 +469,23 @@ export async function removeMultiValueEntry(
 export async function clearSingleValueEntry(
     clientLEId: string,
     fieldNo: number
-): Promise<{ success: boolean; message?: string }> {
+) {
     try {
         const identity = await getIdentity();
         const userId = identity?.userId;
         if (!userId) {
-            return { success: false, message: "Authentication required." };
+            throw new ActionDomainError("Authentication required.");
         }
 
         const def = await getMasterFieldDefinition(fieldNo);
         if (def.isMultiValue) {
-            return { success: false, message: "Field is a multi-value collection. Use removeMultiValueEntry instead." };
+            throw new ActionDomainError("Field is a multi-value collection. Use removeMultiValueEntry instead.");
         }
 
         const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
-        const subjectLeId = clientLE?.legalEntityId;
+        if (!clientLE) throw new ActionDomainError("ClientLE not found");
+        const subjectLeId = clientLE.legalEntityId ?? null;
         const ownerScopeId = await KycStateService.resolveScopeId(clientLEId);
-
-        if (!subjectLeId) {
-            return { success: false, message: "Could not resolve subject." };
-        }
 
         const tombstone = await FieldClaimService.emitTombstone(
             { subjectLeId, clientLEId },
@@ -453,8 +500,11 @@ export async function clearSingleValueEntry(
         revalidatePath(`/app/le/${clientLEId}`, 'layout');
         return { success: true };
     } catch (e: any) {
-        console.error("clearSingleValueEntry error:", e);
-        return { success: false, message: e.message };
+        return handleActionError(e, {
+            operation: "Clear field value",
+            fallbackMessage: "We couldn’t clear this field.",
+            context: { clientLEId, fieldNo }
+        });
     }
 }
 
@@ -466,9 +516,10 @@ export async function applyBulkOverride(
     rowId?: string,
     entityType: 'LEGAL_ENTITY' | 'CLIENT_LE' = 'CLIENT_LE'
 ) {
-    const identity = await getIdentity();
-    const userId = identity?.userId || "SYSTEM_USER";
     try {
+        const identity = await getIdentity();
+        const userId = identity?.userId || "SYSTEM_USER";
+
         const allFields = await listAllMasterFields();
         const fieldNos = allFields
             .filter((f: any) => f.masterDataCategory?.displayName === modelName)
@@ -484,90 +535,82 @@ export async function applyBulkOverride(
         revalidatePath(`/app/le/${clientLEId}`, 'layout');
         return { success: true };
     } catch (error: any) {
-        console.error("applyBulkOverride error:", error);
-        return { success: false, message: error.message };
+        return handleActionError(error, {
+            operation: "Apply bulk override",
+            fallbackMessage: "We couldn’t apply this bulk update.",
+            context: { clientLEId, rowId, entityType }
+        });
     }
 }
 
 /**
  * Adds an entry to a controlled-vocabulary code-list collection (e.g. SIC codes).
- *
- * The client sends ONLY: clientLEId, fieldNo, codeSystem, and the code string.
- * The server:
- *   1. Validates the fieldNo resolves to a STRUCTURED_COLLECTION with the claimed codeSystem.
- *   2. Validates the code exists in the code system reference data.
- *   3. Resolves the label server-side — never trusts a client-supplied label.
- *   4. Checks that the code is not already active (duplicate check on active rows only;
- *      tombstoned/deleted codes are selectable again).
- *   5. Writes a USER_INPUT FieldClaim via updateFieldManually.
- *
- * Returns { success: false } with a user-facing message for all validation failures.
  */
 export async function addCodeListEntry(
     clientLEId: string,
     fieldNo: number,
     codeSystem: string,
     code: string
-): Promise<{ success: boolean; message?: string; instanceId?: string }> {
-    // ── 1. Validate fieldNo + codeSystem match the config ──────────────────
-    const { getComplexFieldConfig } = await import('@/lib/master-data/complex-field-config');
-    const config = getComplexFieldConfig(fieldNo);
-    if (!config || config.kind !== 'STRUCTURED_COLLECTION') {
-        return { success: false, message: 'Field is not a structured collection.' };
-    }
-    if (config.codeSystem !== codeSystem) {
-        return { success: false, message: `Code system mismatch for field ${fieldNo}.` };
-    }
+) {
+    try {
+        const { getComplexFieldConfig } = await import('@/lib/master-data/complex-field-config');
+        const config = getComplexFieldConfig(fieldNo);
+        if (!config || config.kind !== 'STRUCTURED_COLLECTION') {
+            throw new ActionDomainError('Field is not a structured collection.');
+        }
+        if (config.codeSystem !== codeSystem) {
+            throw new ActionDomainError(`Code system mismatch for field ${fieldNo}.`);
+        }
 
-    // ── 2. Validate code against reference data (server-side) ──────────────
-    const { getCodeSystemConfig } = await import('@/lib/master-data/code-systems');
-    const sysConfig = getCodeSystemConfig(codeSystem);
-    if (!sysConfig) {
-        return { success: false, message: `Unknown code system: ${codeSystem}.` };
+        const { getCodeSystemConfig } = await import('@/lib/master-data/code-systems');
+        const sysConfig = getCodeSystemConfig(codeSystem);
+        if (!sysConfig) {
+            throw new ActionDomainError(`Unknown code system: ${codeSystem}.`);
+        }
+
+        const { getCodeSystemEntries } = await import('@/actions/code-system');
+        const allEntries = await getCodeSystemEntries(codeSystem);
+        const matched = allEntries.find(e => e.code === code.trim());
+        if (!matched) {
+            throw new ActionDomainError(`Unknown code: ${code}`);
+        }
+
+        const resolvedLabel = matched.label;
+
+        const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
+        if (!clientLE) throw new ActionDomainError('ClientLE not found.');
+        const subjectLeId = clientLE.legalEntityId ?? null;
+
+        const activeRows = await KycStateService.getAuthoritativeCollection(
+            { subjectLeId, clientLEId },
+            fieldNo
+        );
+        const instanceId = `${sysConfig.instanceIdPrefix}${code.trim()}`;
+        const alreadyActive = activeRows.some(r => r.instanceId === instanceId);
+        if (alreadyActive) {
+            throw new ActionDomainError('This code has already been added.');
+        }
+
+        const result = await updateFieldManually(
+            clientLEId,
+            fieldNo,
+            { code: code.trim(), label: resolvedLabel },
+            'User added code via picker',
+            instanceId,
+            'CLIENT_LE'
+        );
+
+        if (result.success) {
+            return { success: true, instanceId };
+        }
+        return result;
+    } catch (e: any) {
+        return handleActionError(e, {
+            operation: "Add code-list entry",
+            fallbackMessage: "We couldn’t add this code entry.",
+            context: { clientLEId, fieldNo, collectionId: codeSystem }
+        });
     }
-
-    const { getCodeSystemEntries } = await import('@/actions/code-system');
-    const allEntries = await getCodeSystemEntries(codeSystem);
-    const matched = allEntries.find(e => e.code === code.trim());
-    if (!matched) {
-        return { success: false, message: `Unknown code: ${code}` };
-    }
-
-    // ── 3. Label is resolved from the server — client-supplied label ignored ──
-    const resolvedLabel = matched.label;
-
-    // ── 4. Duplicate check — active rows only ───────────────────────────────
-    // Tombstoned codes are not considered duplicates (user can re-add after removing).
-    const clientLE = await prisma.clientLE.findUnique({ where: { id: clientLEId } });
-    const subjectLeId = clientLE?.legalEntityId;
-    if (!subjectLeId) {
-        return { success: false, message: 'Could not resolve legal entity.' };
-    }
-
-    const activeRows = await KycStateService.getAuthoritativeCollection(
-        { subjectLeId },
-        fieldNo
-    );
-    const instanceId = `${sysConfig.instanceIdPrefix}${code.trim()}`;
-    const alreadyActive = activeRows.some(r => r.instanceId === instanceId);
-    if (alreadyActive) {
-        return { success: false, message: 'This code has already been added.' };
-    }
-
-    // ── 5. Write USER_INPUT claim ───────────────────────────────────────────
-    const result = await updateFieldManually(
-        clientLEId,
-        fieldNo,
-        { code: code.trim(), label: resolvedLabel },
-        'User added code via picker',
-        instanceId,
-        'CLIENT_LE'
-    );
-
-    if (result.success) {
-        return { success: true, instanceId };
-    }
-    return result;
 }
 
 export async function addExistingCCPartyReferenceToField(
@@ -575,12 +618,11 @@ export async function addExistingCCPartyReferenceToField(
     fieldNo: number,
     ccPartyId: string,
     rowId?: string
-): Promise<{ success: boolean; message?: string }> {
+) {
     try {
         const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
         const def = await getMasterFieldDefinition(fieldNo);
 
-        // Field Profile Config Validation
         const allowedPartyTypes = (def.profileConfig as any)?.allowedPartyTypes as Array<'INDIVIDUAL'|'ORGANISATION'|'TEAM'> | undefined;
         
         if (allowedPartyTypes !== undefined) {
@@ -588,12 +630,12 @@ export async function addExistingCCPartyReferenceToField(
                 where: { id: ccPartyId }
             });
             if (!existingParty) {
-                 return { success: false, message: "Party not found." };
+                 throw new ActionDomainError("Party not found.");
             }
             const data = existingParty.data as any;
             const pType = data.partyType ?? (data.contactType === 'PERSON' ? 'INDIVIDUAL' : 'INDIVIDUAL');
             if (!allowedPartyTypes.includes(pType)) {
-                 return { success: false, message: `Field ${fieldNo} does not allow party type ${pType}` };
+                 throw new ActionDomainError(`Field ${fieldNo} does not allow party type ${pType}`);
             }
         }
 
@@ -603,7 +645,7 @@ export async function addExistingCCPartyReferenceToField(
                 include: { legalEntity: true }
             });
             if (!clientLE) {
-                return { success: false, message: "ClientLE not found" };
+                throw new ActionDomainError("ClientLE not found");
             }
 
             const existingParty = await prisma.cCParty.findUnique({
@@ -645,8 +687,11 @@ export async function addExistingCCPartyReferenceToField(
         revalidatePath(`/app/le/${clientLEId}`, 'layout');
         return { success: true };
     } catch (error: any) {
-        console.error("addExistingCCPartyReferenceToField error:", error);
-        return { success: false, message: error.message };
+        return handleActionError(error, {
+            operation: "Link party to field",
+            fallbackMessage: "We couldn’t link this party.",
+            context: { clientLEId, fieldNo, rowId }
+        });
     }
 }
 
@@ -655,7 +700,7 @@ export async function createCCPartyAndReferenceField(
     fieldNo: number,
     partyValueData: any,
     rowId?: string
-): Promise<{ success: boolean; message?: string }> {
+) {
     try {
         const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
         const def = await getMasterFieldDefinition(fieldNo);
@@ -664,7 +709,7 @@ export async function createCCPartyAndReferenceField(
         const { getIdentity } = await import('@/lib/auth');
         const identity = await getIdentity();
         if (!identity?.userId) {
-            return { success: false, message: "Unauthorized" };
+            throw new ActionDomainError("Unauthorized");
         }
 
         const clientLE = await prisma.clientLE.findUnique({
@@ -672,7 +717,7 @@ export async function createCCPartyAndReferenceField(
             include: { legalEntity: true }
         });
         if (!clientLE) {
-            return { success: false, message: "ClientLE not found" };
+            throw new ActionDomainError("ClientLE not found");
         }
 
         let enrichedPartyData = partyValueData;
@@ -682,15 +727,14 @@ export async function createCCPartyAndReferenceField(
 
         const { isCCPartyData } = await import("@/lib/master-data/party-v2/CCPartyData");
         if (!isCCPartyData(enrichedPartyData)) {
-            return { success: false, message: "Invalid CCPartyData V2 structure provided" };
+            throw new ActionDomainError("Invalid CCPartyData V2 structure provided");
         }
         
-        // Field Profile Config Validation
         const allowedPartyTypes = (def.profileConfig as any)?.allowedPartyTypes as Array<'INDIVIDUAL'|'ORGANISATION'|'TEAM'> | undefined;
         if (allowedPartyTypes !== undefined) {
              const pType = enrichedPartyData.partyType;
              if (!allowedPartyTypes.includes(pType as any)) {
-                  return { success: false, message: `Field ${fieldNo} does not allow party type ${pType}` };
+                  throw new ActionDomainError(`Field ${fieldNo} does not allow party type ${pType}`);
              }
         }
 
@@ -715,7 +759,7 @@ export async function createCCPartyAndReferenceField(
 
         if (!claimResult.success) {
             await prisma.cCParty.delete({ where: { id: newParty.id } });
-            return { success: false, message: claimResult.message || "Failed to link new party to field" };
+            return claimResult;
         }
 
         await prisma.cCParty.update({
@@ -728,8 +772,11 @@ export async function createCCPartyAndReferenceField(
         return { success: true };
 
     } catch (error: any) {
-        console.error("createCCPartyAndReferenceField error:", error);
-        return { success: false, message: error.message };
+        return handleActionError(error, {
+            operation: "Create and link party",
+            fallbackMessage: "We couldn’t create and link this party.",
+            context: { clientLEId, fieldNo, rowId }
+        });
     }
 }
 
@@ -786,7 +833,7 @@ export async function addExistingCCAddressReferenceToField(
     fieldNo: number,
     ccAddressId: string,
     rowId?: string
-): Promise<{ success: boolean; message?: string }> {
+) {
     try {
         const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
         const def = await getMasterFieldDefinition(fieldNo);
@@ -810,8 +857,11 @@ export async function addExistingCCAddressReferenceToField(
         revalidatePath(`/app/le/${clientLEId}`, 'layout');
         return { success: true };
     } catch (error: any) {
-        console.error("addExistingCCAddressReferenceToField error:", error);
-        return { success: false, message: error.message };
+        return handleActionError(error, {
+            operation: "Link address to field",
+            fallbackMessage: "We couldn’t link this address.",
+            context: { clientLEId, fieldNo, rowId }
+        });
     }
 }
 
@@ -820,7 +870,7 @@ export async function createCCAddressAndReferenceField(
     fieldNo: number,
     addressValueData: any,
     rowId?: string
-): Promise<{ success: boolean; message?: string }> {
+) {
     try {
         const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
         const def = await getMasterFieldDefinition(fieldNo);
@@ -829,7 +879,7 @@ export async function createCCAddressAndReferenceField(
         const { getIdentity } = await import('@/lib/auth');
         const identity = await getIdentity();
         if (!identity?.userId) {
-            return { success: false, message: "Unauthorized" };
+            throw new ActionDomainError("Unauthorized");
         }
 
         const newAddress = await prisma.$transaction(async (tx: any) => {
@@ -858,7 +908,7 @@ export async function createCCAddressAndReferenceField(
 
         if (!claimResult.success) {
             await prisma.cCAddress.delete({ where: { id: newAddress.id } });
-            return { success: false, message: claimResult.message || "Failed to link new address to field" };
+            return claimResult;
         }
 
         await prisma.cCAddress.update({
@@ -871,8 +921,11 @@ export async function createCCAddressAndReferenceField(
         return { success: true };
 
     } catch (error: any) {
-        console.error("createCCAddressAndReferenceField error:", error);
-        return { success: false, message: error.message };
+        return handleActionError(error, {
+            operation: "Create and link address",
+            fallbackMessage: "We couldn’t create and link this address.",
+            context: { clientLEId, fieldNo, rowId }
+        });
     }
 }
 
@@ -885,7 +938,6 @@ export async function releaseFieldDefault(
         const def = await getMasterFieldDefinition(fieldNo);
         let parsedValue: any = defaultString;
         
-        // Basic type casting
         if (def.appDataType === 'BOOLEAN') {
             parsedValue = defaultString.toLowerCase() === 'true';
         } else if (def.appDataType === 'NUMBER') {
@@ -903,8 +955,11 @@ export async function releaseFieldDefault(
             'CLIENT_LE'
         );
     } catch (e: any) {
-        console.error("releaseFieldDefault error:", e);
-        return { success: false, message: e.message };
+        return handleActionError(e, {
+            operation: "Release field default",
+            fallbackMessage: "We couldn’t release this field default.",
+            context: { clientLEId, fieldNo }
+        });
     }
 }
 
@@ -930,12 +985,13 @@ export async function releaseFieldAbsence(
             'CLIENT_LE'
         );
     } catch (e: any) {
-        console.error("releaseFieldAbsence error:", e);
-        return { success: false, message: e.message };
+        return handleActionError(e, {
+            operation: "Release field absence",
+            fallbackMessage: "We couldn’t release explicit absence.",
+            context: { clientLEId, fieldNo }
+        });
     }
 }
-
-
 
 export async function restoreSourceValue(
     clientLEId: string,
@@ -943,20 +999,18 @@ export async function restoreSourceValue(
 ) {
     try {
         const identity = await getIdentity();
-        if (!identity?.userId) return { success: false, message: "Unauthorized" };
+        if (!identity?.userId) throw new ActionDomainError("Unauthorized");
 
         const clientLE = await prisma.clientLE.findUnique({
             where: { id: clientLEId },
             select: { legalEntityId: true }
         });
-        if (!clientLE || !clientLE.legalEntityId) return { success: false, message: "Legal entity not found" };
-
-        const ownerScopeId = (await KycStateService.resolveScopeId(clientLEId)) || undefined;
+        if (!clientLE || !clientLE.legalEntityId) throw new ActionDomainError("Legal entity not found");
 
         const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
         const def = await getMasterFieldDefinition(fieldNo);
         if (def.appDataType !== 'ADDRESS') {
-            return { success: false, message: "Bulk restore is currently only supported for Address fields" };
+            throw new ActionDomainError("Bulk restore is currently only supported for Address fields");
         }
 
         await prisma.fieldClaim.updateMany({
@@ -974,7 +1028,10 @@ export async function restoreSourceValue(
         revalidatePath(`/app/le/${clientLEId}`, 'layout');
         return { success: true };
     } catch (e: any) {
-        console.error("restoreSourceValue error:", e);
-        return { success: false, message: e.message };
+        return handleActionError(e, {
+            operation: "Restore source value",
+            fallbackMessage: "We couldn’t restore the source value.",
+            context: { clientLEId, fieldNo }
+        });
     }
 }

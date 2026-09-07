@@ -16,7 +16,14 @@ async function ensureAuthorization(action: Action, context: { partyId?: string, 
         select: {
             organizationId: true,
             clientLEId: true,
-            role: true
+            fiEngagementId: true,
+            role: true,
+            clientLE: {
+                select: {
+                    isDeleted: true,
+                    status: true,
+                }
+            }
         }
     });
 
@@ -101,11 +108,7 @@ export async function getClientBillingData(clientId: string) {
         }
 
         // Map to include a 'canEdit' flag per LE
-        // Ideally we check action LE_UPDATE (or specifically LE_MANAGE_BILLING if we had it).
-        // Using LE_UPDATE logic: Org Admins can update.
-        // LE Admins: The prompt says "cannot edit".
-        // So canEdit = isOrgAdmin.
-
+        // Using ORG_ADMIN logic: Only Org Admins can update billing details.
         const data = clientLEs.map((le: any) => ({
             id: le.id,
             name: le.name,
@@ -131,25 +134,27 @@ export async function getClientBillingData(clientId: string) {
 
 // 2. Update Billing Details
 export async function updateLEBilling(leId: string, data: any) {
-    // Strict Check: Must be Org Admin (or System Admin)
-    // We check against the LE's owner Org.
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
 
-    // We can use permissions system: ORG_ADMIN has LE_UPDATE. 
-    // Is editing billing covers by LE_UPDATE? Yes.
-    // Does LE_ADMIN have LE_UPDATE? NO. (Check permissions.ts: LE_ADMIN has LE_VIEW_MASTER_DATA, LE_EDIT_MASTER_DATA, users... not LE_UPDATE).
-    // ... Actually wait, billing is special. Is it LE_UPDATE?
-    // Let's use LE_EDIT_MASTER_DATA to restrict to LE users and above who can edit data.
-    // LE_EDIT_MASTER_DATA (Upload docs/answers): LE_ADMIN & LE_USER.
+    // 1. Resolve active owner Organization for this Legal Entity
+    const leOwner = await prisma.clientLEOwner.findFirst({
+        where: { clientLEId: leId, endAt: null },
+        include: { clientLE: { select: { isDeleted: true } } }
+    });
 
-    // The requirement says: "LE Admin... cannot edit it". 
-    // So ensuring LE_UPDATE action is the correct restriction.
+    if (!leOwner || (leOwner.clientLE && leOwner.clientLE.isDeleted)) {
+        return { success: false, error: "Legal Entity not found or has no active owner." };
+    }
 
+    // 2. Authorize using organization-level billing action scoped to the owning party
     try {
-        await ensureAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId: leId });
+        await ensureAuthorization(Action.ORG_MANAGE_BILLING, { partyId: leOwner.partyId });
     } catch (e) {
         return { success: false, error: "Unauthorized: You do not have permission to edit billing details." };
     }
 
+    // 3. Persist billing updates
     try {
         await prisma.clientLE.update({
             where: { id: leId },
@@ -158,11 +163,7 @@ export async function updateLEBilling(leId: string, data: any) {
             }
         });
 
-        // Revalidate the billing page
-        // We don't know the exact org ID path here easily, but we can try generic
-        // Or revalidate the LE page?
-        revalidatePath(`/app/clients/[id]/billing`);
-
+        revalidatePath(`/app/clients/${leOwner.partyId}/billing`);
         return { success: true };
     } catch (e) {
         return { success: false, error: "Update failed" };

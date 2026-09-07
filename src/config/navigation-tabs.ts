@@ -112,10 +112,10 @@ export const getRelationshipTabs = (leId: string, engagementId: string): NavItem
     ];
 };
 
-export const getFIPortalTabs = (orgId: string): NavItem[] => {
+export const getFIPortalTabs = (orgId: string, options?: { isOrgAdmin?: boolean }): NavItem[] => {
     const baseUrl = `/app/s/${orgId}`;
 
-    return [
+    const tabs: NavItem[] = [
         {
             label: "Client Relationships",
             href: baseUrl,
@@ -126,18 +126,25 @@ export const getFIPortalTabs = (orgId: string): NavItem[] => {
             href: `${baseUrl}/questions`,
             iconName: "file-text",
         },
-        {
+    ];
+
+    // Admin tab is strictly restricted to Supplier ORG_ADMIN
+    if (options?.isOrgAdmin !== false) {
+        tabs.push({
             label: "Admin",
             href: `${baseUrl}/questionnaires`,
             iconName: "settings",
-        },
-        {
-            label: "Teams",
-            href: `${baseUrl}/team`,
-            iconName: "users",
-            alignRight: true
-        }
-    ];
+        });
+    }
+
+    tabs.push({
+        label: "Teams",
+        href: `${baseUrl}/team`,
+        iconName: "users",
+        alignRight: true
+    });
+
+    return tabs;
 };
 
 export const getQuestionnaireTabs = (leId: string, engagementId: string, questionnaireId: string): NavItem[] => {

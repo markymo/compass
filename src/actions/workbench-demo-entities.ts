@@ -1,6 +1,6 @@
 "use server";
 
-import { isSystemAdmin } from "@/actions/admin";
+import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import {
     DEFAULT_GLEIF_LEI,
     DEFAULT_CH_COMPANY_NO,
@@ -17,7 +17,11 @@ export type { WbEntitySearchResult };
 export async function searchGleifEntities(query: string): Promise<{
     success: boolean; results?: WbEntitySearchResult[]; error?: string;
 }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
     const q = query.trim();
     if (q.length < 2) return { success: true, results: [] };
 
@@ -64,7 +68,11 @@ export async function searchGleifEntities(query: string): Promise<{
 export async function searchCHEntities(query: string): Promise<{
     success: boolean; results?: WbEntitySearchResult[]; error?: string;
 }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
     const apiKey = process.env.COMPANIES_HOUSE_API_KEY;
     if (!apiKey) return { success: false, error: "COMPANIES_HOUSE_API_KEY not configured" };
 
@@ -117,7 +125,11 @@ export async function searchCHEntities(query: string): Promise<{
 export async function searchFREntities(query: string): Promise<{
     success: boolean; results?: WbEntitySearchResult[]; error?: string;
 }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
     const q = query.trim();
     if (q.length < 2) return { success: true, results: [] };
 
@@ -155,7 +167,11 @@ export async function refreshWorkbenchLiveData(entities: {
     chCompanyNo?: string;
     frSiren?:    string;
 }): Promise<{ refs: WbLiveEntityRef[]; payloads: Record<string, any> }> {
-    if (!await isSystemAdmin()) return { refs: [], payloads: {} };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { refs: [], payloads: {} };
+    }
 
     const defaults = (entities.gleifLei && entities.chCompanyNo && entities.frSiren)
         ? {}

@@ -39,6 +39,7 @@ export type CanonicalMaskKey =
     | 'team.correspondenceAddress'
     | 'contact.email'
     | 'contact.phones'
+    | 'party.documents'
     | 'role.roleTitle'
     | 'role.roleType'
     | 'role.appointedOn'
@@ -107,6 +108,7 @@ export const PARTY_DISPLAY_CATALOGUE: DisplayFieldDefinition[] = [
     // --- CONTACT (Shared across all) ---
     { key: 'contact.email', label: 'Email', category: 'CONTACT', appliesToPartyTypes: ['INDIVIDUAL', 'ORGANISATION', 'TEAM'], legacyKeys: ['email'] },
     { key: 'contact.phones', label: 'Phones', category: 'CONTACT', appliesToPartyTypes: ['INDIVIDUAL', 'ORGANISATION', 'TEAM'], legacyKeys: ['phones'] },
+    { key: 'party.documents', label: 'Documents', category: 'CONTACT', appliesToPartyTypes: ['INDIVIDUAL', 'ORGANISATION', 'TEAM'], legacyKeys: ['party.documents'] },
 
     // --- ROLE CONTEXT (Individual & Organisation) ---
     { key: 'role.roleTitle', label: 'Role Title', category: 'ROLE_CONTEXT', appliesToPartyTypes: ['INDIVIDUAL', 'ORGANISATION'], legacyKeys: ['roles[0].roleTitle', 'roles.roleTitle'] },
@@ -238,8 +240,12 @@ export function isFieldPermittedByCatalogue(
     displayMask?: string[],
     allowedPartyTypes?: V2PartyType[]
 ): boolean {
-    if (!displayMask || !Array.isArray(displayMask) || displayMask.length === 0) {
+    if (displayMask === undefined || displayMask === null) {
         return true;
+    }
+
+    if (!Array.isArray(displayMask) || displayMask.length === 0) {
+        return false;
     }
 
     const normalise = (p: string) => p.replace(/\[(\w+)\]/g, '.$1');

@@ -26,6 +26,7 @@ const configMap: Record<string, { label: string; icon: any }> = {
     demo: { label: "Demo Room", icon: UserCheck },
     feedback: { label: "Feedback", icon: MessageSquarePlus },
     pulse: { label: "Pulse", icon: Activity },
+    permissions: { label: "Permissions Model", icon: ShieldCheck },
 };
 
 export function AdminBreadcrumb() {

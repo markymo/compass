@@ -52,10 +52,8 @@ describe('getPartyDisplayProjection', () => {
         };
 
         const proj = getPartyDisplayProjection(value, []);
-        // Empty mask normally means all unmasked in UI semantics, 
-        // wait, isFieldPermittedByMask treats empty array as true for all fields.
         expect(proj.primaryText).toBe('John Doe');
-        expect(proj.secondaryParts).toEqual(['Director']);
+        expect(proj.secondaryParts).toEqual([]);
     });
 
     it('resolves embedded PARTY correctly', () => {

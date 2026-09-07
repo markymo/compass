@@ -20,6 +20,8 @@ export interface ExpandableTextProps {
     showMoreLabel?: string;
     /** Label for the collapse button. Default: "Show less" */
     showLessLabel?: string;
+    /** Optional custom content renderer, e.g. for bold/italic formatting */
+    renderContent?: (text: string) => React.ReactNode;
 }
 
 export function truncateToNearestWord(str: string, targetChars: number = 300): string {
@@ -39,7 +41,8 @@ export function ExpandableText({
     className,
     textClassName,
     showMoreLabel = "Show more",
-    showLessLabel = "Show less"
+    showLessLabel = "Show less",
+    renderContent
 }: ExpandableTextProps) {
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -55,7 +58,7 @@ export function ExpandableText({
         return (
             <div className={cn("w-full text-left", className)}>
                 <span className={cn("whitespace-pre-wrap break-words", textClassName)}>
-                    {text}
+                    {renderContent ? renderContent(text) : text}
                 </span>
             </div>
         );
@@ -68,7 +71,7 @@ export function ExpandableText({
             <span className={cn("whitespace-pre-wrap break-words", textClassName)}>
                 {!isExpanded ? (
                     <>
-                        {truncated}…{" "}
+                        {renderContent ? renderContent(truncated) : truncated}…{" "}
                         <button
                             type="button"
                             onClick={(e) => {
@@ -84,7 +87,7 @@ export function ExpandableText({
                     </>
                 ) : (
                     <>
-                        {text}{" "}
+                        {renderContent ? renderContent(text) : text}{" "}
                         <button
                             type="button"
                             onClick={(e) => {

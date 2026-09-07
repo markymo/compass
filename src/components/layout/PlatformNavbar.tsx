@@ -22,19 +22,20 @@ export function PlatformNavbar({ isSystemAdmin = false, assignmentCount = 0 }: P
     const isAdminRoute = pathname?.startsWith("/app/admin");
 
     return (
-        <header className={`sticky top-0 left-0 right-0 z-50 border-b border-slate-200 backdrop-blur-xl transition-colors duration-200 ${isAdminRoute ? "bg-slate-200/90" : "bg-white/80"}`}>
+        <header className={`sticky top-0 left-0 right-0 z-50 border-b border-border backdrop-blur-xl transition-colors duration-200 ${isAdminRoute ? "bg-muted/90 text-foreground" : "bg-card/80 text-card-foreground"}`}>
             <div className="container mx-auto flex h-20 items-center justify-between px-4 md:px-6">
                 <div className="flex items-center gap-8">
                     <div className="flex items-center gap-3">
                         <Link href="/" className="flex items-center gap-1">
-                            <img src="/logo.svg" alt={BRAND.name} className="h-10 w-auto" />
+                            <img src="/logo.svg" alt={BRAND.name} className="h-10 w-auto dark:hidden" />
+                            <img src="/logo-inverted.svg" alt={BRAND.name} className="h-10 w-auto hidden dark:block" />
                         </Link>
                         <AdminAppReturnLink />
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon" asChild className="text-slate-500 hover:text-slate-900 shrink-0 relative" title="My assigned tasks">
+                    <Button variant="ghost" size="icon" asChild className="text-muted-foreground hover:text-foreground shrink-0 relative" title="My assigned tasks">
                         <Link href="/app/assignments">
                             <ClipboardCheck className="h-5 w-5" />
                             {assignmentCount > 0 && (

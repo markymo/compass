@@ -17,9 +17,10 @@ export interface EngagementTeamManagerProps {
     members: any[];
     invitations: any[];
     variant?: "default" | "inline";
+    onRefresh?: () => void;
 }
 
-export function EngagementTeamManager({ engagementId, orgName, members, invitations, variant = "default" }: EngagementTeamManagerProps) {
+export function EngagementTeamManager({ engagementId, orgName, members, invitations, variant = "default", onRefresh }: EngagementTeamManagerProps) {
     const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
     const [revokeId, setRevokeId] = useState<string | null>(null);
     const [isRevoking, setIsRevoking] = useState(false);
@@ -32,6 +33,7 @@ export function EngagementTeamManager({ engagementId, orgName, members, invitati
             loading: "Revoking invitation...",
             success: () => {
                 router.refresh();
+                onRefresh?.();
                 setIsRevoking(false);
                 setRevokeId(null);
                 return "Invitation revoked";
@@ -82,9 +84,16 @@ export function EngagementTeamManager({ engagementId, orgName, members, invitati
                 </div>
 
                 {/* Pending Invitations Sub-list */}
-                {invitations.length > 0 && (
-                    <div className="pt-3 border-t border-slate-100">
-                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Pending Invitations</h4>
+                <div className="pt-3 border-t border-slate-100">
+                    <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Pending Invitations</h4>
+                        <Button size="sm" onClick={() => setIsInviteDialogOpen(true)} variant="outline" className="gap-1.5 h-7 text-xs">
+                            <Plus className="h-3.5 w-3.5" /> Invite
+                        </Button>
+                    </div>
+                    {invitations.length === 0 ? (
+                        <div className="py-2 text-slate-500 text-sm italic">No pending invitations.</div>
+                    ) : (
                         <div className="divide-y divide-slate-100">
                             {invitations.map((invite: any) => (
                                 <div key={invite.id} className="py-2.5 flex items-center justify-between hover:bg-slate-50/50">
@@ -93,8 +102,12 @@ export function EngagementTeamManager({ engagementId, orgName, members, invitati
                                             <Users className="h-4 w-4" />
                                         </div>
                                         <div>
-                                            <p className="font-medium text-sm text-slate-900">{invite.email}</p>
-                                            <p className="text-xs text-slate-400">Invited by {invite.invitedBy?.name || 'Admin'}</p>
+                                            <p className="font-medium text-sm text-slate-900">{invite.sentToEmail || invite.email}</p>
+                                            <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                                                <Badge variant="outline" className="text-[10px] font-normal">{invite.role}</Badge>
+                                                <span>•</span>
+                                                <span>Sent by {invite.createdByUser?.name || invite.createdByUser?.email || invite.invitedBy?.name || 'Admin'}</span>
+                                            </div>
                                         </div>
                                     </div>
                                     <Button variant="ghost" size="sm" onClick={() => setRevokeId(invite.id)} className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 h-7 px-2">
@@ -103,14 +116,15 @@ export function EngagementTeamManager({ engagementId, orgName, members, invitati
                                 </div>
                             ))}
                         </div>
-                    </div>
-                )}
+                    )}
+                </div>
 
                 <InviteSupplierDialog
                     open={isInviteDialogOpen}
                     onOpenChange={setIsInviteDialogOpen}
                     engagementId={engagementId}
                     orgName={orgName}
+                    onSuccess={onRefresh}
                 />
             </div>
         );
@@ -210,6 +224,7 @@ export function EngagementTeamManager({ engagementId, orgName, members, invitati
                 onOpenChange={setIsInviteDialogOpen}
                 engagementId={engagementId}
                 orgName={orgName}
+                onSuccess={onRefresh}
             />
         </div>
     );

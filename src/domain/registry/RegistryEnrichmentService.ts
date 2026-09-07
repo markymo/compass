@@ -58,7 +58,12 @@ export class RegistryEnrichmentService {
         if (!connector) {
             await prisma.registryReference.update({
                 where: { id: referenceId },
-                data: { status: "UNSUPPORTED", lastSyncStatus: "FAILED", lastSyncAttemptAt: new Date() }
+                data: {
+                    status: "UNSUPPORTED",
+                    lastSyncStatus: null,
+                    lastSyncSucceededAt: null,
+                    lastSyncAttemptAt: new Date()
+                }
             });
             return { success: false, error: `No connector for authority ${reference.registryAuthorityId}` };
         }
@@ -202,7 +207,7 @@ export class RegistryEnrichmentService {
             if (run) {
                 console.log("[RegistryEnrichmentService.enrich] Running Mapping Engine...");
                 try {
-                    candidates = await RegistryMappingEngine.mapEnrichmentRun(run.id);
+                    candidates = await RegistryMappingEngine.mapEnrichmentRun(run.id, evidenceId);
                     console.log(`[RegistryEnrichmentService.enrich] Generated ${candidates.length} candidates.`);
                 } catch (e) {
                     console.error("[RegistryEnrichmentService.enrich] Mapping Engine failed:", e);

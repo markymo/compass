@@ -1,11 +1,35 @@
 import { AttachmentLifecycleResolver } from "./AttachmentLifecycleResolver";
 import prisma from "@/lib/prisma";
-import { ClaimStatus, FieldClaim, Prisma } from "@prisma/client";
+import {
+    ClaimStatus,
+    FieldClaim,
+    EvidenceStore,
+    Address,
+    Person,
+    LegalEntity,
+    Organization,
+    Document,
+    User,
+    Prisma
+} from "@prisma/client";
 import { COLLECTION_FIELD_CONFIG } from "./collection-field-config";
 import { getFallbackPriority, USER_INPUT_PRIORITY } from "./source-priority-config";
-import { fetchProvenanceMap, resolveSourceCheckedAt } from "./provenance-enricher";
+import { fetchProvenanceMap, resolveSourceCheckedAt, resolveSourceEntityIdentifier, ProvenanceMap } from "./provenance-enricher";
+import { extractRegistryEntityIdentifier, getRegistryEntityUrl } from "@/lib/registry-urls";
+import { parsePath, resolveDotPath } from "@/services/kyc/normalization/pathResolver";
+import { applyTransform } from "@/services/kyc/normalization/transforms";
+
+export type FieldClaimWithRelations = FieldClaim & {
+    evidence?: EvidenceStore | null;
+    valueAddress?: Address | null;
+    valuePerson?: Person | null;
+    valueLe?: LegalEntity | null;
+    valueOrg?: Organization | null;
+    attachmentDocument?: (Document & { uploadedBy?: User | null }) | null;
+};
 
 export type DerivedValue = {
+    fieldNo?: number;
     value: any;
     claimId: string;
     status: ClaimStatus;
@@ -24,6 +48,10 @@ export type DerivedValue = {
     effectiveTo?: Date;
     /** The date the value was last validated against its authoritative source. */
     sourceCheckedAt?: Date;
+    /** Registry entity identifier (LEI, company number, SIREN, etc.). */
+    entityIdentifier?: string;
+    /** Direct canonical registry entity URL if pre-resolved. */
+    entityUrl?: string;
 
     attachmentDocumentId?: string;
     documentName?: string;
@@ -177,11 +205,11 @@ export class KycStateService {
      * - applicable mapping was actually evaluated successfully
      */
     static evaluateSyncAttempt(
-        clientLE: { lei?: string | null; gleifFetchedAt?: Date | null; registryReferences?: Array<any> | null } | null | undefined,
-        mappings: Array<{ sourceType: string; sourceReference: string | null }>
-    ): { hasApplicableMapping: boolean; hasApplicableEvaluationAttempt: boolean; evaluatedSourceBadge: string | null; evaluatedSourceTimestamp: Date | null } {
+        clientLE: { lei?: string | null; gleifFetchedAt?: Date | null; gleifData?: any; nationalRegistryData?: any; registryReferences?: Array<any> | null } | null | undefined,
+        mappings: Array<{ sourceType: string; sourceReference: string | null; sourcePath?: string | null; transformType?: string | null; transformConfig?: any }>
+    ): { hasApplicableMapping: boolean; hasApplicableEvaluationAttempt: boolean; evaluatedSourceBadge: string | null; evaluatedSourceTimestamp: Date | null; evaluationOutcome?: 'VALUE' | 'NO_DATA' | 'NOT_APPLICABLE' | 'ERROR' } {
         if (!mappings || mappings.length === 0 || !clientLE) {
-            return { hasApplicableMapping: false, hasApplicableEvaluationAttempt: false, evaluatedSourceBadge: null, evaluatedSourceTimestamp: null };
+            return { hasApplicableMapping: false, hasApplicableEvaluationAttempt: false, evaluatedSourceBadge: null, evaluatedSourceTimestamp: null, evaluationOutcome: 'NOT_APPLICABLE' };
         }
 
         const applicableMappings = mappings.filter(m => KycStateService.isMappingApplicableToLE(m, clientLE));
@@ -190,14 +218,51 @@ export class KycStateService {
         let hasApplicableEvaluationAttempt = false;
         let evaluatedSourceBadge: string | null = null;
         let evaluatedSourceTimestamp: Date | null = null;
+        let evaluationOutcome: 'VALUE' | 'NO_DATA' | 'NOT_APPLICABLE' | 'ERROR' | undefined = undefined;
 
         for (const mapping of applicableMappings) {
             if (mapping.sourceType === "GLEIF") {
                 if (clientLE.gleifFetchedAt !== null && clientLE.gleifFetchedAt !== undefined && Boolean(clientLE.gleifFetchedAt)) {
-                    hasApplicableEvaluationAttempt = true;
-                    evaluatedSourceBadge = "GLEIF";
-                    evaluatedSourceTimestamp = clientLE.gleifFetchedAt instanceof Date ? clientLE.gleifFetchedAt : new Date(clientLE.gleifFetchedAt);
-                    break;
+                    const typedMapping = mapping as any;
+                    const gleifData = (clientLE as any).gleifData;
+                    if (typedMapping.sourcePath && gleifData) {
+                        try {
+                            const attr = gleifData?.data?.attributes || gleifData?.attributes || gleifData;
+                            const segments = parsePath(typedMapping.sourcePath);
+                            const rawValue = resolveDotPath(attr, segments);
+
+                            let hasData = false;
+                            if (rawValue !== null && rawValue !== undefined && rawValue !== '') {
+                                if (typedMapping.transformType) {
+                                    const transformed = applyTransform(rawValue, typedMapping.transformType, typedMapping.transformConfig);
+                                    if (transformed.value !== null && transformed.value !== undefined && transformed.value !== '') {
+                                        hasData = Array.isArray(transformed.value) ? transformed.value.length > 0 : true;
+                                    }
+                                } else {
+                                    hasData = Array.isArray(rawValue) ? rawValue.length > 0 : true;
+                                }
+                            }
+
+                            if (hasData) {
+                                evaluationOutcome = 'VALUE';
+                                hasApplicableEvaluationAttempt = false;
+                            } else {
+                                evaluationOutcome = 'NO_DATA';
+                                hasApplicableEvaluationAttempt = true;
+                                evaluatedSourceBadge = "GLEIF";
+                                evaluatedSourceTimestamp = clientLE.gleifFetchedAt instanceof Date ? clientLE.gleifFetchedAt : new Date(clientLE.gleifFetchedAt);
+                                break;
+                            }
+                        } catch (e) {
+                            evaluationOutcome = 'ERROR';
+                            hasApplicableEvaluationAttempt = false;
+                        }
+                    } else {
+                        hasApplicableEvaluationAttempt = true;
+                        evaluatedSourceBadge = "GLEIF";
+                        evaluatedSourceTimestamp = clientLE.gleifFetchedAt instanceof Date ? clientLE.gleifFetchedAt : new Date(clientLE.gleifFetchedAt);
+                        break;
+                    }
                 }
             }
             if (mapping.sourceType === "REGISTRATION_AUTHORITY" || mapping.sourceType === "COMPANIES_HOUSE" || mapping.sourceType === "NATIONAL_REGISTRY") {
@@ -220,22 +285,54 @@ export class KycStateService {
                         return false;
                     });
                     
-                    // Evaluation Evidence Fix:
-                    // MUST require matchingRef.lastSyncSucceededAt != null (or lastSyncStatus === 'SUCCESS').
-                    // createdAt alone or lastSyncAttemptAt (without lastSyncSucceededAt) MUST NOT count as a successful check!
                     const hasSuccessfulSync = matchingRef && matchingRef.lastSyncSucceededAt !== null && matchingRef.lastSyncSucceededAt !== undefined;
 
                     if (hasSuccessfulSync) {
-                        hasApplicableEvaluationAttempt = true;
-                        evaluatedSourceBadge = mapping.sourceReference || matchingRef.authority?.name || matchingRef.authority?.mappingSourceKey || matchingRef.authority?.registryKey || mapping.sourceType;
-                        evaluatedSourceTimestamp = matchingRef.lastSyncSucceededAt instanceof Date ? matchingRef.lastSyncSucceededAt : new Date(matchingRef.lastSyncSucceededAt);
-                        break;
+                        const typedMapping = mapping as any;
+                        const payload = (clientLE as any).nationalRegistryData || matchingRef.payload;
+                        if (typedMapping.sourcePath && payload) {
+                            try {
+                                const segments = parsePath(typedMapping.sourcePath);
+                                const rawValue = resolveDotPath(payload, segments);
+
+                                let hasData = false;
+                                if (rawValue !== null && rawValue !== undefined && rawValue !== '') {
+                                    if (typedMapping.transformType) {
+                                        const transformed = applyTransform(rawValue, typedMapping.transformType, typedMapping.transformConfig);
+                                        if (transformed.value !== null && transformed.value !== undefined && transformed.value !== '') {
+                                            hasData = Array.isArray(transformed.value) ? transformed.value.length > 0 : true;
+                                        }
+                                    } else {
+                                        hasData = Array.isArray(rawValue) ? rawValue.length > 0 : true;
+                                    }
+                                }
+
+                                if (hasData) {
+                                    evaluationOutcome = 'VALUE';
+                                    hasApplicableEvaluationAttempt = false;
+                                } else {
+                                    evaluationOutcome = 'NO_DATA';
+                                    hasApplicableEvaluationAttempt = true;
+                                    evaluatedSourceBadge = mapping.sourceReference || matchingRef.authority?.name || matchingRef.authority?.mappingSourceKey || matchingRef.authority?.registryKey || mapping.sourceType;
+                                    evaluatedSourceTimestamp = matchingRef.lastSyncSucceededAt instanceof Date ? matchingRef.lastSyncSucceededAt : new Date(matchingRef.lastSyncSucceededAt);
+                                    break;
+                                }
+                            } catch (e) {
+                                evaluationOutcome = 'ERROR';
+                                hasApplicableEvaluationAttempt = false;
+                            }
+                        } else {
+                            hasApplicableEvaluationAttempt = true;
+                            evaluatedSourceBadge = mapping.sourceReference || matchingRef.authority?.name || matchingRef.authority?.mappingSourceKey || matchingRef.authority?.registryKey || mapping.sourceType;
+                            evaluatedSourceTimestamp = matchingRef.lastSyncSucceededAt instanceof Date ? matchingRef.lastSyncSucceededAt : new Date(matchingRef.lastSyncSucceededAt);
+                            break;
+                        }
                     }
                 }
             }
         }
 
-        return { hasApplicableMapping, hasApplicableEvaluationAttempt, evaluatedSourceBadge, evaluatedSourceTimestamp };
+        return { hasApplicableMapping, hasApplicableEvaluationAttempt, evaluatedSourceBadge, evaluatedSourceTimestamp, evaluationOutcome };
     }
 
 
@@ -333,10 +430,43 @@ export class KycStateService {
     }
 
     /**
+     * Enriches a DerivedValue with source timestamps and canonical entity identifiers from the provenance map.
+     */
+    private static enrichDerivedProvenance(derived: DerivedValue, provenanceMap: ProvenanceMap | null) {
+        if (!provenanceMap) return;
+        const resolvedCheckedAt = resolveSourceCheckedAt(
+            derived.sourceType || derived.evidenceProvider,
+            derived.sourceReference,
+            derived.assertedAt,
+            provenanceMap
+        );
+        if (resolvedCheckedAt) {
+            derived.sourceCheckedAt = resolvedCheckedAt;
+        }
+        const resolvedIdentifier = resolveSourceEntityIdentifier(
+            derived.sourceType || derived.evidenceProvider,
+            derived.sourceReference,
+            derived.entityIdentifier,
+            provenanceMap
+        );
+        if (resolvedIdentifier) {
+            derived.entityIdentifier = resolvedIdentifier;
+            const computedUrl = getRegistryEntityUrl({
+                sourceType: derived.sourceType,
+                sourceReference: derived.sourceReference,
+                entityIdentifier: resolvedIdentifier
+            });
+            if (computedUrl) {
+                derived.entityUrl = computedUrl;
+            }
+        }
+    }
+
+    /**
      * Derives the authoritative value for a single-value field.
      */
     static async getAuthoritativeValue(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
         fieldNo: number,
         ownerScopeId?: string,
         snapshotDate?: Date
@@ -382,15 +512,7 @@ export class KycStateService {
         
         if (subject.clientLEId) {
             const provenanceMap = await fetchProvenanceMap({ clientLEId: subject.clientLEId });
-            const resolvedCheckedAt = resolveSourceCheckedAt(
-                derived.sourceType || derived.evidenceProvider,
-                derived.sourceReference,
-                derived.assertedAt,
-                provenanceMap
-            );
-            if (resolvedCheckedAt) {
-                derived.sourceCheckedAt = resolvedCheckedAt;
-            }
+            this.enrichDerivedProvenance(derived, provenanceMap);
         }
 
         return derived;
@@ -448,15 +570,7 @@ export class KycStateService {
             nextDerivedValue = this.mapToDerivedValue(nextWinner, ownerScopeId);
             if (subject.clientLEId) {
                 const provenanceMap = await fetchProvenanceMap({ clientLEId: subject.clientLEId });
-                const resolvedCheckedAt = resolveSourceCheckedAt(
-                    nextDerivedValue.sourceType || nextDerivedValue.evidenceProvider,
-                    nextDerivedValue.sourceReference,
-                    nextDerivedValue.assertedAt,
-                    provenanceMap
-                );
-                if (resolvedCheckedAt) {
-                    nextDerivedValue.sourceCheckedAt = resolvedCheckedAt;
-                }
+                this.enrichDerivedProvenance(nextDerivedValue, provenanceMap);
             }
         }
 
@@ -470,7 +584,7 @@ export class KycStateService {
      * Derives a collection of values for a repeating field.
      */
     static async getAuthoritativeCollection(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
         fieldNo: number,
         ownerScopeId?: string,
         snapshotDate?: Date,
@@ -516,12 +630,18 @@ export class KycStateService {
         // Pre-load mapping priorities once for the entire collection
         const priorityMap = await this.preloadMappingPriorities(claims, fieldNo);
 
-        // Group by collectionId and instanceId
-        const itemGroups: Record<string, FieldClaim[]> = {};
-        for (const c of claims) {
-            const key = `${c.collectionId || 'default'}:${c.instanceId || 'default'}`;
-            if (!itemGroups[key]) itemGroups[key] = [];
-            itemGroups[key].push(c);
+        // Group by collectionId and instanceId (or collection-configured groupClaims partitioner)
+        const config = COLLECTION_FIELD_CONFIG[fieldNo];
+        let itemGroups: Record<string, FieldClaim[]>;
+        if (config?.groupClaims) {
+            itemGroups = config.groupClaims(claims);
+        } else {
+            itemGroups = {};
+            for (const c of claims) {
+                const key = `${c.collectionId || 'default'}:${c.instanceId || 'default'}`;
+                if (!itemGroups[key]) itemGroups[key] = [];
+                itemGroups[key].push(c);
+            }
         }
 
         const resultsWithOrder: { derived: DerivedValue; oldestAssertedAt: number; oldestId: string }[] = [];
@@ -535,15 +655,7 @@ export class KycStateService {
             const winner = this.pickWinner(group, ownerScopeId, priorityMap);
             if (winner && !this.isTombstone(winner)) {
                 const derived = this.mapToDerivedValue(winner, ownerScopeId);
-                const resolvedCheckedAt = resolveSourceCheckedAt(
-                    derived.sourceType || derived.evidenceProvider,
-                    derived.sourceReference,
-                    derived.assertedAt,
-                    provenanceMap
-                );
-                if (resolvedCheckedAt) {
-                    derived.sourceCheckedAt = resolvedCheckedAt;
-                }
+                this.enrichDerivedProvenance(derived, provenanceMap);
                 const oldestClaim = group[group.length - 1];
                 resultsWithOrder.push({ derived, oldestAssertedAt: oldestClaim.assertedAt.getTime(), oldestId: oldestClaim.id });
             }
@@ -565,7 +677,6 @@ export class KycStateService {
         //
         // Tombstones are already excluded above; this filter only touches rows
         // that have a non-null effectiveTo on the winning claim.
-        const config = COLLECTION_FIELD_CONFIG[fieldNo];
         if (config?.filterByEffectiveDate) {
             const evaluationDate = snapshotDate ?? new Date();
             return results.filter(row => {
@@ -582,20 +693,27 @@ export class KycStateService {
      * Attachments do not use source priority or overrides. They are strictly temporal per instanceId.
      */
     static async getAuthoritativeAttachments(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
         fieldNo: number,
         snapshotDate?: Date
     ): Promise<DerivedValue[]> {
-        const { clientLEId, ...subjectFilter } = subject;
+        const whereClause: any = {
+            fieldNo,
+            claimRole: 'FILE_ATTACHMENT',
+            status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
+            assertedAt: snapshotDate ? { lte: snapshotDate } : undefined,
+        };
+
+        if (subject.clientLEId) {
+            whereClause.clientLEId = subject.clientLEId;
+        } else {
+            const { clientLEId, ...subjectFilter } = subject;
+            Object.assign(whereClause, subjectFilter);
+        }
+
         const claims = await prisma.fieldClaim.findMany({
             include: { evidence: true, attachmentDocument: { include: { uploadedBy: true } } },
-            where: {
-                fieldNo,
-                claimRole: 'FILE_ATTACHMENT',
-                ...subjectFilter,
-                status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
-                assertedAt: snapshotDate ? { lte: snapshotDate } : undefined,
-            },
+            where: whereClause,
             orderBy: [
                 { assertedAt: 'desc' },
                 { id: 'desc' }
@@ -638,21 +756,28 @@ export class KycStateService {
      * Groups by fieldNo and returns an array of attachments per field.
      */
     static async resolveAllAttachments(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
         fieldNos: number[]
     ): Promise<Map<number, DerivedValue[]>> {
         const result = new Map<number, DerivedValue[]>();
         if (fieldNos.length === 0) return result;
 
-        const { clientLEId, ...subjectFilter } = subject;
+        const whereClause: any = {
+            fieldNo: { in: fieldNos },
+            claimRole: 'FILE_ATTACHMENT',
+            status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
+        };
+
+        if (subject.clientLEId) {
+            whereClause.clientLEId = subject.clientLEId;
+        } else {
+            const { clientLEId, ...subjectFilter } = subject;
+            Object.assign(whereClause, subjectFilter);
+        }
+
         const allClaims = await prisma.fieldClaim.findMany({
             include: { evidence: true, attachmentDocument: { include: { uploadedBy: true } } },
-            where: {
-                fieldNo: { in: fieldNos },
-                claimRole: 'FILE_ATTACHMENT',
-                ...subjectFilter,
-                status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
-            },
+            where: whereClause,
             orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }],
         });
 
@@ -715,7 +840,7 @@ export class KycStateService {
      * tombstone rules, same effectiveTo filter.
      */
     static async resolveAllFields(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
         fieldDefs: Array<{
             fieldNo: number;
             isMultiValue: boolean;
@@ -814,12 +939,18 @@ export class KycStateService {
             const priorityMap = priorityMapByField.get(def.fieldNo) ?? new Map();
 
             if (def.isMultiValue) {
-                // Group by (collectionId, instanceId) — mirrors getAuthoritativeCollection
-                const itemGroups: Record<string, FieldClaim[]> = {};
-                for (const c of claims) {
-                    const key = `${c.collectionId ?? 'default'}:${c.instanceId ?? 'default'}`;
-                    if (!itemGroups[key]) itemGroups[key] = [];
-                    itemGroups[key].push(c);
+                // Group by collectionId and instanceId (or collection-configured groupClaims partitioner)
+                const config = COLLECTION_FIELD_CONFIG[def.fieldNo];
+                let itemGroups: Record<string, FieldClaim[]>;
+                if (config?.groupClaims) {
+                    itemGroups = config.groupClaims(claims);
+                } else {
+                    itemGroups = {};
+                    for (const c of claims) {
+                        const key = `${c.collectionId ?? 'default'}:${c.instanceId ?? 'default'}`;
+                        if (!itemGroups[key]) itemGroups[key] = [];
+                        itemGroups[key].push(c);
+                    }
                 }
 
                 const collectionWithOrder: { derived: DerivedValue; oldestAssertedAt: number; oldestId: string }[] = [];
@@ -827,15 +958,7 @@ export class KycStateService {
                     const winner = this.pickWinner(group, ownerScopeId, priorityMap);
                     if (winner && !this.isTombstone(winner)) {
                         const derived = this.mapToDerivedValue(winner, ownerScopeId);
-                        if (provenanceMap) {
-                            const resolvedCheckedAt = resolveSourceCheckedAt(
-                                derived.sourceType || derived.evidenceProvider,
-                                derived.sourceReference,
-                                derived.assertedAt,
-                                provenanceMap
-                            );
-                            if (resolvedCheckedAt) derived.sourceCheckedAt = resolvedCheckedAt;
-                        }
+                        this.enrichDerivedProvenance(derived, provenanceMap);
                         const oldestClaim = group[group.length - 1];
                         collectionWithOrder.push({ derived, oldestAssertedAt: oldestClaim.assertedAt.getTime(), oldestId: oldestClaim.id });
                     }
@@ -848,7 +971,6 @@ export class KycStateService {
                 const collection = collectionWithOrder.map(c => c.derived);
 
                 // Effective-date post-filter (mirrors getAuthoritativeCollection)
-                const config = COLLECTION_FIELD_CONFIG[def.fieldNo];
                 const filtered = config?.filterByEffectiveDate
                     ? collection.filter(row => !row.effectiveTo || row.effectiveTo > now)
                     : collection;
@@ -860,15 +982,7 @@ export class KycStateService {
                     result.set(def.fieldNo, null);
                 } else {
                     const derived = this.mapToDerivedValue(winner, ownerScopeId);
-                    if (provenanceMap) {
-                        const resolvedCheckedAt = resolveSourceCheckedAt(
-                            derived.sourceType || derived.evidenceProvider,
-                            derived.sourceReference,
-                            derived.assertedAt,
-                            provenanceMap
-                        );
-                        if (resolvedCheckedAt) derived.sourceCheckedAt = resolvedCheckedAt;
-                    }
+                    this.enrichDerivedProvenance(derived, provenanceMap);
                     result.set(def.fieldNo, derived);
                 }
             }
@@ -1018,17 +1132,23 @@ export class KycStateService {
     }
 
     /** Exported so resolveMasterDataBatch can map winners to DerivedValue without duplicating logic. */
-    static mapToDerivedValue(claim: FieldClaim, requestedScopeId?: string): DerivedValue {
+    static mapToDerivedValue(claim: FieldClaimWithRelations, requestedScopeId?: string): DerivedValue {
         const value = claim.valueText ??
             claim.valueNumber ??
             claim.valueDate ??
             claim.valueJson ??
-            (claim as any).valueAddress ??
-            (claim as any).valuePerson ??
-            (claim as any).valueLe ??
-            (claim as any).valueOrg ??
-            
-            (claim as any).attachmentDocumentId;
+            claim.valueAddress ??
+            claim.valuePerson ??
+            claim.valueLe ??
+            claim.valueOrg ??
+            claim.attachmentDocumentId;
+
+        const entityIdentifier = extractRegistryEntityIdentifier(claim.evidence, claim);
+        const entityUrl = entityIdentifier ? getRegistryEntityUrl({
+            sourceType: claim.sourceType,
+            sourceReference: claim.sourceReference,
+            entityIdentifier
+        }) ?? undefined : undefined;
 
         return {
             value,
@@ -1037,7 +1157,7 @@ export class KycStateService {
             isScoped: claim.ownerScopeId === requestedScopeId && !!requestedScopeId,
             sourceType: claim.sourceType,
             sourceReference: claim.sourceReference ?? undefined,
-            evidenceProvider: (claim as any).evidence?.provider ?? undefined,
+            evidenceProvider: claim.evidence?.provider ?? undefined,
             confidenceScore: claim.confidenceScore ?? undefined,
             evidenceId: claim.evidenceId ?? undefined,
             instanceId: claim.instanceId ?? undefined,
@@ -1045,7 +1165,9 @@ export class KycStateService {
             assertedAt: claim.assertedAt,
             effectiveFrom: claim.effectiveFrom ?? undefined,
             effectiveTo: claim.effectiveTo ?? undefined,
-            attachmentDocumentId: (claim as any).attachmentDocumentId ?? undefined,
+            attachmentDocumentId: claim.attachmentDocumentId ?? undefined,
+            entityIdentifier: entityIdentifier ?? undefined,
+            entityUrl: entityUrl ?? undefined,
         };
     }
 }

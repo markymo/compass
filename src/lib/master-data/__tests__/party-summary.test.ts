@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { getPartySummary, isFieldPermittedByMask, PartyValue } from '../party-value';
 
 describe('isFieldPermittedByMask', () => {
-    it('returns true if mask is empty', () => {
-        expect(isFieldPermittedByMask('forenames', [])).toBe(true);
+    it('returns true if mask is undefined and false if mask is empty array', () => {
         expect(isFieldPermittedByMask('forenames', undefined)).toBe(true);
+        expect(isFieldPermittedByMask('forenames', [])).toBe(false);
     });
 
     it('returns true for exact matches', () => {

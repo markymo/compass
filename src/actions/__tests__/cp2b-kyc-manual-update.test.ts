@@ -6,6 +6,11 @@ vi.mock('@/lib/auth', () => ({
     getIdentity: vi.fn().mockResolvedValue({ userId: 'test-user' })
 }));
 
+vi.mock('@/lib/auth/permissions', () => ({
+    can: vi.fn().mockResolvedValue(true),
+    Action: { LE_EDIT_MASTER_DATA: 'LE_EDIT_MASTER_DATA' }
+}));
+
 vi.mock('@/services/masterData/definitionService', () => ({
     getMasterFieldDefinition: vi.fn().mockResolvedValue({
         fieldNo: 63,
@@ -25,6 +30,7 @@ vi.mock('@prisma/client', async (importOriginal) => {
     const actual = await importOriginal<any>();
     class PrismaClient {
         clientLE = { findUnique: mockPrismaFindUnique };
+        membership = { findMany: vi.fn().mockResolvedValue([]) };
         cCParty = {
             findUnique: mockPrismaFindUnique,
             delete: mockPrismaDelete,

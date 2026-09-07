@@ -6,6 +6,7 @@ import { LegalEntityEnrichmentService } from '@/services/legalEntityEnrichmentSe
 
 const { mockPrisma } = vi.hoisted(() => {
     const mockPrisma = {
+        organization: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
         clientLE: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn().mockResolvedValue([]), update: vi.fn(), create: vi.fn() },
         clientLEOwner: { findFirst: vi.fn(), create: vi.fn(), findMany: vi.fn() },
         fIEngagement: { findMany: vi.fn(), updateMany: vi.fn() },
@@ -46,6 +47,7 @@ describe('Normal Delete and Re-creation — ClientLE', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         prismaMock.clientLEOwner.findMany.mockResolvedValue([]);
+        prismaMock.organization.findUnique.mockResolvedValue({ id: 'org-1', types: ['CLIENT'] });
     });
 
     describe('deleteClientLE', () => {
@@ -65,9 +67,9 @@ describe('Normal Delete and Re-creation — ClientLE', () => {
 
         it('soft-deletes ClientLE, engagements, and questionnaires when authorized by Org Admin', async () => {
             vi.mocked(getIdentity).mockResolvedValue({ userId: 'org-admin-1' } as any);
-            prismaMock.clientLEOwner.findMany.mockResolvedValue([{ partyId: 'org-1' }]);
+            prismaMock.clientLEOwner.findMany.mockResolvedValue([{ partyId: 'org-1', party: { types: ['CLIENT'] } }]);
             prismaMock.membership.findMany.mockResolvedValue([
-                { organizationId: 'org-1', role: 'ORG_ADMIN', clientLEId: null, fiEngagementId: null }
+                { organizationId: 'org-1', role: 'ORG_ADMIN', clientLEId: null, fiEngagementId: null, organization: { types: ['CLIENT'] } }
             ]);
             prismaMock.clientLE.findUnique.mockResolvedValue({ id: 'le-1' });
             prismaMock.fIEngagement.findMany.mockResolvedValue([{ id: 'eng-1' }]);
@@ -85,7 +87,7 @@ describe('Normal Delete and Re-creation — ClientLE', () => {
             });
             expect(prismaMock.clientLE.update).toHaveBeenCalledWith({
                 where: { id: 'le-1' },
-                data: { isDeleted: true, status: "ARCHIVED" }
+                data: { isDeleted: true }
             });
         });
 
@@ -102,7 +104,7 @@ describe('Normal Delete and Re-creation — ClientLE', () => {
             expect(res).toEqual({ success: true });
             expect(prismaMock.clientLE.update).toHaveBeenCalledWith({
                 where: { id: 'le-zoom-1' },
-                data: { isDeleted: true, status: "ARCHIVED" }
+                data: { isDeleted: true }
             });
         });
     });
@@ -111,7 +113,7 @@ describe('Normal Delete and Re-creation — ClientLE', () => {
         it('creates a fresh ClientLE dossier when a soft-deleted record exists for the LEI', async () => {
             vi.mocked(getIdentity).mockResolvedValue({ userId: 'org-admin-1' } as any);
             prismaMock.membership.findMany.mockResolvedValue([
-                { organizationId: 'org-1', role: 'ORG_ADMIN', clientLEId: null, fiEngagementId: null }
+                { organizationId: 'org-1', role: 'ORG_ADMIN', clientLEId: null, fiEngagementId: null, organization: { types: ['CLIENT'] } }
             ]);
             prismaMock.legalEntity.findFirst.mockResolvedValue({ id: 'real-le-1', reference: '5493001KJTIIGC8Y1R12' });
             prismaMock.clientLE.findFirst.mockResolvedValue(null); // No active duplicate in org
@@ -132,6 +134,25 @@ describe('Normal Delete and Re-creation — ClientLE', () => {
             expect(res.success).toBe(true);
             expect(res.data.id).toBe('le-fresh-2');
             expect(prismaMock.clientLE.create).toHaveBeenCalled();
+        });
+    });
+
+    describe('MVP Lifecycle Governance — No Archive Action', () => {
+        it('does not export archiveClientLE server action', async () => {
+            const clientModule = await import('../client');
+            expect((clientModule as any).archiveClientLE).toBeUndefined();
+        });
+
+        it('does not offer Archive Entity control in ClientLEActions UI', async () => {
+            const fs = await import('fs');
+            const path = await import('path');
+            const componentSource = fs.readFileSync(
+                path.resolve(__dirname, '../../components/client/client-le-actions.tsx'),
+                'utf8'
+            );
+            expect(componentSource).not.toContain('Archive Entity');
+            expect(componentSource).not.toContain('archiveClientLE');
+            expect(componentSource).not.toContain('ConfirmArchiveDialog');
         });
     });
 });

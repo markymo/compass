@@ -15,18 +15,21 @@ interface InviteSupplierDialogProps {
     onOpenChange: (open: boolean) => void;
     engagementId: string;
     orgName: string;
+    onSuccess?: () => void;
 }
 
-export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName }: InviteSupplierDialogProps) {
+export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName, onSuccess }: InviteSupplierDialogProps) {
     const [step, setStep] = useState<'FORM' | 'SUCCESS'>('FORM');
     const [isLoading, setIsLoading] = useState(false);
 
     // Form State
     const [email, setEmail] = useState("");
+    const [role, setRole] = useState<'RELATIONSHIP_ADMIN' | 'RELATIONSHIP_USER'>('RELATIONSHIP_ADMIN');
     const [message, setMessage] = useState("");
 
     // Success State
     const [inviteLink, setInviteLink] = useState("");
+    const [emailSent, setEmailSent] = useState(false);
 
     const handleInvite = async () => {
         if (!email) {
@@ -36,13 +39,26 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
 
         setIsLoading(true);
         try {
-            const result = await inviteSupplier(engagementId, email, "Supplier Contact", message);
+            const result = await inviteSupplier(engagementId, email, role, message);
 
-            if (result.success && result.token) {
-                const link = `${window.location.origin}/invite/${result.token}`;
-                setInviteLink(link);
-                setStep('SUCCESS');
-                toast.success("Invitation created");
+            if (result.success) {
+                if (result.autoAdded) {
+                    toast.success("User already has an account. Relationship access granted immediately.");
+                    handleClose();
+                    return;
+                }
+                if (result.token) {
+                    const link = `${window.location.origin}/invite/${result.token}`;
+                    setInviteLink(link);
+                    setEmailSent(Boolean(result.emailSent));
+                    setStep('SUCCESS');
+                    if (result.emailSent) {
+                        toast.success("Invitation created and email sent");
+                    } else {
+                        toast.success("Invitation created (share link directly)");
+                    }
+                    onSuccess?.();
+                }
             } else {
                 toast.error(result.error || "Failed to create invitation");
             }
@@ -60,12 +76,14 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
 
     const handleClose = () => {
         onOpenChange(false);
+        onSuccess?.();
         // Reset state after close animation
         setTimeout(() => {
             setStep('FORM');
             setEmail("");
             setMessage("");
             setInviteLink("");
+            setEmailSent(false);
         }, 300);
     };
 
@@ -92,6 +110,19 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
                         </div>
 
                         <div className="space-y-2">
+                            <Label htmlFor="role">Relationship Role</Label>
+                            <select
+                                id="role"
+                                value={role}
+                                onChange={(e) => setRole(e.target.value as any)}
+                                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <option value="RELATIONSHIP_ADMIN">Relationship Admin (Can manage team & answers)</option>
+                                <option value="RELATIONSHIP_USER">Relationship User (Can answer questionnaires)</option>
+                            </select>
+                        </div>
+
+                        <div className="space-y-2">
                             <Label htmlFor="message">Personal Message (Optional)</Label>
                             <Textarea
                                 id="message"
@@ -115,7 +146,11 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
                             </div>
                             <div>
                                 <h4 className="font-semibold">Invitation Created!</h4>
-                                <p className="text-sm text-green-700">The supplier has been invited.</p>
+                                <p className="text-sm text-green-700">
+                                    {emailSent
+                                        ? "An invitation email has been sent to the supplier."
+                                        : "The invitation was created. Email notification was not dispatched, so please share the link below."}
+                                </p>
                             </div>
                         </div>
 
@@ -128,7 +163,9 @@ export function InviteSupplierDialog({ open, onOpenChange, engagementId, orgName
                                 </Button>
                             </div>
                             <p className="text-xs text-slate-500">
-                                Share this link manually if the email notification is delayed.
+                                {emailSent
+                                    ? "Share this link manually if the email notification is delayed."
+                                    : "Copy and send this link to the recipient so they can accept and set up their access."}
                             </p>
                         </div>
                     </div>

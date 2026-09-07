@@ -107,7 +107,7 @@ export function SharedResourceUsageNotice({
             </div>
             <div className="p-4 text-sm space-y-3">
                 <p className="text-slate-600 text-xs">
-                    This is a shared {fallbackLabel}. Changes you make may appear anywhere this {fallbackLabel} is currently referenced.
+                    You are editing a saved/shared {fallbackLabel}. Saving changes will update it everywhere it is currently used in this dossier.
                 </p>
 
                 <div className="space-y-1 mt-2">

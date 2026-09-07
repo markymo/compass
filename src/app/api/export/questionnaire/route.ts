@@ -8,7 +8,6 @@ import { KycStateService } from "@/lib/kyc/KycStateService";
 
 import { getIdentity } from "@/lib/auth";
 import { Action, can, UserWithMemberships } from "@/lib/auth/permissions";
-import { isSystemAdmin } from "@/actions/security";
 
 export async function POST(req: NextRequest) {
     try {
@@ -36,8 +35,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Authorize caller against ClientLE & Engagement
-        const sysAdmin = await isSystemAdmin();
-        let allowed = sysAdmin;
+        let allowed = false;
 
         if (!allowed) {
             const memberships = await prisma.membership.findMany({

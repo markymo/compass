@@ -10,6 +10,7 @@ import type { V2PartyType } from "@/lib/master-data/party-v2/CCPartyData";
 import { PartyValue, isPartyValue, getPartyName } from "@/lib/master-data/party-value";
 import { revalidatePath } from "next/cache";
 import { getMasterFieldDefinition } from "@/services/masterData/definitionService";
+import { KycStateService } from "@/lib/kyc/KycStateService";
 
 function extractIds(value: any, idKey: string, foundIds: Set<string> = new Set()): Set<string> {
     if (!value) return foundIds;
@@ -44,10 +45,11 @@ function extractIds(value: any, idKey: string, foundIds: Set<string> = new Set()
  * Fetch all curated parties for a given clientLEId
  */
 export async function getCCParties(clientLEId: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
+    if (!clientLEId) {
+        return [];
     }
+
+    await ensureApiAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId });
 
     try {
         const parties = await prisma.cCParty.findMany({
@@ -152,10 +154,7 @@ export async function upsertCCParty(params: {
     clientLEId: string;
     data: PartyValue;
 }) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
-    }
+    const { userId } = await ensureApiAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId: params.clientLEId });
 
     if (!isPartyValue(params.data)) {
         throw new Error("Invalid PartyValue data structure");
@@ -173,13 +172,13 @@ export async function upsertCCParty(params: {
                 ccPartyId: params.id,
                 clientLEId: params.clientLEId,
                 data: v2Data,
-                updatedByUserId: identity.userId
+                updatedByUserId: userId
             });
         } else {
             party = await CCPartyService.create({
                 clientLEId: params.clientLEId,
                 data: v2Data,
-                createdByUserId: identity.userId
+                createdByUserId: userId
             });
         }
 
@@ -192,9 +191,12 @@ export async function upsertCCParty(params: {
                 data: party.data as unknown as PartyValue
             }
         };
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message?.startsWith("Unauthorized")) {
+            throw error;
+        }
         console.error("Failed to upsert CC party:", error);
-        throw new Error("Failed to save saved party");
+        throw new Error(error?.message || "Failed to save saved party");
     }
 }
 
@@ -206,10 +208,7 @@ export async function upsertCCPartyV2(params: {
     clientLEId: string;
     data: any; // We type it as any at the API boundary to perform runtime validation
 }) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
-    }
+    const { userId } = await ensureApiAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId: params.clientLEId });
 
     const { isCCPartyData } = await import("@/lib/master-data/party-v2/CCPartyData");
     if (!isCCPartyData(params.data)) {
@@ -225,13 +224,13 @@ export async function upsertCCPartyV2(params: {
                 ccPartyId: params.id,
                 clientLEId: params.clientLEId,
                 data: params.data,
-                updatedByUserId: identity.userId
+                updatedByUserId: userId
             });
         } else {
             party = await CCPartyService.create({
                 clientLEId: params.clientLEId,
                 data: params.data,
-                createdByUserId: identity.userId
+                createdByUserId: userId
             });
         }
 
@@ -241,9 +240,12 @@ export async function upsertCCPartyV2(params: {
             success: true,
             party
         };
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message?.startsWith("Unauthorized")) {
+            throw error;
+        }
         console.error("Failed to upsert V2 CC party:", error);
-        throw new Error("Failed to save saved party");
+        throw new Error(error?.message || "Failed to save saved party");
     }
 }
 
@@ -252,49 +254,70 @@ export async function upsertCCPartyV2(params: {
  * Returns a map of ccPartyId -> Array of { fieldNo, fieldName }
  */
 export async function getCCPartyUsage(clientLEId: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
+    if (!clientLEId) {
+        return {};
     }
 
+    await ensureApiAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId });
+
     try {
-        const claims = await prisma.fieldClaim.findMany({
-            where: { valueJson: { not: Prisma.AnyNull }, claimRole: 'VALUE' },
-            select: { fieldNo: true, valueJson: true }
+        const candidateClaims = await prisma.fieldClaim.findMany({
+            where: { clientLEId, claimRole: 'VALUE' },
+            select: { fieldNo: true },
+            distinct: ['fieldNo']
         });
 
-        const usageMap: Record<string, { fieldNo: number; fieldName: string }[]> = {};
-        const defMap = new Map<number, string>();
+        if (candidateClaims.length === 0) {
+            return {};
+        }
 
-        for (const claim of claims) {
-            const value = claim.valueJson as any;
-            const partyIds = extractIds(value, 'ccPartyId');
-            for (const partyId of partyIds) {
-                if (!usageMap[partyId]) {
-                    usageMap[partyId] = [];
-                }
-                // Avoid duplicates if multiple claims for the same field point to the same party
-                if (!usageMap[partyId].some(u => u.fieldNo === claim.fieldNo)) {
-                    // Lazy load field definitions only for fields that actually have usage
-                    if (!defMap.has(claim.fieldNo)) {
-                        try {
-                            const def = await getMasterFieldDefinition(claim.fieldNo);
-                            defMap.set(claim.fieldNo, def.fieldName);
-                        } catch (e) {
-                            defMap.set(claim.fieldNo, `Field ${claim.fieldNo}`);
-                        }
+        const clientLE = await prisma.clientLE.findUnique({
+            where: { id: clientLEId },
+            select: { legalEntityId: true }
+        });
+        const subject = { clientLEId, subjectLeId: clientLE?.legalEntityId ?? null };
+        const ownerScopeId = (await KycStateService.resolveScopeId(clientLEId)) || undefined;
+
+        const usageMap: Record<string, { fieldNo: number; fieldName: string }[]> = {};
+
+        for (const { fieldNo } of candidateClaims) {
+            try {
+                const def = await getMasterFieldDefinition(fieldNo);
+                const foundIds = new Set<string>();
+
+                if (def.isMultiValue) {
+                    const authoritative = await KycStateService.getAuthoritativeCollection(subject, fieldNo, ownerScopeId);
+                    for (const item of authoritative) {
+                        extractIds(item.value, 'ccPartyId', foundIds);
                     }
-                    usageMap[partyId].push({
-                        fieldNo: claim.fieldNo,
-                        fieldName: defMap.get(claim.fieldNo) as string
-                    });
+                } else {
+                    const authoritative = await KycStateService.getAuthoritativeValue(subject, fieldNo, ownerScopeId);
+                    if (authoritative) {
+                        extractIds(authoritative.value, 'ccPartyId', foundIds);
+                    }
                 }
+
+                for (const partyId of foundIds) {
+                    if (!usageMap[partyId]) {
+                        usageMap[partyId] = [];
+                    }
+                    if (!usageMap[partyId].some(u => u.fieldNo === fieldNo)) {
+                        usageMap[partyId].push({
+                            fieldNo,
+                            fieldName: def.fieldName
+                        });
+                    }
+                }
+            } catch (err) {
+                console.warn(`[getCCPartyUsage] Failed to resolve field ${fieldNo}:`, err);
             }
         }
 
-        console.log("[getCCPartyUsage] Returning usage map:", JSON.stringify(usageMap, null, 2));
         return usageMap;
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message?.startsWith("Unauthorized")) {
+            throw error;
+        }
         console.error("Failed to fetch CC party usage:", error);
         throw new Error("Failed to fetch saved party usage");
     }
@@ -304,10 +327,11 @@ export async function getCCPartyUsage(clientLEId: string) {
  * Search curated parties for a client LE (used by UnifiedPartyPicker)
  */
 export async function searchCCParties(clientLEId: string, query: string, allowedPartyTypes?: V2PartyType[]) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
+    if (!clientLEId) {
+        return [];
     }
+
+    await ensureApiAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId });
 
     if (allowedPartyTypes && allowedPartyTypes.length === 0) {
         return [];
@@ -348,9 +372,12 @@ export async function searchCCParties(clientLEId: string, query: string, allowed
             ...p,
             data: p.data as unknown as PartyValue
         }));
-    } catch (error) {
+    } catch (error: any) {
+        if (error?.message?.startsWith("Unauthorized")) {
+            throw error;
+        }
         console.error("Failed to search CC parties:", error);
-        throw new Error("Failed to search curated parties");
+        throw new Error(error?.message || "Failed to search curated parties");
     }
 }
 
@@ -358,12 +385,21 @@ export async function searchCCParties(clientLEId: string, query: string, allowed
  * Delete a curated party
  */
 export async function deleteCCParty(id: string, clientLEId: string) {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        throw new Error("Unauthorized");
+    if (!clientLEId) {
+        throw new Error("Client LE ID required");
     }
 
+    await ensureApiAuthorization(Action.LE_EDIT_MASTER_DATA, { clientLEId });
+
     try {
+        const existing = await prisma.cCParty.findUnique({
+            where: { id }
+        });
+
+        if (!existing || existing.clientLEId !== clientLEId) {
+            throw new Error("Party not found in this dossier");
+        }
+
         const claims = await prisma.fieldClaim.findMany({
             where: { valueJson: { not: Prisma.AnyNull }, claimRole: 'VALUE' },
             select: { valueJson: true }
@@ -386,6 +422,9 @@ export async function deleteCCParty(id: string, clientLEId: string) {
         revalidatePath(`/app/le/${clientLEId}/sources/user`);
         return { success: true };
     } catch (error: any) {
+        if (error?.message?.startsWith("Unauthorized")) {
+            throw error;
+        }
         console.error("Failed to delete CC party:", error);
         throw new Error(error.message || "Failed to delete saved party");
     }

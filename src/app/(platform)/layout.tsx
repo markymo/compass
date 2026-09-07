@@ -33,7 +33,7 @@ export default async function PlatformLayout({
 
     return (
         <BreadcrumbProvider>
-            <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-zinc-900">
+            <div className="flex min-h-screen flex-col bg-background text-foreground">
                 <DemoBanner />
                 <PlatformNavbar isSystemAdmin={isSystemAdmin} assignmentCount={assignmentCount} />
                 <main className="flex-1 container mx-auto p-4 md:p-8">

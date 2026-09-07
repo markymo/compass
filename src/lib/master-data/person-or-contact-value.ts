@@ -18,6 +18,7 @@ import {
     getPartyDisplayProjection,
     formatPartialDob,
     getIdentityVerificationLabel,
+    buildPartyFieldProjection,
     PartyDisplayProjection
 } from './party-value';
 
@@ -28,5 +29,5 @@ export type PersonOrContactIdentifier = PartyIdentifier;
 
 export const isPersonOrContactValue = isPartyValue;
 export const getPersonOrContactSummary = getPartySummary;
-export { isValidPartyValue, isRenderableActiveDirectorParty, isFieldPermittedByMask, getPartyDisplayProjection, formatPartialDob, getIdentityVerificationLabel, type PartyDisplayProjection };
+export { isValidPartyValue, isRenderableActiveDirectorParty, isFieldPermittedByMask, getPartyDisplayProjection, formatPartialDob, getIdentityVerificationLabel, buildPartyFieldProjection, type PartyDisplayProjection };
 

@@ -113,6 +113,7 @@ export function InlineOutputBuilder({
 export function InlineTeamManager({ engagementId, orgName }: { engagementId: string, orgName: string }) {
     const [data, setData] = useState<{ members: any[], invitations: any[] } | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [reloadKey, setReloadKey] = useState(0);
 
     useEffect(() => {
         let mounted = true;
@@ -128,7 +129,7 @@ export function InlineTeamManager({ engagementId, orgName }: { engagementId: str
             }
         });
         return () => { mounted = false; };
-    }, [engagementId]);
+    }, [engagementId, reloadKey]);
 
     if (error) {
         return <div className="p-6 text-center text-red-500 text-sm">{error}</div>;
@@ -150,6 +151,7 @@ export function InlineTeamManager({ engagementId, orgName }: { engagementId: str
                 members={data.members} 
                 invitations={data.invitations} 
                 variant="inline"
+                onRefresh={() => setReloadKey((k) => k + 1)}
             />
         </div>
     );

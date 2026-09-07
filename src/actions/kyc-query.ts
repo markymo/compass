@@ -46,7 +46,7 @@ export async function resolveMasterData(
     const clientLE = await prisma.clientLE.findUnique({
         where: { id: leId }
     });
-    const subjectLeId = clientLE?.legalEntityId;
+    const subjectLeId = clientLE?.legalEntityId ?? null;
     const ownerScopeId = await KycStateService.resolveScopeId(leId);
 
     for (const q of questions) {
@@ -56,7 +56,7 @@ export async function resolveMasterData(
         if (q.masterQuestionGroupId) {
             try {
                 const group = await getMasterFieldGroup(q.masterQuestionGroupId);
-                if (subjectLeId) {
+                if (clientLE) {
                     for (const item of group.items) {
                         const fieldNo = item.fieldNo;
                         const def = await getMasterFieldDefinition(fieldNo);
@@ -116,7 +116,7 @@ export async function resolveMasterData(
             }
         }
         // B. Handle Single Field Mapping
-        else if (q.masterFieldNo && subjectLeId) {
+        else if (q.masterFieldNo && clientLE) {
             const def = await getMasterFieldDefinition(q.masterFieldNo);
             if (def.isMultiValue) {
                 const cfg = getComplexFieldConfig(q.masterFieldNo);
@@ -395,7 +395,7 @@ function resolveField(
  * Mutates the objects in-place to attach `resolvedSummary` and `ccParty` payload,
  * ensuring generic renderers can display the CCParty name cleanly.
  */
-export async function enrichPartyReferences(values: any[]) {
+export async function enrichPartyReferences(values: any[], forceReenrich: boolean = false) {
     const ccPartyIds = new Set<string>();
     const isEnvelope = (val: any) => val && typeof val === 'object' && 'value' in val && 'source' in val && val.source && 'type' in val.source;
 
@@ -406,13 +406,17 @@ export async function enrichPartyReferences(values: any[]) {
             for (const item of v) {
                 const target = isEnvelope(item) ? item.value : item;
                 if (target && typeof target === 'object' && target.ccPartyId) {
-                    ccPartyIds.add(target.ccPartyId);
+                    if (forceReenrich || !target.ccParty) {
+                        ccPartyIds.add(target.ccPartyId);
+                    }
                 }
             }
         } else {
             const target = isEnvelope(v) ? v.value : v;
             if (target && typeof target === 'object' && target.ccPartyId) {
-                ccPartyIds.add(target.ccPartyId);
+                if (forceReenrich || !target.ccParty) {
+                    ccPartyIds.add(target.ccPartyId);
+                }
             }
         }
     }
@@ -432,6 +436,20 @@ export async function enrichPartyReferences(values: any[]) {
             for (const item of v) {
                 const target = isEnvelope(item) ? item.value : item;
                 if (target && typeof target === 'object' && target.ccPartyId) {
+                    if (forceReenrich || !target.ccParty) {
+                        const party = partyMap.get(target.ccPartyId);
+                        if (party) {
+                            target.ccParty = party;
+                            target.resolvedSummary = getPartySummary((party as any).data);
+                            target.resolvedType = (party as any).data?.partySubType || (party as any).data?.partyType;
+                        }
+                    }
+                }
+            }
+        } else {
+            const target = isEnvelope(v) ? v.value : v;
+            if (target && typeof target === 'object' && target.ccPartyId) {
+                if (forceReenrich || !target.ccParty) {
                     const party = partyMap.get(target.ccPartyId);
                     if (party) {
                         target.ccParty = party;
@@ -440,21 +458,11 @@ export async function enrichPartyReferences(values: any[]) {
                     }
                 }
             }
-        } else {
-            const target = isEnvelope(v) ? v.value : v;
-            if (target && typeof target === 'object' && target.ccPartyId) {
-                const party = partyMap.get(target.ccPartyId);
-                if (party) {
-                    target.ccParty = party;
-                    target.resolvedSummary = getPartySummary((party as any).data);
-                    target.resolvedType = (party as any).data?.partySubType || (party as any).data?.partyType;
-                }
-            }
         }
     }
 }
 
-export async function enrichAddressReferences(values: any[]) {
+export async function enrichAddressReferences(values: any[], forceReenrich: boolean = false) {
     const ccAddressIds = new Set<string>();
     const isEnvelope = (val: any) => val && typeof val === 'object' && 'value' in val && 'source' in val && val.source && 'type' in val.source;
 
@@ -464,13 +472,17 @@ export async function enrichAddressReferences(values: any[]) {
             for (const item of v) {
                 const target = isEnvelope(item) ? item.value : item;
                 if (target && typeof target === 'object' && target.ccAddressId) {
-                    ccAddressIds.add(target.ccAddressId);
+                    if (forceReenrich || !target.ccAddress) {
+                        ccAddressIds.add(target.ccAddressId);
+                    }
                 }
             }
         } else {
             const target = isEnvelope(v) ? v.value : v;
             if (target && typeof target === 'object' && target.ccAddressId) {
-                ccAddressIds.add(target.ccAddressId);
+                if (forceReenrich || !target.ccAddress) {
+                    ccAddressIds.add(target.ccAddressId);
+                }
             }
         }
     }
@@ -500,20 +512,24 @@ export async function enrichAddressReferences(values: any[]) {
             for (const item of v) {
                 const target = isEnvelope(item) ? item.value : item;
                 if (target && typeof target === 'object' && target.ccAddressId) {
-                    const address = addressMap.get(target.ccAddressId);
-                    if (address) {
-                        target.ccAddress = address;
-                        target.resolvedSummary = getSummary((address as any).data);
+                    if (forceReenrich || !target.ccAddress) {
+                        const address = addressMap.get(target.ccAddressId);
+                        if (address) {
+                            target.ccAddress = address;
+                            target.resolvedSummary = getSummary((address as any).data);
+                        }
                     }
                 }
             }
         } else {
             const target = isEnvelope(v) ? v.value : v;
             if (target && typeof target === 'object' && target.ccAddressId) {
-                const address = addressMap.get(target.ccAddressId);
-                if (address) {
-                    target.ccAddress = address;
-                    target.resolvedSummary = getSummary((address as any).data);
+                if (forceReenrich || !target.ccAddress) {
+                    const address = addressMap.get(target.ccAddressId);
+                    if (address) {
+                        target.ccAddress = address;
+                        target.resolvedSummary = getSummary((address as any).data);
+                    }
                 }
             }
         }
@@ -780,7 +796,7 @@ export async function getFieldDetail(
 
     // --- Master Question Group Path ---
     if (masterQuestionGroupId) {
-        let subjectLeId = entityId;
+        let subjectLeId: string | null = entityId;
         let ownerScopeId: string | undefined = undefined;
 
         if (entityType === 'CLIENT_LE') {
@@ -788,11 +804,23 @@ export async function getFieldDetail(
                 where: { id: entityId },
                 include: { registryReferences: { include: { authority: true } } }
             });
-            subjectLeId = clientLE?.legalEntityId || "";
+            if (!clientLE) {
+                return {
+                    fieldNo: 0,
+                    fieldName: "Unknown Group / Missing Subject",
+                    isRepeating: false,
+                    dataType: "JSON",
+                    current: null,
+                    assignment: null,
+                    history: [],
+                    candidates: [],
+                    notes: "ClientLE missing. Data cannot be resolved.",
+                    description: undefined
+                };
+            }
+            subjectLeId = clientLE.legalEntityId ?? null;
             ownerScopeId = (await KycStateService.resolveScopeId(entityId)) || undefined;
-        }
-
-        if (!subjectLeId) {
+        } else if (!subjectLeId) {
             return {
                 fieldNo: 0,
                 fieldName: "Unknown Group / Missing Subject",
@@ -843,10 +871,12 @@ export async function getFieldDetail(
                 })
             ]);
             
+            const fieldDefsMap = new Map(defs.map(d => [d.fieldNo, { allowAttachments: d.allowAttachments, profileConfig: (d as any).profileConfig }]));
             const resolvedAttachmentsMap = await resolveAmalgamatedAttachments(
                 { subjectLeId, clientLEId: entityType === 'CLIENT_LE' ? entityId : undefined },
-                defs.filter(d => d.allowAttachments).map(d => d.fieldNo),
-                resolvedValuesMap
+                defs.map(d => d.fieldNo),
+                resolvedValuesMap,
+                fieldDefsMap
             );
             
             let clientLEForSource: any = null;
@@ -899,7 +929,12 @@ export async function getFieldDetail(
                             hydrated,
                             canonicalDisplayModel: resolveFieldForDisplay(
                                 hydrated.value,
-                                hydrated.source ? { type: hydrated.source, reference: hydrated.sourceReference } : null,
+                                hydrated.source ? { 
+                                    type: hydrated.source, 
+                                    reference: hydrated.sourceReference,
+                                    entityIdentifier: (hydrated as any).entityIdentifier || null,
+                                    entityUrl: (hydrated as any).entityUrl || null
+                                } : null,
                                 {
                                     fieldNo: item.fieldNo,
                                     label: def.fieldName,
@@ -1127,18 +1162,31 @@ export async function getFieldDetail(
     const def = await getMasterFieldDefinition(fieldNo);
 
     // 0. Resolve Subject and Scope
-    let subjectLeId = entityId;
+    let subjectLeId: string | null = entityId;
     let ownerScopeId: string | undefined = undefined;
 
     if (entityType === 'CLIENT_LE') {
         const clientLE = await prisma.clientLE.findUnique({
             where: { id: entityId }
         });
-        subjectLeId = clientLE?.legalEntityId || "";
+        if (!clientLE) {
+            return {
+                fieldNo,
+                fieldName: def?.fieldName || "Unknown Field",
+                isRepeating: def?.isMultiValue || false,
+                dataType: def?.appDataType || 'string',
+                current: null,
+                assignment: null,
+                history: [],
+                candidates: [],
+                notes: "ClientLE missing. Data cannot be resolved.",
+                description: def?.description || undefined,
+                profileConfig: (def as any)?.profileConfig || undefined
+            };
+        }
+        subjectLeId = clientLE.legalEntityId ?? null;
         ownerScopeId = (await KycStateService.resolveScopeId(entityId)) || undefined;
-    }
-
-    if (!subjectLeId) {
+    } else if (!subjectLeId) {
         return {
             fieldNo,
             fieldName: def?.fieldName || "Unknown Field",
@@ -1329,11 +1377,12 @@ export async function getFieldDetail(
 
     // 2b. Compute isUserCurated for repeating fields (single lightweight query).
     // True if the user has ever made any add or remove action on this collection,
-    // meaning any USER_INPUT claim (value or tombstone) exists for (subjectLeId, fieldNo).
+    // meaning any USER_INPUT claim (value or tombstone) exists for (dossier/subject, fieldNo).
     let isUserCurated: boolean | undefined;
-    if (def?.isMultiValue && subjectLeId) {
+    const claimSubjectWhere = entityType === 'CLIENT_LE' ? { clientLEId: entityId } : { subjectLeId };
+    if (def?.isMultiValue) {
         const userAction = await prisma.fieldClaim.findFirst({
-            where: { subjectLeId, fieldNo, sourceType: 'USER_INPUT', claimRole: 'VALUE' },
+            where: { ...claimSubjectWhere, fieldNo, sourceType: 'USER_INPUT', claimRole: 'VALUE' },
             select: { id: true }
         });
         isUserCurated = !!userAction;
@@ -1345,7 +1394,7 @@ export async function getFieldDetail(
         where: {
             fieldNo,
             claimRole: 'VALUE',
-            subjectLeId: subjectLeId,
+            ...claimSubjectWhere,
             OR: [
                 { ownerScopeId: null },
                 { ownerScopeId: ownerScopeId }
@@ -1677,9 +1726,8 @@ export async function getFieldDetail(
     if (result.current?.value) {
         resolvedValuesMap.set(fieldNo, { value: result.current.value } as any);
     }
-    const amalgamatedAttachmentsMap = def?.allowAttachments 
-        ? await resolveAmalgamatedAttachments({ subjectLeId }, [fieldNo], resolvedValuesMap)
-        : new Map();
+    const fieldDefMap = def ? new Map([[fieldNo, { allowAttachments: def.allowAttachments, profileConfig: (def as any).profileConfig }]]) : undefined;
+    const amalgamatedAttachmentsMap = await resolveAmalgamatedAttachments({ subjectLeId: subjectLeId || undefined, clientLEId: entityType === 'CLIENT_LE' ? entityId : undefined }, [fieldNo], resolvedValuesMap, fieldDefMap);
     
     const metadataForDisplay = {
         fieldNo: result.fieldNo ?? 0,
@@ -1701,7 +1749,9 @@ export async function getFieldDetail(
                 type: result.current.source as any, 
                 reference: result.current.sourceReference,
                 timestamp: result.current.timestamp,
-                sourceCheckedAt: result.current.sourceCheckedAt
+                sourceCheckedAt: result.current.sourceCheckedAt,
+                entityIdentifier: (result.current as any).entityIdentifier || null,
+                entityUrl: (result.current as any).entityUrl || null
             } : null,
             metadataForDisplay
         );
@@ -1728,7 +1778,9 @@ export async function getFieldDetail(
                     type: row.source as any, 
                     reference: row.sourceReference,
                     timestamp: row.timestamp,
-                    sourceCheckedAt: row.sourceCheckedAt 
+                    sourceCheckedAt: row.sourceCheckedAt,
+                    entityIdentifier: (row as any).entityIdentifier || null,
+                    entityUrl: (row as any).entityUrl || null
                 } : null,
                 {
                     ...metadataForDisplay,

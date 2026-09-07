@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { isSystemAdmin } from "@/actions/admin";
+import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import { revalidatePath } from "next/cache";
 import { ensureQuestionNotReferenceSnapshot } from "./questionnaire";
 
@@ -15,8 +15,11 @@ export async function assignQuestionToMasterField(
     questionId: string,
     masterFieldNo: number | null
 ): Promise<{ success: boolean; error?: string }> {
-    const isAdmin = await isSystemAdmin();
-    if (!isAdmin) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
     try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
 
     try {

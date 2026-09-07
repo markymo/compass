@@ -10,11 +10,15 @@ import { useRouter } from "next/navigation";
 import { LEILookup } from "./lei-lookup";
 import { toast } from "sonner";
 import { AlertCircle } from "lucide-react";
+import { ClientLETeamAccess } from "./client-le-team-access";
 
 export function CreateLEDialog({ orgId }: { orgId?: string }) {
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
     const [open, setOpen] = useState(false);
+
+    const [step, setStep] = useState<"create" | "access">("create");
+    const [createdLE, setCreatedLE] = useState<{ id: string; name: string } | null>(null);
 
     const [name, setName] = useState("");
     const [jurisdiction, setJurisdiction] = useState("");
@@ -27,7 +31,22 @@ export function CreateLEDialog({ orgId }: { orgId?: string }) {
         setMounted(true);
     }, []);
 
-    if (!mounted) return <Button>Add Legal Entity</Button>; // Show skeleton/static button during SSR to match
+    if (!mounted) return <Button>Add Legal Entity</Button>;
+
+    function handleOpenChange(newOpen: boolean) {
+        setOpen(newOpen);
+        if (!newOpen) {
+            // Reset modal state when closed
+            setStep("create");
+            setCreatedLE(null);
+            setName("");
+            setJurisdiction("");
+            setLei("");
+            setGleifData(null);
+            setActionError(null);
+            router.refresh();
+        }
+    }
 
     async function handleCreate() {
         if (!name || !jurisdiction) return;
@@ -42,20 +61,18 @@ export function CreateLEDialog({ orgId }: { orgId?: string }) {
                 gleifData: gleifData || undefined
             });
 
-            if (res.success) {
-                setOpen(false);
-                setName("");
-                setJurisdiction("");
-                setLei("");
-                setGleifData(null);
+            if (res.success && res.data) {
+                const leId = res.data.id;
+                const leName = res.data.name || name;
+
+                setCreatedLE({ id: leId, name: leName });
+                setStep("access");
 
                 if (res.message) {
-                    toast.info(res.message); // Informational toast for linking
+                    toast.info(res.message);
                 } else {
-                    toast.success("Legal Entity created successfully");
+                    toast.success(`Legal Entity "${leName}" created`);
                 }
-
-                router.refresh();
             } else {
                 setActionError(res.error || "Failed to create entity");
             }
@@ -66,59 +83,90 @@ export function CreateLEDialog({ orgId }: { orgId?: string }) {
         }
     }
 
+    function handleFinishedSetup() {
+        setOpen(false);
+        setStep("create");
+        setCreatedLE(null);
+        setName("");
+        setJurisdiction("");
+        setLei("");
+        setGleifData(null);
+        setActionError(null);
+        router.refresh();
+    }
+
     return (
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
                 <Button>Add Legal Entity</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md max-w-[95vw] rounded-xl">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-xl max-w-[95vw] rounded-2xl p-6">
+                <DialogHeader className={step === "access" ? "sr-only" : ""}>
                     <DialogTitle>Add New Legal Entity</DialogTitle>
                     <DialogDescription>Create a managed entity to start inputting data.</DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
-                    {actionError && (
-                        <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg flex items-start gap-3 text-sm">
-                            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-                            <div>
-                                <p className="font-semibold text-red-900 mb-0.5">Unable to add entity</p>
-                                <p>{actionError}</p>
+
+                {step === "create" ? (
+                    <div className="space-y-4 py-2">
+                        {actionError && (
+                            <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-lg flex items-start gap-3 text-sm">
+                                <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="font-semibold text-red-900 mb-0.5">Unable to add entity</p>
+                                    <p>{actionError}</p>
+                                </div>
+                            </div>
+                        )}
+                        <LEILookup
+                            onDataFetched={(data, summary) => {
+                                setName(summary.name);
+                                setJurisdiction(summary.jurisdiction);
+                                setGleifData(data);
+                                if (data.id) setLei(data.id);
+                            }}
+                        />
+
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t" />
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-background px-2 text-muted-foreground">Or Enter Manually</span>
                             </div>
                         </div>
-                    )}
-                    <LEILookup onDataFetched={(data, summary) => {
-                        setName(summary.name);
-                        setJurisdiction(summary.jurisdiction);
-                        setGleifData(data);
-                        setLei(data.id); // Or extract from attributes if needed, but data.id is the LEI in GLEIF JSON usually? No, the ID in the list is the LEI.
-                        // Actually in my gleif.ts, data is the record object. record.id is the LEI? 
-                        // Looking at gleif.ts: `const record = json.data[0];`
-                        // GLEIF JSON: data: [{ id: "LEI...", type: "lei-records", attributes: { lei: "LEI..." } }]
-                        // So data.id is the LEI.
-                        // However, I should setLei explicitly to what the user typed OR what comes back.
-                        // Let's use the one from the record to be safe.
-                        if (data.id) setLei(data.id);
-                    }} />
 
-                    <div className="relative">
-                        <div className="absolute inset-0 flex items-center">
-                            <span className="w-full border-t" />
+                        <div className="space-y-2">
+                            <Label>Entity Name</Label>
+                            <Input
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                placeholder="Acme Corp Ltd"
+                            />
                         </div>
-                        <div className="relative flex justify-center text-xs uppercase">
-                            <span className="bg-background px-2 text-muted-foreground">Or Enter Manually</span>
+                        <div className="space-y-2">
+                            <Label>Jurisdiction</Label>
+                            <Input
+                                value={jurisdiction}
+                                onChange={(e) => setJurisdiction(e.target.value)}
+                                placeholder="e.g. UK, Delaware, Singapore"
+                            />
                         </div>
+                        <Button onClick={handleCreate} disabled={loading} className="w-full bg-indigo-600 hover:bg-indigo-700">
+                            {loading ? "Creating..." : "Create Legal Entity"}
+                        </Button>
                     </div>
-
-                    <div className="space-y-2">
-                        <Label>Entity Name</Label>
-                        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Acme Corp Ltd" />
-                    </div>
-                    <div className="space-y-2">
-                        <Label>Jurisdiction</Label>
-                        <Input value={jurisdiction} onChange={(e) => setJurisdiction(e.target.value)} placeholder="e.g. UK, Delaware, Singapore" />
-                    </div>
-                    <Button onClick={handleCreate} disabled={loading} className="w-full">Create Entity</Button>
-                </div>
+                ) : (
+                    createdLE && (
+                        <ClientLETeamAccess
+                            clientLEId={createdLE.id}
+                            clientLEName={createdLE.name}
+                            orgId={orgId || ""}
+                            isInitialSetup={true}
+                            onSuccess={handleFinishedSetup}
+                            onCancel={handleFinishedSetup}
+                        />
+                    )
+                )}
             </DialogContent>
         </Dialog>
     );

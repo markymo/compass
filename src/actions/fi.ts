@@ -92,8 +92,9 @@ export async function saveFIMapping(fiOrgId: string, mapping: any[]) {
 
 // --- FI User Actions ---
 
-// Check if current user belongs to an FI
-// Check if current user belongs to an FI
+const SUPPLIER_ORG_TYPES = ["FI", "SUPPLIER", "LAW_FIRM"] as const;
+
+// Check if current user belongs to an FI / Supplier organization
 export async function getFIOganization(fiOrgId?: string) {
     const identity = await getIdentity();
     const userId = identity?.userId;
@@ -103,12 +104,28 @@ export async function getFIOganization(fiOrgId?: string) {
         const membership = await prisma.membership.findFirst({
             where: {
                 userId,
-                organizationId: fiOrgId,
-                organization: { types: { has: "FI" } }
+                OR: [
+                    {
+                        organizationId: fiOrgId,
+                        organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } }
+                    },
+                    {
+                        fiEngagement: {
+                            fiOrgId: fiOrgId,
+                            isDeleted: false,
+                            org: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } }
+                        }
+                    }
+                ]
             },
-            include: { organization: true }
+            include: {
+                organization: true,
+                fiEngagement: {
+                    include: { org: true }
+                }
+            }
         });
-        return membership?.organization || null;
+        return membership?.organization || membership?.fiEngagement?.org || null;
     }
 
     const cookieStore = await cookies();
@@ -119,7 +136,7 @@ export async function getFIOganization(fiOrgId?: string) {
             where: {
                 userId,
                 organizationId: activeOrgId,
-                organization: { types: { has: "FI" } }
+                organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } }
             },
             include: { organization: true }
         });
@@ -129,7 +146,7 @@ export async function getFIOganization(fiOrgId?: string) {
     const membership = await prisma.membership.findFirst({
         where: {
             userId: userId,
-            organization: { types: { has: "FI" } }
+            organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } }
         },
         include: { organization: true }
     });
@@ -154,7 +171,7 @@ export async function uploadQuestionnaire(formData: FormData) {
     if (!orgId) {
         // Try to default if user has only one FI
         const memberships = await prisma.membership.findMany({
-            where: { userId, organization: { types: { has: "FI" } } },
+            where: { userId, organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } } },
             select: { organizationId: true }
         });
         if (memberships.length === 1 && memberships[0].organizationId) {
@@ -166,7 +183,7 @@ export async function uploadQuestionnaire(formData: FormData) {
 
     // Verify permission
     const membership = await prisma.membership.findFirst({
-        where: { userId, organizationId: orgId, organization: { types: { has: "FI" } } }
+        where: { userId, organizationId: orgId, organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } } }
     });
     if (!membership) return { success: false, error: "Unauthorized for this Organization" };
 
@@ -225,43 +242,49 @@ export async function getFIDashboardStats(fiOrgId?: string) {
 
     const userMemberships = await prisma.membership.findMany({
         where: { userId },
-        select: { organizationId: true, fiEngagementId: true }
+        select: { organizationId: true, fiEngagementId: true, role: true }
     });
 
     let targetFiOrgIds: string[] = [];
+    let supplierOrgAdminIds: string[] = [];
 
     if (fiOrgId) {
-        const hasOrgAccess = userMemberships.some((m: any) => m.organizationId === fiOrgId);
+        const isOrgAdmin = userMemberships.some((m: any) => m.organizationId === fiOrgId && m.role === "ORG_ADMIN");
         const userEngIds = userMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
 
-        if (!hasOrgAccess && userEngIds.length === 0) {
+        if (!isOrgAdmin && userEngIds.length === 0) {
             return null;
         }
 
-        if (!hasOrgAccess) {
+        if (!isOrgAdmin) {
             const engInOrg = await prisma.fIEngagement.findFirst({
-                where: { id: { in: userEngIds }, fiOrgId },
+                where: { id: { in: userEngIds }, fiOrgId, isDeleted: false },
                 select: { id: true }
             });
             if (!engInOrg) return null;
         }
 
         targetFiOrgIds = [fiOrgId];
+        if (isOrgAdmin) {
+            supplierOrgAdminIds = [fiOrgId];
+        }
     } else {
         const orgMemberships = await prisma.membership.findMany({
             where: {
                 userId,
                 organization: { types: { has: "FI" } },
-                organizationId: { not: null }
+                organizationId: { not: null },
+                role: "ORG_ADMIN"
             },
             select: { organizationId: true }
         });
-        targetFiOrgIds = orgMemberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
+        supplierOrgAdminIds = orgMemberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
+        targetFiOrgIds = [...supplierOrgAdminIds];
 
         const userEngIds = userMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
         if (userEngIds.length > 0) {
             const engOrgs = await prisma.fIEngagement.findMany({
-                where: { id: { in: userEngIds } },
+                where: { id: { in: userEngIds }, isDeleted: false },
                 select: { fiOrgId: true }
             });
             const engOrgIds = engOrgs.map((e: any) => e.fiOrgId).filter(Boolean);
@@ -271,34 +294,54 @@ export async function getFIDashboardStats(fiOrgId?: string) {
 
     if (targetFiOrgIds.length === 0) return null;
 
-    const hasOrgAccessForTarget = userMemberships.some((m: any) => m.organizationId && targetFiOrgIds.includes(m.organizationId));
     const explicitEngagementIds = userMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
+    const hasOperationalAccess = explicitEngagementIds.length > 0;
 
-    const [questionnaires, engagements, queries] = await Promise.all([
-        prisma.questionnaire.count({
+    const relationshipScopeConditions: any[] = [];
+    if (supplierOrgAdminIds.length > 0) {
+        relationshipScopeConditions.push({ fiOrgId: { in: supplierOrgAdminIds } });
+    }
+    if (explicitEngagementIds.length > 0) {
+        relationshipScopeConditions.push({ id: { in: explicitEngagementIds } });
+    }
+
+    if (relationshipScopeConditions.length === 0) return null;
+
+    const engagementsPromise = prisma.fIEngagement.count({
+        where: {
+            fiOrgId: { in: targetFiOrgIds },
+            isDeleted: false,
+            status: { not: "ARCHIVED" },
+            OR: relationshipScopeConditions
+        }
+    });
+
+    const questionnairesPromise = hasOperationalAccess
+        ? prisma.questionnaire.count({
             where: {
                 fiOrgId: { in: targetFiOrgIds },
                 isDeleted: false,
-                ...(!hasOrgAccessForTarget ? { fiEngagementId: { in: explicitEngagementIds } } : {})
+                fiEngagementId: { in: explicitEngagementIds }
             }
-        }),
-        prisma.fIEngagement.count({
-            where: {
-                fiOrgId: { in: targetFiOrgIds },
-                isDeleted: false,
-                status: { not: "ARCHIVED" },
-                ...(!hasOrgAccessForTarget ? { id: { in: explicitEngagementIds } } : {})
-            }
-        }),
-        prisma.query.count({
+        })
+        : Promise.resolve(0);
+
+    const queriesPromise = hasOperationalAccess
+        ? prisma.query.count({
             where: {
                 engagement: {
                     fiOrgId: { in: targetFiOrgIds },
-                    ...(!hasOrgAccessForTarget ? { id: { in: explicitEngagementIds } } : {})
+                    id: { in: explicitEngagementIds }
                 },
                 status: "OPEN"
             }
         })
+        : Promise.resolve(0);
+
+    const [engagements, questionnaires, queries] = await Promise.all([
+        engagementsPromise,
+        questionnairesPromise,
+        queriesPromise
     ]);
 
     return {
@@ -391,6 +434,8 @@ export interface SupplierVisibleProvenance {
     sourceReference?: string | null;
     timestamp: Date | string | null;
     lastValidatedAt?: Date | string | null;
+    entityIdentifier?: string | null;
+    entityUrl?: string | null;
     releaseProvenance?: any | null;
 }
 
@@ -432,6 +477,7 @@ export interface SupplierQuestionView {
 
     // Optional metadata properties
     answerType?: string;
+    appDataType?: string;
     isLocked?: boolean;
     sourceSectionId?: string | null;
     masterFieldNo?: number | null;
@@ -466,31 +512,28 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
     if (!identity?.userId) return emptyResult;
     const { userId } = identity;
 
-    // 1. Verify access to Supplier Org or specific Relationships
-    const orgMembership = await prisma.membership.findFirst({
+    // 1. Verify explicit operational relationship memberships for this Supplier
+    const engagementMemberships = await prisma.membership.findMany({
         where: {
             userId,
-            organizationId: fiOrgId,
-            organization: { types: { has: "FI" } }
-        }
-    });
-
-    const engagementMemberships = await prisma.membership.findMany({
-        where: { userId, fiEngagementId: { not: null } },
+            fiEngagementId: { not: null },
+            fiEngagement: { fiOrgId, isDeleted: false }
+        },
         select: { fiEngagementId: true }
     });
     const allowedEngagementIds = engagementMemberships.map((m: any) => m.fiEngagementId).filter(Boolean) as string[];
 
-    if (!orgMembership && allowedEngagementIds.length === 0) {
+    // Pure ORG_ADMIN or users without explicit relationship membership receive zero operational data
+    if (allowedEngagementIds.length === 0) {
         return emptyResult;
     }
 
     const engagementFilter: any = {
         fiOrgId: fiOrgId,
+        id: { in: allowedEngagementIds },
         isDeleted: false,
         status: { not: "ARCHIVED" },
         clientLE: { isDeleted: false },
-        ...(orgMembership ? {} : { id: { in: allowedEngagementIds } })
     };
 
     // 2. Fetch questions for direct engagement questionnaires AND linked Common Questionnaires for active relationships
@@ -530,6 +573,10 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                 include: {
                     commonForClients: {
                         include: {
+                            owners: {
+                                where: { endAt: null },
+                                include: { party: { select: { name: true } } }
+                            },
                             fiEngagements: {
                                 where: engagementFilter,
                                 include: {
@@ -577,7 +624,7 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
     const uniqueEngagementIdsSet = Array.from(new Set(uniqueEngagementIds));
 
     const latestSubmissions = uniqueEngagementIdsSet.length > 0
-        ? ((await prisma.questionnaireSubmission?.findMany?.({
+        ? await prisma.questionnaireSubmission.findMany({
             where: { relationshipId: { in: uniqueEngagementIdsSet } },
             orderBy: [
                 { relationshipId: 'asc' },
@@ -591,7 +638,7 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                     }
                 }
             }
-        })) || [])
+        })
         : [];
 
     const submissionAnswerMap = new Map<string, any>();
@@ -617,6 +664,7 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
         listAllMasterGroups()
     ]);
 
+    const fieldDefMap = new Map(allFields.map((f: any) => [f.fieldNo, f]));
     const fieldCategoryMap = new Map(allFields.map((f: any) => [f.fieldNo, f.category]));
     const groupCategoryMap = new Map(allGroups.map((g: any) => [g.key, g.category]));
 
@@ -644,6 +692,7 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
         for (const ctx of contexts) {
             const { engagement, clientLE } = ctx;
             const clientOrgName = clientLE?.owners?.[0]?.party?.name || null;
+            const fieldDef = q.masterFieldNo ? fieldDefMap.get(q.masterFieldNo) : undefined;
 
             let category = "Uncategorized";
             if (q.masterFieldNo) category = fieldCategoryMap.get(q.masterFieldNo) || "Uncategorized";
@@ -682,6 +731,8 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                     sourceReference: subSourceRef,
                     timestamp: subMetadata?.submittedAt || q.releasedAt || null,
                     lastValidatedAt,
+                    entityIdentifier: subProv.entityIdentifier || null,
+                    entityUrl: subProv.entityUrl || null,
                     releaseProvenance: subProv
                 };
                 documents = (subAnswer.attachments || []).map((att: any) => ({
@@ -700,17 +751,36 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                 if (q.answer !== null && q.answer !== undefined) {
                     answer = q.answer;
                 } else if (q.masterFieldNo && clientLE) {
-                    const subjectLeId = clientLE.legalEntityId || clientLE.id;
-                    const ownerScopeId = clientLE.id;
+                    const subjectLeId = clientLE.legalEntityId || null;
+                    const ownerScopeId = (await KycStateService.resolveScopeId(clientLE.id)) || undefined;
                     const snapshotDate = q.releasedAt ? new Date(q.releasedAt) : undefined;
 
                     try {
-                        derivedVal = await KycStateService.getAuthoritativeValue(
-                            { subjectLeId },
-                            q.masterFieldNo,
-                            ownerScopeId,
-                            snapshotDate
-                        );
+                        const isMulti = fieldDef?.isMultiValue || false;
+                        if (isMulti) {
+                            const collection = await KycStateService.getAuthoritativeCollection(
+                                { subjectLeId, clientLEId: clientLE.id },
+                                q.masterFieldNo,
+                                ownerScopeId,
+                                snapshotDate
+                            );
+                            if (collection.length > 0) {
+                                derivedVal = {
+                                    value: collection.map((c: any) => c.value),
+                                    sourceType: collection[0].sourceType,
+                                    sourceReference: collection[0].sourceReference,
+                                    assertedAt: collection[0].assertedAt,
+                                    sourceCheckedAt: collection[0].sourceCheckedAt
+                                };
+                            }
+                        } else {
+                            derivedVal = await KycStateService.getAuthoritativeValue(
+                                { subjectLeId, clientLEId: clientLE.id },
+                                q.masterFieldNo,
+                                ownerScopeId,
+                                snapshotDate
+                            );
+                        }
 
                         if (derivedVal) {
                             if (derivedVal.value && typeof derivedVal.value === 'object' && derivedVal.value.explicitNone) {
@@ -743,6 +813,8 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                     sourceReference: relSourceRef,
                     timestamp: q.releasedAt || null,
                     lastValidatedAt,
+                    entityIdentifier: derivedVal?.entityIdentifier || relProv.entityIdentifier || null,
+                    entityUrl: derivedVal?.entityUrl || relProv.entityUrl || null,
                     releaseProvenance: relProv
                 };
                 documents = (q.documents || []).map((d: any) => ({
@@ -760,16 +832,35 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                 if (q.answer !== null && q.answer !== undefined) {
                     answer = q.answer;
                 } else if (q.masterFieldNo && clientLE) {
-                    const subjectLeId = clientLE.legalEntityId || clientLE.id;
-                    const ownerScopeId = clientLE.id;
+                    const subjectLeId = clientLE.legalEntityId || null;
+                    const ownerScopeId = (await KycStateService.resolveScopeId(clientLE.id)) || undefined;
 
                     try {
-                        derivedVal = await KycStateService.getAuthoritativeValue(
-                            { subjectLeId },
-                            q.masterFieldNo,
-                            ownerScopeId,
-                            undefined
-                        );
+                        const isMulti = fieldDef?.isMultiValue || false;
+                        if (isMulti) {
+                            const collection = await KycStateService.getAuthoritativeCollection(
+                                { subjectLeId, clientLEId: clientLE.id },
+                                q.masterFieldNo,
+                                ownerScopeId,
+                                undefined
+                            );
+                            if (collection.length > 0) {
+                                derivedVal = {
+                                    value: collection.map((c: any) => c.value),
+                                    sourceType: collection[0].sourceType,
+                                    sourceReference: collection[0].sourceReference,
+                                    assertedAt: collection[0].assertedAt,
+                                    sourceCheckedAt: collection[0].sourceCheckedAt
+                                };
+                            }
+                        } else {
+                            derivedVal = await KycStateService.getAuthoritativeValue(
+                                { subjectLeId, clientLEId: clientLE.id },
+                                q.masterFieldNo,
+                                ownerScopeId,
+                                undefined
+                            );
+                        }
 
                         if (derivedVal) {
                             if (derivedVal.value && typeof derivedVal.value === 'object' && derivedVal.value.explicitNone) {
@@ -784,23 +875,93 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                     } catch (err) {
                         console.error(`[fi.ts] SHARED live resolution failed for question ${q.id}:`, err);
                     }
+                } else if (q.masterQuestionGroupId && clientLE) {
+                    const subjectLeId = clientLE.legalEntityId || null;
+                    const ownerScopeId = (await KycStateService.resolveScopeId(clientLE.id)) || undefined;
+
+                    try {
+                        const group = await prisma.masterFieldGroup.findFirst({
+                            where: { key: q.masterQuestionGroupId, isActive: true },
+                            include: {
+                                items: {
+                                    where: { field: { isActive: true } },
+                                    include: { field: true },
+                                    orderBy: { order: 'asc' }
+                                }
+                            }
+                        });
+
+                        if (group && group.items.length > 0) {
+                            const groupValues: Record<number, any> = {};
+                            let primaryChildSource: any = null;
+
+                            for (const item of group.items) {
+                                const childDef = item.field;
+                                let childVal: any = null;
+                                if (childDef.isMultiValue) {
+                                    const collection = await KycStateService.getAuthoritativeCollection(
+                                        { subjectLeId, clientLEId: clientLE.id },
+                                        item.fieldNo,
+                                        ownerScopeId,
+                                        undefined
+                                    );
+                                    if (collection.length > 0) {
+                                        childVal = {
+                                            value: collection.map((c: any) => c.value),
+                                            sourceType: collection[0].sourceType,
+                                            sourceReference: collection[0].sourceReference,
+                                            assertedAt: collection[0].assertedAt,
+                                            sourceCheckedAt: collection[0].sourceCheckedAt
+                                        };
+                                    }
+                                } else {
+                                    childVal = await KycStateService.getAuthoritativeValue(
+                                        { subjectLeId, clientLEId: clientLE.id },
+                                        item.fieldNo,
+                                        ownerScopeId,
+                                        undefined
+                                    );
+                                }
+
+                                if (childVal && childVal.value !== null && childVal.value !== undefined && childVal.value !== '') {
+                                    const vals = Array.isArray(childVal.value) ? childVal.value : [childVal.value];
+                                    await enrichPartyReferences(vals);
+                                    await enrichAddressReferences(vals);
+                                    groupValues[item.fieldNo] = childVal.value;
+                                    if (!primaryChildSource) {
+                                        primaryChildSource = childVal;
+                                    }
+                                }
+                            }
+
+                            if (Object.keys(groupValues).length > 0) {
+                                answer = groupValues;
+                                derivedVal = primaryChildSource || {
+                                    sourceType: 'USER_INPUT',
+                                    sourceReference: null,
+                                    assertedAt: new Date()
+                                };
+                            }
+                        }
+                    } catch (err) {
+                        console.error(`[fi.ts] SHARED group live resolution failed for question ${q.id}:`, err);
+                    }
                 }
 
                 const sharedSourceType = derivedVal?.sourceType || "USER_INPUT";
                 const sharedSourceRef = derivedVal?.sourceReference || null;
                 const sharedSourceLabel = derivedVal ? getSourceDisplayName(sharedSourceType, sharedSourceRef) : "Provisional Shared";
-                const isSharedUserInput = sharedSourceType === "USER_INPUT";
-
-                const lastValidatedAt = isSharedUserInput
-                    ? (q.sharedAt || null)
-                    : (derivedVal?.sourceCheckedAt || derivedVal?.assertedAt || null);
+                const sharedTimestamp = q.sharedAt || derivedVal?.assertedAt || null;
+                const lastValidatedAt = derivedVal?.sourceCheckedAt || (sharedSourceType === 'USER_INPUT' ? (derivedVal?.assertedAt || q.sharedAt) : (derivedVal?.assertedAt || null));
 
                 provenance = {
                     source: sharedSourceLabel || "Provisional Shared",
                     sourceType: sharedSourceType,
                     sourceReference: sharedSourceRef,
-                    timestamp: q.sharedAt || null,
+                    timestamp: sharedTimestamp,
                     lastValidatedAt,
+                    entityIdentifier: derivedVal?.entityIdentifier || null,
+                    entityUrl: derivedVal?.entityUrl || null,
                     releaseProvenance: null
                 };
                 documents = (q.documents || []).map((d: any) => ({
@@ -814,12 +975,14 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                 answerVisibility = "NOT_SHARED";
             }
 
+            const leDisplayName = clientOrgName ? `${clientLE?.name || "Unknown"} (${clientOrgName})` : (clientLE?.name || "Unknown");
+
             items.push({
                 id: q.id,
                 supplierOrgId: fiOrgId,
                 relationshipId: engagement?.id || "",
                 clientLEId: clientLE?.id || "",
-                clientLEName: clientLE?.name || "Unknown",
+                clientLEName: leDisplayName,
                 clientOrganizationName: clientOrgName,
 
                 questionnaireId: q.questionnaire.id,
@@ -846,8 +1009,9 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
                 releasedAt,
 
                 text: q.text,
-                leName: clientLE?.name || "Unknown",
+                leName: leDisplayName,
                 answerType: q.expectedDataType || "TEXT",
+                appDataType: fieldDef?.appDataType || q.expectedDataType || undefined,
                 isLocked: q.isLocked ?? false,
                 sourceSectionId: q.sourceSectionId || null,
 
@@ -863,6 +1027,29 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
 
     const questions: SupplierQuestionView[] = transformedQuestionsNested.flat();
 
+    // Query all active engagements to ensure every relationship appears in LE filters
+    const activeEngagements = await prisma.fIEngagement.findMany({
+        where: engagementFilter,
+        select: {
+            clientLE: {
+                select: {
+                    name: true,
+                    owners: {
+                        where: { endAt: null },
+                        select: { party: { select: { name: true } } }
+                    }
+                }
+            }
+        }
+    });
+    const allActiveLENames = (activeEngagements || []).map((e: any) => {
+        const leName = e.clientLE?.name;
+        if (!leName) return null;
+        const ownerName = e.clientLE?.owners?.[0]?.party?.name;
+        return ownerName ? `${leName} (${ownerName})` : leName;
+    }).filter(Boolean) as string[];
+    const combinedLEs = Array.from(new Set([...allActiveLENames, ...questions.map((q) => q.clientLEName)])).sort();
+
     const notSharedCount = questions.filter(q => q.answerVisibility === "NOT_SHARED").length;
     const sharedCount = questions.filter(q => q.answerVisibility === "SHARED").length;
     const releasedCount = questions.filter(q => q.answerVisibility === "RELEASED").length;
@@ -871,7 +1058,7 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
 
     return {
         questions: parsedQuestions,
-        les: Array.from(new Set(questions.map((q) => q.clientLEName))).sort(),
+        les: combinedLEs,
         questionnaires: Array.from(new Set(questions.map((q) => q.questionnaireName))).sort(),
         categories: Array.from(new Set(questions.map((q) => q.category))).sort(),
         counts: {
@@ -883,18 +1070,34 @@ export async function getFIWorkbenchData(fiOrgId: string): Promise<FIWorkbenchDa
     };
 }
 
+export interface SupplierRelationshipGrant {
+    relationshipId: string;
+    relationshipName: string;
+    membershipId: string;
+    role: string;
+    roleLabel: string;
+}
+
 export interface SupplierTeamMemberAccessScope {
     kind: "SUPPLIER" | "RELATIONSHIPS";
     relationships?: {
         id: string;
         clientLEName: string;
+        membershipId?: string;
+        role?: string;
     }[];
 }
 
 export interface SupplierTeamMemberSummary {
     userId: string;
+    membershipId?: string;
+    fiEngagementId?: string | null;
     name: string | null;
     email: string;
+    orgRole?: string | null;
+    orgRoleLabel?: string | null;
+    orgMembershipId?: string | null;
+    relationshipGrants: SupplierRelationshipGrant[];
     role: string;
     roleLabel: string;
     accessScope: SupplierTeamMemberAccessScope;
@@ -907,6 +1110,10 @@ export interface SupplierPendingInvitationSummary {
     role: string;
     roleLabel: string;
     accessScope: string;
+    fiEngagementId?: string | null;
+    relationshipId?: string | null;
+    relationshipName?: string | null;
+    isOrgWide: boolean;
     invitedAt: Date | string;
     expiresAt: Date | string | null;
 }
@@ -918,7 +1125,6 @@ export interface SupplierTeamSummary {
 
 function formatSupplierRoleLabel(role: string): string {
     switch (role) {
-        case "SUPPLIER_ADMIN":
         case "ORG_ADMIN":
             return "Supplier Admin";
         case "ORG_MEMBER":
@@ -930,6 +1136,58 @@ function formatSupplierRoleLabel(role: string): string {
         default:
             return role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
     }
+}
+
+export async function checkIsSupplierOrgAdmin(fiOrgId: string): Promise<boolean> {
+    const identity = await getIdentity();
+    if (!identity?.userId) return false;
+    const adminMem = await prisma.membership.findFirst({
+        where: { userId: identity.userId, organizationId: fiOrgId, role: "ORG_ADMIN" }
+    });
+    return !!adminMem;
+}
+
+export async function getManageableRelationshipsForSupplier(fiOrgId: string): Promise<{ id: string; clientLEName: string }[]> {
+    const identity = await getIdentity();
+    if (!identity?.userId) return [];
+
+    const memberships = await prisma.membership.findMany({
+        where: { userId: identity.userId },
+        include: { fiEngagement: { select: { fiOrgId: true } } }
+    });
+
+    const isSupplierOrgAdmin = memberships.some(
+        (m: any) => m.organizationId === fiOrgId && m.role === "ORG_ADMIN"
+    );
+
+    if (isSupplierOrgAdmin) {
+        const rels = await prisma.fIEngagement.findMany({
+            where: { fiOrgId, isDeleted: false },
+            include: { clientLE: { select: { name: true } } },
+            orderBy: { id: "desc" }
+        });
+        return rels.map((r: any) => ({
+            id: r.id,
+            clientLEName: r.clientLE?.name || "Unnamed ClientLE"
+        }));
+    }
+
+    const relAdminEngIds = memberships
+        .filter((m: any) => m.role === "RELATIONSHIP_ADMIN" && m.fiEngagementId && m.fiEngagement?.fiOrgId === fiOrgId)
+        .map((m: any) => m.fiEngagementId as string);
+
+    if (relAdminEngIds.length === 0) return [];
+
+    const rels = await prisma.fIEngagement.findMany({
+        where: { id: { in: relAdminEngIds }, isDeleted: false },
+        include: { clientLE: { select: { name: true } } },
+        orderBy: { id: "desc" }
+    });
+
+    return rels.map((r: any) => ({
+        id: r.id,
+        clientLEName: r.clientLE?.name || "Unnamed ClientLE"
+    }));
 }
 
 export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierTeamSummary> {
@@ -944,23 +1202,34 @@ export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierT
     });
 
     type UserMemRec = typeof userMemberships[number];
-    const isSystemAdmin = userMemberships.some((m: UserMemRec) => m.role === "SYSTEM_ADMIN");
-    const isSupplierMember = userMemberships.some(
-        (m: UserMemRec) => m.organizationId === fiOrgId || m.fiEngagement?.fiOrgId === fiOrgId
+    const isSupplierOrgAdmin = userMemberships.some(
+        (m: UserMemRec) => m.organizationId === fiOrgId && m.role === "ORG_ADMIN"
     );
+    const userEngagementIds = userMemberships
+        .filter((m: UserMemRec) => m.fiEngagementId && m.fiEngagement?.fiOrgId === fiOrgId)
+        .map((m: UserMemRec) => m.fiEngagementId)
+        .filter(Boolean) as string[];
 
-    if (!isSystemAdmin && !isSupplierMember) {
+    // Plain Supplier ORG_MEMBER with no Relationship membership receives zero team metadata
+    if (!isSupplierOrgAdmin && userEngagementIds.length === 0) {
         return { members: [], pendingInvitations: [] };
     }
 
-    // Fetch active memberships for this Supplier organization
-    const rawMemberships = await prisma.membership.findMany({
-        where: {
+    const rawMembershipsWhere: any = isSupplierOrgAdmin
+        ? {
             OR: [
                 { organizationId: fiOrgId },
                 { fiEngagement: { fiOrgId, isDeleted: false } }
             ]
-        },
+        }
+        : {
+            fiEngagementId: { in: userEngagementIds },
+            fiEngagement: { isDeleted: false }
+        };
+
+    // Fetch active memberships for this Supplier organization (or caller's scoped relationships)
+    const rawMemberships = await prisma.membership.findMany({
+        where: rawMembershipsWhere,
         include: {
             user: {
                 select: { id: true, name: true, email: true }
@@ -981,53 +1250,72 @@ export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierT
     rawMemberships.forEach((m: any) => {
         if (!m.user) return;
         const uId = m.user.id;
-        const existing = memberMap.get(uId);
+        let existing = memberMap.get(uId);
 
         const isSupplierWide = m.organizationId === fiOrgId;
         const roleLabel = formatSupplierRoleLabel(m.role);
 
         if (!existing) {
-            const accessScope: SupplierTeamMemberAccessScope = isSupplierWide
-                ? { kind: "SUPPLIER" }
-                : {
-                      kind: "RELATIONSHIPS",
-                      relationships: m.fiEngagement
-                          ? [{ id: m.fiEngagement.id, clientLEName: m.fiEngagement.clientLE?.name || "Unknown ClientLE" }]
-                          : []
-                  };
-
-            memberMap.set(uId, {
+            existing = {
                 userId: uId,
+                membershipId: m.id,
+                fiEngagementId: m.fiEngagementId || null,
                 name: m.user.name || null,
                 email: m.user.email || "No Email",
+                orgRole: isSupplierWide ? m.role : null,
+                orgRoleLabel: isSupplierWide ? roleLabel : null,
+                orgMembershipId: isSupplierWide ? m.id : null,
+                relationshipGrants: [],
                 role: m.role,
                 roleLabel,
-                accessScope,
+                accessScope: isSupplierWide ? { kind: "SUPPLIER" } : { kind: "RELATIONSHIPS", relationships: [] },
                 joinedAt: m.createdAt ? m.createdAt.toISOString() : null
-            });
-        } else {
-            // Upgrade access scope to SUPPLIER if supplier-wide membership exists
-            if (isSupplierWide) {
-                existing.accessScope = { kind: "SUPPLIER" };
-                if (m.role === "SUPPLIER_ADMIN" || m.role === "ORG_ADMIN") {
-                    existing.role = m.role;
-                    existing.roleLabel = roleLabel;
-                }
-            } else if (existing.accessScope.kind === "RELATIONSHIPS" && m.fiEngagement) {
-                const rels = existing.accessScope.relationships || [];
-                if (!rels.some((r) => r.id === m.fiEngagement.id)) {
-                    rels.push({
-                        id: m.fiEngagement.id,
-                        clientLEName: m.fiEngagement.clientLE?.name || "Unknown ClientLE"
-                    });
-                }
+            };
+            memberMap.set(uId, existing);
+        }
+
+        if (isSupplierWide) {
+            existing.orgRole = m.role;
+            existing.orgRoleLabel = roleLabel;
+            existing.orgMembershipId = m.id;
+            existing.accessScope.kind = "SUPPLIER";
+            if (m.role === "ORG_ADMIN") {
+                existing.role = m.role;
+                existing.roleLabel = roleLabel;
+                existing.membershipId = m.id;
+            }
+        }
+
+        if (m.fiEngagement) {
+            const relId = m.fiEngagement.id;
+            const relName = m.fiEngagement.clientLE?.name || "Unknown ClientLE";
+
+            if (!existing.relationshipGrants.some((g) => g.membershipId === m.id)) {
+                existing.relationshipGrants.push({
+                    relationshipId: relId,
+                    relationshipName: relName,
+                    membershipId: m.id,
+                    role: m.role,
+                    roleLabel: formatSupplierRoleLabel(m.role),
+                });
+            }
+
+            if (!existing.accessScope.relationships) {
+                existing.accessScope.relationships = [];
+            }
+            if (!existing.accessScope.relationships.some((r) => r.id === relId)) {
+                existing.accessScope.relationships.push({
+                    id: relId,
+                    clientLEName: relName,
+                    membershipId: m.id,
+                    role: m.role
+                });
             }
         }
     });
 
-    // Fetch pending invitations for this Supplier organization or its Relationships
-    const pendingInvites = await prisma.invitation.findMany({
-        where: {
+    const pendingInvitesWhere: any = isSupplierOrgAdmin
+        ? {
             usedAt: null,
             revokedAt: null,
             expiresAt: { gt: new Date() },
@@ -1035,7 +1323,18 @@ export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierT
                 { organizationId: fiOrgId },
                 { fiEngagement: { fiOrgId, isDeleted: false } }
             ]
-        },
+        }
+        : {
+            usedAt: null,
+            revokedAt: null,
+            expiresAt: { gt: new Date() },
+            fiEngagementId: { in: userEngagementIds },
+            fiEngagement: { isDeleted: false }
+        };
+
+    // Fetch pending invitations for this Supplier organization (or caller's scoped relationships)
+    const pendingInvites = await prisma.invitation.findMany({
+        where: pendingInvitesWhere,
         include: {
             fiEngagement: {
                 select: { clientLE: { select: { name: true } } }
@@ -1046,10 +1345,11 @@ export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierT
 
     const pendingSummaries: SupplierPendingInvitationSummary[] = pendingInvites.map((inv: any) => {
         const isOrgWide = inv.organizationId === fiOrgId;
+        const relName = inv.fiEngagement?.clientLE?.name || null;
         const scopeStr = isOrgWide
             ? "All Relationships"
-            : inv.fiEngagement?.clientLE?.name
-            ? inv.fiEngagement.clientLE.name
+            : relName
+            ? relName
             : "Relationship Access";
 
         return {
@@ -1058,6 +1358,10 @@ export async function getSupplierTeamMembers(fiOrgId: string): Promise<SupplierT
             role: inv.role,
             roleLabel: formatSupplierRoleLabel(inv.role),
             accessScope: scopeStr,
+            fiEngagementId: inv.fiEngagementId || null,
+            relationshipId: inv.fiEngagementId || null,
+            relationshipName: relName,
+            isOrgWide,
             invitedAt: inv.createdAt ? inv.createdAt.toISOString() : new Date().toISOString(),
             expiresAt: inv.expiresAt ? inv.expiresAt.toISOString() : null
         };
@@ -1089,13 +1393,13 @@ export async function getFIDashboardQuestions(filters?: { clientLEId?: string; q
 
     if (filters?.fiOrgId) {
         const membership = await prisma.membership.findFirst({
-            where: { userId, organizationId: filters.fiOrgId, organization: { types: { has: "FI" } } }
+            where: { userId, organizationId: filters.fiOrgId, organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } } }
         });
         if (!membership) return [];
         targetFiOrgIds = [filters.fiOrgId];
     } else {
         const memberships = await prisma.membership.findMany({
-            where: { userId, organization: { types: { has: "FI" } }, organizationId: { not: null } },
+            where: { userId, organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } }, organizationId: { not: null } },
             select: { organizationId: true }
         });
         targetFiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
@@ -1147,7 +1451,7 @@ export async function getFIQueries() {
     const { userId } = identity;
 
     const memberships = await prisma.membership.findMany({
-        where: { userId, organization: { types: { has: "FI" } }, organizationId: { not: null } },
+        where: { userId, organization: { types: { hasSome: [...SUPPLIER_ORG_TYPES] } }, organizationId: { not: null } },
         select: { organizationId: true }
     });
     const fiOrgIds = memberships.map((m: any) => m.organizationId).filter(Boolean) as string[];
@@ -1412,23 +1716,26 @@ export async function getSupplierRelationshipsSummary(fiOrgId: string): Promise<
 
     const memberships = await prisma.membership.findMany({
         where: { userId },
-        select: { organizationId: true, fiEngagementId: true }
+        select: { organizationId: true, fiEngagementId: true, role: true }
     });
 
     type MembershipRec = typeof memberships[number];
-    const hasOrgAccess = memberships.some((m: MembershipRec) => m.organizationId === fiOrgId);
+    const isSupplierOrgAdmin = memberships.some((m: MembershipRec) => m.organizationId === fiOrgId && m.role === "ORG_ADMIN");
     const userEngagementIds = memberships.map((m: MembershipRec) => m.fiEngagementId).filter(Boolean) as string[];
 
-    if (!hasOrgAccess && userEngagementIds.length === 0) {
+    // Plain Supplier ORG_MEMBER with no Relationship membership receives zero relationships
+    if (!isSupplierOrgAdmin && userEngagementIds.length === 0) {
         return [];
     }
+
+    const hasOperationalAccess = userEngagementIds.length > 0;
 
     const engagements = await prisma.fIEngagement.findMany({
         where: {
             fiOrgId,
             isDeleted: false,
             clientLE: { isDeleted: false },
-            ...(!hasOrgAccess ? { id: { in: userEngagementIds } } : {})
+            ...(!isSupplierOrgAdmin ? { id: { in: userEngagementIds } } : {})
         },
         include: {
             clientLE: {
@@ -1439,19 +1746,24 @@ export async function getSupplierRelationshipsSummary(fiOrgId: string): Promise<
                     }
                 }
             },
-            questionnaireInstances: {
-                where: { isDeleted: false },
-                include: {
-                    questions: {
-                        select: {
-                            id: true,
-                            status: true,
-                            sharedAt: true,
-                            releasedAt: true
+            ...(hasOperationalAccess ? {
+                questionnaireInstances: {
+                    where: {
+                        isDeleted: false,
+                        fiEngagementId: { in: userEngagementIds }
+                    },
+                    include: {
+                        questions: {
+                            select: {
+                                id: true,
+                                status: true,
+                                sharedAt: true,
+                                releasedAt: true
+                            }
                         }
                     }
                 }
-            }
+            } : {})
         },
         orderBy: { clientLE: { name: "asc" } }
     });
@@ -1467,59 +1779,65 @@ export async function getSupplierRelationshipsSummary(fiOrgId: string): Promise<
         const clientOrgId = ownerParty?.id || `unassigned-${eng.clientLEId}`;
         const clientOrgName = ownerParty?.name || eng.clientLE?.name || "Independent Client Legal Entities";
 
+        const isOperational = userEngagementIds.includes(eng.id);
+
         let engTotal = 0;
         let engNotShared = 0;
         let engShared = 0;
         let engReleased = 0;
 
-        const qSummaries: SupplierRelationshipQuestionnaireSummary[] = (eng.questionnaireInstances || []).map((q: any) => {
-            let qTotal = 0;
-            let qNotShared = 0;
-            let qShared = 0;
-            let qReleased = 0;
-            let latestTimestamp: Date | null = null;
+        let qSummaries: SupplierRelationshipQuestionnaireSummary[] = [];
 
-            (q.questions || []).forEach((quest: any) => {
-                qTotal++;
-                if (quest.status === "SHARED") {
-                    qShared++;
-                    const dt = quest.sharedAt ? new Date(quest.sharedAt) : null;
-                    if (dt && (!latestTimestamp || dt > latestTimestamp)) {
-                        latestTimestamp = dt;
+        if (isOperational && eng.questionnaireInstances) {
+            qSummaries = eng.questionnaireInstances.map((q: any) => {
+                let qTotal = 0;
+                let qNotShared = 0;
+                let qShared = 0;
+                let qReleased = 0;
+                let latestTimestamp: Date | null = null;
+
+                (q.questions || []).forEach((quest: any) => {
+                    qTotal++;
+                    if (quest.status === "SHARED") {
+                        qShared++;
+                        const dt = quest.sharedAt ? new Date(quest.sharedAt) : null;
+                        if (dt && (!latestTimestamp || dt > latestTimestamp)) {
+                            latestTimestamp = dt;
+                        }
+                    } else if (quest.status === "RELEASED") {
+                        qReleased++;
+                        const dt = quest.releasedAt ? new Date(quest.releasedAt) : null;
+                        if (dt && (!latestTimestamp || dt > latestTimestamp)) {
+                            latestTimestamp = dt;
+                        }
+                    } else {
+                        qNotShared++;
                     }
-                } else if (quest.status === "RELEASED") {
-                    qReleased++;
-                    const dt = quest.releasedAt ? new Date(quest.releasedAt) : null;
-                    if (dt && (!latestTimestamp || dt > latestTimestamp)) {
-                        latestTimestamp = dt;
-                    }
-                } else {
-                    qNotShared++;
-                }
+                });
+
+                engTotal += qTotal;
+                engNotShared += qNotShared;
+                engShared += qShared;
+                engReleased += qReleased;
+
+                const latestIso: string | null = latestTimestamp ? (latestTimestamp as Date).toISOString() : null;
+
+                return {
+                    id: q.id,
+                    questionnaireId: q.id,
+                    name: q.name,
+                    version: q.version || null,
+                    referenceCode: q.code || q.referenceCode || null,
+                    questionCounts: {
+                        total: qTotal,
+                        notShared: qNotShared,
+                        shared: qShared,
+                        released: qReleased
+                    },
+                    latestSharedOrReleasedAt: latestIso
+                };
             });
-
-            engTotal += qTotal;
-            engNotShared += qNotShared;
-            engShared += qShared;
-            engReleased += qReleased;
-
-            const latestIso: string | null = latestTimestamp ? (latestTimestamp as Date).toISOString() : null;
-
-            return {
-                id: q.id,
-                questionnaireId: q.id,
-                name: q.name,
-                version: q.version || null,
-                referenceCode: q.code || q.referenceCode || null,
-                questionCounts: {
-                    total: qTotal,
-                    notShared: qNotShared,
-                    shared: qShared,
-                    released: qReleased
-                },
-                latestSharedOrReleasedAt: latestIso
-            };
-        });
+        }
 
         const leSummary: SupplierClientLERelationshipSummary = {
             relationshipId: eng.id,

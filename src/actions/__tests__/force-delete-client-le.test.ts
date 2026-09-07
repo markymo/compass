@@ -30,9 +30,15 @@ vi.mock('@/lib/prisma', () => ({
     }
 }));
 
-vi.mock('../admin', () => ({
-    isSystemAdmin: vi.fn()
-}));
+import { Action, ensureAuthorization } from '@/lib/auth/permissions';
+
+vi.mock('@/lib/auth/permissions', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/lib/auth/permissions')>();
+    return {
+        ...actual,
+        ensureAuthorization: vi.fn(),
+    };
+});
 
 vi.mock('next/cache', () => ({
     revalidatePath: vi.fn()
@@ -45,8 +51,8 @@ describe('Hard Delete — purgeClientLE', () => {
         vi.clearAllMocks();
     });
 
-    it('rejects execution if caller is not a system admin', async () => {
-        vi.mocked(isSystemAdmin).mockResolvedValue(false);
+    it('rejects execution if caller is not authorized for SYSTEM_HARD_DELETE', async () => {
+        vi.mocked(ensureAuthorization).mockRejectedValue(new Error('Unauthorized'));
 
         const res = await purgeClientLE('le-123');
 
@@ -54,8 +60,8 @@ describe('Hard Delete — purgeClientLE', () => {
         expect(prismaMock.clientLE.findUnique).not.toHaveBeenCalled();
     });
 
-    it('executes complete 11-step transaction when caller is system admin', async () => {
-        vi.mocked(isSystemAdmin).mockResolvedValue(true);
+    it('executes complete 11-step transaction when caller is authorized for SYSTEM_HARD_DELETE', async () => {
+        vi.mocked(ensureAuthorization).mockResolvedValue(undefined as any);
         prismaMock.clientLE.findUnique.mockResolvedValue({
             id: 'le-123',
             name: 'Triki Consulting',

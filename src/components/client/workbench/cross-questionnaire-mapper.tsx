@@ -48,22 +48,26 @@ import {
     ExternalLink,
     LayoutGrid,
     Rows,
-    TableProperties
+    TableProperties,
+    Columns3
 } from "lucide-react";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { FieldDetailPanel } from "../inspection/field-detail-panel";
 import { GroupAnswerRenderer } from "../engagement/group-answer-renderer";
 import type { GroupFieldData } from "../engagement/group-answer-renderer";
 import { toast } from "sonner";
+import { showActionErrorToast } from "@/components/ui/copyable-error-toast";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { usePreferences } from "@/components/providers/user-preferences-provider";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Rdd1QuestionCard } from "./rdd1/rdd1-question-card";
 
 interface Props {
     leId: string;
     initialData: Workbench4Data;
+    disabled?: boolean;
 }
 
 // ── Display helpers ───────────────────────────────────────────────────────────
@@ -138,40 +142,92 @@ export function formatAnswerValue(value: unknown): string {
 
 
 import { classifyQuestionAnswerState } from "@/lib/metrics/question-state-types";
-import { isQuestionInPopulationScope } from "@/lib/metrics/question-scope";
+import { isQuestionInPopulationScope, deriveEligibleQuestionnaireOptions } from "@/lib/metrics/question-scope";
 
-export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
+export type RelationshipScope =
+    | { kind: "all" }
+    | { kind: "common" }
+    | { kind: "relationship"; relationshipId: string };
+
+export type WorkbenchFilterState = {
+    relationshipScope: RelationshipScope;
+    questionnaireId?: string;
+    answerState: "ALL" | "EXTERNAL" | "USER_INPUT" | "DEFAULT_RESPONSE" | "UNANSWERED";
+    mappingType: string;
+    category: string;
+    search: string;
+};
+
+export function parseWorkbenchFilterState(
+    searchParams: { get: (k: string) => string | null },
+    questions?: { engagementOrgName?: string | null; fiEngagementId?: string | null; questionnaireName?: string | null; questionnaireId?: string | null }[]
+): WorkbenchFilterState {
+    let relationshipScope: RelationshipScope = { kind: "all" };
+    const scopeParam = searchParams.get("scope");
+    const relIdParam = searchParams.get("relationshipId") || searchParams.get("relId");
+    const relNameParam = searchParams.get("rel");
+
+    if (scopeParam === "common" || relNameParam === "Common" || relIdParam === "Common") {
+        relationshipScope = { kind: "common" };
+    } else if (relIdParam && relIdParam !== "ALL") {
+        relationshipScope = { kind: "relationship", relationshipId: relIdParam };
+    } else if (relNameParam && relNameParam !== "ALL") {
+        const match = questions?.find(q => q.engagementOrgName === relNameParam && q.fiEngagementId);
+        if (match?.fiEngagementId) {
+            relationshipScope = { kind: "relationship", relationshipId: match.fiEngagementId };
+        }
+    }
+
+    let questionnaireId: string | undefined = undefined;
+    const qIdParam = searchParams.get("questionnaireId") || searchParams.get("qId");
+    const qNameParam = searchParams.get("q");
+
+    if (qIdParam && qIdParam !== "ALL") {
+        questionnaireId = qIdParam;
+    } else if (qNameParam && qNameParam !== "ALL") {
+        const match = questions?.find(q => q.questionnaireName === qNameParam && q.questionnaireId);
+        if (match?.questionnaireId) {
+            questionnaireId = match.questionnaireId;
+        }
+    }
+
+    let answerState: WorkbenchFilterState["answerState"] = "ALL";
+    const rawState = searchParams.get("answerState");
+    if (rawState) {
+        const s = rawState.toLowerCase();
+        if (s === "external") answerState = "EXTERNAL";
+        else if (s === "userinput" || s === "user_input") answerState = "USER_INPUT";
+        else if (s === "default" || s === "default_response") answerState = "DEFAULT_RESPONSE";
+        else if (s === "unanswered") answerState = "UNANSWERED";
+    }
+
+    return {
+        relationshipScope,
+        questionnaireId,
+        answerState,
+        mappingType: searchParams.get("m") || "ALL",
+        category: searchParams.get("cat") || "ALL",
+        search: searchParams.get("s") || "",
+    };
+}
+
+export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }: Props) {
     const searchParams = useSearchParams();
     const pathname = usePathname();
     const router = useRouter();
     const { preferences, updatePreference } = usePreferences();
 
-    // Initialize from URL or defaults
     const [data, setData] = useState<Workbench4Data>(initialData);
     const [search, setSearch] = useState(searchParams.get("s") || "");
-    const [relationshipIdFilter, setRelationshipIdFilter] = useState<string>(
-        searchParams.get("relationshipId") || searchParams.get("relId") || "ALL"
-    );
-    const [relFilter, setRelFilter] = useState<string>(searchParams.get("rel") || "ALL");
-    const [questionnaireIdFilter, setQuestionnaireIdFilter] = useState<string>(
-        searchParams.get("questionnaireId") || searchParams.get("qId") || "ALL"
-    );
-    const [qFilter, setQFilter] = useState<string>(searchParams.get("q") || "ALL");
-    const [mappingTypeFilter, setMappingTypeFilter] = useState<string>(searchParams.get("m") || "ALL"); // ALL, MAPPED, UNMAPPED
-    const [catFilter, setCatFilter] = useState<string>(searchParams.get("cat") || "ALL");
-    const [answerStateFilter, setAnswerStateFilter] = useState<string>(searchParams.get("answerState") || "ALL");
     const [pinnedIds, setPinnedIds] = useState<Set<string>>(new Set());
-    // Sync state whenever searchParams change (e.g. navigation or drill-down links)
+
     useEffect(() => {
         setSearch(searchParams.get("s") || "");
-        setRelationshipIdFilter(searchParams.get("relationshipId") || searchParams.get("relId") || "ALL");
-        setRelFilter(searchParams.get("rel") || "ALL");
-        setQuestionnaireIdFilter(searchParams.get("questionnaireId") || searchParams.get("qId") || "ALL");
-        setQFilter(searchParams.get("q") || "ALL");
-        setMappingTypeFilter(searchParams.get("m") || "ALL");
-        setCatFilter(searchParams.get("cat") || "ALL");
-        setAnswerStateFilter(searchParams.get("answerState") || "ALL");
     }, [searchParams]);
+
+    const filterState = useMemo(() => {
+        return parseWorkbenchFilterState(searchParams, data.questions);
+    }, [searchParams, data.questions]);
 
     // Derive unique relationship options (stable ID + org name)
     const relationshipOptions = useMemo(() => {
@@ -180,7 +236,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
             if (q.fiEngagementId && q.engagementOrgName && q.engagementOrgName !== "Common") {
                 map.set(q.fiEngagementId, { id: q.fiEngagementId, name: q.engagementOrgName });
             } else if (q.isCommon || q.engagementOrgName === "Common") {
-                map.set("Common", { id: undefined, name: "Common" });
+                map.set("Common", { id: "Common", name: "Common Questionnaires" });
             } else if (q.engagementOrgName) {
                 map.set(q.engagementOrgName, { id: undefined, name: q.engagementOrgName });
             }
@@ -189,82 +245,103 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     }, [data.questions]);
 
     const activeRelationshipValue = useMemo(() => {
-        if (relationshipIdFilter !== "ALL") {
-            const opt = relationshipOptions.find(o => o.id === relationshipIdFilter || o.name === relationshipIdFilter);
-            return opt ? (opt.id || opt.name) : relationshipIdFilter;
+        if (filterState.relationshipScope.kind === "common") {
+            return "Common";
         }
-        if (relFilter !== "ALL") return relFilter;
+        if (filterState.relationshipScope.kind === "relationship") {
+            return filterState.relationshipScope.relationshipId;
+        }
         return "ALL";
-    }, [relationshipIdFilter, relFilter, relationshipOptions]);
+    }, [filterState.relationshipScope]);
 
     const handleRelationshipSelect = (val: string) => {
         clearPinned();
         if (val === "ALL") {
-            setRelationshipIdFilter("ALL");
-            setRelFilter("ALL");
-            updateUrl({ relationshipId: null, relId: null, rel: null });
+            updateUrl({
+                relationshipId: null,
+                relId: null,
+                rel: null,
+                scope: null,
+                questionnaireId: null,
+                qId: null,
+                q: null,
+            });
+        } else if (val === "Common") {
+            updateUrl({
+                scope: "common",
+                relationshipId: null,
+                relId: null,
+                rel: null,
+                questionnaireId: null,
+                qId: null,
+                q: null,
+            });
         } else {
             const opt = relationshipOptions.find(o => o.id === val || o.name === val);
-            if (opt?.id) {
-                setRelationshipIdFilter(opt.id);
-                setRelFilter("ALL");
-                updateUrl({ relationshipId: opt.id, relId: null, rel: null });
-            } else {
-                setRelationshipIdFilter("ALL");
-                setRelFilter(val);
-                updateUrl({ relationshipId: null, relId: null, rel: val });
-            }
+            const targetId = opt?.id || val;
+            updateUrl({
+                relationshipId: targetId,
+                scope: null,
+                relId: null,
+                rel: null,
+                questionnaireId: null,
+                qId: null,
+                q: null,
+            });
         }
     };
 
-    // Derive unique questionnaire options (stable ID + name)
+    // Derive unique questionnaire options scoped to the active relationship
     const questionnaireOptions = useMemo(() => {
-        const map = new Map<string, { id?: string; name: string }>();
-        for (const q of data.questions) {
-            if (q.questionnaireId && q.questionnaireName) {
-                map.set(q.questionnaireId, { id: q.questionnaireId, name: q.questionnaireName });
-            } else if (q.questionnaireName) {
-                map.set(q.questionnaireName, { id: undefined, name: q.questionnaireName });
-            }
+        if (filterState.relationshipScope.kind === "common") {
+            return deriveEligibleQuestionnaireOptions(data.questions, {
+                relationshipId: "ALL",
+                rel: "Common",
+            }, "relationship-own");
         }
-        return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-    }, [data.questions]);
+        return deriveEligibleQuestionnaireOptions(data.questions, {
+            relationshipId: filterState.relationshipScope.kind === "relationship"
+                ? filterState.relationshipScope.relationshipId
+                : "ALL",
+            rel: "ALL",
+        }, "relationship-own");
+    }, [data.questions, filterState.relationshipScope]);
 
     const activeQuestionnaireValue = useMemo(() => {
-        if (questionnaireIdFilter !== "ALL") {
-            const opt = questionnaireOptions.find(o => o.id === questionnaireIdFilter || o.name === questionnaireIdFilter);
-            return opt ? (opt.id || opt.name) : questionnaireIdFilter;
+        if (filterState.questionnaireId) {
+            const opt = questionnaireOptions.find(o => o.id === filterState.questionnaireId || o.name === filterState.questionnaireId);
+            return opt ? (opt.id || opt.name) : filterState.questionnaireId;
         }
-        if (qFilter !== "ALL") return qFilter;
         return "ALL";
-    }, [questionnaireIdFilter, qFilter, questionnaireOptions]);
+    }, [filterState.questionnaireId, questionnaireOptions]);
 
     const handleQuestionnaireSelect = (val: string) => {
         clearPinned();
         if (val === "ALL") {
-            setQuestionnaireIdFilter("ALL");
-            setQFilter("ALL");
             updateUrl({ questionnaireId: null, qId: null, q: null });
         } else {
             const opt = questionnaireOptions.find(o => o.id === val || o.name === val);
-            if (opt?.id) {
-                setQuestionnaireIdFilter(opt.id);
-                setQFilter("ALL");
-                updateUrl({ questionnaireId: opt.id, qId: null, q: null });
-            } else {
-                setQuestionnaireIdFilter("ALL");
-                setQFilter(val);
-                updateUrl({ questionnaireId: null, qId: null, q: val });
-            }
+            const targetId = opt?.id || val;
+            updateUrl({ questionnaireId: targetId, qId: null, q: null });
         }
     };
 
-    const urlView = searchParams.get("view");
-    const viewMode = ((urlView === "flow" || urlView === "classic" || urlView === "compact")
-        ? urlView
-        : (preferences as any)?.workbenchCardView || "classic") as "classic" | "flow" | "compact";
+    const activeAnswerStateValue = useMemo(() => {
+        switch (filterState.answerState) {
+            case "EXTERNAL": return "external";
+            case "USER_INPUT": return "user_input";
+            case "DEFAULT_RESPONSE": return "default_response";
+            case "UNANSWERED": return "unanswered";
+            default: return "ALL";
+        }
+    }, [filterState.answerState]);
 
-    const handleViewChange = (mode: "classic" | "flow" | "compact") => {
+    const urlView = searchParams.get("view");
+    const viewMode = ((urlView === "flow" || urlView === "classic" || urlView === "compact" || urlView === "rdd1")
+        ? urlView
+        : (preferences as any)?.workbenchCardView || "classic") as "classic" | "flow" | "compact" | "rdd1";
+
+    const handleViewChange = (mode: "classic" | "flow" | "compact" | "rdd1") => {
         updateUrl({ view: mode });
         updatePreference("workbenchCardView", mode);
     };
@@ -311,20 +388,19 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
         : "";
 
     // Inspection Drawer State
-    const [selectedInspectionField, setSelectedInspectionField] = useState<{ fieldNo: number; name: string; customFieldId?: string } | null>(null);
+    const [selectedInspectionField, setSelectedInspectionField] = useState<{
+        fieldNo: number;
+        name: string;
+        customFieldId?: string;
+        mappingContext?: any;
+    } | null>(null);
 
     const clearAllFilters = () => {
         clearPinned();
         setSearch("");
-        setRelFilter("ALL");
-        setRelationshipIdFilter("ALL");
-        setQFilter("ALL");
-        setQuestionnaireIdFilter("ALL");
-        setCatFilter("ALL");
-        setMappingTypeFilter("ALL");
-        setAnswerStateFilter("ALL");
         updateUrl({
             s: null,
+            scope: null,
             rel: null,
             relationshipId: null,
             relId: null,
@@ -359,10 +435,12 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                     isCommon: q.isCommon,
                 },
                 {
-                    relationshipId: relationshipIdFilter,
-                    rel: relFilter,
-                    questionnaireId: questionnaireIdFilter,
-                    q: qFilter,
+                    isCommon: filterState.relationshipScope.kind === "common",
+                    relationshipId: filterState.relationshipScope.kind === "relationship"
+                        ? filterState.relationshipScope.relationshipId
+                        : null,
+                    questionnaireId: filterState.questionnaireId,
+                    scopeMode: "relationship-own",
                 }
             );
             if (!matchesScope) return false;
@@ -372,21 +450,21 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
             if (!matchesSearch) return false;
 
             // 3. Category
-            const matchesCat = catFilter === "ALL" || q.masterFieldCategory === catFilter;
+            const matchesCat = filterState.category === "ALL" || q.masterFieldCategory === filterState.category;
             if (!matchesCat) return false;
 
             // 4. Mapping Status (m)
             const isMapped = !!(q.masterFieldNo || q.masterQuestionGroupId || (q as any).customFieldDefinitionId);
             const isPinned = pinnedIds.has(q.id);
             const matchesMapping =
-                mappingTypeFilter === "ALL" ||
-                (mappingTypeFilter === "MAPPED" && isMapped) ||
-                (mappingTypeFilter === "UNMAPPED" && !isMapped) ||
+                filterState.mappingType === "ALL" ||
+                (filterState.mappingType === "MAPPED" && isMapped) ||
+                (filterState.mappingType === "UNMAPPED" && !isMapped) ||
                 isPinned;
             if (!matchesMapping) return false;
 
             // 5. Answer State (answerState) - Separate filter dimension using shared V2 classifier
-            if (answerStateFilter !== "ALL") {
+            if (filterState.answerState !== "ALL") {
                 const hasNonEmptyValue = (val: any): boolean => {
                     if (val === null || val === undefined || val === "") return false;
                     if (typeof val === "object" && !Array.isArray(val) && !(val instanceof Date)) {
@@ -401,12 +479,13 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                     )
                 );
 
-                const rawSource = q.canonicalDisplayModel?.source?.type || q.masterDataSource;
+                const rawSource = q.sourceType || q.canonicalDisplayModel?.source?.type || q.masterDataSource;
                 const hasTimestamp = Boolean(q.canonicalDisplayModel?.source?.lastValidatedAt || q.masterDataUpdatedAt || q.canonicalDisplayModel?.source?.timestamp);
                 const isCheckedNoData = q.canonicalDisplayModel?.state === "CHECKED_NO_DATA" ||
                     (q.canonicalDisplayModel?.state === "NO_DATA" && Boolean(rawSource) && hasTimestamp);
 
                 const hasAnswer = Boolean(
+                    q.hasAnswer ||
                     q.canonicalDisplayModel?.state === "POPULATED" ||
                     q.canonicalDisplayModel?.state === "EXPLICIT_NONE" ||
                     isCheckedNoData ||
@@ -417,20 +496,22 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                     (q.answer && q.answer.trim().length > 0 && q.answer !== "null" && q.answer !== "{}")
                 );
 
-                const isDefaultState = q.canonicalDisplayModel?.state === "DEFAULT" ||
+                const isDefaultState = q.displayState === "DEFAULT" ||
+                    q.displayState === "DEFAULT_RESPONSE" ||
+                    q.canonicalDisplayModel?.state === "DEFAULT" ||
                     q.canonicalDisplayModel?.state === "DEFAULT_RESPONSE" ||
                     q.canonicalDisplayModel?.source?.type === "DEFAULT" ||
                     (!hasNonEmptyValue(q.masterDataValue) && hasGroupDefault);
 
                 const sourceType = isDefaultState
                     ? "DEFAULT_RESPONSE"
-                    : (q.canonicalDisplayModel?.source?.type || q.masterDataSource || null);
-                const isScoped = Boolean(q.canonicalDisplayModel?.isScoped);
-                const evidenceProvider = q.canonicalDisplayModel?.source?.reference || null;
-                const displayState = isDefaultState ? "DEFAULT_RESPONSE" : (q.canonicalDisplayModel?.state || null);
+                    : (q.sourceType || q.canonicalDisplayModel?.source?.type || q.masterDataSource || null);
+                const isScoped = Boolean(q.isScoped || q.canonicalDisplayModel?.isScoped);
+                const evidenceProvider = q.evidenceProvider || q.canonicalDisplayModel?.source?.reference || null;
+                const displayState = isDefaultState ? "DEFAULT_RESPONSE" : (q.displayState || q.canonicalDisplayModel?.state || null);
 
                 const category = classifyQuestionAnswerState(hasAnswer, sourceType, isScoped, evidenceProvider, displayState);
-                if (category !== answerStateFilter.toUpperCase()) {
+                if (category !== filterState.answerState) {
                     return false;
                 }
             }
@@ -440,24 +521,13 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     }, [
         data.questions,
         search,
-        relationshipIdFilter,
-        relFilter,
-        questionnaireIdFilter,
-        qFilter,
-        mappingTypeFilter,
+        filterState,
         pinnedIds,
-        catFilter,
-        answerStateFilter,
     ]);
 
     // 2. Handlers
     const clearPinned = () => {
         if (pinnedIds.size > 0) setPinnedIds(new Set());
-    };
-
-    const handleFilterChange = (setter: (v: string) => void) => (val: string) => {
-        setter(val);
-        clearPinned();
     };
 
     const handleMap = async (questionId: string, val: string) => {
@@ -628,12 +698,12 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
     return (
         <div className="space-y-6">
             {/* Toolbar */}
-            <div className="flex flex-wrap items-center gap-4 bg-white p-4 rounded-md border border-slate-200 shadow-sm">
+            <div className="flex flex-wrap items-center gap-4 bg-card text-card-foreground p-4 rounded-md border border-border shadow-sm">
                 <div className="relative flex-1 min-w-[300px]">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="Search questions..."
-                        className="pl-9 bg-slate-50/50 border-slate-200"
+                        className="pl-9 bg-muted/50 border-border text-foreground"
                         value={search}
                         onChange={(e) => {
                             const val = e.target.value;
@@ -646,24 +716,24 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
 
                 <div className="flex items-center gap-2">
                     {isAutoFiltered && (
-                        <Badge variant="outline" className="mr-2 bg-indigo-50 text-indigo-600 border-indigo-100 flex items-center gap-1.5 py-1 px-2 animate-in fade-in slide-in-from-right-2 duration-500">
+                        <Badge variant="outline" className="mr-2 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 flex items-center gap-1.5 py-1 px-2 animate-in fade-in slide-in-from-right-2 duration-500">
                             <Sparkles className="h-3 w-3" />
                             <span className="text-[10px] font-bold uppercase tracking-wider">Filters Applied</span>
                             <button 
                                 onClick={clearAllFilters}
-                                className="ml-1 hover:text-indigo-800 transition-colors"
+                                className="ml-1 hover:text-indigo-800 dark:hover:text-indigo-200 transition-colors"
                             >
                                 <X className="h-3 w-3" />
                             </button>
                         </Badge>
                     )}
-                    <Filter className="h-4 w-4 text-slate-500 mr-1" />
+                    <Filter className="h-4 w-4 text-muted-foreground mr-1" />
 
                     <Select value={activeRelationshipValue} onValueChange={handleRelationshipSelect}>
-                        <SelectTrigger className="w-[180px] bg-slate-50/50">
+                        <SelectTrigger className="w-[180px] bg-muted/50 border-border text-foreground">
                             <SelectValue placeholder="Relationship" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-card text-card-foreground border-border">
                             <SelectItem value="ALL">All Relationships</SelectItem>
                             {relationshipOptions.map((opt) => (
                                 <SelectItem key={opt.id || opt.name} value={opt.id || opt.name}>
@@ -674,10 +744,10 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                     </Select>
 
                     <Select value={activeQuestionnaireValue} onValueChange={handleQuestionnaireSelect}>
-                        <SelectTrigger className="w-[200px] bg-slate-50/50">
+                        <SelectTrigger className="w-[200px] bg-muted/50 border-border text-foreground">
                             <SelectValue placeholder="Questionnaire" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-card text-card-foreground border-border">
                             <SelectItem value="ALL">All Questionnaires</SelectItem>
                             {questionnaireOptions.map((opt) => (
                                 <SelectItem key={opt.id || opt.name} value={opt.id || opt.name}>
@@ -687,14 +757,14 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         </SelectContent>
                     </Select>
 
-                    <Select value={catFilter} onValueChange={(val) => {
-                        handleFilterChange(setCatFilter)(val);
+                    <Select value={filterState.category} onValueChange={(val) => {
+                        clearPinned();
                         updateUrl({ cat: val });
                     }}>
-                        <SelectTrigger className="w-[160px] bg-slate-50/50">
+                        <SelectTrigger className="w-[160px] bg-muted/50 border-border text-foreground">
                             <SelectValue placeholder="Category" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-card text-card-foreground border-border">
                             <SelectItem value="ALL">All Categories</SelectItem>
                             {availableCategories.map((cat: any) => (
                                 <SelectItem key={cat} value={cat}>{cat}</SelectItem>
@@ -702,28 +772,28 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         </SelectContent>
                     </Select>
 
-                    <Select value={mappingTypeFilter} onValueChange={(val) => {
-                        handleFilterChange(setMappingTypeFilter)(val);
+                    <Select value={filterState.mappingType} onValueChange={(val) => {
+                        clearPinned();
                         updateUrl({ m: val });
                     }}>
-                        <SelectTrigger className="w-[150px] bg-slate-50/50">
+                        <SelectTrigger className="w-[150px] bg-muted/50 border-border text-foreground">
                             <SelectValue placeholder="Mapping" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-card text-card-foreground border-border">
                             <SelectItem value="ALL">All Statuses</SelectItem>
                             <SelectItem value="MAPPED">Mapped</SelectItem>
                             <SelectItem value="UNMAPPED">Unmapped</SelectItem>
                         </SelectContent>
                     </Select>
 
-                    <Select value={answerStateFilter} onValueChange={(val) => {
-                        handleFilterChange(setAnswerStateFilter)(val);
+                    <Select value={activeAnswerStateValue} onValueChange={(val) => {
+                        clearPinned();
                         updateUrl({ answerState: val });
                     }}>
-                        <SelectTrigger className="w-[170px] bg-slate-50/50">
+                        <SelectTrigger className="w-[170px] bg-muted/50 border-border text-foreground">
                             <SelectValue placeholder="Answer State" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-card text-card-foreground border-border">
                             <SelectItem value="ALL">All Answer States</SelectItem>
                             <SelectItem value="external">External Answers</SelectItem>
                             <SelectItem value="user_input">User Input</SelectItem>
@@ -736,19 +806,19 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
 
             {/* Results Counters & View Switcher */}
             <div className="flex items-center justify-between px-2">
-                <div className="text-sm text-slate-500">
-                    Showing <span className="font-semibold text-slate-900">{filteredQuestions.length}</span> questions
-                    {mappingTypeFilter !== "ALL" && ` (${mappingTypeFilter.toLowerCase()})`}
+                <div className="text-sm text-muted-foreground">
+                    Showing <span className="font-semibold text-foreground">{filteredQuestions.length}</span> questions
+                    {filterState.mappingType !== "ALL" && ` (${filterState.mappingType.toLowerCase()})`}
                 </div>
-                <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-lg border border-slate-200/60">
+                <div className="flex items-center gap-1 bg-muted/80 p-1 rounded-lg border border-border">
                     <Button
                         variant="ghost"
                         size="sm"
                         className={cn(
                             "h-7 px-2.5 text-xs font-medium gap-1.5 transition-all",
                             viewMode === "classic"
-                                ? "bg-white text-slate-900 shadow-sm border border-slate-200/80 font-semibold"
-                                : "text-slate-500 hover:text-slate-800"
+                                ? "bg-card text-foreground shadow-sm border border-border font-semibold"
+                                : "text-muted-foreground hover:text-foreground"
                         )}
                         onClick={() => handleViewChange("classic")}
                     >
@@ -761,8 +831,8 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         className={cn(
                             "h-7 px-2.5 text-xs font-medium gap-1.5 transition-all",
                             viewMode === "flow"
-                                ? "bg-white text-slate-900 shadow-sm border border-slate-200/80 font-semibold"
-                                : "text-slate-500 hover:text-slate-800"
+                                ? "bg-card text-foreground shadow-sm border border-border font-semibold"
+                                : "text-muted-foreground hover:text-foreground"
                         )}
                         onClick={() => handleViewChange("flow")}
                     >
@@ -775,31 +845,93 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                         className={cn(
                             "h-7 px-2.5 text-xs font-medium gap-1.5 transition-all",
                             viewMode === "compact"
-                                ? "bg-white text-slate-900 shadow-sm border border-slate-200/80 font-semibold"
-                                : "text-slate-500 hover:text-slate-800"
+                                ? "bg-card text-foreground shadow-sm border border-border font-semibold"
+                                : "text-muted-foreground hover:text-foreground"
                         )}
                         onClick={() => handleViewChange("compact")}
                     >
                         <TableProperties className="h-3.5 w-3.5" />
                         Compact
                     </Button>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className={cn(
+                            "h-7 px-2.5 text-xs font-medium gap-1.5 transition-all",
+                            viewMode === "rdd1"
+                                ? "bg-card text-foreground shadow-sm border border-border font-semibold"
+                                : "text-muted-foreground hover:text-foreground"
+                        )}
+                        onClick={() => handleViewChange("rdd1")}
+                    >
+                        <Columns3 className="h-3.5 w-3.5" />
+                        RDD1
+                    </Button>
                 </div>
             </div>
 
             {/* Question List */}
-            {viewMode === "compact" ? (
-                <Card className="shadow-sm border border-slate-200 overflow-visible bg-white">
+            {viewMode === "rdd1" ? (
+                filteredQuestions.length > 0 ? (
+                    <div className="space-y-4">
+                        {filteredQuestions.map((q: any, idx: number) => (
+                            <Rdd1QuestionCard
+                                key={q.id}
+                                question={q}
+                                leId={leId}
+                                masterFields={data.masterFields}
+                                masterGroups={data.masterGroups}
+                                customFields={data.customFields}
+                                raNameLookup={data.raNameLookup}
+                                disabled={isPending || disabled}
+                                onInspectMapping={() => {
+                                    const currentMappingVal = q.masterFieldNo
+                                        ? `master:${q.masterFieldNo}${q.masterFieldProjectionPath ? `:${q.masterFieldProjectionPath}` : ''}`
+                                        : q.masterQuestionGroupId
+                                        ? `group:${q.masterQuestionGroupId}`
+                                        : (q as any).customFieldDefinitionId
+                                        ? `custom:${(q as any).customFieldDefinitionId}`
+                                        : null;
+
+                                    setSelectedInspectionField({
+                                        fieldNo: q.masterFieldNo || 0,
+                                        name: q.canonicalDisplayModel?.fieldName || q.text,
+                                        customFieldId: (q as any).customFieldDefinitionId,
+                                        mappingContext: {
+                                            questionId: q.id,
+                                            questionText: q.text,
+                                            currentMappingValue: currentMappingVal,
+                                            onMap: (val: string) => handleMap(q.id, val),
+                                            masterFields: data.masterFields,
+                                            masterGroups: data.masterGroups,
+                                            customFields: data.customFields,
+                                            disabled: isPending || disabled || q.status === 'RELEASED'
+                                        }
+                                    });
+                                }}
+                            />
+                        ))}
+                    </div>
+                ) : (
+                    <div className="py-20 text-center bg-card text-card-foreground rounded-md border border-dashed border-border">
+                        <AlertCircle className="h-10 w-10 text-muted-foreground/50 mx-auto mb-3" />
+                        <h3 className="text-lg font-medium text-foreground">No questions found</h3>
+                        <p className="text-muted-foreground mt-1">Try adjusting your filters or search terms.</p>
+                    </div>
+                )
+            ) : viewMode === "compact" ? (
+                <Card className="shadow-sm border border-border overflow-visible bg-card text-card-foreground">
                     <Table>
-                        <TableHeader className="bg-slate-100/90 border-b border-slate-200">
+                        <TableHeader className="bg-muted/80 border-b border-border">
                             <TableRow className="hover:bg-transparent">
-                                <TableHead className="w-[130px] text-[10px] font-bold uppercase tracking-wider text-slate-500 py-2.5 px-3">Status & Actions</TableHead>
-                                <TableHead className="w-[180px] text-[10px] font-bold uppercase tracking-wider text-slate-500 py-2.5 px-3">Relationship & Doc</TableHead>
-                                <TableHead className="min-w-[250px] text-[10px] font-bold uppercase tracking-wider text-slate-500 py-2.5 px-3">Question (Q)</TableHead>
-                                <TableHead className="min-w-[280px] text-[10px] font-bold uppercase tracking-wider text-slate-500 py-2.5 px-3">Answer Value & Details (A)</TableHead>
-                                <TableHead className="w-[260px] text-[10px] font-bold uppercase tracking-wider text-slate-500 py-2.5 px-3">Master Data Mapping</TableHead>
+                                <TableHead className="w-[130px] text-[10px] font-bold uppercase tracking-wider text-muted-foreground py-2.5 px-3">Status & Actions</TableHead>
+                                <TableHead className="w-[180px] text-[10px] font-bold uppercase tracking-wider text-muted-foreground py-2.5 px-3">Relationship & Doc</TableHead>
+                                <TableHead className="min-w-[250px] text-[10px] font-bold uppercase tracking-wider text-muted-foreground py-2.5 px-3">Question (Q)</TableHead>
+                                <TableHead className="min-w-[280px] text-[10px] font-bold uppercase tracking-wider text-muted-foreground py-2.5 px-3">Answer Value & Details (A)</TableHead>
+                                <TableHead className="w-[260px] text-[10px] font-bold uppercase tracking-wider text-muted-foreground py-2.5 px-3">Master Data Mapping</TableHead>
                             </TableRow>
                         </TableHeader>
-                        <TableBody className="divide-y divide-slate-300">
+                        <TableBody className="divide-y divide-border">
                             {filteredQuestions.map((q: any) => (
                                 <QuestionTableRow
                                     key={q.id}
@@ -898,10 +1030,10 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
             )}
 
                 {filteredQuestions.length === 0 && (
-                    <div className="py-20 text-center bg-white rounded-md border border-dashed border-slate-300">
-                        <AlertCircle className="h-10 w-10 text-slate-300 mx-auto mb-3" />
-                        <h3 className="text-lg font-medium text-slate-900">No questions found</h3>
-                        <p className="text-slate-500 mt-1">Try adjusting your filters or search terms.</p>
+                    <div className="py-20 text-center bg-card text-card-foreground rounded-md border border-dashed border-border">
+                        <AlertCircle className="h-10 w-10 text-muted-foreground/50 mx-auto mb-3" />
+                        <h3 className="text-lg font-medium text-foreground">No questions found</h3>
+                        <p className="text-muted-foreground mt-1">Try adjusting your filters or search terms.</p>
                     </div>
                 )}
 
@@ -912,6 +1044,7 @@ export function CrossQuestionnaireMapper({ leId, initialData }: Props) {
                 fieldNo={selectedInspectionField?.fieldNo || 0}
                 fieldName={selectedInspectionField?.name || ""}
                 customFieldId={selectedInspectionField?.customFieldId}
+                mappingContext={selectedInspectionField?.mappingContext}
                 onUpdate={(val, src, date) => {
                     handleFieldUpdate(
                         selectedInspectionField?.fieldNo || 0,
@@ -1176,7 +1309,7 @@ function QuestionCard({
                 onInlineEdit(editValue, "USER_INPUT", new Date());
                 toast.success("Value updated");
             } else {
-                toast.error(res.message || "Update failed");
+                showActionErrorToast(res, "Update failed");
             }
         } catch (err) {
             toast.error("Update failed");
@@ -1187,9 +1320,9 @@ function QuestionCard({
     };
 
     const renderAnswerContent = () => (
-        <div className="flex flex-col gap-1.5 pt-2 border-t border-slate-50">
+        <div className="flex flex-col gap-1.5 pt-2 border-t border-border">
             <div className="flex items-start gap-2">
-                <span className="text-indigo-400 font-bold text-sm shrink-0 mt-0.5">A:</span>
+                <span className="text-indigo-600 dark:text-indigo-400 font-bold text-sm shrink-0 mt-0.5">A:</span>
 
                 {isEditing ? (
                     <div className="flex items-center gap-2 w-full">
@@ -1200,7 +1333,7 @@ function QuestionCard({
                                 if (e.key === 'Enter') handleSaveEdit();
                                 if (e.key === 'Escape') handleCancelEdit();
                             }}
-                            className="text-sm h-9 flex-1"
+                            className="text-sm h-9 flex-1 bg-muted/50 border-border text-foreground"
                             autoFocus
                             disabled={isSaving}
                             placeholder="Enter value..."
@@ -1208,7 +1341,7 @@ function QuestionCard({
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-green-600 hover:bg-green-50 shrink-0"
+                            className="h-8 w-8 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/40 shrink-0"
                             onClick={handleSaveEdit}
                             disabled={isSaving}
                         >
@@ -1217,7 +1350,7 @@ function QuestionCard({
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-slate-400 hover:bg-slate-100 shrink-0"
+                            className="h-8 w-8 text-muted-foreground hover:bg-muted shrink-0"
                             onClick={handleCancelEdit}
                             disabled={isSaving}
                         >
@@ -1225,7 +1358,7 @@ function QuestionCard({
                         </Button>
                     </div>
                 ) : (
-                    <div className="text-sm text-slate-700 bg-slate-50/50 px-2 py-1.5 rounded border border-slate-100/50 w-full font-medium relative flex items-center">
+                    <div className="text-sm text-foreground bg-muted/40 px-2 py-1.5 rounded border border-border w-full font-medium relative flex items-center">
                         <span className="flex-1">
                             {question.masterQuestionGroupId && (question as any).masterDataGroupFields?.length > 0 ? (
                                 <GroupAnswerRenderer
@@ -1252,9 +1385,9 @@ function QuestionCard({
                                 </div>
                             ) : question.masterDataValue != null && question.masterDataValue !== '' ? (
                                 Array.isArray(question.masterDataValue) ? (
-                                    <ul className="list-disc pl-4 space-y-1 m-0 text-slate-800">
+                                    <ul className="list-disc pl-4 space-y-1 m-0 text-foreground">
                                         {question.masterDataValue.slice(0, 10).map((val: any, i: any) => (
-                                            <li key={i} className="marker:text-slate-800">
+                                            <li key={i} className="marker:text-foreground">
                                                 {formatAnswerValue(val)}
                                             </li>
                                         ))}
@@ -1263,8 +1396,8 @@ function QuestionCard({
                                     <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
                                         {Object.entries(question.masterDataValue).map(([fNo, val]) => (
                                             <div key={fNo} className="flex flex-col">
-                                                <span className="text-slate-400 font-bold uppercase tracking-tighter text-[9px]">Field {fNo}</span>
-                                                <span className="text-slate-700 font-semibold truncate">
+                                                <span className="text-muted-foreground font-bold uppercase tracking-tighter text-[9px]">Field {fNo}</span>
+                                                <span className="text-foreground font-semibold truncate">
                                                     {Array.isArray(val) ? val.map(formatPartyLabel).join(', ') : formatPartyLabel(val)}
                                                 </span>
                                             </div>
@@ -1274,14 +1407,14 @@ function QuestionCard({
                                     formatAnswerValue(question.masterDataValue)
                                 )
                             ) : isMapped
-                                ? <span className="italic text-slate-400">No value yet — click ✏️ to add</span>
-                                : <span className="italic text-slate-300">Map a master field to enable answers</span>
+                                ? <span className="italic text-muted-foreground">No value yet — click ✏️ to add</span>
+                                : <span className="italic text-muted-foreground/70">Map a master field to enable answers</span>
                             }
                         </span>
 
                         <div className={cn(
                             "flex items-center gap-1 ml-2 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity",
-                            question.masterDataGroupDisplayStyle === 'COMPACT' && "absolute top-2 right-2 bg-white/90 p-1 rounded shadow-sm border border-slate-100 ml-0"
+                            question.masterDataGroupDisplayStyle === 'COMPACT' && "absolute top-2 right-2 bg-card p-1 rounded shadow-sm border border-border ml-0"
                         )}>
                             {isGroupAnswer ? (
                                 <a
@@ -1289,7 +1422,7 @@ function QuestionCard({
                                     target="_blank"
                                     rel="noreferrer"
                                     title="Manage composite groups in Master Data tab"
-                                    className="p-1 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                                    className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                                 >
                                     <ExternalLink className="h-3.5 w-3.5" />
                                 </a>
@@ -1298,7 +1431,7 @@ function QuestionCard({
                                     <button
                                         disabled
                                         title={isProjectedValue ? "Projected values can't be edited inline — use the Master Data tab" : "Complex mapped answers must be edited in Master Data"}
-                                        className="p-1 rounded text-slate-200 cursor-not-allowed"
+                                        className="p-1 rounded text-muted-foreground/30 cursor-not-allowed"
                                     >
                                         <Pencil className="h-3.5 w-3.5" />
                                     </button>
@@ -1309,14 +1442,14 @@ function QuestionCard({
                                             onInspect(fNo, question.text, customId);
                                         }}
                                         title="View history & details"
-                                        className="p-1 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                                        className="p-1 rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                                     >
                                         <PanelLeftOpen className="h-3.5 w-3.5" />
                                     </button>
                                     <a
                                         href={`/app/le/${leId}/master`}
                                         title="Complex mapped answers must be edited in Master Data"
-                                        className="p-1 rounded text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 transition-colors"
+                                        className="p-1 rounded text-muted-foreground hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
                                     >
                                         <ExternalLink className="h-3.5 w-3.5" />
                                     </a>
@@ -1330,8 +1463,8 @@ function QuestionCard({
                                         className={cn(
                                             "p-1 rounded transition-colors",
                                             (isMapped && question.status !== 'RELEASED')
-                                                ? "text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700"
-                                                : "text-slate-300 cursor-not-allowed"
+                                                ? "text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-700 dark:hover:text-indigo-300"
+                                                : "text-muted-foreground/30 cursor-not-allowed"
                                         )}
                                     >
                                         <Pencil className="h-3.5 w-3.5" />
@@ -1343,7 +1476,7 @@ function QuestionCard({
                                             onInspect(fNo, question.text, customId);
                                         }}
                                         title="View history & details"
-                                        className="p-1 rounded text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                                        className="p-1 rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
                                     >
                                         <PanelLeftOpen className="h-3.5 w-3.5" />
                                     </button>
@@ -1355,12 +1488,12 @@ function QuestionCard({
             </div>
             {!isEditing && !isGroupAnswer && question.canonicalDisplayModel?.displayContext && (
                 <div className="pl-6 mt-0.5">
-                    <span className="text-[10px] text-slate-500 italic leading-tight">
+                    <span className="text-[10px] text-muted-foreground italic leading-tight">
                         {question.canonicalDisplayModel.displayContext}
                     </span>
                 </div>
             )}
-            {!isEditing && !isGroupAnswer && (
+            {!isEditing && (
                 question.canonicalDisplayModel?.source ? (
                     <div className="flex items-center gap-3 pl-6 mt-1 text-[10px] font-medium">
                         <FieldSourceBadge source={question.canonicalDisplayModel.source} showLastValidated={true} variant="span" />
@@ -1369,19 +1502,13 @@ function QuestionCard({
                         ) : null}
                     </div>
                 ) : (question.masterDataSource || question.masterDataUpdatedAt) ? (
-                    <div className="flex items-center gap-3 pl-6 text-[10px] text-slate-400 font-medium">
-                        {question.masterDataSource && (
-                            <div className="flex items-center gap-1 bg-slate-100/50 px-1.5 py-0.5 rounded border border-slate-200/50">
-                                <span className="opacity-60 uppercase tracking-wide">Source:</span>
-                                <span className="text-slate-600 font-bold uppercase">{question.masterDataSource}</span>
-                            </div>
-                        )}
-                        {question.masterDataUpdatedAt && (
-                            <div className="flex items-center gap-1">
-                                <span className="opacity-60 uppercase tracking-wide">Last Updated:</span>
-                                <span className="text-slate-500 font-semibold">{new Date(question.masterDataUpdatedAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
-                            </div>
-                        )}
+                    <div className="flex items-center gap-3 pl-6 mt-1 text-[10px] font-medium">
+                        <FieldSourceBadge 
+                            legacySourceType={question.masterDataSource ?? undefined} 
+                            legacyTimestamp={question.masterDataUpdatedAt} 
+                            showLastValidated={true} 
+                            variant="span" 
+                        />
                         {question.masterFieldNo && masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount ? (
                             <FieldAttachmentIndicator count={masterFields.find(f => f.fieldNo === question.masterFieldNo)?.attachmentCount} />
                         ) : null}
@@ -1394,28 +1521,28 @@ function QuestionCard({
     if (viewMode === "flow") {
         return (
             <Card className={cn(
-                "group transition-all shadow-sm overflow-hidden",
-                "border border-slate-200 hover:border-slate-300 hover:shadow-md",
-                "focus-within:border-slate-300 focus-within:shadow-md",
-                isPinned ? "!border-green-400 ring-2 ring-green-50 z-10 scale-[1.01]" : "",
-                isMapped ? "bg-white" : "bg-slate-50/50 border-dashed"
+                "group transition-all shadow-sm overflow-hidden text-card-foreground",
+                "border border-border hover:border-indigo-500/50 hover:shadow-md",
+                "focus-within:border-indigo-500/50 focus-within:shadow-md",
+                isPinned ? "!border-green-400 ring-2 ring-green-500/20 z-10 scale-[1.01]" : "",
+                isMapped ? "bg-card" : "bg-muted/40 border-dashed"
             )}>
                 <CardContent className="p-0">
                     {/* Row 1: 50% Left Context / 50% Right Mapping Grid */}
                     <div className={cn(
-                        "grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border-b border-slate-100 items-start transition-colors",
-                        isPinned ? "bg-green-50/30" : "bg-slate-50/30"
+                        "grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border-b border-border items-start transition-colors",
+                        isPinned ? "bg-green-500/10" : "bg-muted/30"
                     )}>
                         {/* Left 50%: Context & Metadata */}
                         <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                                <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-                                    <Building2 className="h-3 w-3 text-slate-400" />
+                            <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                                <span className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                                    <Building2 className="h-3 w-3 text-muted-foreground" />
                                     {question.engagementOrgName || "Unknown Relationship"}
                                 </span>
-                                <span className="text-slate-300">·</span>
-                                <span className="flex items-center gap-1.5 truncate" title={question.questionnaireName}>
-                                    <FileText className="h-3 w-3 text-slate-400" />
+                                <span className="text-muted-foreground/40">·</span>
+                                <span className="flex items-center gap-1.5 truncate text-foreground" title={question.questionnaireName}>
+                                    <FileText className="h-3 w-3 text-muted-foreground" />
                                     {question.questionnaireName}
                                 </span>
                             </div>
@@ -1423,13 +1550,13 @@ function QuestionCard({
                             <div className="pt-0.5 flex items-center gap-2">
                                 {isMapped ? (
                                     <>
-                                        <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-100 gap-1 px-1.5 py-0">
+                                        <Badge variant="secondary" className="bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 gap-1 px-1.5 py-0">
                                             <CheckCircle2 className="h-3 w-3" />
                                             {isPinned ? "Just Mapped" : "Mapped"}
                                         </Badge>
                                         {customFieldId && !isRenaming && (
                                             <button
-                                                className="p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                                className="p-0.5 rounded text-muted-foreground hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
                                                 onClick={(e) => { e.stopPropagation(); handleRenameStart(); }}
                                                 title="Rename custom field"
                                             >
@@ -1438,7 +1565,7 @@ function QuestionCard({
                                         )}
                                     </>
                                 ) : (
-                                    <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-100 gap-1 px-1.5 py-0">
+                                    <Badge variant="secondary" className="bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 gap-1 px-1.5 py-0">
                                         <AlertCircle className="h-3 w-3" />
                                         Unmapped
                                     </Badge>
@@ -1454,14 +1581,14 @@ function QuestionCard({
                                             if (e.key === 'Enter') handleRenameSave();
                                             if (e.key === 'Escape') setIsRenaming(false);
                                         }}
-                                        className="h-7 text-xs flex-1"
+                                        className="h-7 text-xs flex-1 bg-muted/50 border-border text-foreground"
                                         autoFocus
                                         disabled={isRenameSaving}
                                     />
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-green-600" onClick={handleRenameSave} disabled={isRenameSaving}>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-green-600 dark:text-green-400" onClick={handleRenameSave} disabled={isRenameSaving}>
                                         {isRenameSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400" onClick={() => setIsRenaming(false)}>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={() => setIsRenaming(false)}>
                                         <X className="h-3 w-3" />
                                     </Button>
                                 </div>
@@ -1470,15 +1597,15 @@ function QuestionCard({
 
                         {/* Right 50%: Master Data Mapping Controls */}
                         <div className="flex flex-col justify-center gap-2">
-                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide flex items-center justify-between gap-2">
+                            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide flex items-center justify-between gap-2">
                                 <span>Master Data Mapping</span>
                                 <span className={cn(
                                     "text-[9px] px-1.5 py-0.5 rounded tracking-normal font-semibold",
-                                    question.status === 'RELEASED' ? "bg-slate-200 text-slate-700" :
-                                        question.status === 'SHARED' ? "bg-indigo-100 text-indigo-700" :
-                                            question.status === 'APPROVED' ? "bg-emerald-100 text-emerald-700" :
-                                                question.status === 'DRAFT' ? "bg-amber-100 text-amber-700" :
-                                                    "bg-slate-100 text-slate-500"
+                                    question.status === 'RELEASED' ? "bg-muted text-muted-foreground" :
+                                        question.status === 'SHARED' ? "bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300" :
+                                            question.status === 'APPROVED' ? "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" :
+                                                question.status === 'DRAFT' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300" :
+                                                    "bg-muted text-muted-foreground"
                                 )}>
                                     {isMapped ? question.status : 'UNMAPPED'}
                                 </span>
@@ -1515,7 +1642,7 @@ function QuestionCard({
                                     <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="h-9 w-9 text-slate-400 hover:text-red-500 hover:bg-red-50 shrink-0"
+                                        className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                                         onClick={() => onMap("UNMAP")}
                                         disabled={disabled}
                                         title="Unmap field"
@@ -1527,31 +1654,31 @@ function QuestionCard({
 
                             {/* Lifecycle Actions */}
                             {isMapped && (
-                                <div className="pt-1 border-t border-slate-200/50">
+                                <div className="pt-1 border-t border-border">
                                     {question.status === 'RELEASED' ? (
-                                        <div className="flex items-center gap-2 p-1.5 bg-slate-100/50 rounded border border-slate-200/50 text-[11px] text-slate-600">
-                                            <Lock className="h-3 w-3 shrink-0 text-slate-900" />
+                                        <div className="flex items-center gap-2 p-1.5 bg-muted/50 rounded border border-border text-[11px] text-muted-foreground">
+                                            <Lock className="h-3 w-3 shrink-0 text-foreground" />
                                             <span>Locked {question.releasedAt ? `on ${new Date(question.releasedAt).toLocaleDateString()}` : ''}</span>
                                         </div>
                                     ) : (
                                         <div className="flex items-center gap-2">
                                             {question.status === 'DRAFT' && (
-                                                <Button size="sm" variant="default" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 w-full shadow-sm" onClick={handleApprove} disabled={isActionPending}>
+                                                <Button size="sm" variant="default" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white w-full shadow-sm" onClick={handleApprove} disabled={isActionPending}>
                                                     <Check className="h-3 w-3 mr-1" /> Approve Mapped Response
                                                 </Button>
                                             )}
                                             {question.status === 'APPROVED' && (
-                                                <Button size="sm" variant="outline" className="h-7 text-xs text-indigo-600 border-indigo-200 flex-1 shadow-sm" onClick={(e) => handleShare(e, true)} disabled={isActionPending}>
+                                                <Button size="sm" variant="outline" className="h-7 text-xs text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 flex-1 shadow-sm" onClick={(e) => handleShare(e, true)} disabled={isActionPending}>
                                                     <Share2 className="h-3 w-3 mr-1" /> Share
                                                 </Button>
                                             )}
                                             {question.status === 'SHARED' && (
-                                                <Button size="sm" variant="outline" className="h-7 text-xs text-slate-600 flex-1 shadow-sm border-slate-200" onClick={(e) => handleShare(e, false)} disabled={isActionPending}>
+                                                <Button size="sm" variant="outline" className="h-7 text-xs text-muted-foreground flex-1 shadow-sm border-border" onClick={(e) => handleShare(e, false)} disabled={isActionPending}>
                                                     Unshare
                                                 </Button>
                                             )}
                                             {(question.status === 'APPROVED' || question.status === 'SHARED') && (
-                                                <Button size="sm" variant="secondary" className="h-7 text-xs bg-slate-900 text-white hover:bg-slate-800 flex-1 shadow-sm" onClick={handleRelease} disabled={isActionPending}>
+                                                <Button size="sm" variant="secondary" className="h-7 text-xs bg-primary text-primary-foreground hover:bg-primary/90 flex-1 shadow-sm" onClick={handleRelease} disabled={isActionPending}>
                                                     <Lock className="h-3 w-3 mr-1" /> Release
                                                 </Button>
                                             )}
@@ -1565,8 +1692,8 @@ function QuestionCard({
                     {/* Row 2: 100% Full-Width Q&A Section */}
                     <div className="p-4 space-y-3">
                         <div className="flex items-start gap-2">
-                            <span className="text-slate-400 font-bold text-sm shrink-0 mt-0.5">Q:</span>
-                            <h4 className="text-sm font-medium text-slate-900 leading-snug">
+                            <span className="text-muted-foreground font-bold text-sm shrink-0 mt-0.5">Q:</span>
+                            <h4 className="text-sm font-medium text-foreground leading-snug">
                                 {question.text}
                             </h4>
                         </div>
@@ -1580,25 +1707,25 @@ function QuestionCard({
 
     return (
         <Card className={cn(
-            "group transition-all shadow-sm overflow-hidden",
-            "border border-slate-200 hover:border-slate-300 hover:shadow-md",
-            "focus-within:border-slate-300 focus-within:shadow-md",
-            isPinned ? "!border-green-400 ring-2 ring-green-50 z-10 scale-[1.01]" : "",
-            isMapped ? "bg-white" : "bg-slate-50/50 border-dashed"
+            "group transition-all shadow-sm overflow-hidden text-card-foreground",
+            "border border-border hover:border-indigo-500/50 hover:shadow-md",
+            "focus-within:border-indigo-500/50 focus-within:shadow-md",
+            isPinned ? "!border-green-400 ring-2 ring-green-500/20 z-10 scale-[1.01]" : "",
+            isMapped ? "bg-card" : "bg-muted/40 border-dashed"
         )}>
             <CardContent className="p-0">
                 <div className="flex items-stretch min-h-[100px]">
                     {/* Left Side: Context */}
                     <div className={cn(
-                        "w-[180px] border-r border-slate-100 p-4 space-y-2 shrink-0 transition-colors",
-                        isPinned ? "bg-green-50/30" : ""
+                        "w-[180px] border-r border-border p-4 space-y-2 shrink-0 transition-colors",
+                        isPinned ? "bg-green-500/10" : ""
                     )}>
-                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
                             <Building2 className="h-3 w-3" />
                             {question.engagementOrgName || "Unknown Relationship"}
                         </div>
-                        <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                            <FileText className="h-3 w-3 text-slate-400" />
+                        <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                            <FileText className="h-3 w-3 text-muted-foreground" />
                             <span className="truncate" title={question.questionnaireName}>
                                 {question.questionnaireName}
                             </span>
@@ -1606,13 +1733,13 @@ function QuestionCard({
                         <div className="pt-1 flex items-center gap-2">
                             {isMapped ? (
                                 <>
-                                    <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-100 gap-1 px-1.5 py-0">
+                                    <Badge variant="secondary" className="bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 gap-1 px-1.5 py-0">
                                         <CheckCircle2 className="h-3 w-3" />
                                         {isPinned ? "Just Mapped" : "Mapped"}
                                     </Badge>
                                     {customFieldId && !isRenaming && (
                                         <button
-                                            className="p-0.5 rounded text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                            className="p-0.5 rounded text-muted-foreground hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
                                             onClick={(e) => { e.stopPropagation(); handleRenameStart(); }}
                                             title="Rename custom field"
                                         >
@@ -1621,7 +1748,7 @@ function QuestionCard({
                                     )}
                                 </>
                             ) : (
-                                <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-100 gap-1 px-1.5 py-0">
+                                <Badge variant="secondary" className="bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800 gap-1 px-1.5 py-0">
                                     <AlertCircle className="h-3 w-3" />
                                     Unmapped
                                 </Badge>
@@ -1636,14 +1763,14 @@ function QuestionCard({
                                         if (e.key === 'Enter') handleRenameSave();
                                         if (e.key === 'Escape') setIsRenaming(false);
                                     }}
-                                    className="h-7 text-xs flex-1"
+                                    className="h-7 text-xs flex-1 bg-muted/50 border-border text-foreground"
                                     autoFocus
                                     disabled={isRenameSaving}
                                 />
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-green-600" onClick={handleRenameSave} disabled={isRenameSaving}>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-green-600 dark:text-green-400" onClick={handleRenameSave} disabled={isRenameSaving}>
                                     {isRenameSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400" onClick={() => setIsRenaming(false)}>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={() => setIsRenaming(false)}>
                                     <X className="h-3 w-3" />
                                 </Button>
                             </div>
@@ -1653,8 +1780,8 @@ function QuestionCard({
                     {/* Middle: Question Text */}
                     <div className="flex-1 p-4 flex flex-col justify-center space-y-3">
                         <div className="flex items-start gap-2">
-                            <span className="text-slate-400 font-bold text-sm shrink-0 mt-0.5">Q:</span>
-                            <h4 className="text-sm font-medium text-slate-900 leading-snug">
+                            <span className="text-muted-foreground font-bold text-sm shrink-0 mt-0.5">Q:</span>
+                            <h4 className="text-sm font-medium text-foreground leading-snug">
                                 {question.text}
                             </h4>
                         </div>
@@ -1663,16 +1790,16 @@ function QuestionCard({
                     </div>
 
                     {/* Right Side: Mapping Controls */}
-                    <div className="w-[320px] p-4 flex flex-col justify-center gap-2 bg-slate-50/30 border-l border-slate-100">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-1 flex items-center justify-between gap-2">
+                    <div className="w-[320px] p-4 flex flex-col justify-center gap-2 bg-muted/30 border-l border-border">
+                        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-1 flex items-center justify-between gap-2">
                             <span>Master Data Mapping</span>
                             <span className={cn(
                                 "text-[9px] px-1.5 py-0.5 rounded tracking-normal font-semibold",
-                                question.status === 'RELEASED' ? "bg-slate-200 text-slate-700" :
-                                    question.status === 'SHARED' ? "bg-indigo-100 text-indigo-700" :
-                                        question.status === 'APPROVED' ? "bg-emerald-100 text-emerald-700" :
-                                            question.status === 'DRAFT' ? "bg-amber-100 text-amber-700" :
-                                                "bg-slate-100 text-slate-500"
+                                question.status === 'RELEASED' ? "bg-muted text-muted-foreground" :
+                                    question.status === 'SHARED' ? "bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300" :
+                                        question.status === 'APPROVED' ? "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" :
+                                            question.status === 'DRAFT' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300" :
+                                                "bg-muted text-muted-foreground"
                             )}>
                                 {isMapped ? question.status : 'UNMAPPED'}
                             </span>
@@ -1707,7 +1834,7 @@ function QuestionCard({
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-9 w-9 text-slate-400 hover:text-red-500 hover:bg-red-50 shrink-0"
+                                    className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                                     onClick={() => onMap("UNMAP")}
                                     disabled={disabled}
                                     title="Unmap field"
@@ -1719,31 +1846,31 @@ function QuestionCard({
 
                         {/* Lifecycle Actions */}
                         {isMapped && (
-                            <div className="mt-2 pt-2 border-t border-slate-200/50">
+                            <div className="mt-2 pt-2 border-t border-border">
                                 {question.status === 'RELEASED' ? (
-                                    <div className="flex items-center gap-2 p-2 bg-slate-100/50 rounded border border-slate-200/50 text-[11px] text-slate-600">
-                                        <Lock className="h-3 w-3 shrink-0 text-slate-900" />
+                                    <div className="flex items-center gap-2 p-2 bg-muted/50 rounded border border-border text-[11px] text-muted-foreground">
+                                        <Lock className="h-3 w-3 shrink-0 text-foreground" />
                                         <span>Locked {question.releasedAt ? `on ${new Date(question.releasedAt).toLocaleDateString()}` : ''}</span>
                                     </div>
                                 ) : (
                                     <div className="flex items-center gap-2">
                                         {question.status === 'DRAFT' && (
-                                            <Button size="sm" variant="default" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 w-full shadow-sm" onClick={handleApprove} disabled={isActionPending}>
+                                            <Button size="sm" variant="default" className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 text-white flex-1 shadow-sm" onClick={handleApprove} disabled={isActionPending}>
                                                 <Check className="h-3 w-3 mr-1" /> Approve Mapped Response
                                             </Button>
                                         )}
                                         {question.status === 'APPROVED' && (
-                                            <Button size="sm" variant="outline" className="h-7 text-xs text-indigo-600 border-indigo-200 flex-1 shadow-sm" onClick={(e) => handleShare(e, true)} disabled={isActionPending}>
+                                            <Button size="sm" variant="outline" className="h-7 text-xs text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 flex-1 shadow-sm" onClick={(e) => handleShare(e, true)} disabled={isActionPending}>
                                                 <Share2 className="h-3 w-3 mr-1" /> Share
                                             </Button>
                                         )}
                                         {question.status === 'SHARED' && (
-                                            <Button size="sm" variant="outline" className="h-7 text-xs text-slate-600 flex-1 shadow-sm border-slate-200" onClick={(e) => handleShare(e, false)} disabled={isActionPending}>
+                                            <Button size="sm" variant="outline" className="h-7 text-xs text-muted-foreground flex-1 shadow-sm border-border" onClick={(e) => handleShare(e, false)} disabled={isActionPending}>
                                                 Unshare
                                             </Button>
                                         )}
                                         {(question.status === 'APPROVED' || question.status === 'SHARED') && (
-                                            <Button size="sm" variant="secondary" className="h-7 text-xs bg-slate-900 text-white hover:bg-slate-800 flex-1 shadow-sm" onClick={handleRelease} disabled={isActionPending}>
+                                            <Button size="sm" variant="secondary" className="h-7 text-xs bg-primary text-primary-foreground hover:bg-primary/90 flex-1 shadow-sm" onClick={handleRelease} disabled={isActionPending}>
                                                 <Lock className="h-3 w-3 mr-1" /> Release
                                             </Button>
                                         )}
@@ -1905,7 +2032,7 @@ function QuestionTableRow({
                 onInlineEdit(editValue, "USER_INPUT", new Date());
                 toast.success("Value updated");
             } else {
-                toast.error(res.message || "Update failed");
+                showActionErrorToast(res, "Update failed");
             }
         } catch (err) {
             toast.error("Update failed");
@@ -1917,19 +2044,19 @@ function QuestionTableRow({
 
     return (
         <TableRow className={cn(
-            "hover:bg-slate-50/80 transition-colors group text-xs",
-            isPinned ? "bg-green-50/30 font-medium" : isMapped ? "bg-white" : "bg-slate-50/30"
+            "hover:bg-muted/50 transition-colors group text-xs text-foreground",
+            isPinned ? "bg-green-500/10 font-medium" : isMapped ? "bg-card" : "bg-muted/30"
         )}>
             {/* Cell 1: Status & Actions */}
             <TableCell className="py-2.5 px-3 align-top">
                 <div className="flex flex-col gap-1.5">
                     <span className={cn(
                         "text-[9px] px-1.5 py-0.5 rounded tracking-normal font-semibold inline-block w-fit",
-                        question.status === 'RELEASED' ? "bg-slate-200 text-slate-700" :
-                            question.status === 'SHARED' ? "bg-indigo-100 text-indigo-700" :
-                                question.status === 'APPROVED' ? "bg-emerald-100 text-emerald-700" :
-                                    question.status === 'DRAFT' ? "bg-amber-100 text-amber-700" :
-                                        "bg-slate-100 text-slate-500"
+                        question.status === 'RELEASED' ? "bg-muted text-muted-foreground" :
+                            question.status === 'SHARED' ? "bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300" :
+                                question.status === 'APPROVED' ? "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" :
+                                    question.status === 'DRAFT' ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300" :
+                                        "bg-muted text-muted-foreground"
                     )}>
                         {isMapped ? question.status : 'UNMAPPED'}
                     </span>
@@ -1937,28 +2064,28 @@ function QuestionTableRow({
                     {isMapped && (
                         <div>
                             {question.status === 'RELEASED' ? (
-                                <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                                     <Lock className="h-3 w-3" /> Locked
                                 </span>
                             ) : (
                                 <div className="flex items-center gap-1">
                                     {question.status === 'DRAFT' && (
-                                        <Button size="sm" variant="default" className="h-6 px-2 text-[10px] bg-emerald-600 hover:bg-emerald-700 shadow-none" onClick={handleApprove} disabled={isActionPending}>
+                                        <Button size="sm" variant="default" className="h-6 px-2 text-[10px] bg-emerald-600 hover:bg-emerald-700 text-white shadow-none" onClick={handleApprove} disabled={isActionPending}>
                                             <Check className="h-2.5 w-2.5 mr-0.5" /> Approve
                                         </Button>
                                     )}
                                     {question.status === 'APPROVED' && (
-                                        <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] text-indigo-600 border-indigo-200 shadow-none" onClick={(e) => handleShare(e, true)} disabled={isActionPending}>
+                                        <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 shadow-none" onClick={(e) => handleShare(e, true)} disabled={isActionPending}>
                                             <Share2 className="h-2.5 w-2.5 mr-0.5" /> Share
                                         </Button>
                                     )}
                                     {question.status === 'SHARED' && (
-                                        <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] text-slate-600 shadow-none" onClick={(e) => handleShare(e, false)} disabled={isActionPending}>
+                                        <Button size="sm" variant="outline" className="h-6 px-2 text-[10px] text-muted-foreground shadow-none border-border" onClick={(e) => handleShare(e, false)} disabled={isActionPending}>
                                             Unshare
                                         </Button>
                                     )}
                                     {(question.status === 'APPROVED' || question.status === 'SHARED') && (
-                                        <Button size="sm" variant="secondary" className="h-6 px-2 text-[10px] bg-slate-900 text-white hover:bg-slate-800 shadow-none" onClick={handleRelease} disabled={isActionPending}>
+                                        <Button size="sm" variant="secondary" className="h-6 px-2 text-[10px] bg-primary text-primary-foreground hover:bg-primary/90 shadow-none" onClick={handleRelease} disabled={isActionPending}>
                                             <Lock className="h-2.5 w-2.5 mr-0.5" /> Release
                                         </Button>
                                     )}
@@ -1972,12 +2099,12 @@ function QuestionTableRow({
             {/* Cell 2: Relationship & Questionnaire */}
             <TableCell className="py-2.5 px-3 align-top">
                 <div className="space-y-1">
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wide truncate max-w-[160px]" title={question.engagementOrgName || "Unknown Relationship"}>
+                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-muted-foreground uppercase tracking-wide truncate max-w-[160px]" title={question.engagementOrgName || "Unknown Relationship"}>
                         <Building2 className="h-3 w-3 shrink-0" />
                         <span className="truncate">{question.engagementOrgName || "Unknown Relationship"}</span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs text-slate-600 truncate max-w-[160px]" title={question.questionnaireName}>
-                        <FileText className="h-3 w-3 shrink-0 text-slate-400" />
+                    <div className="flex items-center gap-1.5 text-xs text-foreground truncate max-w-[160px]" title={question.questionnaireName}>
+                        <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
                         <span className="truncate">{question.questionnaireName}</span>
                     </div>
                     {customFieldId && (
@@ -1991,17 +2118,17 @@ function QuestionTableRow({
                                             if (e.key === 'Enter') handleRenameSave();
                                             if (e.key === 'Escape') setIsRenaming(false);
                                         }}
-                                        className="h-6 text-[10px] flex-1 px-1.5"
+                                        className="h-6 text-[10px] flex-1 px-1.5 bg-muted/50 border-border text-foreground"
                                         autoFocus
                                         disabled={isRenameSaving}
                                     />
-                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-green-600" onClick={handleRenameSave} disabled={isRenameSaving}>
+                                    <Button variant="ghost" size="icon" className="h-5 w-5 text-green-600 dark:text-green-400" onClick={handleRenameSave} disabled={isRenameSaving}>
                                         <Check className="h-3 w-3" />
                                     </Button>
                                 </div>
                             ) : (
                                 <button
-                                    className="text-[10px] text-indigo-600 hover:underline flex items-center gap-1"
+                                    className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
                                     onClick={(e) => { e.stopPropagation(); handleRenameStart(); }}
                                 >
                                     <Pencil className="h-2.5 w-2.5" /> Rename
@@ -2015,8 +2142,8 @@ function QuestionTableRow({
             {/* Cell 3: Question */}
             <TableCell className="py-2.5 px-3 align-top">
                 <div className="flex items-start gap-1.5 max-w-[320px]">
-                    <span className="text-slate-400 font-bold text-xs shrink-0">Q:</span>
-                    <span className="text-xs font-medium text-slate-900 leading-snug">
+                    <span className="text-muted-foreground font-bold text-xs shrink-0">Q:</span>
+                    <span className="text-xs font-medium text-foreground leading-snug">
                         {question.text}
                     </span>
                 </div>
@@ -2026,7 +2153,7 @@ function QuestionTableRow({
             <TableCell className="py-2.5 px-3 align-top">
                 <div className="space-y-1.5">
                     <div className="flex items-start gap-1.5">
-                        <span className="text-indigo-400 font-bold text-xs shrink-0">A:</span>
+                        <span className="text-indigo-600 dark:text-indigo-400 font-bold text-xs shrink-0">A:</span>
                         {isEditing ? (
                             <div className="flex items-center gap-1 w-full">
                                 <Input
@@ -2036,20 +2163,20 @@ function QuestionTableRow({
                                         if (e.key === 'Enter') handleSaveEdit();
                                         if (e.key === 'Escape') handleCancelEdit();
                                     }}
-                                    className="text-xs h-7 flex-1"
+                                    className="text-xs h-7 flex-1 bg-muted/50 border-border text-foreground"
                                     autoFocus
                                     disabled={isSaving}
                                     placeholder="Enter value..."
                                 />
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-green-600" onClick={handleSaveEdit} disabled={isSaving}>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-green-600 dark:text-green-400" onClick={handleSaveEdit} disabled={isSaving}>
                                     <Check className="h-3 w-3" />
                                 </Button>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400" onClick={handleCancelEdit} disabled={isSaving}>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground" onClick={handleCancelEdit} disabled={isSaving}>
                                     <X className="h-3 w-3" />
                                 </Button>
                             </div>
                         ) : (
-                            <div className="text-xs text-slate-700 bg-slate-50/60 px-2 py-1 rounded border border-slate-100/80 font-medium flex items-center gap-2 w-full">
+                            <div className="text-xs text-foreground bg-muted/50 px-2 py-1 rounded border border-border font-medium flex items-center gap-2 w-full">
                                 <span className="flex-1 truncate">
                                     {question.masterQuestionGroupId && (question as any).masterDataGroupFields?.length > 0 ? (
                                         <GroupAnswerRenderer
@@ -2070,8 +2197,8 @@ function QuestionTableRow({
                                             formatAnswerValue(question.masterDataValue)
                                         )
                                     ) : isMapped
-                                        ? <span className="italic text-slate-400">No value yet</span>
-                                        : <span className="italic text-slate-300">Map a field to enable answers</span>
+                                        ? <span className="italic text-muted-foreground">No value yet</span>
+                                        : <span className="italic text-muted-foreground/70">Map a field to enable answers</span>
                                     }
                                 </span>
 
@@ -2081,7 +2208,7 @@ function QuestionTableRow({
                                             onClick={handleStartEdit}
                                             disabled={!isMapped || question.status === 'RELEASED'}
                                             title="Edit value"
-                                            className="p-1 rounded text-indigo-500 hover:bg-indigo-50"
+                                            className="p-1 rounded text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40"
                                         >
                                             <Pencil className="h-3 w-3" />
                                         </button>
@@ -2093,7 +2220,7 @@ function QuestionTableRow({
                                             onInspect(fNo, question.text, customId);
                                         }}
                                         title="View history & details"
-                                        className="p-1 rounded text-slate-400 hover:bg-slate-100 text-slate-700"
+                                        className="p-1 rounded text-muted-foreground hover:bg-muted hover:text-foreground"
                                     >
                                         <PanelLeftOpen className="h-3 w-3" />
                                     </button>
@@ -2102,7 +2229,7 @@ function QuestionTableRow({
                         )}
                     </div>
 
-                    {!isEditing && !isGroupAnswer && (
+                    {!isEditing && (
                         question.canonicalDisplayModel?.source ? (
                             <div className="flex items-center gap-2 pl-4 text-[10px]">
                                 <FieldSourceBadge source={question.canonicalDisplayModel.source} showLastValidated={false} variant="span" />
@@ -2111,13 +2238,8 @@ function QuestionTableRow({
                                 ) : null}
                             </div>
                         ) : (question.masterDataSource || question.masterDataUpdatedAt) ? (
-                            <div className="flex items-center gap-2 pl-4 text-[10px] text-slate-400">
-                                {question.masterDataSource && (
-                                    <span className="font-semibold text-slate-500 uppercase">{question.masterDataSource}</span>
-                                )}
-                                {question.masterDataUpdatedAt && (
-                                    <span>· {new Date(question.masterDataUpdatedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
-                                )}
+                            <div className="flex items-center gap-2 pl-4 text-[10px]">
+                                <FieldSourceBadge legacySourceType={question.masterDataSource ?? undefined} legacyTimestamp={question.masterDataUpdatedAt} showLastValidated={false} variant="span" />
                             </div>
                         ) : null
                     )}
@@ -2157,7 +2279,7 @@ function QuestionTableRow({
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-red-500 hover:bg-red-50 shrink-0"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
                             onClick={() => onMap("UNMAP")}
                             disabled={disabled}
                             title="Unmap field"

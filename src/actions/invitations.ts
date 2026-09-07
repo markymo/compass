@@ -5,13 +5,16 @@ import crypto from "crypto";
 import { getIdentity } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { Action, can } from "@/lib/auth/permissions";
-import { isSystemAdmin } from "@/actions/security";
 import { Resend } from "resend";
 import { render } from "@react-email/render";
 import { TeamInviteEmail } from "@/components/emails/team-invite-email";
+import { SupplierInviteEmail } from "@/components/emails/supplier-invite-email";
+import { determineRedirectUrl, reconcileQuestionAssignments } from "./accept-invitation";
 import { recordActivity, LEActivityType } from "@/lib/le-activity";
 import { logActivity } from "./logging";
 import { BRAND } from "@/config/brand";
+import { getAppBaseUrl } from "@/lib/env";
+import { z } from "zod";
 
 // ============================================================================
 // Types
@@ -42,9 +45,7 @@ const DELEGATION_TABLE: Record<string, { requiredAction: Action; allowedRoles: s
     // LE scope: LE admins can grant LE_USER
     LE_LE_USER: { requiredAction: Action.LE_MANAGE_USERS, allowedRoles: ["LE_USER"] },
 
-    // Engagement scope: LE admins can invite Supplier contacts
-    ENG_SUPPLIER_CONTACT: { requiredAction: Action.LE_MANAGE_USERS, allowedRoles: ["SUPPLIER_CONTACT"] },
-    // Engagement scope: FI users can invite other FI users
+    // Engagement scope: only canonical RELATIONSHIP_ADMIN / RELATIONSHIP_USER permitted
     ENG_RELATIONSHIP_ADMIN: { requiredAction: Action.ENG_MANAGE_USERS, allowedRoles: ["RELATIONSHIP_ADMIN"] },
     ENG_RELATIONSHIP_USER: { requiredAction: Action.ENG_MANAGE_USERS, allowedRoles: ["RELATIONSHIP_USER"] },
 };
@@ -68,6 +69,12 @@ export async function inviteUser(payload: InvitePayload) {
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
     const { userId } = identity;
 
+    // 0. Validate Email Format
+    const emailValidation = z.string().trim().email("Please enter a valid email address.").safeParse(payload.email);
+    if (!emailValidation.success) {
+        return { success: false, error: emailValidation.error.issues[0].message };
+    }
+
     // 1. Validate exactly one scope
     const scopeType = getScopeType(payload);
     if (!scopeType) {
@@ -82,42 +89,45 @@ export async function inviteUser(payload: InvitePayload) {
     }
 
     // 2. Authorise the inviter
-    // System admins can always invite
-    const sysAdmin = await isSystemAdmin();
+    const memberships = await prisma.membership.findMany({ where: { userId } });
+    const user = { id: userId, memberships };
+    const isPlatformAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
 
-    if (!sysAdmin) {
-        const memberships = await prisma.membership.findMany({ where: { userId } });
-        const user = { id: userId, memberships };
-
-        const authorised = await can(
-            user,
-            rule.requiredAction,
-            {
-                partyId: payload.organizationId,
-                clientLEId: payload.clientLEId ??
-                    (payload.fiEngagementId && rule.requiredAction === Action.LE_MANAGE_USERS
-                        ? (await prisma.fIEngagement.findUnique({ where: { id: payload.fiEngagementId }, select: { clientLEId: true } }))?.clientLEId
-                        : undefined),
-                engagementId: payload.fiEngagementId,
-            },
-            prisma
-        );
+    if (!isPlatformAdmin) {
+        let authorised = false;
+        if (payload.fiEngagementId) {
+            const eng = await prisma.fIEngagement.findUnique({ where: { id: payload.fiEngagementId }, select: { clientLEId: true } });
+            authorised = (await can(user, Action.ENG_MANAGE_USERS, { engagementId: payload.fiEngagementId }, prisma)) ||
+                         (eng?.clientLEId ? await can(user, Action.LE_MANAGE_USERS, { clientLEId: eng.clientLEId }, prisma) : false);
+        } else {
+            authorised = await can(
+                user,
+                rule.requiredAction,
+                {
+                    partyId: payload.organizationId,
+                    clientLEId: payload.clientLEId,
+                    engagementId: payload.fiEngagementId,
+                },
+                prisma
+            );
+        }
 
         if (!authorised) {
             return { success: false, error: "Unauthorized: you do not have permission to invite with this role." };
         }
 
-        // Extra gate: only SYSTEM_ADMIN can grant ORG_ADMIN
-        if (payload.role === "ORG_ADMIN" && !sysAdmin) {
+        // Extra gate: only SYSTEM_MANAGE_TENANTS can grant ORG_ADMIN
+        if (payload.role === "ORG_ADMIN") {
             return { success: false, error: "Only internal admins can grant the Client Admin (ORG_ADMIN) role." };
         }
     }
 
-    // 3. Duplicate invite check
+    // 3. Duplicate invite check (active pending only: usedAt null, revokedAt null, expiresAt > now)
     const dupeWhere: any = {
         sentToEmail: payload.email,
         usedAt: null,
         revokedAt: null,
+        expiresAt: { gt: new Date() },
         // @ts-ignore: Prisma cache lag — new fields
         ...(payload.organizationId ? { organizationId: payload.organizationId } : {}),
         // @ts-ignore
@@ -154,7 +164,7 @@ export async function inviteUser(payload: InvitePayload) {
     if (existingUser) {
         let assignedRole = payload.role;
         if (payload.fiEngagementId) {
-            if (assignedRole === "ORG_ADMIN" || assignedRole === "SUPPLIER_ADMIN") assignedRole = "RELATIONSHIP_ADMIN";
+            if (assignedRole === "ORG_ADMIN") assignedRole = "RELATIONSHIP_ADMIN";
             if (assignedRole === "ORG_MEMBER" || assignedRole === "SUPPLIER_CONTACT") assignedRole = "RELATIONSHIP_USER";
         }
 
@@ -188,12 +198,13 @@ export async function inviteUser(payload: InvitePayload) {
         }
 
         // Determine Redirect URL for the email
-        let dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app`;
-        if (payload.organizationId) dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app/clients/${payload.organizationId}`;
-        else if (payload.clientLEId) dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app/le/${payload.clientLEId}`;
+        const baseUrl = await getAppBaseUrl();
+        let dashboardUrl = `${baseUrl}/app`;
+        if (payload.organizationId) dashboardUrl = `${baseUrl}/app/clients/${payload.organizationId}`;
+        else if (payload.clientLEId) dashboardUrl = `${baseUrl}/app/le/${payload.clientLEId}`;
         else if (payload.fiEngagementId) {
             const eng = await prisma.fIEngagement.findUnique({ where: { id: payload.fiEngagementId }, select: { fiOrgId: true } });
-            dashboardUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/app/s/${eng?.fiOrgId}`;
+            dashboardUrl = `${baseUrl}/app/s/${eng?.fiOrgId}`;
         }
 
         try {
@@ -281,8 +292,8 @@ export async function inviteUser(payload: InvitePayload) {
     });
 
     // 7. Send invitation email via Resend
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-    const acceptUrl = `${baseUrl.replace(/\/$/, '')}/invite/${rawToken}`;
+    const baseUrl = await getAppBaseUrl();
+    const acceptUrl = `${baseUrl}/invite/${rawToken}`;
 
     try {
         // Resolve human-readable scope label and inviter name for the email
@@ -351,13 +362,13 @@ export async function getPendingInvitations(organizationId: string) {
     const identity = await getIdentity();
     if (!identity?.userId) return [];
 
-    // Verify requester has manage rights
-    const sysAdmin = await isSystemAdmin();
-    if (!sysAdmin) {
-        const membership = await prisma.membership.findFirst({
-            where: { userId: identity.userId, organizationId, role: "ORG_ADMIN" },
-        });
-        if (!membership) return [];
+    // Verify requester has manage rights via Action.SYSTEM_MANAGE_TENANTS or Action.ORG_MANAGE_TEAM
+    const memberships = await prisma.membership.findMany({ where: { userId: identity.userId } });
+    const user = { id: identity.userId, memberships };
+    const isPlatformAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
+    if (!isPlatformAdmin) {
+        const canOrgManage = await can(user, Action.ORG_MANAGE_TEAM, { partyId: organizationId }, prisma);
+        if (!canOrgManage) return [];
     }
 
     // Fetch org-level invites and LE-level invites for ACTIVE LEs owned by this org
@@ -392,17 +403,11 @@ export async function getLEPendingInvitations(clientLEId: string) {
     const identity = await getIdentity();
     if (!identity?.userId) return [];
 
-    // Simple auth check similar to others
-    const sysAdmin = await isSystemAdmin();
-    if (!sysAdmin) {
-        const hasAccess = await can(
-            { id: identity.userId, memberships: await prisma.membership.findMany({ where: { userId: identity.userId } }) },
-            Action.LE_MANAGE_USERS,
-            { clientLEId },
-            prisma
-        );
-        if (!hasAccess) return [];
-    }
+    // Gated by explicit LE user management permission
+    const memberships = await prisma.membership.findMany({ where: { userId: identity.userId } });
+    const user = { id: identity.userId, memberships };
+    const hasAccess = await can(user, Action.LE_MANAGE_USERS, { clientLEId }, prisma);
+    if (!hasAccess) return [];
 
     // @ts-ignore
     return await (prisma.invitation.findMany as any)({
@@ -430,17 +435,27 @@ export async function revokeInvitation(invitationId: string) {
     if (!invite) return { success: false, error: "Not found" };
     if (invite.usedAt) return { success: false, error: "Cannot revoke a used invitation." };
 
-    // Auth: must be system admin OR the original inviter
-    const sysAdmin = await isSystemAdmin();
-    if (!sysAdmin && invite.createdByUserId !== userId) {
-        // Also allow ORG_ADMIN of the relevant org
-        const orgIdToCheck = invite.organizationId ?? null;
-        if (orgIdToCheck) {
-            const m = await prisma.membership.findFirst({ where: { userId, organizationId: orgIdToCheck, role: "ORG_ADMIN" } });
-            if (!m) return { success: false, error: "Unauthorized" };
-        } else {
-            return { success: false, error: "Unauthorized" };
+    // Auth: must have SYSTEM_MANAGE_TENANTS OR be the original inviter / authorized admin via permissions engine
+    const memberships = await prisma.membership.findMany({ where: { userId } });
+    const user = { id: userId, memberships };
+    const isPlatformAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
+
+    if (!isPlatformAdmin && invite.createdByUserId !== userId) {
+        let authorized = false;
+        if (invite.organizationId) {
+            authorized = await can(user, Action.ORG_MANAGE_TEAM, { partyId: invite.organizationId }, prisma);
+        } else if (invite.clientLEId) {
+            authorized = await can(user, Action.LE_MANAGE_USERS, { clientLEId: invite.clientLEId }, prisma);
+            if (!authorized) {
+                const owner = await prisma.clientLEOwner.findFirst({ where: { clientLEId: invite.clientLEId, endAt: null } });
+                if (owner) {
+                    authorized = await can(user, Action.ORG_MANAGE_TEAM, { partyId: owner.partyId }, prisma);
+                }
+            }
+        } else if (invite.fiEngagementId) {
+            authorized = await can(user, Action.ENG_MANAGE_USERS, { engagementId: invite.fiEngagementId }, prisma);
         }
+        if (!authorized) return { success: false, error: "Unauthorized" };
     }
 
     await prisma.invitation.update({
@@ -449,6 +464,15 @@ export async function revokeInvitation(invitationId: string) {
     });
 
     if (invite.organizationId) revalidatePath(`/app/clients/${invite.organizationId}/team`);
+    if (invite.clientLEId) {
+        const owner = await prisma.clientLEOwner.findFirst({ where: { clientLEId: invite.clientLEId, endAt: null } });
+        if (owner) revalidatePath(`/app/clients/${owner.partyId}`);
+        revalidatePath(`/app/le/${invite.clientLEId}`);
+    }
+    if (invite.fiEngagementId) {
+        const eng = await prisma.fIEngagement.findUnique({ where: { id: invite.fiEngagementId }, select: { fiOrgId: true } });
+        if (eng?.fiOrgId) revalidatePath(`/app/s/${eng.fiOrgId}/team`);
+    }
     return { success: true };
 }
 
@@ -456,51 +480,206 @@ export async function resendInvitation(invitationId: string) {
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
 
-    // @ts-ignore
     const invite = await prisma.invitation.findUnique({ where: { id: invitationId } }) as any;
     if (!invite) return { success: false, error: "Not found" };
     if (invite.usedAt) return { success: false, error: "Cannot resend a used invitation." };
     if (invite.revokedAt) return { success: false, error: "Cannot resend a revoked invitation." };
 
-    const sysAdmin = await isSystemAdmin();
-    if (!sysAdmin && invite.createdByUserId !== identity.userId) {
-        const orgIdToCheck = invite.organizationId ?? null;
-        if (orgIdToCheck) {
-            const m = await prisma.membership.findFirst({ where: { userId: identity.userId, organizationId: orgIdToCheck, role: "ORG_ADMIN" } });
-            if (!m) return { success: false, error: "Unauthorized" };
-        } else {
-            return { success: false, error: "Unauthorized" };
+    const memberships = await prisma.membership.findMany({ where: { userId: identity.userId } });
+    const user = { id: identity.userId, memberships };
+    const isPlatformAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
+
+    if (!isPlatformAdmin && invite.createdByUserId !== identity.userId) {
+        let authorized = false;
+        if (invite.organizationId) {
+            authorized = await can(user, Action.ORG_MANAGE_TEAM, { partyId: invite.organizationId }, prisma);
+        } else if (invite.clientLEId) {
+            authorized = await can(user, Action.LE_MANAGE_USERS, { clientLEId: invite.clientLEId }, prisma);
+            if (!authorized) {
+                const owner = await prisma.clientLEOwner.findFirst({ where: { clientLEId: invite.clientLEId, endAt: null } });
+                if (owner) {
+                    authorized = await can(user, Action.ORG_MANAGE_TEAM, { partyId: owner.partyId }, prisma);
+                }
+            }
+        } else if (invite.fiEngagementId) {
+            authorized = await can(user, Action.ENG_MANAGE_USERS, { engagementId: invite.fiEngagementId }, prisma);
         }
+        if (!authorized) return { success: false, error: "Unauthorized" };
     }
 
-    // Usually we would dispatch an email here. We can stub it or call sendInvitationEmail if it's available.
-    // For now we'll update the expiration date to refresh it.
+    // Token Rotation for Hashed-Token Security
+    const newToken = crypto.randomUUID();
+    const newTokenHash = crypto.createHash('sha256').update(newToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
     await prisma.invitation.update({
         where: { id: invitationId },
-        data: { expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
+        data: {
+            tokenHash: newTokenHash,
+            expiresAt,
+        },
     });
 
-    return { success: true };
+    const baseUrl = await getAppBaseUrl();
+    const inviteLink = `${baseUrl}/invite/${newToken}`;
+
+    // Actually deliver the new invitation email
+    try {
+        const resendApiKey = process.env.RESEND_API_KEY;
+        if (resendApiKey) {
+            const resend = new Resend(resendApiKey);
+            if (invite.fiEngagementId) {
+                const eng = await prisma.fIEngagement.findUnique({
+                    where: { id: invite.fiEngagementId },
+                    include: { clientLE: true, org: true }
+                });
+                if (eng) {
+                    const emailHtml = await render(SupplierInviteEmail({
+                        inviterName: (identity as any).name || identity.email || 'OnPro Administrator',
+                        inviterEmail: identity.email || '',
+                        orgName: eng.org.name,
+                        leName: eng.clientLE.name,
+                        role: invite.role,
+                        message: "Your invitation has been resent.",
+                        inviteLink,
+                    }));
+                    await resend.emails.send({
+                        from: 'OnPro Platform <invites@onpro.tech>',
+                        to: invite.sentToEmail,
+                        subject: `Invitation resent: ${eng.clientLE.name} Relationship on OnPro`,
+                        html: emailHtml,
+                    });
+                }
+            } else {
+                let scopeLabel = BRAND.name;
+                if (invite.organizationId) {
+                    const org = await prisma.organization.findUnique({ where: { id: invite.organizationId }, select: { name: true } });
+                    if (org) scopeLabel = org.name;
+                } else if (invite.clientLEId) {
+                    const le = await prisma.clientLE.findUnique({ where: { id: invite.clientLEId }, select: { name: true } });
+                    if (le) scopeLabel = le.name;
+                }
+                const inviter = await prisma.user.findUnique({ where: { id: identity.userId }, select: { name: true, email: true } });
+                const inviterName = inviter?.name || inviter?.email || "A team member";
+
+                const emailHtml = await render(TeamInviteEmail({
+                    inviterName,
+                    scopeLabel,
+                    role: invite.role,
+                    inviteLink,
+                    recipientEmail: invite.sentToEmail
+                }));
+                await resend.emails.send({
+                    from: `${BRAND.name} <noreply@mail.onpro.tech>`,
+                    to: invite.sentToEmail,
+                    subject: `Invitation resent: join ${scopeLabel}`,
+                    html: emailHtml,
+                });
+            }
+        }
+    } catch (err) {
+        console.error("Failed to resend invitation email", err);
+    }
+
+    if (invite.fiEngagementId) {
+        const eng = await prisma.fIEngagement.findUnique({ where: { id: invite.fiEngagementId }, select: { fiOrgId: true } });
+        if (eng?.fiOrgId) revalidatePath(`/app/s/${eng.fiOrgId}/team`);
+    }
+
+    return {
+        success: true,
+        message: "Invitation resent successfully.",
+        newInviteLink: inviteLink
+    };
+}
+
+export async function generateNewInvitationLink(invitationId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    const invite = await prisma.invitation.findUnique({ where: { id: invitationId } }) as any;
+    if (!invite) return { success: false, error: "Not found" };
+    if (invite.usedAt) return { success: false, error: "Cannot generate link for a used invitation." };
+    if (invite.revokedAt) return { success: false, error: "Cannot generate link for a revoked invitation." };
+
+    const memberships = await prisma.membership.findMany({ where: { userId: identity.userId } });
+    const user = { id: identity.userId, memberships };
+    const isPlatformAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
+
+    if (!isPlatformAdmin && invite.createdByUserId !== identity.userId) {
+        let authorized = false;
+        if (invite.organizationId) {
+            authorized = await can(user, Action.ORG_MANAGE_TEAM, { partyId: invite.organizationId }, prisma);
+        } else if (invite.clientLEId) {
+            authorized = await can(user, Action.LE_MANAGE_USERS, { clientLEId: invite.clientLEId }, prisma);
+            if (!authorized) {
+                const owner = await prisma.clientLEOwner.findFirst({ where: { clientLEId: invite.clientLEId, endAt: null } });
+                if (owner) {
+                    authorized = await can(user, Action.ORG_MANAGE_TEAM, { partyId: owner.partyId }, prisma);
+                }
+            }
+        } else if (invite.fiEngagementId) {
+            authorized = await can(user, Action.ENG_MANAGE_USERS, { engagementId: invite.fiEngagementId }, prisma);
+        }
+        if (!authorized) return { success: false, error: "Unauthorized" };
+    }
+
+    const newToken = crypto.randomUUID();
+    const newTokenHash = crypto.createHash('sha256').update(newToken).digest('hex');
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    await prisma.invitation.update({
+        where: { id: invitationId },
+        data: {
+            tokenHash: newTokenHash,
+            expiresAt,
+        }
+    });
+
+    const baseUrl = await getAppBaseUrl();
+    const inviteLink = `${baseUrl}/invite/${newToken}`;
+
+    if (invite.fiEngagementId) {
+        const eng = await prisma.fIEngagement.findUnique({ where: { id: invite.fiEngagementId }, select: { fiOrgId: true } });
+        if (eng?.fiOrgId) revalidatePath(`/app/s/${eng.fiOrgId}/team`);
+    }
+
+    return {
+        success: true,
+        inviteLink,
+        message: "New invitation link generated. The previous link is now invalid."
+    };
 }
 
 export async function updateInvitationRole(invitationId: string, role: string) {
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
 
-    // @ts-ignore
     const invite = await prisma.invitation.findUnique({ where: { id: invitationId } }) as any;
     if (!invite) return { success: false, error: "Not found" };
     if (invite.usedAt) return { success: false, error: "Cannot update a used invitation." };
 
-    const sysAdmin = await isSystemAdmin();
-    if (!sysAdmin && invite.createdByUserId !== identity.userId) {
+    const memberships = await prisma.membership.findMany({ where: { userId: identity.userId } });
+    const user = { id: identity.userId, memberships };
+    const isPlatformAdmin = await can(user, Action.SYSTEM_MANAGE_TENANTS, {}, prisma);
+    if (!isPlatformAdmin && invite.createdByUserId !== identity.userId) {
         const orgIdToCheck = invite.organizationId ?? null;
         if (orgIdToCheck) {
-            const m = await prisma.membership.findFirst({ where: { userId: identity.userId, organizationId: orgIdToCheck, role: "ORG_ADMIN" } });
-            if (!m) return { success: false, error: "Unauthorized" };
+            const canOrgManage = await can(user, Action.ORG_MANAGE_TEAM, { partyId: orgIdToCheck }, prisma);
+            if (!canOrgManage) return { success: false, error: "Unauthorized" };
+        } else if (invite.fiEngagementId) {
+            const canEngManage = await can(user, Action.ENG_MANAGE_USERS, { engagementId: invite.fiEngagementId }, prisma);
+            if (!canEngManage) return { success: false, error: "Unauthorized" };
         } else {
             return { success: false, error: "Unauthorized" };
         }
+    }
+
+    if (invite.fiEngagementId && !["RELATIONSHIP_ADMIN", "RELATIONSHIP_USER"].includes(role)) {
+        return {
+            success: false,
+            error: `Invalid role "${role}". Only RELATIONSHIP_ADMIN and RELATIONSHIP_USER are permitted for Relationship invitations.`
+        };
     }
 
     await prisma.invitation.update({
@@ -509,4 +688,174 @@ export async function updateInvitationRole(invitationId: string, role: string) {
     });
 
     return { success: true };
+}
+
+// ============================================================================
+// FR-15: Authenticated Pending-Invitation Discovery & Deliberate Claim
+// ============================================================================
+
+export async function getAuthenticatedPendingInvitations() {
+    const identity = await getIdentity();
+    if (!identity?.userId) return [];
+
+    const user = await prisma.user.findUnique({
+        where: { id: identity.userId },
+        select: { id: true, email: true, emailVerified: true }
+    });
+    if (!user || !user.emailVerified || !user.email) {
+        return [];
+    }
+
+    const invitations = await prisma.invitation.findMany({
+        where: {
+            sentToEmail: { equals: user.email, mode: "insensitive" },
+            usedAt: null,
+            revokedAt: null,
+            expiresAt: { gt: new Date() },
+        },
+        include: {
+            organization: { select: { id: true, name: true } },
+            clientLE: { select: { id: true, name: true } },
+            fiEngagement: {
+                select: {
+                    id: true,
+                    fiOrgId: true,
+                    clientLE: { select: { id: true, name: true } },
+                    org: { select: { id: true, name: true } },
+                }
+            }
+        },
+        orderBy: { createdAt: "desc" },
+    });
+
+    return invitations;
+}
+
+export async function claimPendingInvitation(invitationId: string) {
+    const identity = await getIdentity();
+    if (!identity?.userId) return { success: false, error: "Unauthorized" };
+
+    try {
+        let redirectUrl = "/app";
+
+        await prisma.$transaction(async (tx: any) => {
+            // 1. Re-fetch current User inside transaction & enforce verified email
+            const user = await tx.user.findUnique({
+                where: { id: identity.userId },
+                select: { id: true, email: true, emailVerified: true }
+            });
+
+            if (!user) throw new Error("USER_NOT_FOUND");
+            if (!user.emailVerified) throw new Error("EMAIL_NOT_VERIFIED");
+            if (!user.email) throw new Error("USER_NO_EMAIL");
+
+            // 2. Re-fetch and revalidate invitation inside transaction
+            const invite = await tx.invitation.findUnique({
+                where: { id: invitationId },
+                include: {
+                    fiEngagement: {
+                        include: {
+                            org: { select: { id: true, name: true } },
+                            clientLE: { select: { id: true, name: true } },
+                        }
+                    },
+                    clientLE: { select: { id: true, name: true } },
+                    organization: { select: { id: true, name: true } }
+                }
+            });
+
+            if (!invite) throw new Error("INVITATION_NOT_FOUND");
+            if (invite.usedAt) throw new Error("INVITATION_ALREADY_USED");
+            if (invite.revokedAt) throw new Error("INVITATION_REVOKED");
+            if (new Date() > invite.expiresAt) throw new Error("INVITATION_EXPIRED");
+
+            // 3. Strict email match against database user verified email
+            if (invite.sentToEmail.toLowerCase().trim() !== user.email.toLowerCase().trim()) {
+                throw new Error("EMAIL_MISMATCH");
+            }
+
+            // 4. Determine target role
+            let assignedRole = invite.role;
+            if (invite.fiEngagementId) {
+                if (assignedRole === "ORG_ADMIN") assignedRole = "RELATIONSHIP_ADMIN";
+                if (assignedRole === "ORG_MEMBER" || assignedRole === "SUPPLIER_CONTACT" || assignedRole === "Supplier Contact") {
+                    assignedRole = "RELATIONSHIP_USER";
+                }
+            }
+
+            // 5. Check if target membership already exists
+            const existingMem = await tx.membership.findFirst({
+                where: {
+                    userId: user.id,
+                    organizationId: invite.organizationId ?? undefined,
+                    clientLEId: invite.clientLEId ?? undefined,
+                    fiEngagementId: invite.fiEngagementId ?? undefined,
+                }
+            });
+
+            if (!existingMem) {
+                await tx.membership.create({
+                    data: {
+                        userId: user.id,
+                        organizationId: invite.organizationId ?? null,
+                        clientLEId: invite.clientLEId ?? null,
+                        fiEngagementId: invite.fiEngagementId ?? null,
+                        role: assignedRole,
+                    }
+                });
+            }
+
+            // 6. Update Relationship status/activity
+            if (invite.fiEngagementId) {
+                const eng = await tx.fIEngagement.findUnique({ where: { id: invite.fiEngagementId } });
+                if (eng?.status === "INVITED") {
+                    await tx.fIEngagement.update({
+                        where: { id: invite.fiEngagementId },
+                        data: { status: "CONNECTED" },
+                    });
+                }
+                await tx.engagementActivity.create({
+                    data: {
+                        fiEngagementId: invite.fiEngagementId,
+                        userId: user.id,
+                        type: "INVITE_ACCEPTED",
+                        details: { email: user.email, role: assignedRole },
+                    },
+                });
+            }
+
+            // 7. Reconcile question assignments
+            await reconcileQuestionAssignments(
+                invite.sentToEmail,
+                { clientLEId: invite.clientLEId, fiEngagementId: invite.fiEngagementId, organizationId: invite.organizationId },
+                user.id,
+                tx
+            );
+
+            // 8. Mark invitation used atomically
+            await tx.invitation.update({
+                where: { id: invitationId },
+                data: {
+                    usedAt: new Date(),
+                    acceptedByUserId: user.id,
+                }
+            });
+
+            redirectUrl = await determineRedirectUrl(invite, prisma);
+        });
+
+        revalidatePath("/app");
+        return { success: true, redirectUrl };
+    } catch (e: any) {
+        if (e.message === "USER_NOT_FOUND") return { success: false, error: "User account not found." };
+        if (e.message === "EMAIL_NOT_VERIFIED") return { success: false, error: "Email must be verified before claiming pending invitations by authenticated account." };
+        if (e.message === "USER_NO_EMAIL") return { success: false, error: "User has no email address." };
+        if (e.message === "INVITATION_NOT_FOUND") return { success: false, error: "Invitation not found." };
+        if (e.message === "INVITATION_ALREADY_USED") return { success: false, error: "This invitation has already been accepted." };
+        if (e.message === "INVITATION_REVOKED") return { success: false, error: "This invitation has been revoked." };
+        if (e.message === "INVITATION_EXPIRED") return { success: false, error: "This invitation has expired." };
+        if (e.message === "EMAIL_MISMATCH") return { success: false, error: "This invitation was sent to a different email address." };
+        console.error("[claimPendingInvitation] Error:", e);
+        return { success: false, error: "An unexpected error occurred while claiming the invitation." };
+    }
 }

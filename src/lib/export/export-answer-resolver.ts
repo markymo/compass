@@ -132,11 +132,13 @@ export async function resolveExportAnswer(
             }
 
             if (subAnswer.valueJson !== null && subAnswer.valueJson !== undefined) {
+                const masterFieldDef = question.masterFieldNo ? await getMasterFieldDefinition(question.masterFieldNo) : null;
                 const meta: FieldInterpreterMetadata = {
                     fieldNo: question.masterFieldNo || -1,
                     label: question.text,
                     displayState: "HAS_VALUE",
-                    isMultiValue: Array.isArray(subAnswer.valueJson)
+                    isMultiValue: Array.isArray(subAnswer.valueJson),
+                    profileConfig: (masterFieldDef as any)?.profileConfig
                 };
 
                 const primarySource: RawFieldSource | null = subAnswer.provenanceJson ? {
@@ -144,7 +146,9 @@ export async function resolveExportAnswer(
                     reference: subAnswer.provenanceJson.sourceReference || null,
                     timestamp: subAnswer.provenanceJson.assertedAt || subAnswer.provenanceJson.submittedAt || null,
                     sourceCheckedAt: subAnswer.provenanceJson.sourceCheckedAt || null,
-                    userName: subAnswer.provenanceJson.sourceLabel || null
+                    userName: subAnswer.provenanceJson.sourceLabel || null,
+                    entityIdentifier: subAnswer.provenanceJson.entityIdentifier || null,
+                    entityUrl: subAnswer.provenanceJson.entityUrl || null
                 } : null;
 
                 const { displayModel, displayValue } = await resolveCanonicalFieldDisplay({
@@ -256,7 +260,9 @@ export async function resolveExportAnswer(
                 reference: primaryDerived.sourceReference,
                 timestamp: primaryDerived.assertedAt,
                 sourceCheckedAt: primaryDerived.sourceCheckedAt || primaryDerived.assertedAt,
-                userName: null
+                userName: null,
+                entityIdentifier: primaryDerived.entityIdentifier || null,
+                entityUrl: primaryDerived.entityUrl || null
             };
 
             const { displayModel, displayValue, parsedDerivedValue } = await resolveCanonicalFieldDisplay({
@@ -308,6 +314,20 @@ export async function resolveExportAnswer(
                 sourceCategory,
                 attachmentFilenames: attachmentFilenames.length > 0 ? attachmentFilenames : undefined,
                 displayContext: displayModel.displayContext
+            };
+        } else if (attachmentFilenames.length > 0) {
+            const displayValue = attachmentFilenames.length === 1
+                ? "Document attached"
+                : "Documents attached";
+
+            return {
+                displayValue,
+                rawValue: null,
+                answerState: "HAS_VALUE",
+                sourceCategory: 'USER',
+                sourceLabel: isReleased && releasedByName ? `Released by ${releasedByName}` : "Master Data attachment",
+                sourceTimestamp: snapshotDate || null,
+                attachmentFilenames: attachmentFilenames
             };
         } else {
             // Check Master Record empty state logic using already resolved fieldDetail
@@ -363,47 +383,52 @@ export async function resolveExportAnswer(
         if (group && group.items && group.items.length > 0) {
             const fieldNos = group.items.map((i: any) => i.fieldNo);
 
-            const [claims, sourceMappings] = await Promise.all([
-                prisma.fieldClaim.findMany({
-                    where: {
-                        subjectLeId: subjectLeId || '',
-                        fieldNo: { in: fieldNos },
-                        claimRole: 'VALUE',
-                        status: { in: ['VERIFIED', 'ASSERTED'] },
-                        OR: [{ ownerScopeId: ownerScopeId || null }, { ownerScopeId: null }]
-                    },
-                    orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }]
-                }),
-                (prisma as any).sourceFieldMapping.findMany({
-                    where: { targetFieldNo: { in: fieldNos }, isActive: true }
-                })
-            ]);
-
             const fieldDefMap = new Map();
+            const hydratedValues: Record<number, any> = {};
+
             for (const item of group.items) {
                 const def = await getMasterFieldDefinition(item.fieldNo);
                 if (def) {
                     fieldDefMap.set(def.fieldNo, def);
+                    let derived: any = null;
+                    if (def.isMultiValue) {
+                        const collection = await KycStateService.getAuthoritativeCollection(
+                            { subjectLeId, clientLEId: entityId },
+                            item.fieldNo,
+                            ownerScopeId || undefined,
+                            snapshotDate
+                        );
+                        if (collection && collection.length > 0) {
+                            derived = {
+                                value: collection.map((c: any) => c.value),
+                                source: collection[0].sourceType,
+                                sourceReference: collection[0].sourceReference,
+                                updatedAt: collection[0].assertedAt,
+                                sourceCheckedAt: collection[0].sourceCheckedAt || collection[0].assertedAt
+                            };
+                        }
+                    } else {
+                        const val = await KycStateService.getAuthoritativeValue(
+                            { subjectLeId, clientLEId: entityId },
+                            item.fieldNo,
+                            ownerScopeId || undefined,
+                            snapshotDate
+                        );
+                        if (val && val.value !== null && val.value !== undefined && val.value !== '') {
+                            derived = {
+                                value: val.value,
+                                source: val.sourceType,
+                                sourceReference: val.sourceReference,
+                                updatedAt: val.assertedAt,
+                                sourceCheckedAt: val.sourceCheckedAt || val.assertedAt
+                            };
+                        }
+                    }
+                    if (derived) {
+                        hydratedValues[item.fieldNo] = derived;
+                    }
                 }
             }
-
-            const groupFieldMap = new Map();
-            groupFieldMap.set(question.masterQuestionGroupId, fieldNos);
-
-            const batchInput = {
-                subjectLeId: subjectLeId || '',
-                ownerScopeId: ownerScopeId ?? null,
-                questions: [{ questionId: question.id, masterQuestionGroupId: question.masterQuestionGroupId, masterFieldProjectionPath: question.masterFieldProjectionPath }],
-                fieldDefMap,
-                groupFieldMap,
-                claims: claims as any,
-                sourceMappings,
-                attachmentsByField: undefined,
-                provenanceMap: null,
-            };
-
-            const resolvedValues = await resolveMasterDataBatch(batchInput);
-            const hydratedValues = resolvedValues[question.id] || {};
 
             const resolvedValuesMap = new Map();
             for (const [fieldNo, hydrated] of Object.entries(hydratedValues)) {
@@ -423,12 +448,12 @@ export async function resolveExportAnswer(
                 let attachmentFilenames: string[] = [];
                 let displayContext: string | undefined = undefined;
 
-                if (hv && hv.value !== null && hv.value !== undefined && hv.value !== "") {
-                    const attachments = attachmentsMap.get(item.fieldNo) || [];
-                    if (attachments.length > 0) {
-                        attachmentFilenames = attachments.map((a: any) => a.displayName);
-                    }
+                const attachments = attachmentsMap.get(item.fieldNo) || [];
+                if (attachments.length > 0) {
+                    attachmentFilenames = attachments.map((a: any) => a.displayName);
+                }
 
+                if (hv && hv.value !== null && hv.value !== undefined && hv.value !== "") {
                     const meta = {
                         fieldNo: def.fieldNo,
                         label: def.fieldName,
@@ -444,7 +469,9 @@ export async function resolveExportAnswer(
                         reference: hv.sourceReference,
                         timestamp: hv.updatedAt,
                         sourceCheckedAt: hv.sourceCheckedAt,
-                        userName: null
+                        userName: null,
+                        entityIdentifier: hv.entityIdentifier || null,
+                        entityUrl: hv.entityUrl || null
                     } : null;
 
                     const { displayModel, displayValue: resolvedText } = await resolveCanonicalFieldDisplay({
@@ -458,6 +485,9 @@ export async function resolveExportAnswer(
                     sourceLabel = displayModel.source?.label || (hv.source ? getSourceDisplayName(hv.source, hv.sourceReference || undefined) : undefined);
                     const rawTimestamp = displayModel.source?.lastValidatedAt || displayModel.source?.timestamp || hv.updatedAt || null;
                     sourceTimestamp = rawTimestamp ? (rawTimestamp instanceof Date ? rawTimestamp.toISOString() : new Date(rawTimestamp).toISOString()) : null;
+                } else if (attachmentFilenames.length > 0) {
+                    displayValue = attachmentFilenames.length === 1 ? "Document attached" : "Documents attached";
+                    sourceLabel = "Master Data attachment";
                 }
 
                 if (displayValue !== "None" && displayValue !== "") {

@@ -62,15 +62,17 @@ describe('ClientLETable Component Rendering Regression Tests', () => {
         expect(screen.getByText('1234567890ABCDEFGHIJ')).toBeInTheDocument();
     });
 
-    it('renders ACTIVE status and Manage LE link for an active non-deleted ClientLE (status: ACTIVE, isDeleted: false)', () => {
+    it('renders ACTIVE status and displays ClientLE name without operational links (status: ACTIVE, isDeleted: false)', () => {
         render(<ClientLETable les={[activeItem]} />);
 
         // Status badge must show ACTIVE
         expect(screen.getByText('ACTIVE')).toBeInTheDocument();
         expect(screen.queryByText('DELETED')).not.toBeInTheDocument();
 
-        // Must show Manage LE action, not Restore
-        expect(screen.getByRole('link', { name: /manage le/i })).toBeInTheDocument();
+        // Name is rendered as text, not a link to operational dossier
+        expect(screen.getByText('Active Beta Corp')).toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: /active beta corp/i })).not.toBeInTheDocument();
+        expect(screen.queryByRole('link', { name: /manage le/i })).not.toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /restore/i })).not.toBeInTheDocument();
     });
 });

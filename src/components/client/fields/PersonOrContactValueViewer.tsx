@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Paperclip, FileText, Loader2, CheckCircle2, Database } from "lucide-react";
+import { Paperclip, FileText, Loader2, CheckCircle2, Database, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -28,6 +28,7 @@ interface PersonOrContactValueViewerProps {
     isPromotedToCCC?: boolean;
     isPromoting?: boolean;
     onSaveForReuse?: SaveForReuseHandler;
+    hideStatusBadge?: boolean;
 }
 
 // ── Role type badge colour ────────────────────────────────────────────────────
@@ -62,11 +63,11 @@ function StatusDot({ active }: { active: boolean | null }) {
 function Field({ label, value: v }: { label: string; value: React.ReactNode }) {
     return (
         <div>
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-0.5">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-0.5">
                 {label}
             </span>
-            <span className="text-slate-900 font-medium text-sm">
-                {v ?? <span className="text-slate-400 italic">—</span>}
+            <span className="text-foreground font-medium text-sm">
+                {v ?? <span className="text-muted-foreground italic">—</span>}
             </span>
         </div>
     );
@@ -92,7 +93,7 @@ function RoleRow({ role, displayMask, index = 0 }: { role: PersonOrContactRole, 
     const ivLabel = getIdentityVerificationLabel(role.identityVerification);
 
     return (
-        <div className="flex flex-col gap-1 py-2 border-b border-slate-100 last:border-0">
+        <div className="flex flex-col gap-1 py-2 border-b border-border last:border-0">
             <div className="flex items-center gap-2 flex-wrap">
                 {showRoleField('isActiveRole') && <StatusDot active={role.isActiveRole} />}
                 {(showRoleField('roleType') || showRoleField('roleTitle')) && (
@@ -102,19 +103,19 @@ function RoleRow({ role, displayMask, index = 0 }: { role: PersonOrContactRole, 
                     />
                 )}
                 {showRoleField('roleTitle') && showRoleField('roleType') && role.roleTitle && role.roleType && (
-                    <span className="text-xs text-slate-500">{role.roleTitle}</span>
+                    <span className="text-xs text-muted-foreground">{role.roleTitle}</span>
                 )}
             </div>
             {dateRange && (
-                <span className="text-[11px] text-slate-400 ml-3.5">{dateRange}</span>
+                <span className="text-[11px] text-muted-foreground ml-3.5">{dateRange}</span>
             )}
             {ivLabel && (
-                <span className="text-[11px] text-slate-500 font-medium ml-3.5">{ivLabel}</span>
+                <span className="text-[11px] text-muted-foreground font-medium ml-3.5">{ivLabel}</span>
             )}
             {showRoleField('natureOfControl') && role.natureOfControl?.length > 0 && (
                 <div className="ml-3.5 mt-0.5 flex flex-wrap gap-1">
                     {role.natureOfControl.map((noc, i) => (
-                        <span key={i} className="text-[10px] bg-purple-50 text-purple-600 border border-purple-100 rounded px-1.5 py-0.5">
+                        <span key={i} className="text-[10px] bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border border-purple-100 dark:border-purple-800 rounded px-1.5 py-0.5">
                             {formatNatureOfControl(noc)}
                         </span>
                     ))}
@@ -167,22 +168,35 @@ function PartyAttachmentIndicator({ attachments, partyName }: { attachments: imp
             <Tooltip>
                 <TooltipTrigger asChild>
                     <div 
-                        className="inline-flex items-center gap-1 text-slate-500 hover:text-slate-700 text-xs font-medium shrink-0 cursor-default"
+                        className="inline-flex items-center gap-1.5 bg-muted hover:bg-muted/80 text-secondary-foreground px-2 py-0.5 rounded text-xs font-medium shrink-0 cursor-pointer transition-colors border border-border"
                         aria-label={`${attachments.length} document${attachments.length === 1 ? '' : 's'} attached to ${partyName}`}
                     >
-                        <Paperclip className="h-3.5 w-3.5 text-slate-400" />
-                        <span>{attachments.length}</span>
+                        <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span>{attachments.length} doc{attachments.length === 1 ? '' : 's'}</span>
                     </div>
                 </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs bg-slate-900 text-white border-slate-800 p-2 max-w-xs shadow-md">
-                    <div className="font-semibold mb-1 text-[11px] text-slate-300">
-                        {attachments.length === 1 ? 'Attached document:' : `${attachments.length} Attached documents:`}
+                <TooltipContent side="top" className="text-xs bg-card text-card-foreground border-border p-3 max-w-sm shadow-xl z-50">
+                    <div className="font-semibold mb-2 text-[11px] text-muted-foreground uppercase tracking-wider flex items-center justify-between border-b border-border pb-1.5">
+                        <span>{attachments.length === 1 ? 'Party Document' : `${attachments.length} Party Documents`}</span>
                     </div>
-                    <ul className="space-y-1">
+                    <ul className="space-y-2">
                         {attachments.map(att => (
-                            <li key={att.documentId} className="flex items-center gap-1.5 truncate">
-                                <FileText className="w-3 h-3 text-slate-400 shrink-0" />
-                                <span className="truncate">{att.displayName}</span>
+                            <li key={att.documentId} className="flex items-center justify-between gap-2 p-1.5 rounded bg-muted/50 border border-border">
+                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                    <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                                    <span className="truncate text-xs text-foreground font-medium">{att.displayName}</span>
+                                </div>
+                                <a
+                                    href={`/api/documents/${att.documentId}/download`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 px-2 py-1 rounded bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 text-[10px] font-semibold shrink-0"
+                                    title="Download document"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <Download className="w-3 h-3" />
+                                    Download
+                                </a>
                             </li>
                         ))}
                     </ul>
@@ -201,13 +215,14 @@ export function PersonOrContactValueViewer({
     claimId,
     isPromotedToCCC,
     isPromoting,
-    onSaveForReuse
+    onSaveForReuse,
+    hideStatusBadge = false
 }: PersonOrContactValueViewerProps) {
     if (!isPersonOrContactValue(value)) {
         if (value && typeof value === 'object' && 'ccPartyId' in value) {
-            return <span className="text-slate-400 italic">Unresolved Party</span>;
+            return <span className="text-muted-foreground italic">Unresolved Party</span>;
         }
-        return <span className="text-slate-400 italic">—</span>;
+        return <span className="text-muted-foreground italic">—</span>;
     }
 
     const poc = value as PersonOrContactValue;
@@ -215,7 +230,7 @@ export function PersonOrContactValueViewer({
     const renderActionButton = () => {
         if (isPromotedToCCC) {
             return (
-                <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-200 ml-2 hover:bg-emerald-50 font-medium h-6 shrink-0" title="A reusable copy already exists for this item.">
+                <Badge variant="secondary" className="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800 ml-2 hover:bg-emerald-50 font-medium h-6 shrink-0" title="A reusable copy already exists for this item.">
                     <CheckCircle2 className="w-3 h-3 mr-1" />
                     Saved for reuse
                 </Badge>
@@ -226,7 +241,7 @@ export function PersonOrContactValueViewer({
                 <Button
                     variant="outline"
                     size="sm"
-                    className="h-6 text-[10px] px-2 text-indigo-700 bg-indigo-50/50 hover:bg-indigo-100 hover:text-indigo-800 border-indigo-200 shrink-0 ml-2"
+                    className="h-6 text-[10px] px-2 text-indigo-700 dark:text-indigo-300 bg-indigo-50/50 dark:bg-indigo-950/40 hover:bg-indigo-100 hover:text-indigo-800 border-indigo-200 dark:border-indigo-800 shrink-0 ml-2"
                     disabled={isPromoting}
                     onClick={(e) => {
                         e.stopPropagation();
@@ -243,10 +258,12 @@ export function PersonOrContactValueViewer({
     };
 
     if (layout === "compact") {
-        const summary = partyLabel || getPersonOrContactSummary(poc);
+        const summary = (displayMask && displayMask.length > 0)
+            ? getPersonOrContactSummary(poc, displayMask)
+            : (partyLabel || getPersonOrContactSummary(poc));
         return (
-            <span className="inline-flex items-center gap-1.5 text-sm text-slate-900 font-medium">
-                {summary || <span className="text-slate-400 italic">—</span>}
+            <span className="inline-flex items-center gap-1.5 text-sm text-foreground font-medium">
+                {summary || <span className="text-muted-foreground italic">—</span>}
                 {attachments && attachments.length > 0 && (
                     <PartyAttachmentIndicator attachments={attachments} partyName={summary || 'Party'} />
                 )}
@@ -265,7 +282,7 @@ export function PersonOrContactValueViewer({
             <div className="flex items-center justify-between min-w-0 w-full">
                 <div className="flex flex-col min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-sm font-medium text-slate-900 truncate">
+                        <span className="text-sm font-medium text-foreground truncate">
                             {proj.primaryText}
                         </span>
                         {attachments && attachments.length > 0 && (
@@ -273,12 +290,12 @@ export function PersonOrContactValueViewer({
                         )}
                     </div>
                     {proj.secondaryParts.length > 0 && (
-                        <span className="text-xs text-slate-500 whitespace-normal break-words mt-0.5">
+                        <span className="text-xs text-muted-foreground whitespace-normal break-words mt-0.5">
                             {proj.secondaryParts.join(' · ')}
                         </span>
                     )}
                     {proj.addressText && (
-                        <span className="text-[11px] text-slate-400 whitespace-normal break-words mt-0.5">
+                        <span className="text-[11px] text-muted-foreground whitespace-normal break-words mt-0.5">
                             {proj.addressText}
                         </span>
                     )}
@@ -291,56 +308,74 @@ export function PersonOrContactValueViewer({
     // ── Detailed layout ────────────────────────────────────────────────────────
 
     return (
-        <div className="grid grid-cols-1 gap-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100 text-sm font-sans mt-2 shadow-inner">
+        <div className="grid grid-cols-1 gap-4 bg-muted/40 p-4 rounded-xl border border-border text-sm font-sans mt-2 shadow-inner">
 
             {/* Header — name + type */}
-            <div className="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+            <div className="flex items-start justify-between gap-3 border-b border-border pb-3">
                 <div>
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-0.5">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-0.5">
                         {poc.contactType}
                     </span>
                     {(() => {
                         if (!primaryText) {
-                            return <span className="text-base font-semibold text-slate-400 italic">No displayable name</span>;
+                            return <span className="text-base font-semibold text-muted-foreground italic">No displayable name</span>;
                         }
                         return (
-                            <span className="text-base font-semibold text-slate-900">
+                            <span className="text-base font-semibold text-foreground">
                                 {primaryText}
                             </span>
                         );
                     })()}
                 </div>
                 <div className="flex items-center gap-2">
-                    {renderActionButton()}
-                    {poc.isActivePersonOrContact !== null && (
-                        <span className={`text-[10px] font-semibold rounded-full px-2 py-1 border ${poc.isActivePersonOrContact ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-                            {poc.isActivePersonOrContact ? 'Active' : 'Inactive'}
-                        </span>
+                    {attachments && attachments.length > 0 && (
+                        <PartyAttachmentIndicator attachments={attachments} partyName={primaryText || 'Party'} />
                     )}
+                    {renderActionButton()}
+                    {(() => {
+                        const permitsStatus = isFieldPermittedByMask('role.isActiveRole', displayMask) || isFieldPermittedByMask('isActivePersonOrContact', displayMask);
+                        const showStatusBadge = !hideStatusBadge && (displayMask ? permitsStatus : true);
+                        if (!showStatusBadge || poc.isActivePersonOrContact === null) return null;
+                        return (
+                            <span className={`text-[10px] font-semibold rounded-full px-2 py-1 border ${poc.isActivePersonOrContact ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                                {poc.isActivePersonOrContact ? 'Active' : 'Inactive'}
+                            </span>
+                        );
+                    })()}
                 </div>
             </div>
 
             {/* Name breakdown */}
             {(showField('forenames') || showField('surname')) && (poc.forenames || poc.surname) && (
-                <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
+                <div className="grid grid-cols-2 gap-4 border-b border-border pb-3">
                     {showField('forenames') && <Field label="Forenames" value={poc.forenames} />}
                     {showField('surname') && <Field label="Surname"   value={poc.surname} />}
                 </div>
             )}
 
             {/* Contact info */}
-            {(showField('email') || showField('phones')) && (poc.email || poc.phones?.length > 0) && (
-                <div className="grid grid-cols-2 gap-4 border-b border-slate-100 pb-3">
-                    {showField('email') && poc.email && <Field label="Email" value={poc.email} />}
-                    {showField('phones') && poc.phones.map((p, i) => (
-                        <Field key={i} label={p.type} value={p.number} />
-                    ))}
-                </div>
-            )}
+            {(() => {
+                const emailVal = poc.email || (Array.isArray((poc as any).emails) && (poc as any).emails.length > 0 ? (poc as any).emails[0] : null);
+                const hasEmail = Boolean(showField('email') && emailVal);
+                const phonesList = Array.isArray(poc.phones) ? poc.phones : [];
+                const hasPhones = Boolean(showField('phones') && phonesList.length > 0);
+
+                if (hasEmail || hasPhones) {
+                    return (
+                        <div className="grid grid-cols-2 gap-4 border-b border-border pb-3">
+                            {hasEmail && <Field label="Email" value={emailVal} />}
+                            {hasPhones && phonesList.map((p, i) => (
+                                <Field key={i} label={p.type} value={p.number} />
+                            ))}
+                        </div>
+                    );
+                }
+                return null;
+            })()}
 
             {/* Individual attributes */}
             {(showField('nationality') || showField('countryOfResidence') || showField('dateOfBirth') || showField('placeOfBirth') || showField('correspondenceAddress')) && (poc.nationality?.length > 0 || poc.countryOfResidence || dob || poc.placeOfBirth || poc.correspondenceAddress) && (
-                <div className="grid grid-cols-2 gap-y-2 mt-2 pt-2 border-t border-slate-100">
+                <div className="grid grid-cols-2 gap-y-2 mt-2 pt-2 border-t border-border">
                     {showField('nationality') && poc.nationality?.length > 0 && (
                         <Field label="Nationality" value={poc.nationality.join(', ')} />
                     )}
@@ -357,11 +392,11 @@ export function PersonOrContactValueViewer({
 
             {/* Roles */}
             {showField('roles') && poc.roles?.length > 0 && (
-                <div className="border-b border-slate-100 pb-3">
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+                <div className="border-b border-border pb-3">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-2">
                         Roles
                     </span>
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-border">
                         {poc.roles.map((role, i) => (
                             <RoleRow key={i} role={role} displayMask={displayMask} index={i} />
                         ))}
@@ -372,14 +407,14 @@ export function PersonOrContactValueViewer({
             {/* Source identifiers */}
             {showField('sourceIdentifiers') && poc.sourceIdentifiers?.length > 0 && (
                 <div>
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-2">
+                    <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider block mb-2">
                         Source Identifiers
                     </span>
                     <div className="flex flex-col gap-1">
                         {poc.sourceIdentifiers.map((si, i) => (
                             <div key={i} className="flex items-center gap-2 text-xs">
-                                <span className="text-slate-400 font-mono">{si.scheme}</span>
-                                <span className="text-slate-700">{si.value}</span>
+                                <span className="text-muted-foreground font-mono">{si.scheme}</span>
+                                <span className="text-foreground">{si.value}</span>
                             </div>
                         ))}
                     </div>

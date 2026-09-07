@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getIdentity } from "@/lib/auth";
-import { checkIsSystemAdmin } from "@/actions/client";
+import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import * as Sentry from "@sentry/nextjs";
 
 /**
  * Protected diagnostic endpoint for Phase 0 Sentry error & trace verification.
  * Restricted to Staging / Dev by default. Requires ENABLE_SENTRY_DIAGNOSTICS=true in Prod.
- * Strictly restricted to System Admin users.
+ * Strictly restricted to System Admin users (Action.SYSTEM_VIEW_TELEMETRY).
  */
 export async function POST(req: NextRequest) {
     try {
@@ -20,13 +20,9 @@ export async function POST(req: NextRequest) {
             );
         }
 
-        const identity = await getIdentity();
-        if (!identity?.userId) {
-            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-
-        const isAdmin = await checkIsSystemAdmin(identity.userId);
-        if (!isAdmin) {
+        try {
+            await ensureAuthorization(Action.SYSTEM_VIEW_TELEMETRY, {});
+        } catch {
             return NextResponse.json({ error: "Forbidden: System Admin required" }, { status: 403 });
         }
 

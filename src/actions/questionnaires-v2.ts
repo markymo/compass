@@ -9,8 +9,10 @@ import {
     formatYYMMDD
 } from "@/lib/questionnaires/reference-codes";
 import { bootstrapSystemOrg } from "./admin";
-import { isSystemAdmin } from "@/actions/security";
+import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import { revalidatePath } from "next/cache";
+import { generateSupersetWorkingCopy } from "@/lib/questionnaires/superset-generator";
+import { getSupersetOrderedMasterFields } from "@/lib/master-data/master-record-order";
 
 import { QuestionnaireVisibility } from "@prisma/client";
 
@@ -63,44 +65,50 @@ export async function getQuestionnairesV2(): Promise<{
     workingCopies: QV2Row[];
     referenceLibrary: QV2Row[];
     other: QV2Row[];
+    activeMasterFieldCount: number;
 }> {
-    if (!await isSystemAdmin()) return { workingCopies: [], referenceLibrary: [], other: [] };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { workingCopies: [], referenceLibrary: [], other: [], activeMasterFieldCount: 0 };
+    }
 
-
-    const rows = await prisma.questionnaire.findMany({
-        // Exclude hard-deleted and archived rows from the live list.
-        // Archived items are hidden from normal views (status = ARCHIVED).
-        where: { isDeleted: false, status: { not: "ARCHIVED" } },
-        orderBy: { updatedAt: "desc" },
-        select: {
-            id: true,
-            name: true,
-            status: true,
-            isGlobal: true,
-            isTemplate: true,
-            kind: true,
-            functionalCode: true,
-            referenceCode: true,
-            sourceId: true, // lineage column
-            visibility: true, // first-class visibility
-            updatedAt: true,
-            createdAt: true,
-            fileName: true,
-            processingLogs: true,
-            fiOrg: { select: { name: true } },
-            ownerOrgId: true,
-            ownerOrg: { select: { name: true, types: true } },
-            fiEngagement: {
-                select: {
-                    clientLE: { select: { name: true, shortCode: true } },
-                    org: { select: { name: true, shortCode: true } }
-                }
+    const [rows, activeMasterFieldCount] = await Promise.all([
+        prisma.questionnaire.findMany({
+            // Exclude hard-deleted and archived rows from the live list.
+            // Archived items are hidden from normal views (status = ARCHIVED).
+            where: { isDeleted: false, status: { not: "ARCHIVED" } },
+            orderBy: { updatedAt: "desc" },
+            select: {
+                id: true,
+                name: true,
+                status: true,
+                isGlobal: true,
+                isTemplate: true,
+                kind: true,
+                functionalCode: true,
+                referenceCode: true,
+                sourceId: true, // lineage column
+                visibility: true, // first-class visibility
+                updatedAt: true,
+                createdAt: true,
+                fileName: true,
+                processingLogs: true,
+                ownerOrg: { select: { id: true, name: true, types: true } },
+                fiOrg: { select: { id: true, name: true, types: true } },
+                fiEngagement: {
+                    select: {
+                        clientLE: { select: { name: true, shortCode: true } },
+                        org: { select: { name: true, shortCode: true } },
+                    },
+                },
+                // descendantCount: count ALL children regardless of their deleted/archived state.
+                // This makes lineage permanent — once a child existed, the parent is forever "used".
+                _count: { select: { questions: true, derivedVersions: true } },
             },
-            // descendantCount: count ALL children regardless of their deleted/archived state.
-            // This makes lineage permanent — once a child existed, the parent is forever "used".
-            _count: { select: { questions: true, derivedVersions: true } },
-        },
-    });
+        }),
+        getSupersetOrderedMasterFields().then(fields => fields.length),
+    ]);
 
     const mapped: QV2Row[] = rows.map((r: any) => {
         const refMeta = (r.processingLogs as any)?._ref;
@@ -115,13 +123,11 @@ export async function getQuestionnairesV2(): Promise<{
             }
         }
 
-        // isOnProOwned = true when:
-        // 1. isGlobal = true (system-level templates / forms)
-        // 2. OR ownerOrgId is the host FI (the platform owner)
-        
+        // Positively verified Platform Ownership:
+        // Requires an owning or host organisation with types containing "SYSTEM"
         const isOnProOwned =
             (r.ownerOrg?.types?.includes('SYSTEM') ?? false) ||
-            (r.ownerOrgId === null && r.isTemplate === true);
+            (r.fiOrg?.types?.includes('SYSTEM') ?? false);
 
         return {
             id: r.id,
@@ -156,6 +162,7 @@ export async function getQuestionnairesV2(): Promise<{
         workingCopies:    mapped.filter(r => r.kind === "WORKING_COPY" && r.isOnProOwned),
         referenceLibrary: mapped.filter(r => r.kind === "REFERENCE_SNAPSHOT" && r.isOnProOwned),
         other:            mapped.filter(r => !(r.kind === "WORKING_COPY" && r.isOnProOwned) && !(r.kind === "REFERENCE_SNAPSHOT" && r.isOnProOwned)),
+        activeMasterFieldCount,
     };
 }
 
@@ -336,7 +343,11 @@ async function computePublishPreview(workingCopyId: string) {
 export async function previewPublishReferenceSnapshot(
     workingCopyId: string,
 ): Promise<{ success: boolean; preview?: { sourceName: string; proposedReferenceCode: string; proposedSnapshotName: string; nextVersion: number; publishDateToken: string }; error?: string }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
     try {
         const preview = await computePublishPreview(workingCopyId);
         if (!preview) return { success: false, error: "Working copy not found" };
@@ -349,7 +360,11 @@ export async function previewPublishReferenceSnapshot(
 export async function addToReferenceLibrary(
     workingCopyId: string,
 ): Promise<{ success: boolean; referenceId?: string; snapshotName?: string; snapshotReferenceCode?: string; error?: string }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     const source = await prisma.questionnaire.findUnique({
         where: { id: workingCopyId, isDeleted: false },
@@ -445,7 +460,11 @@ export async function addToReferenceLibrary(
 export async function createWorkingCopy(
     referenceId: string,
 ): Promise<{ success: boolean; workingCopyId?: string; error?: string }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     const source = await prisma.questionnaire.findUnique({
         where: { id: referenceId, isDeleted: false, kind: "REFERENCE_SNAPSHOT" },
@@ -506,7 +525,11 @@ export async function updateReferenceSnapshotVisibility(
     snapshotId: string,
     visibility: QuestionnaireVisibility,
 ): Promise<{ success: boolean; error?: string }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     const source = await prisma.questionnaire.findUnique({
         where: { id: snapshotId, isDeleted: false },
@@ -561,7 +584,11 @@ export async function updateSharingState(
 export async function archiveWorkingCopy(
     workingCopyId: string,
 ): Promise<{ success: boolean; error?: string }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     const source = await prisma.questionnaire.findUnique({
         where: { id: workingCopyId, isDeleted: false },
@@ -591,7 +618,11 @@ export async function archiveWorkingCopy(
 export async function deleteWorkingCopy(
     workingCopyId: string,
 ): Promise<{ success: boolean; error?: string }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     const source = await prisma.questionnaire.findUnique({
         where: { id: workingCopyId, isDeleted: false },
@@ -620,7 +651,11 @@ export async function deleteWorkingCopy(
 export async function archiveReferenceSnapshot(
     snapshotId: string,
 ): Promise<{ success: boolean; error?: string }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     const source = await prisma.questionnaire.findUnique({
         where: { id: snapshotId, isDeleted: false },
@@ -650,7 +685,11 @@ export async function archiveReferenceSnapshot(
 export async function deleteReferenceSnapshot(
     snapshotId: string,
 ): Promise<{ success: boolean; error?: string; code?: string }> {
-    if (!await isSystemAdmin()) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     const source = await prisma.questionnaire.findUnique({
         where: { id: snapshotId, isDeleted: false },
@@ -691,3 +730,23 @@ export async function deleteReferenceSnapshot(
         return { success: false, error: e.message || "Failed" };
     }
 }
+
+// ── Superset Generator Action ───────────────────────────────────────────────
+
+export async function generateSupersetAction(options?: { force?: boolean }): Promise<{
+    success: boolean;
+    questionnaireId?: string;
+    isExisting?: boolean;
+    questionCount?: number;
+    error?: string;
+}> {
+    await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    const result = await generateSupersetWorkingCopy({ force: options?.force });
+    try {
+        revalidatePath("/app/admin/questionnaires-v2");
+    } catch {
+        // Outside Next.js request context (e.g. test runner)
+    }
+    return result;
+}
+

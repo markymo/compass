@@ -145,5 +145,77 @@ describe('FieldSourceBadge', () => {
             expect(withoutTimestamp).not.toContain('Last validated:');
         });
     });
+
+    describe('Registry Entity Links (ONP-37)', () => {
+        it('renders clickable link with external URL for Companies House source with entityIdentifier', () => {
+            const source: FieldSource = {
+                type: 'REGISTRATION_AUTHORITY',
+                reference: 'COMPANIES_HOUSE',
+                label: 'Companies House',
+                colorKey: 'REGISTRY',
+                category: 'REGISTRY',
+                entityIdentifier: '07640868',
+            };
+            const element: any = FieldSourceBadge({ source });
+            expect(element?.type).toBe('a');
+            expect(element?.props?.href).toBe('https://find-and-update.company-information.service.gov.uk/company/07640868');
+            expect(element?.props?.target).toBe('_blank');
+            expect(element?.props?.rel).toBe('noopener noreferrer');
+        });
+
+        it('renders clickable link with external URL for GLEIF source with entityIdentifier', () => {
+            const source: FieldSource = {
+                type: 'GLEIF',
+                label: 'GLEIF',
+                colorKey: 'GLEIF',
+                category: 'REGISTRY',
+                entityIdentifier: '213800AB12CD34EF5678',
+            };
+            const element: any = FieldSourceBadge({ source });
+            expect(element?.type).toBe('a');
+            expect(element?.props?.href).toBe('https://search.gleif.org/#/record/213800AB12CD34EF5678');
+            expect(element?.props?.target).toBe('_blank');
+        });
+
+        it('renders clickable link with external URL when explicit entityUrl is passed as prop', () => {
+            const source: FieldSource = {
+                type: 'REGISTRATION_AUTHORITY',
+                reference: 'RA000192',
+                label: 'RNCS / Infogreffe',
+                colorKey: 'REGISTRY',
+                category: 'REGISTRY',
+            };
+            const element: any = FieldSourceBadge({
+                source,
+                entityUrl: 'https://annuaire-entreprises.data.gouv.fr/entreprise/552032534',
+            });
+            expect(element?.type).toBe('a');
+            expect(element?.props?.href).toBe('https://annuaire-entreprises.data.gouv.fr/entreprise/552032534');
+        });
+
+        it('renders standard non-clickable badge when entityIdentifier is omitted', () => {
+            const source: FieldSource = {
+                type: 'REGISTRATION_AUTHORITY',
+                reference: 'COMPANIES_HOUSE',
+                label: 'Companies House',
+                colorKey: 'REGISTRY',
+                category: 'REGISTRY',
+            };
+            const element: any = FieldSourceBadge({ source });
+            expect(element?.type).not.toBe('a');
+        });
+
+        it('renders standard non-clickable badge for USER_INPUT and SYSTEM sources', () => {
+            const source: FieldSource = {
+                type: 'USER_INPUT',
+                label: 'User Data',
+                colorKey: 'USER',
+                category: 'USER',
+                entityIdentifier: '123456',
+            };
+            const element: any = FieldSourceBadge({ source });
+            expect(element?.type).not.toBe('a');
+        });
+    });
 });
 });

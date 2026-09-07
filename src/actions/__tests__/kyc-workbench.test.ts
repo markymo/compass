@@ -8,9 +8,20 @@ import * as kycQuery from '../kyc-query';
 import * as definitionService from '@/services/masterData/definitionService';
 import * as sourceLabelServer from '@/lib/kyc/source-label.server';
 import { KycStateService } from '@/lib/kyc/KycStateService';
+import * as auth from '@/lib/auth';
+import * as permissions from '@/lib/auth/permissions';
+
+vi.mock('@/lib/auth', () => ({
+    getIdentity: vi.fn().mockResolvedValue({ userId: 'user-1' })
+}));
+vi.mock('@/lib/auth/permissions', () => ({
+    can: vi.fn().mockResolvedValue(true),
+    Action: { LE_VIEW_MASTER_DATA: 'le:view_master_data', LE_EDIT_MASTER_DATA: 'le:edit_master_data' }
+}));
 
 vi.mock('@/lib/prisma', () => ({
     default: {
+        membership: { findMany: vi.fn().mockResolvedValue([]) },
         clientLE: { findUnique: vi.fn() },
         fieldClaim: { findMany: vi.fn() },
         sourceFieldMapping: { findMany: vi.fn() },
@@ -36,6 +47,11 @@ vi.mock('@/services/masterData/definitionService', () => ({
 }));
 
 describe('getWorkbench4Data', () => {
+    it('returns null when caller is not authorized for the ClientLE', async () => {
+        vi.mocked(permissions.can).mockResolvedValueOnce(false);
+        const result = await getWorkbench4Data('client-le-unauthorized');
+        expect(result).toBeNull();
+    });
     it('attaches canonicalDisplayModel for custom fields', async () => {
         const customDefId = 'custom-123';
         vi.mocked(kycQuery.getConsoleQuestions).mockResolvedValueOnce([

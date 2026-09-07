@@ -84,6 +84,7 @@ export function FieldValueRenderer({
 
             case 'EXPLICIT_NONE':
             case 'NO_DATA':
+            case 'CHECKED_NO_DATA':
                 return <span className={cn("text-slate-800 font-medium", className)}>None</span>;
 
             case 'UNMAPPED':

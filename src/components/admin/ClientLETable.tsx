@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Building, Building2, ExternalLink, RotateCcw, Loader2 } from "lucide-react";
+import { Building, Building2, RotateCcw, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { restoreClientLEFromAdmin } from "@/actions/admin";
@@ -93,16 +93,15 @@ export function ClientLETable({
                                     <TableCell className="font-medium">
                                         <div className="flex items-center gap-2">
                                             <Building className={`w-4 h-4 shrink-0 ${le.isDeleted ? "text-slate-300" : "text-slate-400"}`} />
-                                            <Link
-                                                href={`/app/le/${le.id}`}
-                                                className={`font-semibold transition-colors ${
+                                            <span
+                                                className={`font-semibold ${
                                                     le.isDeleted
-                                                        ? "text-slate-500 hover:text-amber-600 hover:underline"
-                                                        : "text-slate-900 hover:text-amber-600 hover:underline"
+                                                        ? "text-slate-500"
+                                                        : "text-slate-900"
                                                 }`}
                                             >
                                                 {le.name}
-                                            </Link>
+                                            </span>
                                             {le.shortCode && (
                                                 <Badge
                                                     variant="outline"
@@ -181,30 +180,20 @@ export function ClientLETable({
                                         </Badge>
                                     </TableCell>
                                     <TableCell className="text-right">
-                                        {le.isDeleted ? (
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                className="h-8 px-2 text-slate-700 hover:text-amber-700 hover:bg-amber-50 border-slate-200"
-                                                onClick={() => setRestoreTarget(le)}
-                                            >
-                                                <RotateCcw className="w-3.5 h-3.5 mr-1" />
-                                                Restore
-                                            </Button>
-                                        ) : (
-                                            <Button
-                                                size="sm"
-                                                variant="ghost"
-                                                className="h-8 px-2 text-slate-600 hover:text-amber-600"
-                                                asChild
-                                            >
-                                                <Link href={`/app/le/${le.id}`}>
-                                                    <ExternalLink className="w-3.5 h-3.5 mr-1" />
-                                                    Manage LE
-                                                </Link>
-                                            </Button>
-                                        )}
-                                    </TableCell>
+                                         {le.isDeleted ? (
+                                             <Button
+                                                 size="sm"
+                                                 variant="outline"
+                                                 className="h-8 px-2 text-slate-700 hover:text-amber-700 hover:bg-amber-50 border-slate-200"
+                                                 onClick={() => setRestoreTarget(le)}
+                                             >
+                                                 <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                                                 Restore
+                                             </Button>
+                                         ) : (
+                                             <span className="text-xs text-slate-400">—</span>
+                                         )}
+                                     </TableCell>
                                 </TableRow>
                             );
                         })

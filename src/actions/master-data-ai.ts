@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { isSystemAdmin } from "@/actions/security";
+import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 
 /**
  * Generates a concise description for a master data field using AI.
@@ -17,10 +17,12 @@ export async function generateFieldDescription(
     error?: string;
 }> {
     try {
-        if (!(await isSystemAdmin())) {
-            return { success: false, error: "Unauthorized. Must be system admin." };
-        }
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized. Must be system admin." };
+    }
 
+    try {
         const key = process.env.OPENAI_API_KEY;
         if (!key) {
             return { success: false, error: "OpenAI API key not configured" };
@@ -62,10 +64,12 @@ export async function generateFieldDescription(
  */
 export async function updateFieldDescription(fieldNo: number, description: string): Promise<{ success: boolean; error?: string }> {
     try {
-        if (!(await isSystemAdmin())) {
-            return { success: false, error: "Unauthorized. Must be system admin." };
-        }
+        await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
+    } catch {
+        return { success: false, error: "Unauthorized. Must be system admin." };
+    }
 
+    try {
         await (prisma as any).masterFieldDefinition.update({
             where: { fieldNo },
             data: { description }

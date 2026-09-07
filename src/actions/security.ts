@@ -4,19 +4,16 @@ import prisma from "@/lib/prisma";
 import { getIdentity } from "@/lib/auth";
 
 /**
- * Checks if the current user has a SYSTEM role across any organization.
+ * Checks if the current user holds the explicit SYSTEM_ADMIN role.
  */
 export async function isSystemAdmin() {
     const identity = await getIdentity();
     if (!identity) return false;
 
-    // Check for membership in a SYSTEM type organization
     const adminMembership = await prisma.membership.findFirst({
         where: {
             userId: identity.userId,
-            organization: {
-                types: { has: "SYSTEM" }
-            }
+            role: "SYSTEM_ADMIN"
         }
     });
 

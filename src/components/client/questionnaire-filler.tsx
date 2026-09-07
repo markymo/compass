@@ -20,11 +20,12 @@ import { Send, History, ShieldCheck } from "lucide-react";
 interface QuestionnaireFillerProps {
     leId: string;
     questionnaireId: string;
+    relationshipId?: string;
     initialQuestions: any[]; // The extractedContent array
     questionnaireName: string;
 }
 
-export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, questionnaireName }: QuestionnaireFillerProps) {
+export function QuestionnaireFiller({ leId, questionnaireId, relationshipId, initialQuestions, questionnaireName }: QuestionnaireFillerProps) {
     const [questions, setQuestions] = useState(initialQuestions);
     const [ghostAnswers, setGhostAnswers] = useState<Record<string, SuggestedAnswer>>({});
     const [isGenerating, setIsGenerating] = useState(false);
@@ -246,6 +247,7 @@ export function QuestionnaireFiller({ leId, questionnaireId, initialQuestions, q
                     <div className="max-w-4xl mx-auto">
                         <QuestionnaireSubmissionHistory
                             questionnaireId={questionnaireId}
+                            relationshipId={relationshipId}
                             showRelationshipName={true}
                         />
                     </div>

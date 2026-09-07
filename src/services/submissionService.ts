@@ -4,6 +4,10 @@ import * as crypto from "crypto";
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { getFieldDetail, enrichPartyReferences, enrichAddressReferences, resolveMasterDataBatch } from "@/actions/kyc-query";
 import { getMasterFieldGroup, getMasterFieldDefinition } from "@/services/masterData/definitionService";
+import { buildPartyFieldProjection, extractCanonicalPartyIds } from "@/lib/master-data/party-value";
+import { isFieldPermittedByCatalogue } from "@/lib/master-data/party-display-catalogue";
+import { CCPartyDocumentService } from "@/lib/documents/party/CCPartyDocumentService";
+import { resolveQuestionAttachmentsBatch } from "@/lib/kyc/attachments";
 
 export interface CreateSubmissionInput {
     questionnaireId: string;
@@ -168,6 +172,16 @@ export async function createQuestionnaireSubmission(
             include: { documents: { where: { isDeleted: false } } }
         });
 
+        // Resolve canonical attachments for all questions in this questionnaire
+        const canonicalAttachmentsMap = await resolveQuestionAttachmentsBatch(
+            liveQuestions.map((q: any) => ({
+                id: q.id,
+                masterFieldNo: q.masterFieldNo,
+                masterQuestionGroupId: q.masterQuestionGroupId,
+            })),
+            { clientLEId, subjectLeId }
+        );
+
         // Resolve all canonical values
         const resolvedAnswerMap = new Map<string, {
             valueJson: any;
@@ -180,7 +194,16 @@ export async function createQuestionnaireSubmission(
             let valueJson: any = null;
             let explicitNone = false;
             let provenanceJson: any = null;
-            const documentIds: string[] = q.documents.map((d: any) => d.id);
+            
+            let documentIds: string[] = [];
+            if (q.masterFieldNo || q.masterQuestionGroupId) {
+                const canonicalRes = canonicalAttachmentsMap.get(q.id);
+                const canonicalIds = canonicalRes ? [...canonicalRes.documentIds] : [];
+                const legacyIds = (q.documents || []).map((d: any) => d.id);
+                documentIds = Array.from(new Set([...canonicalIds, ...legacyIds]));
+            } else {
+                documentIds = (q.documents || []).map((d: any) => d.id);
+            }
 
             if (q.masterFieldNo) {
                 const derived = await KycStateService.getAuthoritativeValue(
@@ -207,6 +230,8 @@ export async function createQuestionnaireSubmission(
                         sourceReference: derived.sourceReference || null,
                         assertedAt: derived.assertedAt?.toISOString() || null,
                         sourceCheckedAt: derived.sourceCheckedAt?.toISOString() || null,
+                        entityIdentifier: (derived as any).entityIdentifier || null,
+                        entityUrl: (derived as any).entityUrl || null,
                     };
                 }
             } else if (q.masterQuestionGroupId) {
@@ -274,6 +299,32 @@ export async function createQuestionnaireSubmission(
                 const valuesToEnrich = Array.isArray(valueJson) ? valueJson : [valueJson];
                 await enrichPartyReferences(valuesToEnrich);
                 await enrichAddressReferences(valuesToEnrich);
+
+                if (q.masterFieldNo) {
+                    const masterFieldDef = await getMasterFieldDefinition(q.masterFieldNo);
+                    const mask = (masterFieldDef as any)?.profileConfig?.displayMask;
+
+                    const projected = Array.isArray(valueJson)
+                        ? valueJson.map(v => buildPartyFieldProjection(v, mask))
+                        : buildPartyFieldProjection(valueJson, mask);
+                    valueJson = projected;
+
+                    const permitsPartyDocs = isFieldPermittedByCatalogue('party.documents', mask);
+                    if (permitsPartyDocs) {
+                        const partyIds = extractCanonicalPartyIds(valueJson);
+                        if (partyIds.length > 0) {
+                            const partyDocsMap = await CCPartyDocumentService.resolvePartyDocumentsBatch(partyIds, clientLEId);
+                            for (const docs of Array.from(partyDocsMap.values())) {
+                                for (const d of docs) {
+                                    const docId = (d as any).documentId || (d as any).document?.id;
+                                    if (docId && !documentIds.includes(docId)) {
+                                        documentIds.push(docId);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             resolvedAnswerMap.set(q.id, {

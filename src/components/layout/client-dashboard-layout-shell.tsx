@@ -23,7 +23,7 @@ export function ClientDashboardLayoutShell({
     const tabs = getClientDashboardTabs(clientId);
 
     return (
-        <div className="flex flex-col min-h-screen bg-slate-50/10">
+        <div className="flex flex-col min-h-screen bg-background text-foreground">
             <StandardPageHeader
                 title={orgName}
                 typeLabel="Client Organization"
@@ -33,7 +33,7 @@ export function ClientDashboardLayoutShell({
                     { label: orgName, icon: Building2 }
                 ]}
                 actions={
-                    <Badge variant="secondary" className="text-xs uppercase tracking-wider font-mono px-3 py-1 bg-slate-100 text-slate-700 border-slate-200">
+                    <Badge variant="secondary" className="text-xs uppercase tracking-wider font-mono px-3 py-1 bg-muted text-muted-foreground border-border">
                         {roleLabel}
                     </Badge>
                 }

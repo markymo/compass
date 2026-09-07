@@ -19,6 +19,7 @@ vi.mock('@/actions/security', () => ({
 
 vi.mock('@/lib/prisma', () => ({
     default: {
+        $queryRaw: vi.fn(),
         membership: {
             findMany: vi.fn(),
             findFirst: vi.fn(),
@@ -108,9 +109,11 @@ describe('Soft-Deleted ClientLE Authorization Remediation & Verification Pass', 
         vi.mocked(prisma.fIEngagement.findMany).mockResolvedValue([]);
         vi.mocked(prisma.masterFieldDefinition.findMany).mockResolvedValue([]);
         vi.mocked(prisma.masterFieldGroup.findMany).mockResolvedValue([]);
+        vi.mocked((prisma as any).masterFieldAssignment.findMany).mockResolvedValue([]);
         vi.mocked(prisma.customFieldDefinition.findMany).mockResolvedValue([]);
         vi.mocked(prisma.sourceFieldMapping.findMany).mockResolvedValue([]);
         vi.mocked(prisma.clientLEOwner.findFirst).mockResolvedValue({ partyId: ORG_ID } as any);
+        (prisma as any).$queryRaw.mockResolvedValue([]);
     });
 
     describe('1. Delete -> Restore Lifecycle Verification', () => {
@@ -422,6 +425,17 @@ describe('Soft-Deleted ClientLE Authorization Remediation & Verification Pass', 
 
         beforeEach(() => {
             vi.mocked(getIdentity).mockResolvedValue({ userId: SYS_ADMIN_ID, email: 'sysadmin@example.com' } as any);
+            vi.mocked(prisma.membership.findMany).mockResolvedValue([
+                {
+                    userId: SYS_ADMIN_ID,
+                    role: 'SYSTEM_ADMIN',
+                    organizationId: 'sys-org',
+                    clientLEId: null,
+                    fiEngagementId: null,
+                    clientLE: null,
+                    organization: { types: ['SYSTEM'] }
+                }
+            ] as any);
             vi.mocked(isSystemAdmin).mockResolvedValue(true);
         });
 
@@ -437,7 +451,7 @@ describe('Soft-Deleted ClientLE Authorization Remediation & Verification Pass', 
             expect(adminList.find(l => l.id === DELETED_TRIKI_ID)?.isDeleted).toBe(true);
         });
 
-        it('2. getFullMasterData allows SysAdmin access to deleted LE for restore/governance', async () => {
+        it('2. getFullMasterData strictly DENIES pure SysAdmin access to customer master data', async () => {
             vi.mocked(prisma.membership.findMany).mockResolvedValue([
                 {
                     userId: SYS_ADMIN_ID,
@@ -451,7 +465,8 @@ describe('Soft-Deleted ClientLE Authorization Remediation & Verification Pass', 
 
             const res = await getFullMasterData(DELETED_TRIKI_ID);
 
-            expect(res.success).not.toBe(false);
+            expect(res.success).toBe(false);
+            expect(res.data).toEqual({});
         });
     });
 });

@@ -81,9 +81,14 @@ describe('Party Display Catalogue & Permission Evaluation', () => {
     });
 
     describe('Mask Evaluation (isFieldPermittedByCatalogue)', () => {
-        it('allows all fields when displayMask is undefined or empty', () => {
+        it('allows all fields when displayMask is undefined', () => {
             expect(isFieldPermittedByCatalogue('forenames', undefined)).toBe(true);
-            expect(isFieldPermittedByCatalogue('forenames', [])).toBe(true);
+            expect(isFieldPermittedByCatalogue('party.documents', undefined)).toBe(true);
+        });
+
+        it('denies optional fields and party.documents when displayMask is explicitly []', () => {
+            expect(isFieldPermittedByCatalogue('forenames', [])).toBe(false);
+            expect(isFieldPermittedByCatalogue('party.documents', [])).toBe(false);
         });
 
         it('DENIES all fields when displayMask is non-empty BUT contains zero recognized keys', () => {

@@ -1,14 +1,14 @@
 import prisma from "@/lib/prisma";
 import { getMasterFieldDefinition } from "@/services/masterData/definitionService";
 import { ClaimStatus, SourceType, FieldClaim } from "@prisma/client";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "crypto";
 
 export type AssertClaimInput = {
     fieldNo: number;
     // Who (Exactly one)
-    subjectLeId?: string;
-    subjectPersonId?: string;
-    subjectOrgId?: string;
+    subjectLeId?: string | null;
+    subjectPersonId?: string | null;
+    subjectOrgId?: string | null;
     // Whose
     ownerScopeId?: string; // null = baseline
     // What (Value families)
@@ -87,10 +87,13 @@ export class FieldClaimService {
             }
         }
 
-        // 1. Invariant: Exactly one subject FK
+        // 1. Invariant: At most one canonical subject FK (LE, Person, or Org); clientLEId is mandatory dossier scope
         const subjects = [input.subjectLeId, input.subjectPersonId, input.subjectOrgId].filter(Boolean);
-        if (subjects.length !== 1) {
-            throw new Error("FieldClaim must have exactly one subject (LE, Person, or Org).");
+        if (subjects.length > 1) {
+            throw new Error("FieldClaim cannot have multiple canonical subjects (LE, Person, or Org).");
+        }
+        if (!input.clientLEId && subjects.length === 0) {
+            throw new Error("FieldClaim assertion requires clientLEId or a subject (LE, Person, or Org).");
         }
 
         // 2. Fetch Field Definition for validation
@@ -119,8 +122,8 @@ export class FieldClaimService {
             const claim = await prisma.fieldClaim.create({
                 data: {
                     fieldNo: input.fieldNo,
-                    clientLEId: input.clientLEId,
-                    subjectLeId: input.subjectLeId,
+                    clientLEId: input.clientLEId!,
+                    subjectLeId: input.subjectLeId || null,
                     subjectPersonId: input.subjectPersonId,
                     subjectOrgId: input.subjectOrgId,
                     ownerScopeId: input.ownerScopeId,
@@ -194,7 +197,7 @@ export class FieldClaimService {
      * Emits a tombstone claim to 'delete' a collection item.
      */
     static async emitTombstone(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
         fieldNo: number,
         collectionId: string | undefined,
         instanceId: string,
@@ -221,7 +224,7 @@ export class FieldClaimService {
     // ── File Attachment Writes ───────────────────────────────────────────────
 
     private static async validateAttachmentInstance(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
         fieldNo: number,
         instanceId: string,
         ownerScopeId: string | null
@@ -270,7 +273,7 @@ export class FieldClaimService {
      * Generates a new instanceId for the attachment lifecycle.
      */
     static async addAttachment(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
         fieldNo: number,
         attachmentDocumentId: string,
         ownerScopeId: string | null,
@@ -278,7 +281,7 @@ export class FieldClaimService {
         idempotencyKey?: string
     ): Promise<FieldClaim> {
         await this.validateDocumentExists(attachmentDocumentId, subject.clientLEId);
-        const instanceId = uuidv4();
+        const instanceId = randomUUID();
         return await this.assertClaim({
             fieldNo,
             ...subject,
@@ -295,7 +298,7 @@ export class FieldClaimService {
      * Replaces an existing file attachment (identified by instanceId) with a new one.
      */
     static async replaceAttachment(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
         fieldNo: number,
         instanceId: string,
         attachmentDocumentId: string,
@@ -322,7 +325,7 @@ export class FieldClaimService {
      * Removes an existing file attachment (identified by instanceId) by emitting a tombstone.
      */
     static async removeAttachment(
-        subject: { subjectLeId?: string; subjectPersonId?: string; subjectOrgId?: string; clientLEId?: string },
+        subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
         fieldNo: number,
         instanceId: string,
         ownerScopeId: string | null,

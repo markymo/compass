@@ -11,35 +11,12 @@ import { Button } from "@/components/ui/button";
 import { getAvailableCommonQuestionnaires, addCommonQuestionnaire, removeCommonQuestionnaire } from "@/actions/client-le";
 import { toast } from "sonner";
 import { ProgressTracker } from "@/components/shared/progress-tracker";
+import { QuestionStateMetricStrip, QuestionStateMetricHeader } from "@/components/shared/question-state-metric-strip";
 import { cn } from "@/lib/utils";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 import { CreateApprovalDialog } from "@/components/client/approvals/create-approval-dialog";
 
-const DASHBOARD_GRID_V2 = "grid-cols-[minmax(160px,1fr)_45px_125px_125px_285px]";
-
-function MicroChart({ value, total, colorClass, emptyClass, numeratorLabel, denominatorLabel }: { value: number, total: number, colorClass: string, emptyClass: string, numeratorLabel: string, denominatorLabel: string }) {
-    if (total === 0) {
-        return <div className="text-[10px] text-slate-300 h-full w-full flex items-center pr-4 italic">No data</div>;
-    }
-    
-    const percent = Math.min(100, Math.max(0, (value / total) * 100));
-    
-    return (
-        <div className="flex flex-col gap-1 w-full pr-4 mt-0.5">
-            <div className="flex justify-between items-baseline leading-none">
-                <span className={cn("text-xs font-bold font-mono", percent > 0 ? colorClass : "text-slate-300")}>
-                    {value}
-                </span>
-                <span className="text-[9px] text-slate-400 font-medium font-mono uppercase tracking-tighter">
-                    {(total - value)} {denominatorLabel}
-                </span>
-            </div>
-            <div className={cn("h-1 w-full rounded-full overflow-hidden flex", emptyClass)}>
-                <div className={cn("h-full transition-all duration-500")} style={{ width: `${percent}%`, backgroundColor: 'currentColor' }} />
-            </div>
-        </div>
-    );
-}
+const DASHBOARD_GRID_V2 = "grid-cols-[1fr_432px_160px] gap-4";
 
 interface CommonQuestionnairesProps {
     leId: string;
@@ -65,87 +42,93 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
             const res = await getAvailableCommonQuestionnaires(leId);
             if (res.success && res.snapshots) {
                 setAvailable(res.snapshots);
-            } else {
-                toast.error(res.error || "Failed to load questionnaires");
             }
         } catch (error) {
-            console.error("Error fetching questionnaires:", error);
-            toast.error("Failed to load questionnaires");
+            console.error("Failed to fetch available common questionnaires", error);
+            toast.error("Failed to load available questionnaires");
         } finally {
             setIsLoading(false);
         }
     };
 
     const handleAdd = async (snapshot: any) => {
-        if (addingId) return;
-
-        // Optimistic UI check for existing linked instance or reference snapshot
-        if (linked.find((q: any) => q.id === snapshot.id || q.sourceId === snapshot.id)) {
-             toast.error("Already added");
-             return;
-        }
-
         setAddingId(snapshot.id);
-        const prev = [...linked];
-        setLinked([...linked, snapshot]);
-        setActivePopover(null);
-
         try {
             const res = await addCommonQuestionnaire(leId, snapshot.id);
             if (res.success) {
-                toast.success(`Added ${snapshot.name}`);
+                toast.success(`Added ${snapshot.name} to Common Questionnaires`);
+                setLinked(prev => [...prev, {
+                    id: snapshot.id,
+                    name: snapshot.name,
+                    referenceCode: snapshot.referenceCode,
+                    description: snapshot.description,
+                    metrics: { total: snapshot.metrics?.total || 0, mapped: 0, answered: 0, approved: 0, released: 0 },
+                    v2Metrics: { total: snapshot.metrics?.total || 0, external: 0, userInput: 0, defaultResponse: 0, unanswered: snapshot.metrics?.total || 0 }
+                }]);
+                setActivePopover(null);
             } else {
-                setLinked(prev);
-                toast.error(res.error || "Failed to add questionnaire");
+                toast.error(res.error || "Failed to add common questionnaire");
             }
         } catch (error) {
-            setLinked(prev);
-            toast.error("Failed to add questionnaire");
+            console.error("Failed to add common questionnaire", error);
+            toast.error("Failed to add common questionnaire");
         } finally {
             setAddingId(null);
         }
     };
 
-    const handleRemoveConfirm = async () => {
+    const handleRemove = async () => {
         if (!removeTarget) return;
-        const { id, name } = removeTarget;
-        const prev = [...linked];
-        setLinked(linked.filter((q: any) => q.id !== id));
-
-        toast.promise(removeCommonQuestionnaire(leId, id), {
-            loading: "Removing...",
-            success: `Removed ${name}`,
-            error: () => {
-                setLinked(prev);
-                return "Failed to remove questionnaire";
+        try {
+            const res = await removeCommonQuestionnaire(leId, removeTarget.id);
+            if (res.success) {
+                toast.success(`Removed ${removeTarget.name} from Common Questionnaires`);
+                setLinked(prev => prev.filter(q => q.id !== removeTarget.id));
+                setRemoveTarget(null);
+            } else {
+                toast.error(res.error || "Failed to remove common questionnaire");
             }
-        });
+        } catch (error) {
+            console.error("Failed to remove common questionnaire", error);
+            toast.error("Failed to remove common questionnaire");
+        }
     };
 
-    const renderPopoverContent = (align: "end" | "center") => (
-        <PopoverContent className="w-full md:w-[400px] p-0" align={align}>
+    const renderPopoverContent = (align: "start" | "center" | "end" = "end") => (
+        <PopoverContent className="w-[320px] p-0" align={align}>
             <Command>
-                <CommandInput placeholder="Search global questionnaires..." />
+                <CommandInput placeholder="Search available questionnaires..." />
                 <CommandList>
                     <CommandEmpty>
-                        {isLoading ? "Loading..." : "No questionnaires found."}
+                        {isLoading ? (
+                            <div className="flex items-center justify-center p-4 text-xs text-muted-foreground">
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin text-indigo-500" />
+                                Loading...
+                            </div>
+                        ) : (
+                            "No common questionnaires found."
+                        )}
                     </CommandEmpty>
-                    <CommandGroup>
+                    <CommandGroup heading="Available Questionnaires">
                         {available.map((snapshot) => {
-                            const isLinked = linked.some((q: any) => q.id === snapshot.id || q.sourceId === snapshot.id);
+                            const isLinked = linked.some(q => q.id === snapshot.id);
                             const isAddingThis = addingId === snapshot.id;
 
                             return (
                                 <CommandItem
                                     key={snapshot.id}
-                                    value={`${snapshot.id} ${snapshot.name} ${snapshot.referenceCode || ""} ${snapshot.functionalCode || ""} ${snapshot.description || ""}`}
-                                    onSelect={() => handleAdd(snapshot)}
+                                    value={`${snapshot.id} ${snapshot.name} ${snapshot.referenceCode || ""} ${snapshot.functionalCode || ""}`}
+                                    onSelect={() => {
+                                        if (!isLinked && !isAddingThis) {
+                                            handleAdd(snapshot);
+                                        }
+                                    }}
                                     onPointerDown={(e) => {
                                         e.preventDefault();
                                         handleAdd(snapshot);
                                     }}
                                     className="flex flex-col items-start py-3 cursor-pointer"
-                                    disabled={isAddingThis}
+                                    disabled={isLinked || isAddingThis}
                                 >
                                     <div className="flex items-center w-full">
                                         <FileText className="mr-2 h-4 w-4 text-indigo-500 shrink-0" />
@@ -158,9 +141,6 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                                     </div>
                                     {snapshot.referenceCode && (
                                         <span className="text-xs text-slate-400 mt-1 ml-6">{snapshot.referenceCode}</span>
-                                    )}
-                                    {snapshot.description && (
-                                        <span className="text-xs text-slate-500 mt-0.5 ml-6 line-clamp-1">{snapshot.description}</span>
                                     )}
                                 </CommandItem>
                             );
@@ -175,19 +155,19 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-xl font-semibold text-slate-900">Common Questionnaires</h2>
-                    <p className="text-sm text-slate-500 mt-1">Core questionnaires shared across all of your suppliers.</p>
+                    <h2 className="text-xl font-semibold text-foreground">Common Questionnaires</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Core questionnaires shared across all of your suppliers.</p>
                 </div>
                 
-                <Popover
-                    open={activePopover === 'header'}
+                <Popover 
+                    open={activePopover === 'header'} 
                     onOpenChange={(val) => {
                         setActivePopover(val ? 'header' : null);
                         if (val) fetchAvailable();
                     }}
                 >
                     <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-7 text-xs px-2 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 w-fit">
+                        <Button variant="outline" size="sm" className="h-7 text-xs px-2 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-700 dark:hover:text-indigo-300 w-fit">
                             <Plus className="h-3 w-3 mr-1" />
                             Add
                         </Button>
@@ -197,161 +177,154 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
             </div>
 
             {linked.length > 0 ? (
-                <div className="flex flex-col gap-3">
-                    {/* --- 2-Tier Header Row --- */}
-                    <div className={cn("hidden md:grid items-center px-4 py-2 border-b border-slate-200 bg-slate-50/80 rounded-t-md border-x border-t", DASHBOARD_GRID_V2)}>
+                <Card className="overflow-hidden border border-border bg-card shadow-none rounded-xl">
+                    {/* --- Grouped 2-Tier Header Row --- */}
+                    <div className={cn("hidden md:grid items-center px-4 py-2.5 bg-muted/40 border-b border-border text-foreground", DASHBOARD_GRID_V2)}>
                         {/* 1. Entity */}
-                        <div className="flex items-center gap-2 pr-4 pl-1">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider pl-7">Questionnaire</span>
+                        <div className="flex items-center gap-2 pl-2">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Questionnaire</span>
                         </div>
 
-                        {/* 2. Anchor (Total) */}
-                        <div className="text-center pb-0.5">
-                            <span className="text-[10px] font-bold text-slate-700 uppercase tracking-wider">Total</span>
-                        </div>
+                        {/* 2. Grouped Canonical Metrics (Questions & Answers) */}
+                        <QuestionStateMetricHeader />
 
-                        {/* 3. Sourcing Group */}
-                        <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Data Sourcing</span>
-                            <div className="flex justify-between pr-4 items-end">
-                                <span className="text-[10px] font-bold text-sky-600 uppercase">Mapped</span>
-                            </div>
-                        </div>
-
-                        {/* 4. Completion Group */}
-                        <div className="flex flex-col border-l border-slate-200 pl-4 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Completion</span>
-                            <div className="flex justify-between pr-4 items-end">
-                                <span className="text-[10px] font-bold text-amber-600 uppercase">Answered</span>
-                            </div>
-                        </div>
-
-                        {/* 5. Workflow Group */}
-                        <div className="flex flex-col border-l border-slate-200 pl-3 h-full">
-                            <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Sign-Off & Actions</span>
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-bold text-indigo-600 uppercase min-w-[28px] text-center">Approved</span>
-                                <span className="text-[10px] font-bold text-emerald-600 uppercase min-w-[28px] text-center">Released</span>
-                            </div>
+                        {/* 3. Actions */}
+                        <div className="flex flex-col gap-1 text-right justify-end pr-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-transparent select-none">Actions</span>
+                            <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Actions</span>
                         </div>
                     </div>
 
-                    <div className="grid gap-3">
+                    {/* --- Rows --- */}
+                    <div className="divide-y divide-border">
                         {linked.map((q: any) => (
-                            <div key={q.id} className="p-3 rounded-md border border-slate-200 bg-white shadow-sm hover:border-indigo-300 transition-colors group/card">
-                                <div className={cn("hidden md:grid items-center gap-2", DASHBOARD_GRID_V2)}>
-                                    {/* Col 1: Name and Badges */}
-                                    <div className="flex items-center gap-3 overflow-hidden pr-4 pl-4">
-                                        <FileText className="h-4 w-4 text-slate-400 shrink-0" />
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-2">
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium text-[13.5px] text-slate-800 truncate group-hover/card:text-indigo-600 transition-colors" title={q.name}>{q.name}</span>
-                                                    {q.referenceCode && <span className="text-[10px] text-slate-400 font-mono tracking-tight">{q.referenceCode}</span>}
-                                                </div>
-                                            </div>
+                            <div key={q.id} className="px-4 py-2.5 hover:bg-muted/30 transition-colors group/row">
+                                <div className={cn("hidden md:grid items-center", DASHBOARD_GRID_V2)}>
+                                    {/* Col 1: Questionnaire Name + Ref */}
+                                    <div className="flex items-center gap-3 overflow-hidden min-w-0 pl-2 pr-4">
+                                        <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                                        <div className="min-w-0 flex-1 flex flex-col">
+                                            <span className="font-medium text-sm text-foreground truncate group-hover/row:text-indigo-600 dark:group-hover/row:text-indigo-400 transition-colors" title={q.name}>
+                                                {q.name}
+                                            </span>
+                                            {q.referenceCode && (
+                                                <span className="text-[10px] text-muted-foreground font-mono tracking-tight">
+                                                    {q.referenceCode}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
 
-                                    {/* Col 2: Total */}
-                                    <div className="text-center font-bold text-slate-600 text-[14px]">
-                                        {q.metrics?.total || 0}
-                                    </div>
+                                    {/* Col 2: Canonical Metrics (Home 5-part block, no / 1) */}
+                                    {q.v2Metrics ? (
+                                        <QuestionStateMetricStrip
+                                            metrics={q.v2Metrics}
+                                            variant="table-row"
+                                            showQuestionnairesCount={false}
+                                            linkContext={{
+                                                leId,
+                                                scope: "common",
+                                                questionnaireId: q.id,
+                                                relationshipName: "Common",
+                                                questionnaireName: q.name,
+                                            }}
+                                        />
+                                    ) : (
+                                        <div className="text-right font-bold font-mono text-sm text-foreground pr-3">
+                                            {q.metrics?.total || 0}
+                                        </div>
+                                    )}
 
-                                    {/* Col 3: Data Sourcing */}
-                                    <div className="border-l border-slate-100 pl-4 flex flex-col justify-center h-full text-sky-500">
-                                        {q.metrics && <MicroChart value={q.metrics.mapped} total={q.metrics.total} colorClass="text-sky-500" emptyClass="bg-slate-100" numeratorLabel="Mapped" denominatorLabel="Unmapped" />}
+                                    {/* Col 3: Actions */}
+                                    <div className="flex items-center justify-end gap-1 text-right">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => setApprovalQuestionnaireId(q.id)}
+                                            className="h-7 text-xs text-muted-foreground hover:text-foreground px-2 flex items-center gap-1 font-medium"
+                                            title="Approve Common Questionnaire"
+                                        >
+                                            <ShieldCheck className="h-3.5 w-3.5" />
+                                            Approve
+                                        </Button>
+                                        <Link 
+                                            href={`/app/le/${leId}/workbench4?scope=common&questionnaireId=${q.id}`}
+                                            className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                                            title="Review in Question Bank"
+                                        >
+                                            <ArrowRight className="h-4 w-4" />
+                                        </Link>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="icon" 
+                                            className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                                            onClick={() => setRemoveTarget({ id: q.id, name: q.name })}
+                                            title="Remove Common Questionnaire"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
                                     </div>
-
-                                    {/* Col 4: Completion */}
-                                    <div className="border-l border-slate-100 pl-4 flex flex-col justify-center h-full text-amber-500">
-                                        {q.metrics && <MicroChart value={q.metrics.answered} total={q.metrics.total} colorClass="text-amber-500" emptyClass="bg-slate-100" numeratorLabel="Answered" denominatorLabel="Blank" />}
-                                    </div>
-
-                                    {/* Col 5: Sign-Off and Actions */}
-                                    <div className="border-l border-slate-100 pl-3 pr-1 flex items-center justify-between h-full">
-                                        {q.metrics ? (
-                                            <div className="flex items-center gap-2 shrink-0">
-                                                <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
-                                                    <span className={cn("text-[13px] font-bold font-mono", q.metrics.approved > 0 ? "text-indigo-600" : "text-slate-300")}>{q.metrics.approved}</span>
-                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Approved</span>
-                                                </div>
-                                                <div className="flex flex-col items-center gap-0.5 min-w-[28px]">
-                                                    <span className={cn("text-[13px] font-bold font-mono", q.metrics.released > 0 ? "text-emerald-600" : "text-slate-300")}>{q.metrics.released}</span>
-                                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Released</span>
-                                                </div>
+                                </div>
+                                
+                                {/* Mobile View */}
+                                <div className="md:hidden flex flex-col gap-3 py-1">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <div className="h-8 w-8 rounded bg-muted text-muted-foreground flex items-center justify-center shrink-0">
+                                                <FileText className="h-4 w-4" />
                                             </div>
-                                        ) : (
-                                            <div className="text-xs text-slate-500 italic pr-2">No data</div>
-                                        )}
-                                        <div className="shrink-0 flex items-center gap-1 pl-2">
+                                            <div className="flex flex-col gap-0.5 min-w-0">
+                                                <h3 className="font-semibold text-sm text-foreground leading-none truncate">{q.name}</h3>
+                                                {q.referenceCode && (
+                                                    <span className="text-[10px] text-muted-foreground shrink-0 font-mono">{q.referenceCode}</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="shrink-0 flex items-center gap-1">
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
                                                 onClick={() => setApprovalQuestionnaireId(q.id)}
-                                                className="h-7 text-xs text-indigo-600 hover:bg-indigo-50 px-2 flex items-center gap-1 font-medium shrink-0"
+                                                className="h-7 text-xs text-muted-foreground hover:text-foreground px-2 flex items-center gap-1 font-medium"
                                                 title="Approve Common Questionnaire"
                                             >
                                                 <ShieldCheck className="h-3.5 w-3.5" />
                                                 Approve
                                             </Button>
-                                            <Link 
-                                                href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`}
-                                                className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors shrink-0"
-                                                title="Review in Question Bank"
-                                            >
+                                            <Link href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`} className="h-8 w-8 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground">
                                                 <ArrowRight className="h-4 w-4" />
                                             </Link>
-                                            <Button 
-                                                variant="ghost" 
-                                                size="icon" 
-                                                className="h-7 w-7 text-slate-400 hover:text-red-600 hover:bg-red-50 shrink-0"
-                                                onClick={() => setRemoveTarget({ id: q.id, name: q.name })}
-                                                title="Remove Common Questionnaire"
-                                            >
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setRemoveTarget({ id: q.id, name: q.name })}>
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </div>
                                     </div>
-                                </div>
-                                
-                                {/* Mobile View */}
-                                <div className="md:hidden flex flex-col gap-3">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-8 w-8 rounded bg-slate-100 text-slate-500 flex items-center justify-center shrink-0">
-                                                <FileText className="h-4 w-4" />
-                                            </div>
-                                            <div className="flex flex-col gap-0.5 min-w-0">
-                                                <h3 className="font-semibold text-sm text-slate-900 leading-none truncate">{q.name}</h3>
-                                                <div className="flex items-center gap-2 mt-0.5">
-                                                    {q.referenceCode && (
-                                                        <span className="text-[10px] text-slate-500 shrink-0">{q.referenceCode}</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="shrink-0 flex items-center gap-1">
-                                            <Link href={`/app/le/${leId}/workbench4?rel=Common&q=${encodeURIComponent(q.name)}`} className="h-8 w-8 inline-flex items-center justify-center rounded-md text-slate-400 hover:text-slate-600">
-                                                <ArrowRight className="h-4 w-4" />
-                                            </Link>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-600" onClick={() => setRemoveTarget({ id: q.id, name: q.name })}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    </div>
-                                    {q.metrics && (
-                                        <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-slate-50/50" />
-                                    )}
+                                    {q.v2Metrics ? (
+                                        <QuestionStateMetricStrip
+                                            metrics={q.v2Metrics}
+                                            variant="card-row"
+                                            showQuestionnairesCount={false}
+                                            linkContext={{
+                                                leId,
+                                                scope: "common",
+                                                questionnaireId: q.id,
+                                                relationshipName: "Common",
+                                                questionnaireName: q.name,
+                                            }}
+                                            className="w-full bg-muted/40 p-2 rounded"
+                                        />
+                                    ) : q.metrics ? (
+                                        <ProgressTracker metrics={q.metrics} variant={"v2" as any} className="w-full bg-muted/50" />
+                                    ) : null}
                                 </div>
                             </div>
                         ))}
                     </div>
-                </div>
+                </Card>
             ) : (
-                 <div className="text-center py-10 bg-slate-50 rounded-md border border-dashed border-slate-200">
-                     <p className="font-medium text-slate-700">No Common Questionnaires added yet.</p>
-                     <p className="text-sm text-slate-500 mt-1 mb-4">Use the + Add button to search and add standard questionnaires.</p>
+                 <div className="text-center py-10 bg-card text-card-foreground rounded-md border border-dashed border-border">
+                     <p className="font-medium text-foreground">No Common Questionnaires added yet.</p>
+                     <p className="text-sm text-muted-foreground mt-1 mb-4">Use the + Add button to search and add standard questionnaires.</p>
                      <Popover
                          open={activePopover === 'empty'}
                          onOpenChange={(val) => {
@@ -360,7 +333,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                          }}
                      >
                          <PopoverTrigger asChild>
-                             <Button variant="outline" size="sm" className="h-8 text-xs px-3 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700">
+                             <Button variant="outline" size="sm" className="h-8 text-xs px-3 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:text-indigo-700 dark:hover:text-indigo-300">
                                  <Plus className="h-3.5 w-3.5 mr-1.5" />
                                  Add Questionnaire
                              </Button>
@@ -377,7 +350,7 @@ export function CommonQuestionnaires({ leId, initialQuestionnaires }: CommonQues
                 title="Remove Common Questionnaire?"
                 description={removeTarget ? `This will remove "${removeTarget.name}" from your common questionnaires list.` : ""}
                 confirmLabel="Remove Questionnaire"
-                onConfirm={handleRemoveConfirm}
+                onConfirm={handleRemove}
                 isLoading={isLoading}
             />
 

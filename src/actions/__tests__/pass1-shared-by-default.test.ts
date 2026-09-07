@@ -37,7 +37,7 @@ vi.mock("@/lib/prisma", () => ({
         },
         fIEngagement: {
             findUnique: vi.fn(),
-            findMany: vi.fn()
+            findMany: vi.fn().mockResolvedValue([])
         },
         question: {
             createMany: vi.fn(),
@@ -165,7 +165,9 @@ describe("Pass 1: Shared-by-Default for Ordinary Engagement Questionnaires", () 
             organizationId: fiOrgId,
             organization: { types: ["FI"] }
         });
-        prismaMock.membership.findMany.mockResolvedValue([]);
+        prismaMock.membership.findMany.mockResolvedValue([
+            { fiEngagementId: engagementId }
+        ]);
 
         const sharedAt = new Date("2026-08-18");
         prismaMock.question.findMany.mockResolvedValue([
@@ -216,7 +218,9 @@ describe("Pass 1: Shared-by-Default for Ordinary Engagement Questionnaires", () 
             organizationId: unrelatedSupplierOrgId,
             organization: { types: ["FI"] }
         });
-        prismaMock.membership.findMany.mockResolvedValue([]);
+        prismaMock.membership.findMany.mockResolvedValue([
+            { fiEngagementId: "unrelated-eng-1" }
+        ]);
 
         prismaMock.question.findMany.mockResolvedValue([]);
 
@@ -248,7 +252,9 @@ describe("Pass 1: Shared-by-Default for Ordinary Engagement Questionnaires", () 
             organizationId: fiOrgId,
             organization: { types: ["FI"] }
         });
-        prismaMock.membership.findMany.mockResolvedValue([]);
+        prismaMock.membership.findMany.mockResolvedValue([
+            { fiEngagementId: engagementId }
+        ]);
 
         prismaMock.question.findMany.mockResolvedValue([
             {

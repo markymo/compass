@@ -13,10 +13,14 @@ vi.mock('@/lib/auth', () => ({
 }));
 
 // Mock permissions
-vi.mock('@/lib/auth/permissions', () => ({
-    ensureAuthorization: vi.fn().mockResolvedValue(true),
-    can: vi.fn().mockReturnValue(true),
-}));
+vi.mock('@/lib/auth/permissions', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/lib/auth/permissions')>();
+    return {
+        ...actual,
+        ensureAuthorization: vi.fn().mockResolvedValue(true),
+        can: vi.fn().mockResolvedValue(true),
+    };
+});
 
 // Mock next/cache
 vi.mock('next/cache', () => ({

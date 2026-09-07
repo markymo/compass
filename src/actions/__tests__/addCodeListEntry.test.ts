@@ -20,6 +20,10 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('@/lib/auth', () => ({
     getIdentity: vi.fn().mockResolvedValue({ userId: 'user-test' }),
 }));
+vi.mock('@/lib/auth/permissions', () => ({
+    can: vi.fn().mockResolvedValue(true),
+    Action: { LE_EDIT_MASTER_DATA: 'LE_EDIT_MASTER_DATA' }
+}));
 
 // Prisma mock — only clientLE.findUnique used by addCodeListEntry
 vi.mock('@/lib/prisma', () => ({
@@ -27,6 +31,7 @@ vi.mock('@/lib/prisma', () => ({
         clientLE: {
             findUnique: vi.fn().mockResolvedValue({ id: 'cle-1', legalEntityId: 'le-abc' }),
         },
+        membership: { findMany: vi.fn().mockResolvedValue([]) },
         // Other models needed by updateFieldManually's internal path
         legalEntity: { findUnique: vi.fn().mockResolvedValue(null) },
         fieldClaim: { findMany: vi.fn().mockResolvedValue([]), create: vi.fn() },

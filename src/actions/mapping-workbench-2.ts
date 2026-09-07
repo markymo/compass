@@ -1,7 +1,7 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { isSystemAdmin } from "@/actions/admin";
+import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import { getPathHint } from "@/lib/mapping-workbench/semantic-hints";
 import { SOURCE_OPTIONS, SourceOption } from "@/lib/source-display";
 import { fetchGLEIFData } from "@/actions/gleif";
@@ -245,11 +245,8 @@ async function fetchLivePayloads(defaults: { gleifLei: string; chCompanyNo: stri
     return { payloads, refs };
 }
 
-// ── Main action ────────────────────────────────────────────────────────────
-
 export async function getMappingWorkbench2Data(): Promise<Wb2PageData> {
-    const isAdmin = await isSystemAdmin();
-    if (!isAdmin) throw new Error("Unauthorized");
+    await ensureAuthorization(Action.SYSTEM_MANAGE_PLATFORM, {});
 
     const defaults = await getEffectiveMappingDefaults();
     const resolvedDefaults = {

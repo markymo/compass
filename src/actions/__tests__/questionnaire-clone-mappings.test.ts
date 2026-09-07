@@ -10,14 +10,14 @@ vi.mock('@/actions/security', () => ({
 vi.mock('@/lib/auth', () => ({
     getIdentity: vi.fn().mockResolvedValue({ userId: 'test-user-id' }),
 }));
-vi.mock('@/lib/auth/permissions', () => ({
-    can: vi.fn().mockResolvedValue(true),
-    Action: {
-        CREATE_REFERENCE_SNAPSHOT: 'CREATE_REFERENCE_SNAPSHOT',
-        EDIT_QUESTIONNAIRE: 'EDIT_QUESTIONNAIRE',
-        ASSIGN_QUESTIONNAIRE: 'ASSIGN_QUESTIONNAIRE',
-    },
-}));
+vi.mock('@/lib/auth/permissions', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/lib/auth/permissions')>();
+    return {
+        ...actual,
+        can: vi.fn().mockResolvedValue(true),
+        ensureAuthorization: vi.fn().mockResolvedValue(undefined as any),
+    };
+});
 vi.mock('next/cache', () => ({
     revalidatePath: vi.fn(),
     unstable_noStore: vi.fn(),

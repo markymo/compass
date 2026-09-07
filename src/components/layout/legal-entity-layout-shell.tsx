@@ -43,11 +43,11 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
     const officialName = leData?.gleifData?.attributes?.entity?.legalName?.name;
 
     return (
-        <div className="flex flex-col min-h-screen bg-slate-50/50">
+        <div className="flex flex-col min-h-screen bg-background text-foreground">
             <StandardPageHeader
                 title={
                     pageTitle ? (
-                        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 truncate">
+                        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground truncate">
                             {pageTitle}
                         </h1>
                     ) : (
@@ -56,7 +56,7 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
                             <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                                 {officialName ? (
                                     <div className="flex items-center gap-2" title="Official Legal Name (GLEIF)">
-                                        <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate text-emerald-700">
+                                        <h1 className="text-2xl md:text-3xl font-bold tracking-tight truncate text-emerald-700 dark:text-emerald-400">
                                             {officialName}
                                         </h1>
                                         <TooltipProvider>
@@ -66,7 +66,7 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
                                                         href={`https://search.gleif.org/#/record/${leData?.lei}`} 
                                                         target="_blank" 
                                                         rel="noopener noreferrer" 
-                                                        className="text-emerald-600 hover:text-emerald-500 transition-colors"
+                                                        className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-500 transition-colors"
                                                     >
                                                         <ExternalLink className="h-5 w-5 shrink-0" />
                                                     </a>
@@ -86,7 +86,7 @@ function InnerShell({ children, baseBreadcrumbs, leId, leName, isSystemAdmin, le
                                 ) : (
                                     <h1 className={cn(
                                         "text-2xl md:text-3xl font-bold tracking-tight truncate",
-                                        leData?.lei ? "text-emerald-600" : "text-slate-900"
+                                        leData?.lei ? "text-emerald-600 dark:text-emerald-400" : "text-foreground"
                                     )}>
                                         {leName}
                                     </h1>

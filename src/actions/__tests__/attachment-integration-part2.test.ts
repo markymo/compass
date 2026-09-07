@@ -215,8 +215,8 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
             const docId2 = await makeDocument('doc2');
             const addRes = await addFieldAttachment({ clientLEId, fieldNo: 999, attachmentDocumentId: docId1, idempotencyKey: key });
             testClaims.push(addRes.id);
-            await expect(addFieldAttachment({ clientLEId, fieldNo: 999, attachmentDocumentId: docId2, idempotencyKey: key }))
-                .rejects.toThrow(/Idempotency conflict/);
+            const failDiffDoc = await addFieldAttachment({ clientLEId, fieldNo: 999, attachmentDocumentId: docId2, idempotencyKey: key });
+            expect(failDiffDoc.success).toBe(false);
         });
 
         it('same key reused for Add versus Replace fails', async () => {
@@ -225,8 +225,8 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
             const docId2 = await makeDocument('doc2');
             const addRes = await addFieldAttachment({ clientLEId, fieldNo: 999, attachmentDocumentId: docId1, idempotencyKey: key });
             testClaims.push(addRes.id);
-            await expect(replaceFieldAttachment({ clientLEId, fieldNo: 999, instanceId: addRes.instanceId, attachmentDocumentId: docId2, idempotencyKey: key }))
-                .rejects.toThrow(/Idempotency conflict/);
+            const failCross = await replaceFieldAttachment({ clientLEId, fieldNo: 999, instanceId: addRes.instanceId, attachmentDocumentId: docId2, idempotencyKey: key });
+            expect(failCross.success).toBe(false);
         });
 
         it('same key with a different ClientLE fails', async () => {
@@ -254,8 +254,8 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
 
             const addRes = await addFieldAttachment({ clientLEId, fieldNo: 999, attachmentDocumentId: docId1, idempotencyKey: key });
             testClaims.push(addRes.id);
-            await expect(addFieldAttachment({ clientLEId: otherLe.id, fieldNo: 999, attachmentDocumentId: docIdOther.id, idempotencyKey: key }))
-                .rejects.toThrow();
+            const failOtherLe = await addFieldAttachment({ clientLEId: otherLe.id, fieldNo: 999, attachmentDocumentId: docIdOther.id, idempotencyKey: key });
+            expect(failOtherLe.success).toBe(false);
 
             await prisma.document.delete({ where: { id: docIdOther.id } });
             await prisma.clientLE.delete({ where: { id: otherLe.id } });
@@ -274,8 +274,8 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
             const rep1 = await replaceFieldAttachment({ clientLEId, fieldNo: 999, instanceId: addRes1.instanceId, attachmentDocumentId: docId1, idempotencyKey: key });
             testClaims.push(rep1.id);
 
-            await expect(replaceFieldAttachment({ clientLEId, fieldNo: 999, instanceId: addRes2.instanceId, attachmentDocumentId: docId1, idempotencyKey: key }))
-                .rejects.toThrow(/Idempotency conflict/);
+            const failInst = await replaceFieldAttachment({ clientLEId, fieldNo: 999, instanceId: addRes2.instanceId, attachmentDocumentId: docId1, idempotencyKey: key });
+            expect(failInst.success).toBe(false);
         });
     });
 
@@ -293,8 +293,8 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
             await prisma.masterFieldDefinition.update({ where: { fieldNo: 998 }, data: { allowAttachments: false } });
             await refreshDefinitionCache();
 
-            await expect(replaceFieldAttachment({ clientLEId, fieldNo: 998, instanceId: addRes.instanceId, attachmentDocumentId: docId2 }))
-                .rejects.toThrow(/Attachments are not permitted/);
+            const failAllow = await replaceFieldAttachment({ clientLEId, fieldNo: 998, instanceId: addRes.instanceId, attachmentDocumentId: docId2 });
+            expect(failAllow.success).toBe(false);
         });
 
         it('Remove remains allowed after the field is disabled', async () => {
@@ -317,14 +317,14 @@ describe.skipIf(!process.env.DATABASE_URL)('Phase 4 Attachment Lifecycle Integra
             const addRes = await addFieldAttachment({ clientLEId, fieldNo: 999, attachmentDocumentId: docId1 });
             testClaims.push(addRes.id);
 
-            await expect(replaceFieldAttachment({ clientLEId, fieldNo: 123, instanceId: addRes.instanceId, attachmentDocumentId: docId2 }))
-                .rejects.toThrow(/not found or does not belong to the requested scope/);
+            const failWrongField = await replaceFieldAttachment({ clientLEId, fieldNo: 123, instanceId: addRes.instanceId, attachmentDocumentId: docId2 });
+            expect(failWrongField.success).toBe(false);
         });
 
         it('unknown instance Replace is rejected', async () => {
             const docId2 = await makeDocument('doc2');
-            await expect(replaceFieldAttachment({ clientLEId, fieldNo: 999, instanceId: 'unknown', attachmentDocumentId: docId2 }))
-                .rejects.toThrow(/not found or does not belong to the requested scope/);
+            const failUnknown = await replaceFieldAttachment({ clientLEId, fieldNo: 999, instanceId: 'unknown', attachmentDocumentId: docId2 });
+            expect(failUnknown.success).toBe(false);
         });
     });
 

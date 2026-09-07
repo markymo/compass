@@ -36,6 +36,7 @@ vi.mock('@/lib/prisma', () => {
             customFieldDefinition: { findMany: vi.fn().mockResolvedValue([]) },
             sourceFieldMapping: { findMany: vi.fn().mockResolvedValue([{ targetFieldNo: 3, sourceType: 'COMPANIES_HOUSE', sourceReference: 'COMPANIES_HOUSE', priority: 1 }]) },
             cCParty: { findMany: vi.fn().mockResolvedValue([{ id: 'p-123', data: { contactType: 'PERSON', forenames: 'Manual', surname: 'Party' } }]) },
+            cCPartyDocument: { findMany: vi.fn().mockResolvedValue([]) },
             $queryRaw: vi.fn().mockResolvedValue([]),
         }
     };

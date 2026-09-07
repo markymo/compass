@@ -109,3 +109,24 @@ describe('deleteOrganization', () => {
         expect(res.error).toContain('1 member');
     });
 });
+
+describe('ONP-81 — Organisation Archive Removal (MVP Decision)', () => {
+    it('does not export archiveOrganization or unarchiveOrganization server actions', async () => {
+        const orgModule = await import('../org');
+        expect((orgModule as any).archiveOrganization).toBeUndefined();
+        expect((orgModule as any).unarchiveOrganization).toBeUndefined();
+    });
+
+    it('does not offer Archive Organization or Unarchive Organization controls in admin org detail UI', async () => {
+        const fs = await import('fs');
+        const path = await import('path');
+        const pageSource = fs.readFileSync(
+            path.resolve(__dirname, '../../app/(platform)/app/admin/organizations/[id]/page.tsx'),
+            'utf8'
+        );
+        expect(pageSource).not.toContain('Archive Organization');
+        expect(pageSource).not.toContain('Unarchive Organization');
+        expect(pageSource).not.toContain('archiveOrganization');
+        expect(pageSource).not.toContain('unarchiveOrganization');
+    });
+});

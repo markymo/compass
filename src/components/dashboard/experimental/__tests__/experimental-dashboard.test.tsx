@@ -275,14 +275,90 @@ describe("Experimental Homepage V2 Tweaks and Metric Parity", () => {
     });
 
     describe("HomeVariantSwitcher", () => {
-        it("switches to v2 variant while preserving existing search parameters", () => {
-            mockSearchParams = new URLSearchParams("filter=active&tab=overview");
+        it("links to Classic (v1) variant with ?home=v1", () => {
+            render(<HomeVariantSwitcher currentVariant="v2" />);
+            const classicLink = screen.getByText("Classic");
+            expect(classicLink.getAttribute("href")).toBe("/app?home=v1");
+        });
+
+        it("links to Current (v2 default) variant without query param", () => {
             render(<HomeVariantSwitcher currentVariant="v1" />);
+            const currentLink = screen.getByText("Current");
+            expect(currentLink.getAttribute("href")).toBe("/app");
+        });
+    });
 
-            const expButton = screen.getByText("Experimental");
-            expButton.click();
+    describe("Supplier Organisation Client Navigation Headers", () => {
+        it("renders non-clickable client heading (preventing unauthorized /app/clients navigation) for client nodes under supplier orgs", () => {
+            const supplierContexts: DashboardContexts = {
+                clients: [],
+                financialInstitutions: [
+                    {
+                        id: "fi-1",
+                        name: "Riskbridge Bank",
+                        role: "SUPPLIER_ADMIN",
+                        metrics: { total: 10, noData: 0, mapped: 10, answered: 10, approved: 10, released: 10 },
+                        v2Metrics: { questionnairesCount: 1, total: 10, external: 10, userInput: 0, defaultResponse: 0, unanswered: 0 },
+                    },
+                ],
+                lawFirms: [],
+                legalEntities: [],
+                relationships: [
+                    {
+                        id: "rel-1",
+                        fiOrgId: "fi-1",
+                        clientId: "client-party-99",
+                        clientName: "Global Trade Corp",
+                        leName: "Global Trade UK Ltd",
+                        clientLEId: "le-trade-1",
+                        supplierName: "Riskbridge Bank",
+                        status: "ACTIVE",
+                        userIsClient: false,
+                        userIsSupplier: true,
+                        metrics: { total: 10, noData: 0, mapped: 10, answered: 10, approved: 10, released: 10 },
+                        v2Metrics: { questionnairesCount: 1, total: 10, external: 10, userInput: 0, defaultResponse: 0, unanswered: 0 },
+                        questionnaires: [],
+                    },
+                ],
+            };
 
-            expect(mockPush).toHaveBeenCalledWith("/app?filter=active&tab=overview&home=v2");
+            render(<ExperimentalDashboardContent contexts={supplierContexts} />);
+
+            // Supplier user cannot access /app/clients/[id] so client heading must NOT be a link
+            expect(screen.queryByRole("link", { name: "Global Trade Corp" })).toBeNull();
+            expect(screen.getByText("Global Trade Corp")).toBeDefined();
+        });
+    });
+
+    describe("Organization Section Header Navigation (ONP-178)", () => {
+        it("renders clickable link for client organization name linking to /app/clients/[id]", () => {
+            render(<ExperimentalDashboardContent contexts={mockContexts} />);
+            const clientLink = screen.getByRole("link", { name: "Acme Client Corp" });
+            expect(clientLink).toBeDefined();
+            expect(clientLink.getAttribute("href")).toBe("/app/clients/client-1");
+        });
+
+        it("renders clickable link for supplier organization name linking to /app/s/[id]", () => {
+            const supplierContexts: DashboardContexts = {
+                clients: [],
+                financialInstitutions: [
+                    {
+                        id: "fi-1",
+                        name: "Riskbridge Bank",
+                        role: "SUPPLIER_ADMIN",
+                        metrics: { total: 10, noData: 0, mapped: 10, answered: 10, approved: 10, released: 10 },
+                        v2Metrics: { questionnairesCount: 1, total: 10, external: 10, userInput: 0, defaultResponse: 0, unanswered: 0 },
+                    },
+                ],
+                lawFirms: [],
+                legalEntities: [],
+                relationships: [],
+            };
+
+            render(<ExperimentalDashboardContent contexts={supplierContexts} />);
+            const supplierLink = screen.getByRole("link", { name: "Riskbridge Bank" });
+            expect(supplierLink).toBeDefined();
+            expect(supplierLink.getAttribute("href")).toBe("/app/s/fi-1");
         });
     });
 });

@@ -18,6 +18,9 @@ import { z } from 'zod';
 import { ensureQuestionNotReferenceSnapshot } from "./questionnaire";
 import { resolveFieldForDisplay, resolveFieldCollectionForDisplay, resolveFieldDisplayContext } from "@/lib/master-data/field-interpreter";
 
+import { getIdentity } from "@/lib/auth";
+import { can, Action } from "@/lib/auth/permissions";
+
 export interface Workbench4Data {
     questions: ConsoleQuestion[];
     masterFields: Array<{ fieldNo: number; label: string; category?: string | null; dataType?: string | null; currentValue?: any; attachmentCount?: number }>;
@@ -38,7 +41,7 @@ export interface Workbench4Data {
  */
 import * as Sentry from "@sentry/nextjs";
 
-export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
+export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | null> {
     return await Sentry.startSpan(
         {
             name: "probe.workbench4.load",
@@ -49,6 +52,26 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
             },
         },
         async () => {
+            const identity = await getIdentity();
+            if (!identity?.userId) return null;
+            const { userId } = identity;
+
+            const memberships = await prisma.membership.findMany({
+                where: { userId },
+                select: {
+                    organizationId: true,
+                    clientLEId: true,
+                    fiEngagementId: true,
+                    role: true,
+                    clientLE: { select: { isDeleted: true, status: true } }
+                }
+            });
+
+            const allowed = await can({ id: userId, memberships }, Action.LE_VIEW_MASTER_DATA, { clientLEId: leId }, prisma);
+            if (!allowed) {
+                return null;
+            }
+
             const questions = await getConsoleQuestions(leId, true);
 
     // 1. Get standard Master Fields & Groups (with sub-field items for batch resolver)
@@ -144,8 +167,9 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                 resolvedValuesMap.set(Number(fNo), { value: hv.value });
             }
         }
-        const fieldsWithAttachments = allFields.filter((f: any) => f.allowAttachments).map((f: any) => f.fieldNo);
-        const resolvedAttachments = await resolveAmalgamatedAttachments({ subjectLeId, clientLEId: leId }, fieldsWithAttachments, resolvedValuesMap);
+        const allFieldNos = allFields.map((f: any) => f.fieldNo);
+        const fieldDefsMap = new Map(allFields.map((f: any) => [f.fieldNo, { allowAttachments: f.allowAttachments, profileConfig: f.profileConfig }]));
+        const resolvedAttachments = await resolveAmalgamatedAttachments({ subjectLeId, clientLEId: leId }, allFieldNos, resolvedValuesMap, fieldDefsMap);
 
         for (const hvMap of Object.values(resolvedValues)) {
             for (const [fNo, hv] of Object.entries(hvMap)) {
@@ -182,7 +206,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
             currentValue: hv ? hv.value : null,
             attachmentCount: hv?.attachmentCount ?? 0,
             displayState,
-            defaultText
+            defaultText,
+            profileConfig: def.profileConfig as { displayMask?: string[] } | undefined
         };
     });
 
@@ -263,8 +288,9 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
 
                     for (const [fNo, fv] of Object.entries(resolvedValues[q.id])) {
                         groupMap[fNo] = fv.value;
-                        if (!latestDate || (fv.updatedAt && fv.updatedAt > latestDate)) {
-                            latestDate = fv.updatedAt || null;
+                        const fvDate = fv.sourceCheckedAt || fv.updatedAt;
+                        if (!latestDate || (fvDate && fvDate > latestDate)) {
+                            latestDate = fvDate || null;
                             primarySource = fv.source;
                         }
                     }
@@ -341,13 +367,18 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                     q.masterDataUpdatedAt = latestDate;
                     (q as any).masterDataGroupFields = groupFields;
                     q.masterDataGroupDisplayStyle = groupDisplayStyleMap.get(q.masterQuestionGroupId) ?? 'LIST';
+
+                    const primaryGroupDisplayModel = groupFields.find(g => g.canonicalDisplayModel?.source)?.canonicalDisplayModel || groupFields[0]?.canonicalDisplayModel;
+                    if (primaryGroupDisplayModel) {
+                        q.canonicalDisplayModel = primaryGroupDisplayModel;
+                    }
                 } else {
                     const fieldValues = Object.values(resolvedValues[q.id]);
                     if (fieldValues.length > 0) {
                         const fv = fieldValues[0];
                         q.masterDataValue = fv.value;
                         q.masterDataSource = fv.source;
-                        q.masterDataUpdatedAt = fv.updatedAt;
+                        q.masterDataUpdatedAt = fv.sourceCheckedAt || fv.updatedAt;
 
                         const def = fieldDefMap.get(q.masterFieldNo);
                         const cfg = getComplexFieldConfig(q.masterFieldNo);
@@ -389,6 +420,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data> {
                             displayState: displayState,
                             defaultText: def?.defaultResponse ?? undefined,
                             appDataType: def?.appDataType || 'JSON',
+                            profileConfig: def?.profileConfig as { displayMask?: string[] } | undefined,
                             isMultiValue: isMulti,
                             codeSystem,
                             attachments: fv.attachments,
@@ -440,6 +472,26 @@ export async function mapQuestionToField(
 ) {
     try { await ensureQuestionNotReferenceSnapshot(questionId); } catch(e: any) { return { success: false, error: e.message }; }
     try {
+        const identity = await getIdentity();
+        if (!identity?.userId) return { success: false, error: "Unauthorized" };
+        const { userId } = identity;
+
+        const memberships = await prisma.membership.findMany({
+            where: { userId },
+            select: {
+                organizationId: true,
+                clientLEId: true,
+                fiEngagementId: true,
+                role: true,
+                clientLE: { select: { isDeleted: true, status: true } }
+            }
+        });
+
+        const allowed = await can({ id: userId, memberships }, Action.LE_EDIT_MASTER_DATA, { clientLEId: leId }, prisma);
+        if (!allowed) {
+            return { success: false, error: "Unauthorized to modify question mappings for this Legal Entity." };
+        }
+
         const targetStatus = 'DRAFT';
 
         await prisma.question.update({
@@ -536,6 +588,7 @@ export async function mapQuestionToField(
                                 label: def?.fieldName || '',
                                 displayState: fv.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA',
                                 appDataType: (def?.appDataType || 'JSON') as any,
+                                profileConfig: def?.profileConfig as { displayMask?: string[] } | undefined,
                                 isMultiValue: def?.isMultiValue || false
                             }
                         );

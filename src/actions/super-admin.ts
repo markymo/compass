@@ -1,13 +1,16 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { isSystemAdmin } from "./admin"; // Re-use existing check
+import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import { revalidatePath } from "next/cache";
 
 // 1. Get System Stats
 export async function getSystemStats() {
-    const isAdmin = await isSystemAdmin();
-    if (!isAdmin) return null;
+    try {
+        await ensureAuthorization(Action.SYSTEM_VIEW_TELEMETRY, {});
+    } catch {
+        return null;
+    }
 
     const [clientCount, leCount, userCount, fiCount, lawFirmCount] = await Promise.all([
         prisma.organization.count({ where: { types: { has: "CLIENT" } } }),
@@ -28,8 +31,11 @@ export async function getSystemStats() {
 
 // 2. Onboard Client Wizard Action
 export async function onboardClient(data: { name: string, adminEmail: string }) {
-    const isAdmin = await isSystemAdmin();
-    if (!isAdmin) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_MANAGE_TENANTS, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     const { name, adminEmail } = data;
 
@@ -77,8 +83,11 @@ export async function onboardClient(data: { name: string, adminEmail: string }) 
 
 // 3. Purge Client LE (Hard Delete)
 export async function purgeClientLE(clientLEId: string) {
-    const isAdmin = await isSystemAdmin();
-    if (!isAdmin) return { success: false, error: "Unauthorized" };
+    try {
+        await ensureAuthorization(Action.SYSTEM_HARD_DELETE, {});
+    } catch {
+        return { success: false, error: "Unauthorized" };
+    }
 
     try {
         // 1. Fetch ClientLE and its primary owner to resolve the scoping Organization

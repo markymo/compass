@@ -5,12 +5,15 @@ import { useSession } from "next-auth/react";
 import { getAccountSettings, updateAccountSettings } from "@/actions/account";
 import { toast } from "sonner";
 
-interface UserPreferences {
+export interface UserPreferences {
     whimsyMode?: boolean;
     adminSidebarCollapsed?: boolean;
     relationshipsExpandedEngagements?: string[];
     homePage?: {
         collapsedTreeNodes?: Record<string, boolean>;
+    };
+    masterRecord?: {
+        expandedCategories?: string[];
     };
     [key: string]: any;
 }

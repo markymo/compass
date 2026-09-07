@@ -13,6 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
+import { showActionErrorToast } from "@/components/ui/copyable-error-toast";
 import Link from "next/link";
 import { Loader2, History, Database, Edit, CheckCircle, CheckCircle2, AlertTriangle, Paperclip, FileText, Download, X, User as UserIcon, Pencil, Check, Trash2, Plus, Lock, Save, Link2Off, ArrowRightLeft, ChevronDown, ChevronRight, ArrowUpRight, HelpCircle, Building2 } from "lucide-react";
 import { getFieldDetail, FieldDetailData } from "@/actions/kyc-query";
@@ -38,6 +39,7 @@ import { NodeCreateDialog } from "@/components/client/graph/node-create-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { CollectionRowDisplay } from "@/lib/master-data/structured-collection-renderers";
+import { SuperFieldSelector } from "../workbench/super-field-selector";
 import { CodeListField } from "@/components/client/fields/CodeListField";
 import { FieldSourceBadge } from "../fields/FieldSourceBadge";
 import { FieldValueRenderer } from "@/components/client/fields/FieldValueRenderer";
@@ -48,6 +50,8 @@ import { isAddressValue } from "@/lib/master-data/address-value";
 import { AddressValueEditor } from "../fields/AddressValueEditor";
 import { UnifiedAddressPicker } from "../fields/UnifiedAddressPicker";
 import { isPersonOrContactValue, getPersonOrContactSummary, isValidPartyValue } from "@/lib/master-data/person-or-contact-value";
+import { isFieldPermittedByCatalogue } from "@/lib/master-data/party-display-catalogue";
+import { getPartySummary } from "@/lib/master-data/party-value";
 import { applyTransform } from "@/services/kyc/normalization/transforms";
 import { PersonOrContactValueViewer } from "../fields/PersonOrContactValueViewer";
 import { CanonicalPartyEditDialog } from "../fields/CanonicalPartyEditDialog";
@@ -57,7 +61,31 @@ import { ExpandableRowItem } from "./expandable-row-item";
 import { SharedResourceUsageNotice } from "./SharedResourceUsageNotice";
 import { ConfirmDeleteDialog } from "@/components/shared/confirm-dialogs";
 import { ExpandableText } from "@/components/ui/expandable-text";
+
+function getPartyScopedAttachments(
+    partyVal: any,
+    attachments?: import("@/lib/master-data/field-display-model").ResolvedAttachment[],
+    displayMask?: string[]
+): import("@/lib/master-data/field-display-model").ResolvedAttachment[] | undefined {
+    if (!attachments || attachments.length === 0) return undefined;
+    const permitsPartyDocs = isFieldPermittedByCatalogue('party.documents', displayMask);
+    if (!permitsPartyDocs) return undefined;
+
+    const ccPartyId = partyVal?.id || partyVal?.ccPartyId || partyVal?._resolvedData?.ccParty?.id;
+    const partyNameStr = getPartySummary(partyVal) || [partyVal?.forenames, partyVal?.surname].filter(Boolean).join(' ') || partyVal?.organisationName || partyVal?.displayName;
+
+    const matched = attachments.filter(att =>
+        att.provenance?.some(p => {
+            if (p.type !== 'PARTY') return false;
+            if (ccPartyId && p.partyId === ccPartyId) return true;
+            if (partyNameStr && p.partyName && p.partyName.trim().toLowerCase() === partyNameStr.trim().toLowerCase()) return true;
+            return false;
+        })
+    );
+    return matched.length > 0 ? matched : undefined;
+}
 import { getExpectedDataTypeLabel } from "@/lib/master-data/field-type-resolver";
+import { CanonicalScalarEditor } from "@/components/client/fields/CanonicalScalarEditor";
 
 import {
     DropdownMenu,
@@ -85,9 +113,19 @@ interface FieldDetailPanelProps {
     /** Entity-specific GLEIF RA code, e.g. RA000585. Shown in SourceBadge for RA sources only. */
     registrationAuthorityId?: string;
     mappingStats?: { questions: number; questionnaires: number; suppliers: number };
+    mappingContext?: {
+        questionId: string;
+        questionText: string;
+        currentMappingValue?: string | null;
+        onMap: (val: string) => void;
+        masterFields: Array<{ fieldNo: number; label: string; attachmentCount?: number }>;
+        masterGroups: Array<{ key: string; label: string }>;
+        customFields: Array<{ id: string; label: string }>;
+        disabled?: boolean;
+    };
 }
 
-export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fieldName, customFieldId, isLocked, onUpdate, registrationAuthorityId, mappingStats }: FieldDetailPanelProps) {
+export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fieldName, customFieldId, isLocked, onUpdate, registrationAuthorityId, mappingStats, mappingContext }: FieldDetailPanelProps) {
     const [data, setData] = useState<FieldDetailData | null>(null);
     const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -115,7 +153,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
             const report = await checkCustomFieldDependencies(customFieldId);
             setDependencyReport(report);
         } catch (e) {
-            toast.error("Failed to check dependencies");
+            showActionErrorToast(e as any, "Failed to check dependencies");
             setIsDeleteDialogOpen(false);
         } finally {
             setIsCheckingDependencies(false);
@@ -133,10 +171,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 onOpenChange(false);
                 router.refresh();
             } else {
-                toast.error(res.error || "Failed to delete field");
+                showActionErrorToast(res as any, "Failed to delete field");
             }
         } catch (e) {
-            toast.error("An error occurred");
+            showActionErrorToast(e as any, "An error occurred");
         } finally {
             setIsDeleting(false);
         }
@@ -179,22 +217,25 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
     });
 
     useEffect(() => {
-        if (open && clientLEId && (fieldNo || customFieldId) && mappingStats && mappingStats.questions > 0) {
+        if (open && clientLEId && (fieldNo || customFieldId)) {
             setLoadingUsageDetails(true);
+            setUsageDetails(null);
             getFieldUsageDetails(clientLEId, fieldNo, customFieldId)
                 .then((res) => {
                     setUsageDetails(res);
                 })
                 .catch((err) => {
                     console.error("Failed to load field usage details:", err);
+                    setUsageDetails({ totalQuestions: 0, totalQuestionnaires: 0, totalSuppliers: 0, relationships: [], questions: [], questionnaires: [], suppliers: [] });
                 })
                 .finally(() => {
                     setLoadingUsageDetails(false);
                 });
         } else {
             setUsageDetails(null);
+            setLoadingUsageDetails(false);
         }
-    }, [open, clientLEId, fieldNo, customFieldId, mappingStats]);
+    }, [open, clientLEId, fieldNo, customFieldId]);
 
     // Date & value formatting helpers
     const isDateType = data?.dataType === 'DATE' || data?.dataType === 'DATETIME';
@@ -270,7 +311,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         claimId={rowData?.id || data?.current?.claimId}
                         isPromotedToCCC={rowData?.isPromotedToCCC || data?.current?.isPromotedToCCC}
                         isPromoting={isPromoting === (rowData?.id || data?.current?.claimId)}
-                        onSaveForReuse={handleSaveForReuse}
                     />
                 );
             }
@@ -281,16 +321,18 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     ? rowCanonical.value.resolved 
                     : (rowCanonical?.value?.kind === 'party' ? rowCanonical.value.data : (parsedVal?.ccParty?.data || parsedVal?._resolvedData?.ccParty?.data || parsedVal));
 
+                const rowPartyAttachments = rowCanonical?.attachments || getPartyScopedAttachments(resolvedVal || parsedVal, data?.canonicalDisplayModel?.attachments, data?.profileConfig?.displayMask);
+
                 return (
                     <PersonOrContactValueViewer
                         value={resolvedVal || parsedVal}
                         partyLabel={partyLabel}
                         layout="compact"
                         displayMask={data?.profileConfig?.displayMask}
+                        attachments={rowPartyAttachments}
                         claimId={rowData?.id || data?.current?.claimId}
                         isPromotedToCCC={rowData?.isPromotedToCCC || data?.current?.isPromotedToCCC}
                         isPromoting={isPromoting === (rowData?.id || data?.current?.claimId)}
-                        onSaveForReuse={handleSaveForReuse}
                     />
                 );
             }
@@ -519,7 +561,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
             setAssignmentNoteInput(result?.assignment?.note || "");
         } catch (error) {
             console.error("Error loading field details:", error);
-            toast.error("Failed to load field details");
+            showActionErrorToast(error as any, "Failed to load field details");
         } finally {
             setLoading(false);
         }
@@ -550,10 +592,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 if (data) {
                     setData({ ...data, userNote: noteText });
                 }
+            } else {
+                showActionErrorToast(res as any, "Failed to save note");
             }
         } catch (e) {
             console.error("Failed to save note:", e);
-            toast.error("Failed to save note");
+            showActionErrorToast(e as any, "Failed to save note");
         } finally {
             setIsSavingNote(false);
         }
@@ -571,11 +615,11 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     onUpdate(data?.candidates.find(c => c.id === claimId)?.value, "USER_INPUT", new Date());
                 }
             } else {
-                toast.error(res.message || "Failed to save claim for reuse");
+                showActionErrorToast(res as any, "Failed to save claim for reuse");
             }
         } catch (e) {
             console.error("Promote error:", e);
-            toast.error("Save for reuse failed");
+            showActionErrorToast(e as any, "Save for reuse failed");
         } finally {
             setIsPromoting(null);
         }
@@ -590,7 +634,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     toast.success("Saved for reuse");
                     loadData(); // Reload rows to update isPromotedToCCC flag
                 } else {
-                    toast.error((res as any).message || "Failed to save for reuse");
+                    showActionErrorToast(res as any, "Failed to save for reuse");
                 }
             } else if (target.kind === 'ADDRESS') {
                 const res = await saveAddressForReuse(target.claimId, clientLEId);
@@ -598,12 +642,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     toast.success("Saved for reuse");
                     loadData(); // Reload rows to update isPromotedToCCC flag
                 } else {
-                    toast.error((res as any).message || "Failed to save for reuse");
+                    showActionErrorToast(res as any, "Failed to save for reuse");
                 }
             }
         } catch (e: any) {
             console.error("Save for reuse error:", e);
-            toast.error(e.message || "Failed to save for reuse");
+            showActionErrorToast(e as any, "Failed to save for reuse");
         } finally {
             setIsPromoting(null);
         }
@@ -652,10 +696,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 // Re-focus the add input
                 setTimeout(() => newEntryInputRef.current?.focus(), 100);
             } else {
-                toast.error(res.message || "Failed to add entry");
+                showActionErrorToast(res as any, "Failed to add entry");
             }
         } catch (e) {
-            toast.error("An error occurred");
+            showActionErrorToast(e as any, "An error occurred");
         } finally {
             setIsAddingSaving(false);
         }
@@ -694,11 +738,11 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                 }
             } else {
-                toast.error((res as any).message || (res as any).error || "Failed to update field");
+                showActionErrorToast(res as any, "Failed to update field");
             }
         } catch (e) {
             console.error("Graph node selection error:", e);
-            toast.error("An error occurred");
+            showActionErrorToast(e as any, "An error occurred");
         } finally {
             setIsAddingSaving(false);
         }
@@ -755,10 +799,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                 }
             } else {
-                toast.error(res.message || "Failed to remove entry");
+                showActionErrorToast(res as any, "Failed to remove entry");
             }
         } catch (e) {
-            toast.error("An error occurred");
+            showActionErrorToast(e as any, "An error occurred");
         } finally {
             setIsSaving(false);
             setDeletingRowId(null);
@@ -779,10 +823,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                 }
             } else {
-                toast.error(res.message || "Failed to clear value");
+                showActionErrorToast(res as any, "Failed to clear value");
             }
         } catch (e) {
-            toast.error("An error occurred");
+            showActionErrorToast(e as any, "An error occurred");
         } finally {
             setIsSaving(false);
             setIsClearingSingleValue(false);
@@ -817,7 +861,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                     }
                 } else {
-                    toast.error("Failed to update saved party");
+                    showActionErrorToast(result as any, "Failed to update saved party");
                 }
             } else if (inferredKind === 'ADDRESS_REF' && parsedVal?.ccAddressId) {
                 const { upsertCCAddress } = await import("@/actions/cc-address-actions");
@@ -837,7 +881,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                     }
                 } else {
-                    toast.error("Failed to update saved address");
+                    showActionErrorToast(result as any, "Failed to update saved address");
                 }
             } else {
                 const isString = typeof editingRowValue === 'string';
@@ -863,12 +907,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                     }
                 } else {
-                    toast.error(result.message || "Update failed");
+                    showActionErrorToast(result as any, "Update failed");
                 }
             }
         } catch (e) {
             console.error("Inline edit save error:", e);
-            toast.error("An error occurred");
+            showActionErrorToast(e as any, "An error occurred");
         } finally {
             setIsSaving(false);
         }
@@ -950,11 +994,11 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                 }
             } else {
-                toast.error((result as any).message || "Update failed");
+                showActionErrorToast(result as any, "Update failed");
             }
         } catch (error) {
             console.error("Save error:", error);
-            toast.error("An error occurred");
+            showActionErrorToast(error as any, "An error occurred");
         } finally {
             setIsSaving(false);
         }
@@ -974,11 +1018,11 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
                 }
             } else {
-                toast.error((result as any).message || "Apply failed");
+                showActionErrorToast(result as any, "Apply failed");
             }
         } catch (error) {
             console.error("Apply error:", error);
-            toast.error("An error occurred");
+            showActionErrorToast(error as any, "An error occurred");
         } finally {
             setIsApplyingCandidate(false);
         }
@@ -1007,10 +1051,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 if (!userId) setAssignmentNoteInput("");
                 await loadData();
             } else {
-                toast.error(res.error || "Failed to assign field");
+                showActionErrorToast(res as any, "Failed to assign field");
             }
         } catch (e) {
-            toast.error("An error occurred during assignment.");
+            showActionErrorToast(e as any, "An error occurred during assignment.");
         } finally {
             setIsAssigning(false);
         }
@@ -1025,10 +1069,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 toast.success("Assignment instruction updated");
                 await loadData();
             } else {
-                toast.error(res.error || "Failed to update assignment instruction");
+                showActionErrorToast(res as any, "Failed to update assignment instruction");
             }
         } catch (e) {
-            toast.error("Error saving instruction");
+            showActionErrorToast(e as any, "Error saving instruction");
         } finally {
             setIsSavingAssignmentNote(false);
         }
@@ -1043,10 +1087,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 toast.success(newStatus === 'DONE' ? "Assignment marked as Done" : "Assignment reopened as Open");
                 await loadData();
             } else {
-                toast.error(res.error || "Failed to update work status");
+                showActionErrorToast(res as any, "Failed to update work status");
             }
         } catch (e) {
-            toast.error("Error updating work status");
+            showActionErrorToast(e as any, "Error updating work status");
         } finally {
             setIsAssigning(false);
         }
@@ -1119,6 +1163,34 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                 <SheetHeader className="pb-3 border-b border-slate-100">
                     <SheetTitle className="sr-only">{fieldName}</SheetTitle>
                     <SheetDescription className="sr-only">Details for {fieldName}</SheetDescription>
+
+                    {mappingContext && (
+                        <div data-testid="rdd1-alternative-mapping-selector" className="p-3 bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-lg space-y-2 mb-3 mr-8 text-left">
+                            <div className="flex items-center justify-between">
+                                <span className="text-xs font-bold uppercase tracking-wider text-indigo-950 dark:text-indigo-200">
+                                    Question Mapping Target
+                                </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate" title={mappingContext.questionText}>
+                                Question: <strong className="text-foreground font-semibold">{mappingContext.questionText}</strong>
+                            </p>
+                            <SuperFieldSelector
+                                value={mappingContext.currentMappingValue ?? null}
+                                onSelect={(val, type) => {
+                                    if (type === 'clear') mappingContext.onMap("UNMAP");
+                                    else if (type === 'create') mappingContext.onMap("CREATE_NEW");
+                                    else if (type === 'master') mappingContext.onMap(val);
+                                    else if (type === 'group') mappingContext.onMap(`GROUP_${val}`);
+                                    else if (type === 'custom') mappingContext.onMap(`CUSTOM_${val}`);
+                                }}
+                                masterFields={mappingContext.masterFields}
+                                masterGroups={mappingContext.masterGroups}
+                                customFields={mappingContext.customFields}
+                                questionText={mappingContext.questionText}
+                                disabled={mappingContext.disabled}
+                            />
+                        </div>
+                    )}
 
                     {/* Top row: Context + Assignment */}
                     <div className="flex items-start justify-between mr-8">
@@ -1351,7 +1423,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                         setData(refreshed);
                                                     } else {
-                                                        toast.error(res.error || "Rename failed");
+                                                        showActionErrorToast(res as any, "Rename failed");
                                                     }
                                                     setIsRenamingSaving(false);
                                                 }
@@ -1376,7 +1448,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                     const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
                                                     setData(refreshed);
                                                 } else {
-                                                    toast.error(res.error || "Rename failed");
+                                                    showActionErrorToast(res as any, "Rename failed");
                                                 }
                                                 setIsRenamingSaving(false);
                                             }}
@@ -1516,7 +1588,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                     <button
                                                                         className="p-1.5 rounded text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
                                                                         onClick={() => setDeletingRowId(row.id)}
-                                                                        title={isPartyRefValue ? "Break link to party reference" : "Remove value"}
+                                                                        title={isPartyRefValue ? "Remove from this field" : "Remove value"}
                                                                     >
                                                                         {isPartyRefValue ? <Link2Off className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
                                                                     </button>
@@ -1531,8 +1603,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                             : (rowCanonicalModel?.value?.kind === 'party' ? rowCanonicalModel.value.data : null);
 
                                                         const partyValForExpandable = resolvedRowPartyVal || ((parsedRowValue && typeof parsedRowValue === 'object' && (isPersonOrContactValue(parsedRowValue) || 'ccPartyId' in parsedRowValue)) 
-                                                            ? (parsedRowValue.ccParty?.data || parsedRowValue._resolvedData?.ccParty?.data || row?.data?.ccParty?.data || parsedRowValue)
+                                                            ? (parsedRowValue.ccParty?.data || parsedRowValue._resolvedData?.ccParty?.data || row?.data?.ccParty?.data || row?.data?._resolvedData?.ccParty?.data || parsedRowValue)
                                                             : null);
+
+                                                        const rowPartyAttachments = rowCanonicalModel?.attachments || getPartyScopedAttachments(partyValForExpandable, data?.canonicalDisplayModel?.attachments, data?.profileConfig?.displayMask);
 
                                                         const addressValForExpandable = (parsedRowValue && typeof parsedRowValue === 'object' && (isAddressValue(parsedRowValue) || 'ccAddressId' in parsedRowValue))
                                                             ? (parsedRowValue.ccAddress?.data || parsedRowValue._resolvedData?.ccAddress?.data || row?.data?.ccAddress?.data || parsedRowValue)
@@ -1544,7 +1618,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                 <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 animate-in fade-in duration-150">
                                                                     <span className="text-xs text-red-700 font-medium truncate flex-1 flex items-center gap-1">
                                                                         {isPartyRefValue ? (
-                                                                            <span>Break link to "{row.data?.resolvedSummary || (typeof row.value === 'object' && row.value?.ccPartyId) || 'saved party'}"?</span>
+                                                                            <span>Remove "{row.data?.resolvedSummary || (typeof row.value === 'object' && row.value?.ccPartyId) || 'saved party'}" from this field?</span>
                                                                         ) : (
                                                                             <>
                                                                                 Remove "{typeof row.value === 'object' && row.value ? (row.value.label || JSON.stringify(row.value)) : String(row.value)}"?
@@ -1559,7 +1633,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                             onClick={() => handleRemoveEntry(row.id)}
                                                                             disabled={isSaving}
                                                                         >
-                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isPartyRefValue ? 'Yes, break link' : 'Yes, remove'}
+                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isPartyRefValue ? 'Remove' : 'Yes, remove'}
                                                                         </Button>
                                                                         <Button
                                                                             variant="ghost"
@@ -1628,49 +1702,25 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                 </Button>
                                                                             </div>
                                                                         </div>
-                                                                    ) : data?.options && data.options.length > 0 ? (
-                                                                        <Select
-                                                                            value={editingRowValue}
-                                                                            onValueChange={setEditingRowValue}
-                                                                            disabled={isSaving}
-                                                                        >
-                                                                            <SelectTrigger className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400">
-                                                                                <SelectValue placeholder="Select a value..." />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent position="item-aligned">
-                                                                                {data.options.map((opt: any) => {
-                                                                                    const v = typeof opt === 'object' ? opt.value : opt;
-                                                                                    const l = typeof opt === 'object' ? opt.label : opt;
-                                                                                    return <SelectItem key={v} value={v}>{l}</SelectItem>;
-                                                                                })}
-                                                                            </SelectContent>
-                                                                        </Select>
-                                                                    ) : isBooleanType ? (
-                                                                        <Select
-                                                                            value={String(editingRowValue)}
-                                                                            onValueChange={(val) => setEditingRowValue(val === 'true')}
-                                                                            disabled={isSaving}
-                                                                        >
-                                                                            <SelectTrigger className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400">
-                                                                                <SelectValue placeholder="Select Yes/No..." />
-                                                                            </SelectTrigger>
-                                                                            <SelectContent>
-                                                                                <SelectItem value="true">Yes</SelectItem>
-                                                                                <SelectItem value="false">No</SelectItem>
-                                                                            </SelectContent>
-                                                                        </Select>
                                                                     ) : (
-                                                                        <Input
-                                                                            type={isDateType ? 'date' : 'text'}
-                                                                            value={isDateType ? formatDateForInput(editingRowValue) : editingRowValue}
-                                                                            onChange={(e) => setEditingRowValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
+                                                                        <CanonicalScalarEditor
+                                                                            dataType={data?.dataType}
+                                                                            value={editingRowValue}
+                                                                            onChange={setEditingRowValue}
+                                                                            options={data?.options}
+                                                                            disabled={isSaving}
+                                                                            fieldName={fieldName}
+                                                                            autoFocus
                                                                             onKeyDown={(e) => {
-                                                                                if (e.key === 'Enter' && (typeof editingRowValue === 'string' ? editingRowValue.trim() : true)) handleInlineEditSave(row);
-                                                                                if (e.key === 'Escape') { setEditingRowId(null); setEditingRowValue(""); }
+                                                                                if (e.key === 'Enter' && (editingRowValue === true || editingRowValue === false || (typeof editingRowValue === 'string' ? editingRowValue.trim() : editingRowValue))) {
+                                                                                    handleInlineEditSave(row);
+                                                                                }
+                                                                                if (e.key === 'Escape') {
+                                                                                    setEditingRowId(null);
+                                                                                    setEditingRowValue("");
+                                                                                }
                                                                             }}
                                                                             className="h-8 text-sm flex-1 bg-white border-indigo-200 focus:border-indigo-400"
-                                                                            autoFocus
-                                                                            disabled={isSaving}
                                                                         />
                                                                     )}
 
@@ -1680,7 +1730,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                             size="icon"
                                                                             className="h-7 w-7 text-green-600 hover:bg-green-50 shrink-0"
                                                                             onClick={() => handleInlineEditSave(row)}
-                                                                            disabled={isSaving || (typeof editingRowValue === 'string' ? !editingRowValue.trim() : false)}
+                                                                            disabled={isSaving || (editingRowValue !== true && editingRowValue !== false && (typeof editingRowValue === 'string' ? !editingRowValue.trim() : false))}
                                                                             title="Save value"
                                                                         >
                                                                             {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
@@ -1711,8 +1761,9 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                         partyLabel={rowPartyLabel}
                                                                                         layout="row"
                                                                                         displayMask={data?.profileConfig?.displayMask}
+                                                                                        attachments={rowPartyAttachments}
                                                                                         claimId={row.id}
-                                                                                        isPromotedToCCC={row.isPromotedToCCC}
+                                                                                        isPromotedToCCC={row.isPromotedToCCC || isPartyRefValue || rowCanonicalModel?.value?.kind === 'partyRef'}
                                                                                         isPromoting={isPromoting === row.id}
                                                                                         onSaveForReuse={handleSaveForReuse}
                                                                                     />
@@ -1723,10 +1774,10 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                         partyLabel={rowPartyLabel}
                                                                                         layout="detailed"
                                                                                         displayMask={data?.profileConfig?.displayMask}
+                                                                                        attachments={rowPartyAttachments}
                                                                                         claimId={row.id}
-                                                                                        isPromotedToCCC={row.isPromotedToCCC}
+                                                                                        isPromotedToCCC={row.isPromotedToCCC || isPartyRefValue || rowCanonicalModel?.value?.kind === 'partyRef'}
                                                                                         isPromoting={isPromoting === row.id}
-                                                                                        onSaveForReuse={handleSaveForReuse}
                                                                                     />
                                                                                 }
                                                                             />
@@ -1751,13 +1802,21 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                         claimId={row.id}
                                                                                         isPromotedToCCC={row.isPromotedToCCC}
                                                                                         isPromoting={isPromoting === row.id}
-                                                                                        onSaveForReuse={handleSaveForReuse}
                                                                                     />
                                                                                 }
                                                                             />
                                                                         ) : (
-                                                                            <div className="text-sm font-medium text-slate-800 truncate">
-                                                                                {renderRowValue(row.value, row)}
+                                                                            <div className="text-sm font-medium text-slate-800 break-words whitespace-normal leading-snug">
+                                                                                {typeof row.value === 'string' && row.value.length > 400 && !row.value.startsWith('{') && !row.value.startsWith('[') ? (
+                                                                                    <ExpandableText 
+                                                                                        text={row.value} 
+                                                                                        targetChars={300} 
+                                                                                        overflowThreshold={400} 
+                                                                                        textClassName="text-sm font-medium text-slate-800 leading-snug" 
+                                                                                    />
+                                                                                ) : (
+                                                                                    renderRowValue(row.value, row)
+                                                                                )}
                                                                             </div>
                                                                         )}
                                                                         <div className="mt-1 flex items-center gap-2">
@@ -1837,78 +1896,33 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         />
                                                     ) : (
                                                         <div className="flex items-center gap-1.5">
-                                                            {data?.options && data.options.length > 0 ? (
-                                                                <>
-                                                                    <Select
-                                                                        value={newEntryValue}
-                                                                        onValueChange={setNewEntryValue}
-                                                                        disabled={isAddingSaving}
-                                                                    >
-                                                                        <SelectTrigger className="h-8 text-sm flex-1 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300">
-                                                                            <SelectValue placeholder="Select a value..." />
-                                                                        </SelectTrigger>
-                                                                        <SelectContent position="item-aligned">
-                                                                            {data.options.map((opt) => {
-                                                                                const v = typeof opt === 'object' ? opt.value : opt;
-                                                                                const l = typeof opt === 'object' ? opt.label : opt;
-                                                                                return <SelectItem key={v} value={v}>{l}</SelectItem>;
-                                                                            })}
-                                                                        </SelectContent>
-                                                                    </Select>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="h-8 px-3 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
-                                                                        onClick={() => handleAddNewEntry()}
-                                                                        disabled={isAddingSaving || !newEntryValue.trim()}
-                                                                    >
-                                                                        {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
-                                                                    </Button>
-                                                                </>
-                                                            ) : (
-                                                                <>
-                                                                    <div className="relative flex-1">
-                                                                        <Plus className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
-                                                                        {isBooleanType ? (
-                                                                            <Select
-                                                                                value={String(newEntryValue)}
-                                                                                onValueChange={(val) => setNewEntryValue(val === 'true')}
-                                                                                disabled={isAddingSaving}
-                                                                            >
-                                                                                <SelectTrigger className="h-8 text-sm pl-8 flex-1 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300">
-                                                                                    <SelectValue placeholder="Select Yes/No..." />
-                                                                                </SelectTrigger>
-                                                                                <SelectContent>
-                                                                                    <SelectItem value="true">Yes</SelectItem>
-                                                                                    <SelectItem value="false">No</SelectItem>
-                                                                                </SelectContent>
-                                                                            </Select>
-                                                                        ) : (
-                                                                            <Input
-                                                                                ref={newEntryInputRef}
-                                                                                type={isDateType ? 'date' : 'text'}
-                                                                                value={isDateType ? formatDateForInput(newEntryValue) : newEntryValue}
-                                                                                onChange={(e) => setNewEntryValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
-                                                                                onKeyDown={(e) => {
-                                                                                    if (e.key === 'Enter' && (typeof newEntryValue === 'string' ? newEntryValue.trim() : true)) handleAddNewEntry();
-                                                                                }}
-                                                                                placeholder={isDateType ? '' : 'Add new value...'}
-                                                                                className="h-8 text-sm pl-8 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300"
-                                                                                disabled={isAddingSaving}
-                                                                            />
-                                                                        )}
-                                                                    </div>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="h-8 px-3 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
-                                                                        onClick={() => handleAddNewEntry()}
-                                                                        disabled={isAddingSaving || newEntryValue === "" || (typeof newEntryValue === 'string' && !newEntryValue.trim())}
-                                                                    >
-                                                                        {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
-                                                                    </Button>
-                                                                </>
-                                                            )}
+                                                            <div className="relative flex-1">
+                                                                <Plus className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 z-10 pointer-events-none" />
+                                                                <CanonicalScalarEditor
+                                                                    dataType={data?.dataType}
+                                                                    value={newEntryValue}
+                                                                    onChange={setNewEntryValue}
+                                                                    options={data?.options}
+                                                                    disabled={isAddingSaving}
+                                                                    fieldName={fieldName}
+                                                                    placeholder="Add new value..."
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter' && (newEntryValue === true || newEntryValue === false || (typeof newEntryValue === 'string' ? newEntryValue.trim() : newEntryValue))) {
+                                                                            handleAddNewEntry();
+                                                                        }
+                                                                    }}
+                                                                    className="h-8 text-sm pl-8 bg-slate-50/50 border-slate-200 focus:bg-white focus:border-indigo-300"
+                                                                />
+                                                            </div>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="sm"
+                                                                className="h-8 px-3 text-xs text-indigo-600 hover:bg-indigo-50 hover:text-indigo-700 shrink-0"
+                                                                onClick={() => handleAddNewEntry()}
+                                                                disabled={isAddingSaving || (newEntryValue !== true && newEntryValue !== false && (typeof newEntryValue === 'string' ? !newEntryValue.trim() : !newEntryValue))}
+                                                            >
+                                                                {isAddingSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Add'}
+                                                            </Button>
                                                         </div>
                                                     )}
                                                 </div>
@@ -1950,10 +1964,12 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                 partyLabel={(data?.canonicalDisplayModel?.value as any)?.partyLabel}
                                                                                 layout="detailed"
                                                                                 displayMask={data?.profileConfig?.displayMask}
+                                                                                attachments={getPartyScopedAttachments(data.current.value, data?.canonicalDisplayModel?.attachments, data?.profileConfig?.displayMask)}
                                                                                 claimId={data.current?.claimId}
                                                                                 isPromotedToCCC={data.current?.isPromotedToCCC}
                                                                                 isPromoting={isPromoting === data.current?.claimId}
                                                                                 onSaveForReuse={handleSaveForReuse}
+                                                                                hideStatusBadge={fieldNo === 104 || data?.fieldNo === 104}
                                                                             />
                                                                         ) : Array.isArray(data.current.value) ? (
                                                                         <div className="flex flex-col gap-2 mt-1">
@@ -1968,6 +1984,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                         : (itemCanonical?.value?.kind === 'party' ? itemCanonical.value.data : (parsed?.ccParty?.data || parsed?._resolvedData?.ccParty?.data || parsed));
 
                                                                                     const partyVal = resolvedVal || parsed?.ccParty?.data || parsed?._resolvedData?.ccParty?.data || parsed;
+                                                                                    const rowPartyAttachments = itemCanonical?.attachments || getPartyScopedAttachments(partyVal, data?.canonicalDisplayModel?.attachments, data?.profileConfig?.displayMask);
                                                                                     const rowId = `current_auth_${idx}`;
                                                                                     return (
                                                                                         <ExpandableRowItem
@@ -1980,6 +1997,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                                     partyLabel={partyLabel}
                                                                                                     layout="row"
                                                                                                     displayMask={data?.profileConfig?.displayMask}
+                                                                                                    attachments={rowPartyAttachments}
                                                                                                     claimId={data.current?.claimId}
                                                                                                     isPromotedToCCC={data.current?.isPromotedToCCC}
                                                                                                     isPromoting={isPromoting === data.current?.claimId}
@@ -1992,6 +2010,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                                     partyLabel={partyLabel}
                                                                                                     layout="detailed"
                                                                                                     displayMask={data?.profileConfig?.displayMask}
+                                                                                                    attachments={rowPartyAttachments}
                                                                                                     claimId={data.current?.claimId}
                                                                                                     isPromotedToCCC={data.current?.isPromotedToCCC}
                                                                                                     isPromoting={isPromoting === data.current?.claimId}
@@ -2048,7 +2067,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                              <button
                                                                                  className="p-1.5 rounded text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
                                                                                  onClick={() => setIsClearingSingleValue(true)}
-                                                                                 title={isCuratedPartyRef ? "Break link to party reference" : "Clear value"}
+                                                                                 title={isCuratedPartyRef ? "Remove from this field" : "Clear value"}
                                                                              >
                                                                                  {isCuratedPartyRef ? <Link2Off className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
                                                                              </button>
@@ -2075,13 +2094,23 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                              />
                                                                          )}
                                                                      </div>
-                                                                 ) : (
+) : (
                                                                      <div className="flex items-center gap-1.5 shrink-0">
                                                                          <button
                                                                              className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
                                                                              onClick={() => {
-                                                                                 if (data?.current) {
-                                                                                     setManualValue(data.current.value);
+                                                                                 if (data?.canonicalDisplayModel) {
+                                                                                     if (data.canonicalDisplayModel.state === 'EXPLICIT_NONE' || data.canonicalDisplayModel.value?.kind === 'empty') {
+                                                                                         setManualValue("");
+                                                                                     } else if (data.canonicalDisplayModel.value?.kind === 'scalar') {
+                                                                                         setManualValue(data.canonicalDisplayModel.value.rawValue ?? "");
+                                                                                     } else {
+                                                                                         setManualValue(data.current?.value ?? "");
+                                                                                     }
+                                                                                 } else if (data?.current) {
+                                                                                     const val = data.current.value;
+                                                                                     const isExplicitNone = val && typeof val === 'object' && val.explicitNone === true;
+                                                                                     setManualValue(isExplicitNone ? "" : (val ?? ""));
                                                                                  }
                                                                                  setIsEditing(true);
                                                                                  setRelatedValues({});
@@ -2108,7 +2137,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         {isClearingSingleValue && (
                                                             <div className="mt-3 flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg bg-red-50 border border-red-200 animate-in fade-in duration-150">
                                                                 <span className="text-xs text-red-700 font-medium truncate flex-1 flex items-center gap-1">
-                                                                    {isCuratedPartyRef ? 'Break link to party reference?' : 'Clear this value?'}
+                                                                    {isCuratedPartyRef ? 'Remove from this field?' : 'Clear this value?'}
                                                                 </span>
                                                                 <div className="flex items-center gap-1.5 shrink-0">
                                                                     <Button
@@ -2118,7 +2147,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         onClick={() => handleClearSingleValue()}
                                                                         disabled={isSaving}
                                                                     >
-                                                                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isCuratedPartyRef ? 'Yes, break link' : 'Yes, clear'}
+                                                                        {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : isCuratedPartyRef ? 'Remove' : 'Yes, clear'}
                                                                     </Button>
                                                                     <Button
                                                                         variant="ghost"
@@ -2203,38 +2232,38 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         Cancel
                                                                     </Button>
                                                                 </div>
-                                                                <>
-                                                                    <Input
-                                                                        type={isDateType ? 'date' : 'text'}
-                                                                        value={isDateType ? formatDateForInput(manualValue) : manualValue}
-                                                                        onChange={(e) => setManualValue(isDateType ? parseDateFromInput(e.target.value) : e.target.value)}
-                                                                        onKeyDown={(e) => {
-                                                                            if (e.key === 'Enter' && manualValue) {
+                                                                <CanonicalScalarEditor
+                                                                    dataType={data?.dataType}
+                                                                    value={manualValue}
+                                                                    onChange={setManualValue}
+                                                                    options={data?.options}
+                                                                    disabled={isSaving}
+                                                                    fieldName={fieldName}
+                                                                    autoFocus
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter' && (manualValue === true || manualValue === false || (typeof manualValue === 'string' ? manualValue.trim() : manualValue))) {
+                                                                            setIsEditing(true);
+                                                                            handleManualSave();
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                {(manualValue === true || manualValue === false || (manualValue && typeof manualValue === 'string' ? manualValue.trim() : manualValue)) && (
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Button
+                                                                            size="sm"
+                                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                            onClick={() => {
                                                                                 setIsEditing(true);
                                                                                 handleManualSave();
-                                                                            }
-                                                                        }}
-                                                                        placeholder={isDateType ? '' : 'Type a value and press Enter...'}
-                                                                        className="bg-white border-slate-200 focus:border-indigo-300 focus:ring-indigo-200"
-                                                                    />
-                                                                    {manualValue && (
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Button
-                                                                                size="sm"
-                                                                                className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                                                onClick={() => {
-                                                                                    setIsEditing(true);
-                                                                                    handleManualSave();
-                                                                                }}
-                                                                                disabled={isSaving}
-                                                                            >
-                                                                                {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                                                                Save
-                                                                            </Button>
-                                                                            <span className="text-[10px] text-slate-400">or press Enter</span>
-                                                                        </div>
-                                                                    )}
-                                                                </>
+                                                                            }}
+                                                                            disabled={isSaving}
+                                                                        >
+                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                            Save
+                                                                        </Button>
+                                                                        <span className="text-[10px] text-slate-400">or press Enter</span>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         ) : (
                                                             <div className="text-[13px] text-slate-400 italic mt-2">No value provided.</div>
@@ -2318,32 +2347,14 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                     disabled={isSaving}
                                                 />
                                             </div>
-                                        ) : data?.options && data.options.length > 0 ? (
-                                            <Select value={manualValue} onValueChange={setManualValue}>
-                                                <SelectTrigger className="w-full bg-white border-slate-300">
-                                                    <SelectValue placeholder={`Select ${fieldName}...`} />
-                                                </SelectTrigger>
-                                                <SelectContent position="item-aligned">
-                                                    {data.options.map((opt: any) => {
-                                                        const v = typeof opt === 'object' ? opt.value : opt;
-                                                        const l = typeof opt === 'object' ? opt.label : opt;
-                                                        return <SelectItem key={v} value={v}>{l}</SelectItem>;
-                                                    })}
-                                                </SelectContent>
-                                            </Select>
-                                        ) : isDateType ? (
-                                            <Input
-                                                type="date"
-                                                value={formatDateForInput(manualValue)}
-                                                onChange={(e) => setManualValue(parseDateFromInput(e.target.value))}
-                                                className="bg-white border-slate-300"
-                                            />
                                         ) : (
-                                            <Input
+                                            <CanonicalScalarEditor
+                                                dataType={data?.dataType}
                                                 value={manualValue}
-                                                onChange={(e) => setManualValue(e.target.value)}
-                                                placeholder="Enter value..."
-                                                className="bg-white border-slate-300"
+                                                onChange={setManualValue}
+                                                options={data?.options}
+                                                disabled={isSaving}
+                                                fieldName={fieldName}
                                             />
                                         )}
                                     </div>
@@ -2402,16 +2413,16 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     </div>
 
                     {/* ─── Field Attachments ─── */}
-                    {data?.canonicalDisplayModel?.allowAttachments && (
+                    {(data?.canonicalDisplayModel?.allowAttachments || (data?.canonicalDisplayModel?.attachments?.length ?? 0) > 0) && (
                         <div className="pt-6 border-t border-slate-200/80 space-y-3">
                             <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
                                 <Paperclip className="w-3.5 h-3.5 text-slate-400" /> Field Attachments
                             </div>
                             <FieldAttachments 
                                 clientLEId={clientLEId} 
-                                fieldNo={data.fieldNo || fieldNo} 
-                                attachments={data.canonicalDisplayModel.attachments || []} 
-                                isEditable={!isLocked}
+                                fieldNo={data?.fieldNo || fieldNo} 
+                                attachments={data?.canonicalDisplayModel?.attachments || []} 
+                                isEditable={!isLocked && (data?.canonicalDisplayModel?.allowAttachments ?? false)}
                                 mode="manage" 
                                 onChange={loadData}
                             />
@@ -2419,29 +2430,35 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     )}
 
                     {/* ─── Usage Section (Hierarchical Relationship Tree) ─── */}
-                    {!customFieldId && (
-                        <div className="pt-6 border-t border-slate-200/80 space-y-3">
-                            {/* Section Header */}
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                                    <Building2 className="w-3.5 h-3.5 text-slate-400" /> Relationships & Usage
-                                </span>
-                                {mappingStats && mappingStats.questions > 0 && (
-                                    <div className="flex items-center gap-1.5">
-                                        <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200 font-medium">
-                                            {mappingStats.suppliers} Relationship{mappingStats.suppliers !== 1 ? 's' : ''}
-                                        </Badge>
-                                        <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200 font-medium">
-                                            {mappingStats.questions} Question{mappingStats.questions !== 1 ? 's' : ''}
-                                        </Badge>
-                                    </div>
-                                )}
-                            </div>
+                    {!customFieldId && (() => {
+                        const effectiveStats = mappingStats || (usageDetails ? {
+                            questions: usageDetails.totalQuestions,
+                            questionnaires: usageDetails.totalQuestionnaires,
+                            suppliers: usageDetails.totalSuppliers
+                        } : undefined);
 
-                            {/* Line-Level Tree Content */}
-                            <div className="text-xs">
-                                {mappingStats && mappingStats.questions > 0 ? (
-                                    loadingUsageDetails ? (
+                        return (
+                            <div className="pt-6 border-t border-slate-200/80 space-y-3">
+                                {/* Section Header */}
+                                <div className="flex items-center justify-between">
+                                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                                        <Building2 className="w-3.5 h-3.5 text-slate-400" /> Relationships & Usage
+                                    </span>
+                                    {effectiveStats && effectiveStats.questions > 0 && (
+                                        <div className="flex items-center gap-1.5">
+                                            <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200 font-medium">
+                                                {effectiveStats.suppliers} Relationship{effectiveStats.suppliers !== 1 ? 's' : ''}
+                                            </Badge>
+                                            <Badge variant="outline" className="text-[10px] bg-slate-50 text-slate-500 border-slate-200 font-medium">
+                                                {effectiveStats.questions} Question{effectiveStats.questions !== 1 ? 's' : ''}
+                                            </Badge>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Line-Level Tree Content */}
+                                <div className="text-xs">
+                                    {loadingUsageDetails || (open && !usageDetails) ? (
                                         <div className="flex items-center justify-center py-6 text-slate-400 gap-2">
                                             <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
                                             <span>Loading usage hierarchy...</span>
@@ -2509,17 +2526,15 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                             ))}
                                         </div>
                                     ) : (
-                                        <p className="text-xs text-slate-500 py-1 italic">No relationship or questionnaire mapping details found.</p>
-                                    )
-                                ) : (
-                                    <div className="space-y-1 text-slate-500 py-1">
-                                        <p className="font-medium text-slate-700">Not currently used by any relationships or questionnaires.</p>
-                                        <p className="text-xs text-slate-400">This field can still be completed as part of the Master Record.</p>
-                                    </div>
-                                )}
+                                        <div className="space-y-1 text-slate-500 py-1">
+                                            <p className="font-medium text-slate-700">Not currently used by any relationships or questionnaires.</p>
+                                            <p className="text-xs text-slate-400">This field can still be completed as part of the Master Record.</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })()}
 
                     <Tabs defaultValue="note" className="w-full mt-6">
                         <TabsList className="grid w-full grid-cols-2">
@@ -2694,7 +2709,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         claimId={candidate.id}
                                                                         isPromotedToCCC={candidate.isPromotedToCCC}
                                                                         isPromoting={isPromoting === candidate.id}
-                                                                        onSaveForReuse={handleSaveForReuse}
+                                                                        hideStatusBadge={fieldNo === 104}
                                                                     />
                                                                 );
                                                             }
@@ -2723,7 +2738,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         disabled={isPromoting !== null}
                                                         onClick={() => handlePromote(candidate.id)}
                                                     >
-                                                        {isPromoting === candidate.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Save for reuse"}
+                                                        {isPromoting === candidate.id ? <Loader2 className="w-3 h-3 animate-spin" /> : "Use this value"}
                                                     </Button>
                                                 )}
                                             </div>

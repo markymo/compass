@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getIdentity } from "@/lib/auth";
-import { isSystemAdmin } from "@/actions/security";
+import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 
 const COMPANIES_HOUSE_API_KEY = process.env.COMPANIES_HOUSE_API_KEY;
 const GLEIF_LEI              = "213800SN8QHYGA7QUF79";
@@ -9,13 +9,9 @@ const CH_COMPANY_NO          = "14059418";
 const FR_SIREN               = "542051180";
 
 export async function GET() {
-    const identity = await getIdentity();
-    if (!identity?.userId) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const sysAdmin = await isSystemAdmin();
-    if (!sysAdmin) {
+    try {
+        await ensureAuthorization(Action.SYSTEM_VIEW_TELEMETRY, {});
+    } catch {
         return NextResponse.json({ error: "Forbidden: System Admin required" }, { status: 403 });
     }
 

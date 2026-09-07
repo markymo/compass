@@ -195,7 +195,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                 onOpenChange(false);
                 router.refresh();
             } else {
-                toast.error(res.error || "Failed to delete field");
+                toast.error(('message' in res && res.message) || ('error' in res && (res as any).error) || "Failed to delete field");
             }
         } catch (e) {
             toast.error("An error occurred");
@@ -649,8 +649,8 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
 
                                 {formData.appDataType === 'PARTY' && (
                                     <>
-                                        <div className="border-t border-indigo-100 pt-4">
-                                            <Label className="text-xs font-semibold text-indigo-900 mb-3 block">Allowed Party Types</Label>
+                                        <div className="border-t border-indigo-100 dark:border-indigo-900/50 pt-4">
+                                            <Label className="text-xs font-semibold text-indigo-900 dark:text-indigo-300 mb-3 block">Allowed Party Types</Label>
                                             <div className="flex flex-row flex-wrap gap-6 pl-2">
                                                 <div className="flex items-center space-x-2">
                                                     <Checkbox 
@@ -680,8 +680,8 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                         </div>
 
                                         <div>
-                                            <Label className="text-xs font-semibold text-indigo-900 mb-2 block">Display Mask</Label>
-                                            <div className="text-[10px] text-indigo-600 mb-3">Configure visible fields for this party definition. Available sections react to allowed party types.</div>
+                                            <Label className="text-xs font-semibold text-indigo-900 dark:text-indigo-300 mb-2 block">Display Mask</Label>
+                                            <div className="text-[10px] text-indigo-600 dark:text-indigo-400 mb-3">Configure visible fields for this party definition. Available sections react to allowed party types.</div>
                                             {(() => {
                                                 let allowedTypes: V2PartyType[] | undefined = undefined;
                                                 const hasInd = partyTypes.individual;
@@ -760,10 +760,48 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                     }
                                                 }
 
-                                                const currentMask = formData.profileConfig?.displayMask || [];
+                                                const rawMask = formData.profileConfig?.displayMask;
+                                                const isDefaultMask = rawMask === undefined || rawMask === null;
+                                                const allKeys = availableFields.map(df => df.key);
+                                                const currentMask = isDefaultMask ? allKeys : (rawMask as string[]);
 
                                                 return (
                                                     <div className="space-y-5">
+                                                        <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded p-2.5 text-xs">
+                                                            <div>
+                                                                <span className="font-semibold text-slate-800">
+                                                                    {isDefaultMask
+                                                                        ? "Default Mask (Unrestricted)"
+                                                                        : (currentMask.length === 0
+                                                                            ? "Explicit Mask: Minimum Identity Only"
+                                                                            : `Explicit Mask: ${currentMask.length} attribute${currentMask.length === 1 ? '' : 's'} selected`)}
+                                                                </span>
+                                                                <p className="text-slate-500 text-[11px] mt-0.5">
+                                                                    {isDefaultMask
+                                                                        ? "Exposes minimum party identity plus all optional attributes & documents."
+                                                                        : (currentMask.length === 0
+                                                                            ? "Exposes minimum party identity label only; hides all optional attributes and party documents."
+                                                                            : "Exposes minimum party identity plus explicitly selected attributes.")}
+                                                                </p>
+                                                            </div>
+                                                            {!isDefaultMask && (
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-6 text-[11px] text-slate-600 hover:text-slate-900 shrink-0"
+                                                                    onClick={() => {
+                                                                        setFormData({
+                                                                            ...formData,
+                                                                            profileConfig: { ...formData.profileConfig, displayMask: undefined }
+                                                                        });
+                                                                    }}
+                                                                >
+                                                                    Reset to Default
+                                                                </Button>
+                                                            )}
+                                                        </div>
+
                                                         {sections.map(section => (
                                                             <div key={section.title} className="space-y-2">
                                                                 <h4 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200 pb-1">
@@ -771,7 +809,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                                 </h4>
                                                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 pt-1">
                                                                     {section.fields.map(f => {
-                                                                        const isSelected = currentMask.some((p: string) => p === f.key || f.legacyKeys.includes(p));
+                                                                        const isSelected = isDefaultMask ? true : currentMask.some((p: string) => p === f.key || f.legacyKeys.includes(p));
                                                                         const toggleId = `mask-toggle-${f.key.replace(/\./g, '-')}`;
                                                                         return (
                                                                             <div key={f.key} className="flex items-center space-x-2 py-0.5">
@@ -780,7 +818,9 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                                                     checked={isSelected}
                                                                                     onCheckedChange={() => {
                                                                                         let next: string[];
-                                                                                        if (isSelected) {
+                                                                                        if (isDefaultMask) {
+                                                                                            next = allKeys.filter((k: string) => k !== f.key);
+                                                                                        } else if (isSelected) {
                                                                                             next = currentMask.filter((p: string) => p !== f.key && !f.legacyKeys.includes(p));
                                                                                         } else {
                                                                                             next = [...currentMask, f.key];
@@ -1025,8 +1065,8 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                             </div>
                             
                             {/* Answer Display Context Section */}
-                            <div className="grid gap-3 pt-3 border-t border-slate-100">
-                                <Label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                            <div className="grid gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                                <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
                                     <span>Answer display context</span>
                                     <span className="text-[10px] text-slate-400 font-normal">{formData.displayContext.length}/120</span>
                                 </Label>
@@ -1036,7 +1076,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                         checked={formData.displayContextEnabled}
                                         onCheckedChange={(checked) => setFormData({ ...formData, displayContextEnabled: !!checked })}
                                     />
-                                    <Label htmlFor="displayContextEnabled" className="text-xs font-medium cursor-pointer text-slate-700">
+                                    <Label htmlFor="displayContextEnabled" className="text-xs font-medium cursor-pointer text-slate-700 dark:text-slate-300">
                                         Show with answers in Question Bank and PDF
                                     </Label>
                                 </div>
@@ -1475,7 +1515,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                             <div className="grid gap-1.5">
                                                 <Label className="text-xs font-medium">Display Fields</Label>
                                                 <p className="text-[10px] text-slate-400">Used as the main label shown in picker results.</p>
-                                                <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 p-2 border rounded-md bg-slate-50">
+                                                <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 p-2 border rounded-md bg-slate-50 dark:bg-slate-900/40 dark:border-slate-800">
                                                     {getDisplayableFields(bindingForm.graphNodeType as NodeType).map(f => (
                                                         <label key={f.fieldKey} className="flex items-center gap-2 cursor-pointer select-none">
                                                             <Checkbox
@@ -1490,7 +1530,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                                     }));
                                                                 }}
                                                             />
-                                                            <span className="text-xs text-slate-700">{f.label}</span>
+                                                            <span className="text-xs text-slate-700 dark:text-slate-300">{f.label}</span>
                                                         </label>
                                                     ))}
                                                 </div>
@@ -1500,7 +1540,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                             <div className="grid gap-1.5">
                                                 <Label className="text-xs font-medium">Secondary Fields</Label>
                                                 <p className="text-[10px] text-slate-400">Shown beneath the main label in each picker row.</p>
-                                                <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 p-2 border rounded-md bg-slate-50">
+                                                <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 p-2 border rounded-md bg-slate-50 dark:bg-slate-900/40 dark:border-slate-800">
                                                     {getDisplayableFields(bindingForm.graphNodeType as NodeType).map(f => (
                                                         <label key={f.fieldKey} className="flex items-center gap-2 cursor-pointer select-none">
                                                             <Checkbox
@@ -1515,7 +1555,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                                     }));
                                                                 }}
                                                             />
-                                                            <span className="text-xs text-slate-700">{f.label}</span>
+                                                            <span className="text-xs text-slate-700 dark:text-slate-300">{f.label}</span>
                                                         </label>
                                                     ))}
                                                 </div>
@@ -1525,7 +1565,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                             <div className="grid gap-1.5">
                                                 <Label className="text-xs font-medium">Search Fields</Label>
                                                 <p className="text-[10px] text-slate-400">Additional fields matched during search. Only searchable fields shown.</p>
-                                                <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 p-2 border rounded-md bg-slate-50">
+                                                <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 p-2 border rounded-md bg-slate-50 dark:bg-slate-900/40 dark:border-slate-800">
                                                     {getSearchableFields(bindingForm.graphNodeType as NodeType).map(f => (
                                                         <label key={f.fieldKey} className="flex items-center gap-2 cursor-pointer select-none">
                                                             <Checkbox
@@ -1540,7 +1580,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                                     }));
                                                                 }}
                                                             />
-                                                            <span className="text-xs text-slate-700">{f.label}</span>
+                                                            <span className="text-xs text-slate-700 dark:text-slate-300">{f.label}</span>
                                                         </label>
                                                     ))}
                                                     {getSearchableFields(bindingForm.graphNodeType as NodeType).length === 0 && (
@@ -1612,7 +1652,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                 <div className="grid gap-1.5">
                                                     <Label className="text-xs font-medium">Fields to expose</Label>
                                                     <p className="text-[10px] text-slate-400">Leave all unchecked to expose nothing.</p>
-                                                    <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 p-2 border rounded-md bg-slate-50">
+                                                    <div className="grid grid-cols-2 gap-y-1.5 gap-x-3 p-2 border rounded-md bg-slate-50 dark:bg-slate-900/40 dark:border-slate-800">
                                                         {getDisplayableFields(bindingForm.graphNodeType as NodeType).map(f => (
                                                             <label key={f.fieldKey} className="flex items-center gap-2 cursor-pointer select-none">
                                                                 <Checkbox
@@ -1627,7 +1667,7 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                                                                         }));
                                                                     }}
                                                                 />
-                                                                <span className="text-xs text-slate-700">{f.label}</span>
+                                                                <span className="text-xs text-slate-700 dark:text-slate-300">{f.label}</span>
                                                             </label>
                                                         ))}
                                                     </div>

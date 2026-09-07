@@ -39,6 +39,7 @@ interface SelectableCompany {
 
 export function DefaultMappingCompanyPicker({ isCollapsed = false }: { isCollapsed?: boolean }) {
     const router = useRouter();
+    const [mounted, setMounted] = useState(false);
     const [open, setOpen] = useState(false);
     const [companies, setCompanies] = useState<SelectableCompany[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -51,6 +52,7 @@ export function DefaultMappingCompanyPicker({ isCollapsed = false }: { isCollaps
     } | null>(null);
 
     useEffect(() => {
+        setMounted(true);
         // Fetch current preference value
         getEffectiveMappingDefaults().then((res) => {
             if (res.selectedCompanyId) {
@@ -102,6 +104,43 @@ export function DefaultMappingCompanyPicker({ isCollapsed = false }: { isCollaps
     }
 
     const currentLabel = selectedName || "System Defaults";
+
+    if (!mounted) {
+        if (isCollapsed) {
+            return (
+                <button
+                    className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition-colors"
+                    title="Default Mapping Company: System Defaults"
+                    type="button"
+                    disabled
+                >
+                    <Building2 className="h-4 w-4" />
+                </button>
+            );
+        }
+
+        return (
+            <div className="px-3 py-2 space-y-1.5 border-t border-slate-100 dark:border-slate-800/50 mt-2">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    <span>Default Mapping Company</span>
+                </div>
+
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-between h-8 text-xs font-medium text-slate-700 bg-white border-slate-200 hover:bg-slate-50 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800/50"
+                    disabled
+                    type="button"
+                >
+                    <span className="truncate flex items-center gap-1.5">
+                        <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                        System Defaults
+                    </span>
+                    <ChevronDown className="h-3 w-3 opacity-50 shrink-0 ml-1" />
+                </Button>
+            </div>
+        );
+    }
 
     if (isCollapsed) {
         return (

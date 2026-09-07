@@ -23,7 +23,7 @@ vi.mock('@sentry/nextjs', () => ({
 }));
 
 vi.mock('next-auth', () => ({ default: vi.fn(() => ({ handlers: {}, auth: vi.fn(), signIn: vi.fn(), signOut: vi.fn() })), getServerSession: vi.fn() }));
-vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
+vi.mock('next/cache', () => ({ revalidatePath: vi.fn(), unstable_noStore: vi.fn() }));
 vi.mock('next/navigation', () => ({ notFound: vi.fn() }));
 vi.mock('@/context/breadcrumb-context', () => ({ SetPageBreadcrumbs: () => null }));
 vi.mock('@/components/client/kyc/enrichment-gate', () => ({ EnrichmentGate: ({ children }: any) => children }));
@@ -130,7 +130,9 @@ describe('Master Record Diagnostic Measurements', () => {
         (prisma.cCParty.findMany as any).mockImplementation(countQuery(async () => [{ id: 'party_1', data: { name: 'Acme Corp' } }]));
         (prisma.cCAddress.findMany as any).mockImplementation(countQuery(async () => []));
         (prisma.membership.findFirst as any).mockImplementation(countQuery(async () => ({ id: 'mem_1' })));
-        (prisma.membership.findMany as any).mockImplementation(countQuery(async () => []));
+        (prisma.membership.findMany as any).mockImplementation(countQuery(async () => [
+            { userId: 'user_perf_test', clientLEId: 'cle_perf_test', role: 'LE_ADMIN', clientLE: { isDeleted: false, status: 'ACTIVE' } }
+        ]));
         (prisma.$queryRaw as any).mockImplementation(countQuery(async () => []));
 
         vi.spyOn(definitionService, 'listAllMasterFields').mockResolvedValue(mockMasterFields as any);

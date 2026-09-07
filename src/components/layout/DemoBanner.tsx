@@ -2,7 +2,7 @@
 "use client";
 
 import React from "react";
-import { useSession, signOut } from "next-auth/react";
+import { SessionContext, signOut } from "next-auth/react";
 import { X, UserCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -32,7 +32,8 @@ class DemoBannerErrorBoundary extends React.Component<
 }
 
 function DemoBannerContent() {
-    const { data: session } = useSession();
+    const sessionContext = React.useContext(SessionContext);
+    const session = sessionContext?.data;
 
     // @ts-ignore - Session type doesn't know about isDemoActor without augmentation
     const isDemoActor = session?.user?.isDemoActor;

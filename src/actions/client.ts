@@ -184,12 +184,12 @@ export async function ensureUserOrg(userId: string, userEmail: string = "") {
 
 
 
-// Check if user has ANY system admin membership (regardless of active context)
+// Check if user holds the explicit SYSTEM_ADMIN role
 export async function checkIsSystemAdmin(userId: string) {
     const membership = await prisma.membership.findFirst({
         where: {
             userId,
-            organization: { types: { has: "SYSTEM" } }
+            role: "SYSTEM_ADMIN"
         }
     });
     return !!membership;
@@ -398,6 +398,15 @@ export async function createClientLE(data: { name: string; jurisdiction: string;
         return { success: false, error: "Unauthorized: You do not have permission to create Legal Entities for this Organization." };
     }
 
+    // Defense-in-depth: Verify target organization has CLIENT type
+    const targetOrg = await prisma.organization.findUnique({
+        where: { id: targetOrgId },
+        select: { types: true }
+    });
+    if (!targetOrg || !targetOrg.types.includes("CLIENT")) {
+        return { success: false, error: "Cannot create Legal Entities under a non-Client organization." };
+    }
+
     // --- 1. Shared LegalEntity linkage & Per-Client CURRENT dossier duplicate check ---
     let legalEntityId: string | undefined = undefined;
     if (data.lei) {
@@ -558,9 +567,17 @@ export async function getClientLEData(leId: string) {
     }
 
     const { calculateCommonQuestionnaireMetrics, calculateEngagementMetrics, calculateQuestionnaireMetrics } = await import("@/lib/metrics-calc");
+    const {
+        calculateCQQuestionStateMetrics,
+        calculateQuestionStateMetricsForQuestions,
+        emptyQuestionStateMetrics,
+        rollupQuestionStateMetrics
+    } = await import("@/lib/metrics/question-state-metrics");
+
     if (le.commonQuestionnaires) {
         for (const q of le.commonQuestionnaires) {
             (q as any).metrics = await calculateCommonQuestionnaireMetrics(q.id, le.id);
+            (q as any).v2Metrics = await calculateCQQuestionStateMetrics(q.id, le.id);
         }
     }
 
@@ -574,10 +591,34 @@ export async function getClientLEData(leId: string) {
                 [...(eng.questionnaireInstances || []), ...(eng.questionnaires || [])].map((q: any) => [q.id, q])
             ).values()
         );
+        const engV2 = emptyQuestionStateMetrics();
+
         for (const q of combined) {
             (q as any).metrics = await calculateQuestionnaireMetrics((q as any).id);
+            const questions = await prisma.question.findMany({
+                where: { questionnaireId: (q as any).id, questionnaire: { isDeleted: false } },
+                select: {
+                    id: true,
+                    answer: true,
+                    masterFieldNo: true,
+                    masterQuestionGroupId: true,
+                    customFieldDefinitionId: true,
+                    questionnaireId: true,
+                },
+            });
+            const qV2 = await calculateQuestionStateMetricsForQuestions(
+                questions,
+                le.legalEntityId,
+                le.customData as any,
+                le.id
+            );
+            qV2.questionnairesCount = 1;
+            (q as any).v2Metrics = qV2;
+            rollupQuestionStateMetrics(engV2, qV2);
         }
+        engV2.questionnairesCount = combined.length;
         (eng as any).questionnaires = combined;
+        (eng as any).v2Metrics = engV2;
         console.log(`[getClientLEData] Engagement ${eng.org.name} has ${(eng as any).questionnaires.length} ACTIVE questionnaires`);
     }
 
@@ -920,10 +961,10 @@ export async function restoreClientLECore(clientLEId: string) {
             }
         }
 
-        // 1. Un-delete the LE while restoring operational status to ACTIVE
+        // 1. Un-delete the LE while preserving pre-delete operational status
         const updatedLE = await tx.clientLE.update({
             where: { id: clientLEId },
-            data: { isDeleted: false, status: "ACTIVE" }
+            data: { isDeleted: false }
         });
 
         // 2. Un-delete Engagements & Questionnaires for this LE
@@ -992,10 +1033,10 @@ export async function deleteClientLE(leId: string) {
             data: { isDeleted: true }
         });
 
-        // 4. Soft Delete the LE itself and set status to ARCHIVED
+        // 4. Soft Delete the LE itself while preserving operational status
         await prisma.clientLE.update({
             where: { id: leId },
-            data: { isDeleted: true, status: "ARCHIVED" }
+            data: { isDeleted: true }
         });
 
         revalidatePath("/app");
@@ -1055,31 +1096,6 @@ export async function deleteEngagementByClient(engagementId: string) {
         return { success: false, error: "Failed to delete engagement" };
     }
 }
-
-export async function archiveClientLE(leId: string) {
-    try {
-        await ensureAuthorization(Action.LE_ARCHIVE, { clientLEId: leId });
-    } catch (e) {
-        return { success: false, error: "Unauthorized" };
-    }
-
-    const identity = await getIdentity();
-    if (!identity?.userId) return { success: false, error: "Unauthorized" };
-    const { userId } = identity;
-
-    try {
-        await prisma.clientLE.update({
-            where: { id: leId },
-            data: { status: "ARCHIVED" } // Assuming string status field
-        });
-        revalidatePath("/app");
-        return { success: true };
-    } catch (e) {
-        return { success: false, error: "Failed to archive entity" };
-    }
-}
-
-
 
 // 9. Search Financial Institutions
 export async function searchFIs(query: string) {
@@ -1178,7 +1194,15 @@ export async function getClientDashboardData(clientId: string) {
                         }
                     },
                     memberships: {
+                        where: { user: { isDemoActor: false } },
                         include: { user: true }
+                    },
+                    invitations: {
+                        where: {
+                            usedAt: null,
+                            revokedAt: null,
+                            expiresAt: { gt: new Date() }
+                        }
                     }
                 },
                 orderBy: { createdAt: 'desc' },
@@ -1226,7 +1250,15 @@ export async function getClientDashboardData(clientId: string) {
                                 }
                             },
                             memberships: {
+                                where: { user: { isDemoActor: false } },
                                 include: { user: true }
+                            },
+                            invitations: {
+                                where: {
+                                    usedAt: null,
+                                    revokedAt: null,
+                                    expiresAt: { gt: new Date() }
+                                }
                             }
                         }
                     }
@@ -1285,17 +1317,13 @@ export async function getClientDashboardData(clientId: string) {
 }
 
 // 12. Get Current User's Effective Role for an LE
-// Returns 'LE_ADMIN', 'LE_USER', 'ORG_ADMIN' (owner), 'SYSTEM_ADMIN', or null.
+// Returns 'LE_ADMIN', 'LE_USER', 'ORG_ADMIN' (owner), or null.
 export async function getCurrentUserLERole(leId: string): Promise<string | null> {
     const identity = await getIdentity();
     if (!identity?.userId) return null;
     const { userId } = identity;
 
-    // 1. System Admin override
-    const isSysAdmin = await checkIsSystemAdmin(userId);
-    if (isSysAdmin) return "SYSTEM_ADMIN";
-
-    // Soft-deleted ClientLE check: non-SysAdmins gain no roles on deleted ClientLEs
+    // Soft-deleted ClientLE check: non-members gain no roles on deleted ClientLEs
     const le = await prisma.clientLE.findUnique({
         where: { id: leId },
         select: { isDeleted: true }
@@ -1346,7 +1374,8 @@ export async function getLEUsers(leId: string): Promise<LEUser[]> {
     const memberships = await prisma.membership.findMany({
         where: {
             clientLEId: leId,
-            role: { in: ["LE_ADMIN", "LE_USER"] }
+            role: { in: ["LE_ADMIN", "LE_USER"] },
+            user: { isDemoActor: false }
         },
         include: { user: true }
     });

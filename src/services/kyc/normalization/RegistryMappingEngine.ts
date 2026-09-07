@@ -26,7 +26,7 @@ export class RegistryMappingEngine {
     /**
      * Map a completed EnrichmentRun into FieldCandidates.
      */
-    static async mapEnrichmentRun(runId: string): Promise<FieldCandidate[]> {
+    static async mapEnrichmentRun(runId: string, evidenceId?: string | null): Promise<FieldCandidate[]> {
         // 1. Fetch Run context
         const run = await prisma.enrichmentRun.findUnique({
             where: { id: runId },
@@ -132,7 +132,7 @@ export class RegistryMappingEngine {
                             syncMode: mapping.syncMode,
                             source: SourceType.REGISTRATION_AUTHORITY,
                             sourceKey: mappingSourceKey || raId || 'GENERIC_RA',
-                            evidenceId: run.id,
+                            evidenceId: evidenceId ?? null,
                             confidence: mapping.confidenceDefault
                         });
                         continue;
@@ -244,7 +244,7 @@ export class RegistryMappingEngine {
                         syncMode: mapping.syncMode,
                         source: SourceType.REGISTRATION_AUTHORITY,
                         sourceKey: mappingSourceKey || raId || 'GENERIC_RA',
-                        evidenceId: run.id, // Linking to the Run ID as evidence context
+                        evidenceId: evidenceId ?? null,
                         confidence: mapping.confidenceDefault * (1 - (transformed.confidencePenalty || 0))
                     });
 

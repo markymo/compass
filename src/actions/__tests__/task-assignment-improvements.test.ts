@@ -37,6 +37,18 @@ vi.mock('@/lib/prisma', () => ({
             findUnique: vi.fn(),
             update: vi.fn(),
         },
+        membership: {
+            findMany: vi.fn(),
+            findFirst: vi.fn(),
+        },
+        clientLEOwner: {
+            findMany: vi.fn().mockResolvedValue([]),
+            findFirst: vi.fn(),
+        },
+        clientLE: {
+            findUnique: vi.fn(),
+            findFirst: vi.fn(),
+        }
     }
 }));
 
@@ -51,6 +63,23 @@ vi.mock('next/cache', () => ({
 describe('Task Assignment Architecture Improvements', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        (prisma.membership.findMany as any).mockResolvedValue([
+            {
+                userId: 'user-100',
+                clientLEId: 'cle-1',
+                organizationId: null,
+                fiEngagementId: null,
+                role: 'LE_ADMIN',
+                clientLE: { isDeleted: false, status: 'ACTIVE' }
+            }
+        ]);
+        (prisma.membership.findFirst as any).mockResolvedValue({
+            id: 'mem-assignee-1',
+            clientLEId: 'cle-1',
+            userId: 'user-200',
+            role: 'LE_USER'
+        });
+        (prisma.clientLEOwner.findMany as any).mockResolvedValue([]);
     });
 
     describe('1. Master Field Assignment with Notes & Deletion', () => {
