@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Input } from "@/components/ui/input";
 import {
     Select,
@@ -9,6 +9,21 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
+import { Button } from "@/components/ui/button";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface CanonicalScalarEditorProps {
@@ -58,7 +73,7 @@ const parseDateFromInput = (val: string): string => {
  * within the Master Record inspector drawer.
  *
  * Supported datatypes:
- *  - Configured options (data.options or appDataType === 'SELECT') -> Dropdown Select
+ *  - Configured options (data.options or appDataType === 'SELECT') -> Searchable Dropdown Combobox
  *  - BOOLEAN -> Constrained Yes/No Select (no free text)
  *  - DATE / DATETIME -> HTML date picker input
  *  - NUMBER -> Number input
@@ -77,6 +92,7 @@ export function CanonicalScalarEditor({
     className,
     fieldName,
 }: CanonicalScalarEditorProps) {
+    const [open, setOpen] = useState(false);
     const normType = (dataType || 'TEXT').toUpperCase();
 
     // Canonical scalar editor operates on primitive values (string, number, boolean).
@@ -84,29 +100,85 @@ export function CanonicalScalarEditor({
     const isExplicitNoneObject = value && typeof value === 'object' && value.explicitNone === true;
     const sanitizedValue = isExplicitNoneObject ? '' : value;
 
-    // 1. Configured Options (Option-set or SELECT fields)
+    // 1. Configured Options (Option-set or SELECT fields) -> Searchable Combobox
     if (options && options.length > 0) {
+        const selectedOption = options.find((opt) => {
+            const v = typeof opt === 'object' ? opt.value : opt;
+            return String(v) === String(sanitizedValue);
+        });
+        const displayLabel = selectedOption
+            ? (typeof selectedOption === 'object' ? selectedOption.label : selectedOption)
+            : (sanitizedValue !== undefined && sanitizedValue !== null && sanitizedValue !== '' ? String(sanitizedValue) : '');
+
         return (
-            <Select
-                value={typeof sanitizedValue === 'string' || typeof sanitizedValue === 'number' ? String(sanitizedValue) : ''}
-                onValueChange={(val) => onChange(val)}
-                disabled={disabled}
-            >
-                <SelectTrigger className={cn("w-full bg-white border-slate-300", className)}>
-                    <SelectValue placeholder={placeholder || `Select ${fieldName || 'value'}...`} />
-                </SelectTrigger>
-                <SelectContent position="item-aligned">
-                    {options.map((opt) => {
-                        const v = typeof opt === 'object' ? opt.value : opt;
-                        const l = typeof opt === 'object' ? opt.label : opt;
-                        return (
-                            <SelectItem key={String(v)} value={String(v)}>
-                                {l}
-                            </SelectItem>
-                        );
-                    })}
-                </SelectContent>
-            </Select>
+            <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={open}
+                        disabled={disabled}
+                        className={cn(
+                            "w-full justify-between bg-white border-slate-300 font-normal h-9 text-left px-3 text-sm",
+                            !displayLabel && "text-muted-foreground",
+                            className
+                        )}
+                    >
+                        <span className="truncate">{displayLabel || placeholder || `Select ${fieldName || 'value'}...`}</span>
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                    className="w-[--radix-popover-trigger-width] min-w-[240px] p-0 z-[70]"
+                    align="start"
+                    onEscapeKeyDown={(e) => {
+                        // Prevent escape from bubbling to parent Sheet/drawer
+                        e.stopPropagation();
+                    }}
+                >
+                    <Command
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.stopPropagation();
+                            }
+                        }}
+                    >
+                        <CommandInput
+                            placeholder={`Search ${fieldName || 'options'}...`}
+                        />
+                        <CommandList className="max-h-[280px] overflow-y-auto">
+                            <CommandEmpty className="p-3 text-xs text-center text-slate-500">
+                                No options found.
+                            </CommandEmpty>
+                            <CommandGroup>
+                                {options.map((opt) => {
+                                    const v = typeof opt === 'object' ? opt.value : opt;
+                                    const l = typeof opt === 'object' ? opt.label : opt;
+                                    const strVal = String(v);
+                                    const strLabel = String(l);
+                                    const isSelected = String(sanitizedValue) === strVal;
+                                    return (
+                                        <CommandItem
+                                            key={strVal}
+                                            value={strVal}
+                                            keywords={[strVal, strLabel]}
+                                            onSelect={() => {
+                                                onChange(v);
+                                                setOpen(false);
+                                            }}
+                                            className="text-xs flex items-center justify-between cursor-pointer"
+                                        >
+                                            <span className="truncate">{strLabel}</span>
+                                            <Check className={cn("ml-2 h-4 w-4 shrink-0", isSelected ? "opacity-100" : "opacity-0")} />
+                                        </CommandItem>
+                                    );
+                                })}
+                            </CommandGroup>
+                        </CommandList>
+                    </Command>
+                </PopoverContent>
+            </Popover>
         );
     }
 
