@@ -329,4 +329,36 @@ describe("Experimental Homepage V2 Tweaks and Metric Parity", () => {
             expect(screen.getByText("Global Trade Corp")).toBeDefined();
         });
     });
+
+    describe("Organization Section Header Navigation (ONP-178)", () => {
+        it("renders clickable link for client organization name linking to /app/clients/[id]", () => {
+            render(<ExperimentalDashboardContent contexts={mockContexts} />);
+            const clientLink = screen.getByRole("link", { name: "Acme Client Corp" });
+            expect(clientLink).toBeDefined();
+            expect(clientLink.getAttribute("href")).toBe("/app/clients/client-1");
+        });
+
+        it("renders clickable link for supplier organization name linking to /app/s/[id]", () => {
+            const supplierContexts: DashboardContexts = {
+                clients: [],
+                financialInstitutions: [
+                    {
+                        id: "fi-1",
+                        name: "Riskbridge Bank",
+                        role: "SUPPLIER_ADMIN",
+                        metrics: { total: 10, noData: 0, mapped: 10, answered: 10, approved: 10, released: 10 },
+                        v2Metrics: { questionnairesCount: 1, total: 10, external: 10, userInput: 0, defaultResponse: 0, unanswered: 0 },
+                    },
+                ],
+                lawFirms: [],
+                legalEntities: [],
+                relationships: [],
+            };
+
+            render(<ExperimentalDashboardContent contexts={supplierContexts} />);
+            const supplierLink = screen.getByRole("link", { name: "Riskbridge Bank" });
+            expect(supplierLink).toBeDefined();
+            expect(supplierLink.getAttribute("href")).toBe("/app/s/fi-1");
+        });
+    });
 });
