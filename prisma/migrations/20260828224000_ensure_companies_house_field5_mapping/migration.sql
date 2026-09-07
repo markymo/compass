@@ -8,12 +8,15 @@ SET "transformType" = 'TO_NAME_HISTORY_LIST',
     "priority" = 100,
     "isActive" = true,
     "notes" = 'UK Previous Legal Names — TO_NAME_HISTORY_LIST produces one structured row per entry (name, effectiveFrom, effectiveTo). Path: previous_company_names in COMPANY_PROFILE payload.'
-WHERE "sourceType" = 'REGISTRATION_AUTHORITY'
-  AND "sourceReference" = 'COMPANIES_HOUSE'
-  AND "mappingScope" = 'RAW_PAYLOAD'
-  AND "payloadSubtype" = 'COMPANY_PROFILE'
-  AND "sourcePath" = 'previous_company_names'
-  AND "targetFieldNo" = 5;
+WHERE "id" = '342fe97e-8459-47bb-be99-5d16ebf7692a'
+   OR (
+     "sourceType" = 'REGISTRATION_AUTHORITY'
+     AND "sourceReference" IN ('COMPANIES_HOUSE', 'RA000585')
+     AND "mappingScope" = 'RAW_PAYLOAD'
+     AND "payloadSubtype" = 'COMPANY_PROFILE'
+     AND "sourcePath" = 'previous_company_names'
+     AND "targetFieldNo" = 5
+   );
 
 -- 2. Insert if not exists (guarantees convergence on clean/blank DBs)
 INSERT INTO "source_field_mappings" (
@@ -57,10 +60,13 @@ SELECT
     NOW()
 WHERE NOT EXISTS (
     SELECT 1 FROM "source_field_mappings"
-    WHERE "sourceType" = 'REGISTRATION_AUTHORITY'
-      AND "sourceReference" = 'COMPANIES_HOUSE'
-      AND "mappingScope" = 'RAW_PAYLOAD'
-      AND "payloadSubtype" = 'COMPANY_PROFILE'
-      AND "sourcePath" = 'previous_company_names'
-      AND "targetFieldNo" = 5
+    WHERE "id" = '342fe97e-8459-47bb-be99-5d16ebf7692a'
+       OR (
+         "sourceType" = 'REGISTRATION_AUTHORITY'
+         AND "sourceReference" IN ('COMPANIES_HOUSE', 'RA000585')
+         AND "mappingScope" = 'RAW_PAYLOAD'
+         AND "payloadSubtype" = 'COMPANY_PROFILE'
+         AND "sourcePath" = 'previous_company_names'
+         AND "targetFieldNo" = 5
+       )
 );

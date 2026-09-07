@@ -8,12 +8,15 @@ SET "transformType" = 'TO_NAME_HISTORY_LIST',
     "priority" = 110,
     "isActive" = true,
     "notes" = 'GLEIF otherNames — TO_NAME_HISTORY_LIST handles string[] or {name,type}[] tolerantly. Dates typically absent.'
-WHERE "sourceType" = 'GLEIF'
-  AND "sourceReference" IS NULL
-  AND "mappingScope" = 'BASELINE'
-  AND "payloadSubtype" IS NULL
-  AND "sourcePath" = 'entity.otherNames'
-  AND "targetFieldNo" = 5;
+WHERE "id" = 'a08d12e2-7a76-49ba-991e-a28f82e37bde'
+   OR (
+     "sourceType" = 'GLEIF'
+     AND "sourceReference" IS NULL
+     AND "mappingScope" = 'BASELINE'
+     AND ("payloadSubtype" IS NULL OR "payloadSubtype" = 'LEVEL_1')
+     AND "sourcePath" = 'entity.otherNames'
+     AND "targetFieldNo" = 5
+   );
 
 -- 2. Insert if not exists (for completely blank databases)
 INSERT INTO "source_field_mappings" (
@@ -41,7 +44,7 @@ SELECT
     'GLEIF',
     NULL,
     'BASELINE',
-    NULL,
+    'LEVEL_1',
     'entity.otherNames',
     5,
     1.0,
@@ -57,10 +60,13 @@ SELECT
     NOW()
 WHERE NOT EXISTS (
     SELECT 1 FROM "source_field_mappings"
-    WHERE "sourceType" = 'GLEIF'
-      AND "sourceReference" IS NULL
-      AND "mappingScope" = 'BASELINE'
-      AND "payloadSubtype" IS NULL
-      AND "sourcePath" = 'entity.otherNames'
-      AND "targetFieldNo" = 5
+    WHERE "id" = 'a08d12e2-7a76-49ba-991e-a28f82e37bde'
+       OR (
+         "sourceType" = 'GLEIF'
+         AND "sourceReference" IS NULL
+         AND "mappingScope" = 'BASELINE'
+         AND ("payloadSubtype" IS NULL OR "payloadSubtype" = 'LEVEL_1')
+         AND "sourcePath" = 'entity.otherNames'
+         AND "targetFieldNo" = 5
+       )
 );
