@@ -1,0 +1,378 @@
+"use client";
+
+import { useState, useMemo, useEffect } from "react";
+import { DashboardContexts } from "@/actions/dashboard";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+    Building2, Landmark, Gavel, ChevronDown, ChevronRight,
+    FileText, FileCheck, Briefcase, Factory, Loader2
+} from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import Link from "next/link";
+import { StandardTooltip } from "@/components/ui/standard-tooltip";
+import { cn } from "@/lib/utils";
+import { usePreferences } from "@/components/providers/user-preferences-provider";
+import { OrgType, OrgChild, OrgNode, reshapeContexts } from "../dashboard-tree";
+import { HomeResponsiveMetricSummary, MetricLinkContext } from "./home-responsive-metric-summary";
+
+export interface HomeResponsiveContentProps {
+    contexts: DashboardContexts;
+}
+
+const orgMeta: Record<OrgType, {
+    icon: typeof Building2;
+    label: string;
+    primary: string;
+    borderColor: string;
+}> = {
+    SUPPLIER: {
+        icon: Building2,
+        label: "Supplier",
+        primary: "#0F766E",
+        borderColor: "border-teal-100/80 hover:border-teal-200",
+    },
+    CLIENT: {
+        icon: Factory,
+        label: "Client",
+        primary: "#4338CA",
+        borderColor: "border-indigo-100/80 hover:border-indigo-200",
+    },
+    LAW_FIRM: {
+        icon: Gavel,
+        label: "Law Firm",
+        primary: "#8B3D88",
+        borderColor: "border-purple-100/80 hover:border-purple-200",
+    },
+    SYSTEM: {
+        icon: Building2,
+        label: "System",
+        primary: "#475569",
+        borderColor: "border-slate-100",
+    },
+};
+
+export function HomeResponsiveContent({ contexts }: HomeResponsiveContentProps) {
+    const { isLoading } = usePreferences();
+    const orgNodes = useMemo(() => {
+        if (!contexts) return [];
+        return reshapeContexts(contexts);
+    }, [contexts]);
+
+    return (
+        <div
+            className="home-responsive-dashboard-wrapper min-h-[200px] space-y-5"
+            data-testid="home-responsive-dashboard"
+        >
+            {isLoading ? (
+                <div className="flex items-center justify-center py-20 text-slate-400">
+                    <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                    <span className="text-sm">Loading responsive homepage...</span>
+                </div>
+            ) : orgNodes.length === 0 ? (
+                <div className="text-center py-20 border-2 border-dashed rounded-xl bg-slate-50/50">
+                    <div className="flex flex-col items-center gap-3">
+                        <div className="p-4 bg-white rounded-full shadow-sm">
+                            <Building2 className="h-8 w-8 text-slate-400" />
+                        </div>
+                        <h3 className="text-lg font-medium text-slate-900">No organisations found</h3>
+                        <p className="text-slate-500 max-w-sm">
+                            You aren't a member of any organisations yet.
+                        </p>
+                    </div>
+                </div>
+            ) : (
+                <div className="space-y-5">
+                    {orgNodes.map((org) => (
+                        <ResponsiveOrgCard key={`${org.orgType}-${org.id}`} org={org} />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function ResponsiveOrgCard({ org }: { org: OrgNode }) {
+    const { preferences, updatePreference } = usePreferences();
+    const nodeKey = `org:${org.id}`;
+
+    const isCollapsed = preferences.homePage?.collapsedTreeNodes?.[nodeKey] ?? false;
+    const [isOpen, setIsOpen] = useState(!isCollapsed);
+
+    useEffect(() => {
+        setIsOpen(!isCollapsed);
+    }, [isCollapsed]);
+
+    const handleOpenChange = (open: boolean) => {
+        setIsOpen(open);
+        const currentCollapsedNodes = preferences.homePage?.collapsedTreeNodes || {};
+        updatePreference("homePage", {
+            collapsedTreeNodes: {
+                ...currentCollapsedNodes,
+                [nodeKey]: !open,
+            },
+        });
+    };
+
+    const meta = orgMeta[org.orgType];
+    const Icon = meta.icon;
+    const hasChildren = org.children && org.children.length > 0;
+    const orgHref = org.orgType === "SUPPLIER" ? `/app/s/${org.id}` : org.orgType === "CLIENT" ? `/app/clients/${org.id}` : undefined;
+
+    return (
+        <Card variant="structural" className={cn("shadow-xs overflow-hidden border bg-card text-card-foreground", meta.borderColor)}>
+            <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
+                {/* 1. Section Header Row (Rendered ONCE per organization section) */}
+                <div className="flex items-center justify-between px-4 pt-3.5 pb-2 bg-muted/60 border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                    <div className="flex items-center gap-2 min-w-0">
+                        {hasChildren ? (
+                            <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-muted rounded-md shrink-0">
+                                    {isOpen ? (
+                                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                    ) : (
+                                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                    )}
+                                </Button>
+                            </CollapsibleTrigger>
+                        ) : (
+                            <div className="w-6 shrink-0" />
+                        )}
+                        {orgHref ? (
+                            <Link
+                                href={orgHref}
+                                className={cn(
+                                    "flex items-center gap-2 min-w-0 hover:underline transition-colors",
+                                    org.orgType === "CLIENT" && "hover:text-indigo-600",
+                                    org.orgType === "SUPPLIER" && "hover:text-teal-600"
+                                )}
+                            >
+                                <Icon className="h-4 w-4 shrink-0" style={{ color: meta.primary }} />
+                                <span className="truncate">{org.name}</span>
+                            </Link>
+                        ) : (
+                            <>
+                                <Icon className="h-4 w-4 shrink-0" style={{ color: meta.primary }} />
+                                <span className="truncate">{org.name}</span>
+                            </>
+                        )}
+                        <Badge variant="outline" className="text-[9px] font-medium px-1 py-0 h-3.5 uppercase shrink-0">
+                            {org.role}
+                        </Badge>
+                    </div>
+
+                    {/* Section Metric Column Titles (2-Tier Header: Questions | Answers) */}
+                    <div className="flex flex-col text-right shrink-0 space-y-1">
+                        {/* Tier 1: Category Titles */}
+                        <div className="grid grid-cols-[80px_324px] gap-2 text-[10px] font-bold uppercase tracking-wider">
+                            <span className="pr-3 border-r border-border text-muted-foreground">Questions</span>
+                            <span className="text-center text-muted-foreground border-b border-border pb-0.5">Answers</span>
+                        </div>
+
+                        {/* Tier 2: Sub-column Labels */}
+                        <div className="grid grid-cols-[80px_80px_80px_75px_85px] gap-2 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider items-center">
+                            <div className="pr-3 border-r border-border justify-end flex">
+                                <StandardTooltip content="Total Questions / Questionnaires Count (e.g. 54/3 = 54 questions across 3 questionnaires)">
+                                    <span className="font-bold text-foreground">
+                                        Total
+                                    </span>
+                                </StandardTooltip>
+                            </div>
+                            <span>External</span>
+                            <span>User Input</span>
+                            <span>Default</span>
+                            <span>Unanswered</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 2. Org Summary Row (Org-level summary totals span multiple LEs, so metrics remain non-clickable) */}
+                <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border text-card-foreground">
+                    <div className="flex items-center gap-2.5 min-w-0 pl-8">
+                        {org.orgType === "SUPPLIER" ? (
+                            <Link href={`/app/s/${org.id}`} className="font-semibold text-sm text-foreground hover:text-teal-500 truncate">
+                                Organisation Totals
+                            </Link>
+                        ) : org.orgType === "CLIENT" ? (
+                            <Link href={`/app/clients/${org.id}`} className="font-semibold text-sm text-foreground hover:text-indigo-500 truncate">
+                                Organisation Totals
+                            </Link>
+                        ) : (
+                            <span className="font-semibold text-sm text-foreground truncate">Organisation Totals</span>
+                        )}
+                    </div>
+
+                    {/* Metric Summary for Org (No linkContext: non-clickable) */}
+                    <HomeResponsiveMetricSummary metrics={org.v2Metrics} />
+                </div>
+
+                {hasChildren && (
+                    <CollapsibleContent>
+                        <div className="divide-y divide-border bg-card text-card-foreground">
+                            {org.children.map((child) => (
+                                <ResponsiveTreeNode key={child.id} item={child} level={1} orgType={org.orgType} orgId={org.id} />
+                            ))}
+                        </div>
+                    </CollapsibleContent>
+                )}
+            </Collapsible>
+        </Card>
+    );
+}
+
+function ResponsiveTreeNode({ item, level, orgType, orgId }: { item: OrgChild; level: number; orgType?: string; orgId?: string }) {
+    const { preferences, updatePreference } = usePreferences();
+    const prefix = item.type === "client" ? "org" : item.type;
+    const nodeKey = `${prefix}:${item.id}`;
+
+    const defaultIsCollapsed = level >= 2;
+    const isCollapsed = preferences.homePage?.collapsedTreeNodes?.[nodeKey] ?? defaultIsCollapsed;
+
+    const [isOpen, setIsOpen] = useState(!isCollapsed);
+    const hasChildren = item.children && item.children.length > 0;
+
+    useEffect(() => {
+        setIsOpen(!isCollapsed);
+    }, [isCollapsed]);
+
+    const handleOpenChange = (open: boolean) => {
+        setIsOpen(open);
+        const currentCollapsedNodes = preferences.homePage?.collapsedTreeNodes || {};
+        updatePreference("homePage", {
+            collapsedTreeNodes: {
+                ...currentCollapsedNodes,
+                [nodeKey]: !open,
+            },
+        });
+    };
+
+    // Determine linkContext for Workbench4 / Supplier Questions deep linking
+    const linkContext = useMemo((): MetricLinkContext | undefined => {
+        if (orgType === "SUPPLIER") {
+            if (item.type === "le") {
+                return { supplierOrgId: orgId, supplierRelName: item.name };
+            }
+            if (item.type === "questionnaire") {
+                return { supplierOrgId: orgId, questionnaireId: item.id };
+            }
+            return undefined;
+        }
+
+        const leIdToUse = item.leId;
+        if (!leIdToUse) return undefined;
+
+        if (item.type === "le") {
+            return { leId: leIdToUse };
+        }
+        if (item.type === "engagement") {
+            return { leId: leIdToUse, relationshipId: item.id };
+        }
+        if (item.type === "questionnaire") {
+            const isCommon = item.subtitle === "Common Questionnaire" || item.name === "Common Questionnaires";
+            return {
+                leId: leIdToUse,
+                questionnaireId: item.id,
+                scope: isCommon ? "common" : undefined,
+            };
+        }
+        return undefined;
+    }, [item.type, item.id, item.leId, item.name, item.subtitle, orgType, orgId]);
+
+    const isCQ = item.type === "questionnaire" && (item.subtitle === "Common Questionnaire" || item.name === "Common Questionnaires");
+
+    return (
+        <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
+            <div
+                className={cn(
+                    "flex items-center justify-between px-4 py-2.5 hover:bg-muted/40 transition-colors",
+                    level > 1 && "bg-muted/20 text-card-foreground",
+                    isCQ && "bg-muted/30 text-card-foreground"
+                )}
+            >
+                <div
+                    className="flex items-center gap-2.5 min-w-0"
+                    style={{ paddingLeft: `${(level - 1) * 20}px` }}
+                >
+                    <div className="w-6 flex justify-center shrink-0">
+                        {hasChildren ? (
+                            <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6 p-0 hover:bg-muted shrink-0">
+                                    {isOpen ? (
+                                        <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                                    ) : (
+                                        <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                                    )}
+                                </Button>
+                            </CollapsibleTrigger>
+                        ) : (
+                            <div className="w-3.5" />
+                        )}
+                    </div>
+
+                    <ResponsiveRowIcon type={item.type} isCQ={isCQ} />
+
+                    {item.href && item.href !== "#" ? (
+                        <Link
+                            href={item.href}
+                            className={cn(
+                                "truncate hover:underline hover:text-indigo-500 text-sm font-medium",
+                                isCQ ? "text-foreground font-semibold" : "text-foreground"
+                            )}
+                            title={item.name}
+                        >
+                            {item.name}
+                        </Link>
+                    ) : (
+                        <span
+                            className={cn(
+                                "truncate text-sm font-medium",
+                                isCQ ? "text-slate-900 font-semibold" : "text-slate-800"
+                            )}
+                            title={item.name}
+                        >
+                            {item.name}
+                        </span>
+                    )}
+
+                    {item.subtitle && (
+                        <span className="text-xs text-slate-400 truncate hidden sm:inline">
+                            {item.subtitle}
+                        </span>
+                    )}
+                </div>
+
+                {/* Metric Summary for child node with drill-down linkContext */}
+                <HomeResponsiveMetricSummary metrics={item.v2Metrics} linkContext={linkContext} />
+            </div>
+
+            {hasChildren && (
+                <CollapsibleContent>
+                    <div className="divide-y divide-slate-100">
+                        {item.children?.map((child) => (
+                            <ResponsiveTreeNode key={child.id} item={child} level={level + 1} orgType={orgType} orgId={orgId} />
+                        ))}
+                    </div>
+                </CollapsibleContent>
+            )}
+        </Collapsible>
+    );
+}
+
+function ResponsiveRowIcon({ type, isCQ }: { type: string; isCQ?: boolean }) {
+    if (isCQ) {
+        return <FileCheck className="h-4 w-4 shrink-0 text-slate-600" />;
+    }
+    switch (type) {
+        case "client":
+            return <Factory className="h-4 w-4 shrink-0 text-indigo-600" />;
+        case "le":
+            return <Landmark className="h-4 w-4 shrink-0 text-slate-600" />;
+        case "engagement":
+            return <Briefcase className="h-3.5 w-3.5 shrink-0 text-emerald-600" />;
+        case "questionnaire":
+            return <FileText className="h-3.5 w-3.5 text-slate-400 shrink-0" />;
+        default:
+            return <div className="h-4 w-4" />;
+    }
+}

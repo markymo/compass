@@ -19,14 +19,14 @@ vi.mock("@/actions/invitations", () => ({
 }));
 
 // Mock child components to verify exact prop hand-off
-const mockExperimentalDashboardContent = vi.fn((props: any) => (
-    <div data-testid="mock-experimental-dashboard-content">
-        Mock Experimental Content (Client count: {props.contexts?.clients?.length ?? 0})
+const mockHomeResponsiveContent = vi.fn((props: any) => (
+    <div data-testid="mock-home-responsive-content">
+        Mock Responsive Content (Client count: {props.contexts?.clients?.length ?? 0})
     </div>
 ));
 
-vi.mock("@/components/dashboard/experimental/experimental-dashboard-content", () => ({
-    ExperimentalDashboardContent: (props: any) => mockExperimentalDashboardContent(props),
+vi.mock("@/components/dashboard/labs/home-responsive-content", () => ({
+    HomeResponsiveContent: (props: any) => mockHomeResponsiveContent(props),
 }));
 
 vi.mock("@/components/dashboard/pending-invitations-banner", () => ({
@@ -75,7 +75,15 @@ describe("Responsive Home Lab Page (/app/labs/home-responsive)", () => {
         cleanup();
     });
 
-    it("A. Uses getUserContexts() as its primary data pipeline rather than introducing another data source", async () => {
+    it("A. Renders HomeResponsiveContent rather than ExperimentalDashboardContent directly", async () => {
+        const pageElement = await ResponsiveHomeLabPage();
+        render(pageElement);
+
+        expect(mockHomeResponsiveContent).toHaveBeenCalledTimes(1);
+        expect(screen.getByTestId("mock-home-responsive-content")).toBeDefined();
+    });
+
+    it("Uses getUserContexts() as its primary data pipeline rather than introducing another data source", async () => {
         const pageElement = await ResponsiveHomeLabPage();
         render(pageElement);
 
@@ -90,15 +98,15 @@ describe("Responsive Home Lab Page (/app/labs/home-responsive)", () => {
 
         render(pageElement);
         expect(screen.getByTestId("standard-page-header")).toBeDefined();
-        expect(screen.getByTestId("mock-experimental-dashboard-content")).toBeDefined();
+        expect(screen.getByTestId("mock-home-responsive-content")).toBeDefined();
     });
 
-    it("C. Supplies exact DashboardContexts to the existing ExperimentalDashboardContent renderer", async () => {
+    it("C. Supplies exact DashboardContexts to HomeResponsiveContent renderer", async () => {
         const pageElement = await ResponsiveHomeLabPage();
         render(pageElement);
 
-        expect(mockExperimentalDashboardContent).toHaveBeenCalledTimes(1);
-        const passedProps = mockExperimentalDashboardContent.mock.calls[0][0];
+        expect(mockHomeResponsiveContent).toHaveBeenCalledTimes(1);
+        const passedProps = mockHomeResponsiveContent.mock.calls[0][0];
         expect(passedProps.contexts).toEqual(sampleContexts);
         expect(screen.getByText(/Client count: 1/)).toBeDefined();
     });

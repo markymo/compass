@@ -1,7 +1,7 @@
 import { getUserContexts } from "@/actions/dashboard";
 import { getAuthenticatedPendingInvitations } from "@/actions/invitations";
 import { StandardPageHeader } from "@/components/layout/StandardPageHeader";
-import { ExperimentalDashboardContent } from "@/components/dashboard/experimental/experimental-dashboard-content";
+import { HomeResponsiveContent } from "@/components/dashboard/labs/home-responsive-content";
 import { PendingInvitationsBanner } from "@/components/dashboard/pending-invitations-banner";
 import { Home, Beaker } from "lucide-react";
 
@@ -27,7 +27,7 @@ export default async function ResponsiveHomeLabPage() {
                 {pendingInvitations.length > 0 && (
                     <PendingInvitationsBanner invitations={pendingInvitations} />
                 )}
-                <ExperimentalDashboardContent contexts={contexts} />
+                <HomeResponsiveContent contexts={contexts} />
             </div>
         </div>
     );
