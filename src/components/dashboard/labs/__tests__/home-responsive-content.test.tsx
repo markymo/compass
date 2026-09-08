@@ -256,7 +256,7 @@ describe("HomeResponsiveContent Component (Labs Dedicated Renderer)", () => {
             }
         });
 
-        it("F2-contract: Confirms container query classes govern wide and medium responsive compositions", () => {
+        it("F2-contract: Confirms container query classes govern wide, medium, and narrow responsive compositions", () => {
             render(<HomeResponsiveMetricSummary metrics={mockV2Metrics} />);
 
             const wideBlock = screen.getByTestId("responsive-metrics-wide");
@@ -264,8 +264,13 @@ describe("HomeResponsiveContent Component (Labs Dedicated Renderer)", () => {
             expect(wideBlock.className).toContain("@[820px]:grid");
 
             const mediumBlock = screen.getByTestId("responsive-metrics-medium");
-            expect(mediumBlock.className).toContain("flex");
+            expect(mediumBlock.className).toContain("hidden");
+            expect(mediumBlock.className).toContain("@[600px]:flex");
             expect(mediumBlock.className).toContain("@[820px]:hidden");
+
+            const narrowBlock = screen.getByTestId("responsive-metrics-narrow");
+            expect(narrowBlock.className).toContain("flex");
+            expect(narrowBlock.className).toContain("@[600px]:hidden");
         });
 
         it("D-contract: Confirms no horizontal-scroll wrapper has been introduced around metrics", () => {
@@ -287,7 +292,7 @@ describe("HomeResponsiveContent Component (Labs Dedicated Renderer)", () => {
         });
     });
 
-    describe("HomeResponsiveMetricSummary Component: Wide vs Medium Compositions", () => {
+    describe("HomeResponsiveMetricSummary Component: Wide, Medium, and Narrow Compositions", () => {
         it("A. Wide metric renderer preserves the five canonical metric values and header labels", () => {
             render(<HomeResponsiveContent contexts={mockClientContexts} />);
 
@@ -340,7 +345,33 @@ describe("HomeResponsiveContent Component (Labs Dedicated Renderer)", () => {
             expect(within(mediumBlock).getByText("default")).toBeDefined();
         });
 
-        it("C. Exact drill-down hrefs remain correct in both wide and medium renderers", () => {
+        it("B2. Narrow metric renderer exposes all five semantic metrics with stacked self-labelling", () => {
+            render(<HomeResponsiveMetricSummary metrics={mockV2Metrics} />);
+
+            const narrowBlock = screen.getByTestId("responsive-metrics-narrow");
+            expect(narrowBlock).toBeDefined();
+
+            // Primary Level: Total Questions · Unanswered
+            expect(within(narrowBlock).getByText("147")).toBeDefined();
+            expect(within(narrowBlock).getByText("questions")).toBeDefined();
+            expect(within(narrowBlock).getByText("total questions")).toBeDefined();
+
+            expect(within(narrowBlock).getByText("23")).toBeDefined();
+            expect(within(narrowBlock).getByText("unanswered")).toBeDefined();
+
+            // Secondary Level: External · User Input · Default
+            expect(within(narrowBlock).getByText("83")).toBeDefined();
+            expect(within(narrowBlock).getByText("external")).toBeDefined();
+
+            expect(within(narrowBlock).getByText("41")).toBeDefined();
+            expect(within(narrowBlock).getByText("user")).toBeDefined();
+            expect(within(narrowBlock).getByText("user input")).toBeDefined();
+
+            expect(within(narrowBlock).getByText("0")).toBeDefined();
+            expect(within(narrowBlock).getByText("default")).toBeDefined();
+        });
+
+        it("C. Exact drill-down hrefs remain correct in wide, medium, and narrow renderers", () => {
             render(
                 <HomeResponsiveMetricSummary
                     metrics={mockV2Metrics}
@@ -378,9 +409,34 @@ describe("HomeResponsiveContent Component (Labs Dedicated Renderer)", () => {
             expect(mediumUnanswered.getAttribute("href")).toContain("/app/le/le-123/workbench4");
             expect(mediumUnanswered.getAttribute("href")).toContain("scope=common");
             expect(mediumUnanswered.getAttribute("href")).toContain("answerState=unanswered");
+
+            // Narrow links
+            const narrowTotal = screen.getByTestId("metric-narrow-link-total");
+            expect(narrowTotal.getAttribute("href")).toContain("/app/le/le-123/workbench4");
+            expect(narrowTotal.getAttribute("href")).toContain("scope=common");
+
+            const narrowExternal = screen.getByTestId("metric-narrow-link-external");
+            expect(narrowExternal.getAttribute("href")).toContain("/app/le/le-123/workbench4");
+            expect(narrowExternal.getAttribute("href")).toContain("scope=common");
+            expect(narrowExternal.getAttribute("href")).toContain("answerState=external");
+
+            const narrowUserInput = screen.getByTestId("metric-narrow-link-user_input");
+            expect(narrowUserInput.getAttribute("href")).toContain("/app/le/le-123/workbench4");
+            expect(narrowUserInput.getAttribute("href")).toContain("scope=common");
+            expect(narrowUserInput.getAttribute("href")).toContain("answerState=user_input");
+
+            const narrowDefault = screen.getByTestId("metric-narrow-link-default_response");
+            expect(narrowDefault.getAttribute("href")).toContain("/app/le/le-123/workbench4");
+            expect(narrowDefault.getAttribute("href")).toContain("scope=common");
+            expect(narrowDefault.getAttribute("href")).toContain("answerState=default_response");
+
+            const narrowUnanswered = screen.getByTestId("metric-narrow-link-unanswered");
+            expect(narrowUnanswered.getAttribute("href")).toContain("/app/le/le-123/workbench4");
+            expect(narrowUnanswered.getAttribute("href")).toContain("scope=common");
+            expect(narrowUnanswered.getAttribute("href")).toContain("answerState=unanswered");
         });
 
-        it("C2. Supplier drill-down links remain correct in both wide and medium renderers", () => {
+        it("C2. Supplier drill-down links remain correct across wide, medium, and narrow renderers", () => {
             render(
                 <HomeResponsiveMetricSummary
                     metrics={mockV2Metrics}
@@ -399,13 +455,20 @@ describe("HomeResponsiveContent Component (Labs Dedicated Renderer)", () => {
             expect(mediumUnanswered.getAttribute("href")).toContain("status=UNANSWERED");
             expect(mediumUnanswered.getAttribute("href")).toContain("rel=Acme");
             expect(mediumUnanswered.getAttribute("href")).toContain("q=q-1");
+
+            const narrowUnanswered = screen.getByTestId("metric-narrow-link-unanswered");
+            expect(narrowUnanswered.getAttribute("href")).toContain("/app/s/fi-123/questions");
+            expect(narrowUnanswered.getAttribute("href")).toContain("status=UNANSWERED");
+            expect(narrowUnanswered.getAttribute("href")).toContain("rel=Acme");
+            expect(narrowUnanswered.getAttribute("href")).toContain("q=q-1");
         });
 
-        it("D. Zero-population behaviour: renders blank '-' in wide (5 columns) and medium (single calm dash)", () => {
+        it("D. Zero-population behaviour: renders blank '-' in wide (5 columns), medium (1 dash), and narrow (1 dash)", () => {
             render(<HomeResponsiveMetricSummary metrics={emptyQuestionStateMetrics()} />);
 
             const wideContainer = screen.getByTestId("responsive-metrics-wide");
             const mediumContainer = screen.getByTestId("responsive-metrics-medium");
+            const narrowContainer = screen.getByTestId("responsive-metrics-narrow");
 
             const wideDashes = within(wideContainer).getAllByText("-");
             expect(wideDashes.length).toBe(5);
@@ -413,9 +476,68 @@ describe("HomeResponsiveContent Component (Labs Dedicated Renderer)", () => {
             const mediumDashes = within(mediumContainer).getAllByText("-");
             expect(mediumDashes.length).toBe(1);
 
-            // Confirms medium does not invent misleading "0 questions" or "0 unanswered"
-            expect(within(mediumContainer).queryByText(/0 questions/i)).toBeNull();
-            expect(within(mediumContainer).queryByText(/0 unanswered/i)).toBeNull();
+            const narrowDashes = within(narrowContainer).getAllByText("-");
+            expect(narrowDashes.length).toBe(1);
+
+            // Confirms neither medium nor narrow invents misleading "0 questions" or "0 unanswered"
+            expect(within(narrowContainer).queryByText(/0 questions/i)).toBeNull();
+            expect(within(narrowContainer).queryByText(/0 unanswered/i)).toBeNull();
+        });
+
+        it("F. Narrow row structure places metrics after/beneath the identity in the DOM", () => {
+            render(<HomeResponsiveContent contexts={mockClientContexts} />);
+
+            const rows = screen.getAllByTestId("responsive-tree-row");
+            expect(rows.length).toBeGreaterThanOrEqual(1);
+
+            const firstRow = rows[0];
+            // Row has flex-col for narrow and @[600px]:flex-row for medium/wide
+            expect(firstRow.className).toContain("flex-col");
+            expect(firstRow.className).toContain("@[600px]:flex-row");
+
+            // First child is the identity container, second child is the metric container
+            const children = Array.from(firstRow.children);
+            expect(children.length).toBe(2);
+            expect(children[0].textContent).toContain("Acme Operating Ltd");
+            expect(within(children[1] as HTMLElement).getByTestId("responsive-metrics-narrow")).toBeDefined();
+        });
+
+        it("G. Narrow hierarchy has a bounded/capped indentation rule (max 16px)", () => {
+            render(<HomeResponsiveContent contexts={mockClientContexts} />);
+
+            const rows = screen.getAllByTestId("responsive-tree-row");
+            // Find a level 2 or level 3 child row (e.g. Common Questionnaires)
+            const cqRow = rows.find(r => r.textContent?.includes("Common Questionnaires"));
+            expect(cqRow).toBeDefined();
+
+            if (cqRow) {
+                const identityContainer = cqRow.children[0] as HTMLElement;
+                const styleObj = identityContainer.style;
+                // Check CSS variables for responsive indentation
+                const narrowIndentVal = styleObj.getPropertyValue("--indent-narrow");
+                const desktopIndentVal = styleObj.getPropertyValue("--indent-desktop");
+
+                expect(narrowIndentVal).toBeDefined();
+                // Narrow indent must be <= 16px
+                const narrowPx = parseInt(narrowIndentVal, 10);
+                expect(narrowPx).toBeLessThanOrEqual(16);
+
+                // Desktop indent for level 2 is 20px
+                const desktopPx = parseInt(desktopIndentVal, 10);
+                expect(desktopPx).toBe(20);
+            }
+        });
+
+        it("H. Touch targets: expand/collapse triggers have at least 40px hit area on narrow", () => {
+            render(<HomeResponsiveContent contexts={mockClientContexts} />);
+
+            const triggers = screen.getAllByLabelText(/collapse|expand/i);
+            expect(triggers.length).toBeGreaterThanOrEqual(1);
+
+            for (const trigger of triggers) {
+                expect(trigger.className).toContain("min-h-[40px]");
+                expect(trigger.className).toContain("min-w-[40px]");
+            }
         });
     });
 });

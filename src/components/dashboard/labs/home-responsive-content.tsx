@@ -131,11 +131,16 @@ function ResponsiveOrgCard({ org }: { org: OrgNode }) {
         >
             <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
                 {/* 1. Section Header Row (Rendered ONCE per organization section) */}
-                <div className="flex items-center justify-between px-4 pt-3.5 pb-2 bg-muted/60 border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    <div className="flex items-center gap-2 min-w-0 flex-1 mr-4">
+                <div className="flex flex-col @[600px]:flex-row @[600px]:items-center justify-between px-3.5 py-3 @[600px]:px-4 @[600px]:pt-3.5 @[600px]:pb-2 bg-muted/60 border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider gap-2 @[600px]:gap-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1 @[600px]:mr-4">
                         {hasChildren ? (
                             <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-muted rounded-md shrink-0">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="min-h-[40px] min-w-[40px] @[600px]:min-h-[24px] @[600px]:min-w-[24px] @[600px]:h-6 @[600px]:w-6 p-0 hover:bg-muted rounded-md shrink-0 -m-2 @[600px]:m-0 flex items-center justify-center"
+                                    aria-label={isOpen ? "Collapse section" : "Expand section"}
+                                >
                                     {isOpen ? (
                                         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                                     ) : (
@@ -150,26 +155,26 @@ function ResponsiveOrgCard({ org }: { org: OrgNode }) {
                             <Link
                                 href={orgHref}
                                 className={cn(
-                                    "flex items-center gap-2 min-w-0 hover:underline transition-colors",
+                                    "flex items-center gap-2 min-w-0 hover:underline transition-colors flex-1",
                                     org.orgType === "CLIENT" && "hover:text-indigo-600",
                                     org.orgType === "SUPPLIER" && "hover:text-teal-600"
                                 )}
                             >
                                 <Icon className="h-4 w-4 shrink-0" style={{ color: meta.primary }} />
-                                <span className="truncate">{org.name}</span>
+                                <span className="break-words line-clamp-2 @[600px]:line-clamp-none @[600px]:truncate">{org.name}</span>
                             </Link>
                         ) : (
-                            <>
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
                                 <Icon className="h-4 w-4 shrink-0" style={{ color: meta.primary }} />
-                                <span className="truncate">{org.name}</span>
-                            </>
+                                <span className="break-words line-clamp-2 @[600px]:line-clamp-none @[600px]:truncate">{org.name}</span>
+                            </div>
                         )}
-                        <Badge variant="outline" className="text-[9px] font-medium px-1 py-0 h-3.5 uppercase shrink-0">
+                        <Badge variant="outline" className="text-[9px] font-medium px-1.5 py-0 h-4 uppercase shrink-0">
                             {org.role}
                         </Badge>
                     </div>
 
-                    {/* Section Metric Column Titles (2-Tier Header: Questions | Answers) - Hidden on medium card widths */}
+                    {/* Section Metric Column Titles (2-Tier Header: Questions | Answers) - Hidden on medium/narrow card widths */}
                     <div
                         data-testid="responsive-org-header-metrics"
                         className="hidden @[820px]:flex flex-col text-right shrink-0 space-y-1"
@@ -198,8 +203,8 @@ function ResponsiveOrgCard({ org }: { org: OrgNode }) {
                 </div>
 
                 {/* 2. Org Summary Row (Org-level summary totals span multiple LEs, so metrics remain non-clickable) */}
-                <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border text-card-foreground">
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-4 pl-8">
+                <div className="flex flex-col @[600px]:flex-row @[600px]:items-center justify-between px-3.5 py-2.5 @[600px]:px-4 @[600px]:py-3 bg-card border-b border-border text-card-foreground gap-1.5 @[600px]:gap-0">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1 @[600px]:mr-4 pl-7 @[600px]:pl-8">
                         {org.orgType === "SUPPLIER" ? (
                             <Link href={`/app/s/${org.id}`} className="font-semibold text-sm text-foreground hover:text-teal-500 truncate">
                                 Organisation Totals
@@ -214,7 +219,9 @@ function ResponsiveOrgCard({ org }: { org: OrgNode }) {
                     </div>
 
                     {/* Metric Summary for Org (No linkContext: non-clickable) */}
-                    <HomeResponsiveMetricSummary metrics={org.v2Metrics} />
+                    <div className="w-full @[600px]:w-auto pl-7 @[600px]:pl-0">
+                        <HomeResponsiveMetricSummary metrics={org.v2Metrics} />
+                    </div>
                 </div>
 
                 {hasChildren && (
@@ -291,24 +298,38 @@ function ResponsiveTreeNode({ item, level, orgType, orgId }: { item: OrgChild; l
 
     const isCQ = item.type === "questionnaire" && (item.subtitle === "Common Questionnaire" || item.name === "Common Questionnaires");
 
+    // Responsive indentation: shallow & capped (max 16px) on mobile/narrow, 20px step on desktop
+    const desktopIndent = (level - 1) * 20;
+    const narrowIndent = Math.min((level - 1) * 8, 16);
+    const narrowMetricIndent = narrowIndent + 34; // align metrics with title past chevron/icon
+
     return (
         <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
             <div
                 data-testid="responsive-tree-row"
                 className={cn(
-                    "flex items-center justify-between px-4 py-2.5 hover:bg-muted/40 transition-colors",
+                    "flex flex-col items-start gap-1.5 px-3.5 py-2.5 @[600px]:flex-row @[600px]:items-center @[600px]:justify-between @[600px]:px-4 @[600px]:py-2.5 hover:bg-muted/40 transition-colors",
                     level > 1 && "bg-muted/20 text-card-foreground",
                     isCQ && "bg-muted/30 text-card-foreground"
                 )}
             >
+                {/* 1. Identity area (full width in narrow mode, left-aligned flex-1 in medium/wide) */}
                 <div
-                    className="flex items-center gap-2.5 min-w-0 flex-1 mr-4"
-                    style={{ paddingLeft: `${(level - 1) * 20}px` }}
+                    className="flex items-start @[600px]:items-center gap-2.5 min-w-0 w-full @[600px]:w-auto @[600px]:flex-1 @[600px]:mr-4 pl-[var(--indent-narrow)] @[600px]:pl-[var(--indent-desktop)]"
+                    style={{
+                        '--indent-narrow': `${narrowIndent}px`,
+                        '--indent-desktop': `${desktopIndent}px`,
+                    } as React.CSSProperties}
                 >
-                    <div className="w-6 flex justify-center shrink-0">
+                    <div className="w-6 flex justify-center shrink-0 pt-0.5 @[600px]:pt-0">
                         {hasChildren ? (
                             <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6 p-0 hover:bg-muted shrink-0">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="min-h-[40px] min-w-[40px] @[600px]:min-h-[24px] @[600px]:min-w-[24px] @[600px]:h-6 @[600px]:w-6 p-0 hover:bg-muted shrink-0 rounded-md -m-2 @[600px]:m-0 flex items-center justify-center"
+                                    aria-label={isOpen ? "Collapse item" : "Expand item"}
+                                >
                                     {isOpen ? (
                                         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                                     ) : (
@@ -321,40 +342,51 @@ function ResponsiveTreeNode({ item, level, orgType, orgId }: { item: OrgChild; l
                         )}
                     </div>
 
-                    <ResponsiveRowIcon type={item.type} isCQ={isCQ} />
+                    <div className="pt-0.5 @[600px]:pt-0 shrink-0">
+                        <ResponsiveRowIcon type={item.type} isCQ={isCQ} />
+                    </div>
 
-                    {item.href && item.href !== "#" ? (
-                        <Link
-                            href={item.href}
-                            className={cn(
-                                "truncate hover:underline hover:text-indigo-500 text-sm font-medium",
-                                isCQ ? "text-foreground font-semibold" : "text-foreground"
-                            )}
-                            title={item.name}
-                        >
-                            {item.name}
-                        </Link>
-                    ) : (
-                        <span
-                            className={cn(
-                                "truncate text-sm font-medium",
-                                isCQ ? "text-slate-900 font-semibold" : "text-slate-800"
-                            )}
-                            title={item.name}
-                        >
-                            {item.name}
-                        </span>
-                    )}
+                    <div className="flex flex-col @[600px]:flex-row @[600px]:items-center gap-0.5 @[600px]:gap-2 min-w-0 flex-1">
+                        {item.href && item.href !== "#" ? (
+                            <Link
+                                href={item.href}
+                                className={cn(
+                                    "break-words line-clamp-2 @[600px]:line-clamp-none @[600px]:truncate hover:underline hover:text-indigo-500 text-sm font-medium",
+                                    isCQ ? "text-foreground font-semibold" : "text-foreground"
+                                )}
+                                title={item.name}
+                            >
+                                {item.name}
+                            </Link>
+                        ) : (
+                            <span
+                                className={cn(
+                                    "break-words line-clamp-2 @[600px]:line-clamp-none @[600px]:truncate text-sm font-medium",
+                                    isCQ ? "text-slate-900 font-semibold" : "text-slate-800"
+                                )}
+                                title={item.name}
+                            >
+                                {item.name}
+                            </span>
+                        )}
 
-                    {item.subtitle && (
-                        <span className="text-xs text-slate-400 truncate hidden sm:inline shrink-0">
-                            {item.subtitle}
-                        </span>
-                    )}
+                        {item.subtitle && (
+                            <span className="text-xs text-muted-foreground truncate shrink-0">
+                                {item.subtitle}
+                            </span>
+                        )}
+                    </div>
                 </div>
 
-                {/* Metric Summary for child node with drill-down linkContext */}
-                <HomeResponsiveMetricSummary metrics={item.v2Metrics} linkContext={linkContext} />
+                {/* 2. Metric Summary (underneath identity in narrow mode, right-aligned in medium/wide) */}
+                <div
+                    className="w-full @[600px]:w-auto pl-[var(--metric-indent-narrow)] @[600px]:pl-0"
+                    style={{
+                        '--metric-indent-narrow': `${narrowMetricIndent}px`,
+                    } as React.CSSProperties}
+                >
+                    <HomeResponsiveMetricSummary metrics={item.v2Metrics} linkContext={linkContext} />
+                </div>
             </div>
 
             {hasChildren && (
