@@ -4,7 +4,7 @@
 import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import React from "react";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, within } from "@testing-library/react";
 import fs from "fs";
 import path from "path";
 import { HomeResponsiveContent } from "../home-responsive-content";
@@ -238,17 +238,34 @@ describe("HomeResponsiveContent Component (Labs Dedicated Renderer)", () => {
         });
     });
 
-    describe("Architectural Constraints Verification", () => {
-        it("C-contract: Confirms no JS/device detection (window.innerWidth, matchMedia, resize listener, isMobile) exists in lab component", () => {
-            const filePath = path.resolve(__dirname, "../home-responsive-content.tsx");
-            const fileContent = fs.readFileSync(filePath, "utf-8");
+    describe("Architectural Constraints & Container Query Architecture", () => {
+        it("F-contract: Confirms no JS/device detection (window.innerWidth, matchMedia, resize listener, isMobile) exists in lab components", () => {
+            const contentPath = path.resolve(__dirname, "../home-responsive-content.tsx");
+            const contentFile = fs.readFileSync(contentPath, "utf-8");
 
-            expect(fileContent).not.toContain("window.innerWidth");
-            expect(fileContent).not.toContain("window.matchMedia");
-            expect(fileContent).not.toContain("addEventListener('resize'");
-            expect(fileContent).not.toContain('addEventListener("resize"');
-            expect(fileContent).not.toContain("isMobile");
-            expect(fileContent).not.toContain("useMediaQuery");
+            const summaryPath = path.resolve(__dirname, "../home-responsive-metric-summary.tsx");
+            const summaryFile = fs.readFileSync(summaryPath, "utf-8");
+
+            for (const fileContent of [contentFile, summaryFile]) {
+                expect(fileContent).not.toContain("window.innerWidth");
+                expect(fileContent).not.toContain("window.matchMedia");
+                expect(fileContent).not.toContain("addEventListener('resize'");
+                expect(fileContent).not.toContain('addEventListener("resize"');
+                expect(fileContent).not.toContain("isMobile");
+                expect(fileContent).not.toContain("useMediaQuery");
+            }
+        });
+
+        it("F2-contract: Confirms container query classes govern wide and medium responsive compositions", () => {
+            render(<HomeResponsiveMetricSummary metrics={mockV2Metrics} />);
+
+            const wideBlock = screen.getByTestId("responsive-metrics-wide");
+            expect(wideBlock.className).toContain("hidden");
+            expect(wideBlock.className).toContain("@[820px]:grid");
+
+            const mediumBlock = screen.getByTestId("responsive-metrics-medium");
+            expect(mediumBlock.className).toContain("flex");
+            expect(mediumBlock.className).toContain("@[820px]:hidden");
         });
 
         it("D-contract: Confirms no horizontal-scroll wrapper has been introduced around metrics", () => {
@@ -270,15 +287,60 @@ describe("HomeResponsiveContent Component (Labs Dedicated Renderer)", () => {
         });
     });
 
-    describe("HomeResponsiveMetricSummary Component", () => {
-        it("renders blank '-' for 0 questionnaire / 0 total population rows", () => {
-            render(<HomeResponsiveMetricSummary metrics={emptyQuestionStateMetrics()} />);
+    describe("HomeResponsiveMetricSummary Component: Wide vs Medium Compositions", () => {
+        it("A. Wide metric renderer preserves the five canonical metric values and header labels", () => {
+            render(<HomeResponsiveContent contexts={mockClientContexts} />);
 
-            const dashes = screen.getAllByText("-");
-            expect(dashes.length).toBe(5);
+            // Verify desktop 2-tier header has container query classes and canonical column titles
+            const headerMetrics = screen.getByTestId("responsive-org-header-metrics");
+            expect(headerMetrics.className).toContain("hidden");
+            expect(headerMetrics.className).toContain("@[820px]:flex");
+            expect(within(headerMetrics).getByText("Questions")).toBeDefined();
+            expect(within(headerMetrics).getByText("Answers")).toBeDefined();
+            expect(within(headerMetrics).getByText("Total")).toBeDefined();
+            expect(within(headerMetrics).getByText("External")).toBeDefined();
+            expect(within(headerMetrics).getByText("User Input")).toBeDefined();
+            expect(within(headerMetrics).getByText("Default")).toBeDefined();
+            expect(within(headerMetrics).getByText("Unanswered")).toBeDefined();
+
+            // Verify wide metric summary block retains the 5-column grid layout and all 5 values
+            const wideBlocks = screen.getAllByTestId("responsive-metrics-wide");
+            expect(wideBlocks.length).toBeGreaterThanOrEqual(1);
+            const firstWideBlock = wideBlocks[0];
+            expect(firstWideBlock.className).toContain("grid-cols-[80px_80px_80px_75px_85px]");
+            expect(within(firstWideBlock).getByText("147")).toBeDefined();
+            expect(within(firstWideBlock).getByText("83")).toBeDefined();
+            expect(within(firstWideBlock).getByText("41")).toBeDefined();
+            expect(within(firstWideBlock).getByText("23")).toBeDefined();
         });
 
-        it("generates correct Workbench4 drill-down links for Client LE metrics", () => {
+        it("B. Medium metric renderer exposes Total Questions, Unanswered, External, User Input, and Default with self-labelling", () => {
+            render(<HomeResponsiveMetricSummary metrics={mockV2Metrics} />);
+
+            const mediumBlock = screen.getByTestId("responsive-metrics-medium");
+            expect(mediumBlock).toBeDefined();
+
+            // Primary Level: Total Questions & Unanswered
+            expect(within(mediumBlock).getByText("147")).toBeDefined();
+            expect(within(mediumBlock).getByText("questions")).toBeDefined();
+            expect(within(mediumBlock).getByText("total questions")).toBeDefined();
+
+            expect(within(mediumBlock).getByText("23")).toBeDefined();
+            expect(within(mediumBlock).getByText("unanswered")).toBeDefined();
+
+            // Secondary Level: External · User Input · Default
+            expect(within(mediumBlock).getByText("83")).toBeDefined();
+            expect(within(mediumBlock).getByText("external")).toBeDefined();
+
+            expect(within(mediumBlock).getByText("41")).toBeDefined();
+            expect(within(mediumBlock).getByText("user")).toBeDefined();
+            expect(within(mediumBlock).getByText("user input")).toBeDefined();
+
+            expect(within(mediumBlock).getByText("0")).toBeDefined();
+            expect(within(mediumBlock).getByText("default")).toBeDefined();
+        });
+
+        it("C. Exact drill-down hrefs remain correct in both wide and medium renderers", () => {
             render(
                 <HomeResponsiveMetricSummary
                     metrics={mockV2Metrics}
@@ -286,13 +348,39 @@ describe("HomeResponsiveContent Component (Labs Dedicated Renderer)", () => {
                 />
             );
 
-            const externalLink = screen.getByTestId("metric-link-external");
-            expect(externalLink.getAttribute("href")).toContain("/app/le/le-123/workbench4");
-            expect(externalLink.getAttribute("href")).toContain("scope=common");
-            expect(externalLink.getAttribute("href")).toContain("answerState=external");
+            // Wide links
+            const wideExternal = screen.getByTestId("metric-link-external");
+            expect(wideExternal.getAttribute("href")).toContain("/app/le/le-123/workbench4");
+            expect(wideExternal.getAttribute("href")).toContain("scope=common");
+            expect(wideExternal.getAttribute("href")).toContain("answerState=external");
+
+            // Medium links
+            const mediumTotal = screen.getByTestId("metric-medium-link-total");
+            expect(mediumTotal.getAttribute("href")).toContain("/app/le/le-123/workbench4");
+            expect(mediumTotal.getAttribute("href")).toContain("scope=common");
+
+            const mediumExternal = screen.getByTestId("metric-medium-link-external");
+            expect(mediumExternal.getAttribute("href")).toContain("/app/le/le-123/workbench4");
+            expect(mediumExternal.getAttribute("href")).toContain("scope=common");
+            expect(mediumExternal.getAttribute("href")).toContain("answerState=external");
+
+            const mediumUserInput = screen.getByTestId("metric-medium-link-user_input");
+            expect(mediumUserInput.getAttribute("href")).toContain("/app/le/le-123/workbench4");
+            expect(mediumUserInput.getAttribute("href")).toContain("scope=common");
+            expect(mediumUserInput.getAttribute("href")).toContain("answerState=user_input");
+
+            const mediumDefault = screen.getByTestId("metric-medium-link-default_response");
+            expect(mediumDefault.getAttribute("href")).toContain("/app/le/le-123/workbench4");
+            expect(mediumDefault.getAttribute("href")).toContain("scope=common");
+            expect(mediumDefault.getAttribute("href")).toContain("answerState=default_response");
+
+            const mediumUnanswered = screen.getByTestId("metric-medium-link-unanswered");
+            expect(mediumUnanswered.getAttribute("href")).toContain("/app/le/le-123/workbench4");
+            expect(mediumUnanswered.getAttribute("href")).toContain("scope=common");
+            expect(mediumUnanswered.getAttribute("href")).toContain("answerState=unanswered");
         });
 
-        it("generates correct Questions drill-down links for Supplier metrics", () => {
+        it("C2. Supplier drill-down links remain correct in both wide and medium renderers", () => {
             render(
                 <HomeResponsiveMetricSummary
                     metrics={mockV2Metrics}
@@ -300,11 +388,34 @@ describe("HomeResponsiveContent Component (Labs Dedicated Renderer)", () => {
                 />
             );
 
-            const unansweredLink = screen.getByTestId("metric-link-unanswered");
-            expect(unansweredLink.getAttribute("href")).toContain("/app/s/fi-123/questions");
-            expect(unansweredLink.getAttribute("href")).toContain("status=UNANSWERED");
-            expect(unansweredLink.getAttribute("href")).toContain("rel=Acme");
-            expect(unansweredLink.getAttribute("href")).toContain("q=q-1");
+            const wideUnanswered = screen.getByTestId("metric-link-unanswered");
+            expect(wideUnanswered.getAttribute("href")).toContain("/app/s/fi-123/questions");
+            expect(wideUnanswered.getAttribute("href")).toContain("status=UNANSWERED");
+            expect(wideUnanswered.getAttribute("href")).toContain("rel=Acme");
+            expect(wideUnanswered.getAttribute("href")).toContain("q=q-1");
+
+            const mediumUnanswered = screen.getByTestId("metric-medium-link-unanswered");
+            expect(mediumUnanswered.getAttribute("href")).toContain("/app/s/fi-123/questions");
+            expect(mediumUnanswered.getAttribute("href")).toContain("status=UNANSWERED");
+            expect(mediumUnanswered.getAttribute("href")).toContain("rel=Acme");
+            expect(mediumUnanswered.getAttribute("href")).toContain("q=q-1");
+        });
+
+        it("D. Zero-population behaviour: renders blank '-' in wide (5 columns) and medium (single calm dash)", () => {
+            render(<HomeResponsiveMetricSummary metrics={emptyQuestionStateMetrics()} />);
+
+            const wideContainer = screen.getByTestId("responsive-metrics-wide");
+            const mediumContainer = screen.getByTestId("responsive-metrics-medium");
+
+            const wideDashes = within(wideContainer).getAllByText("-");
+            expect(wideDashes.length).toBe(5);
+
+            const mediumDashes = within(mediumContainer).getAllByText("-");
+            expect(mediumDashes.length).toBe(1);
+
+            // Confirms medium does not invent misleading "0 questions" or "0 unanswered"
+            expect(within(mediumContainer).queryByText(/0 questions/i)).toBeNull();
+            expect(within(mediumContainer).queryByText(/0 unanswered/i)).toBeNull();
         });
     });
 });

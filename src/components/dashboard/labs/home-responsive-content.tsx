@@ -169,8 +169,11 @@ function ResponsiveOrgCard({ org }: { org: OrgNode }) {
                         </Badge>
                     </div>
 
-                    {/* Section Metric Column Titles (2-Tier Header: Questions | Answers) */}
-                    <div className="flex flex-col text-right shrink-0 space-y-1">
+                    {/* Section Metric Column Titles (2-Tier Header: Questions | Answers) - Hidden on medium card widths */}
+                    <div
+                        data-testid="responsive-org-header-metrics"
+                        className="hidden @[820px]:flex flex-col text-right shrink-0 space-y-1"
+                    >
                         {/* Tier 1: Category Titles */}
                         <div className="grid grid-cols-[80px_324px] gap-2 text-[10px] font-bold uppercase tracking-wider">
                             <span className="pr-3 border-r border-border text-muted-foreground">Questions</span>
