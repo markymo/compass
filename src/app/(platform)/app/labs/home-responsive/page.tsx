@@ -12,7 +12,7 @@ export default async function ResponsiveHomeLabPage() {
     ]);
 
     return (
-        <div className="flex flex-col min-h-screen bg-background text-foreground">
+        <div className="flex flex-col min-h-screen bg-background text-foreground" data-testid="responsive-home">
             <StandardPageHeader
                 title="Relationships"
                 subtitle="Your Organisations, Legal Entities and Relationships."
@@ -23,7 +23,7 @@ export default async function ResponsiveHomeLabPage() {
                 ]}
             />
 
-            <div className="max-w-7xl mx-auto px-6 py-8 space-y-6 w-full">
+            <div className="w-full max-w-7xl mx-auto py-6 sm:py-8 space-y-6">
                 {pendingInvitations.length > 0 && (
                     <PendingInvitationsBanner invitations={pendingInvitations} />
                 )}

@@ -62,7 +62,7 @@ export function HomeResponsiveContent({ contexts }: HomeResponsiveContentProps) 
 
     return (
         <div
-            className="home-responsive-dashboard-wrapper min-h-[200px] space-y-5"
+            className="@container/dashboard home-responsive-dashboard-wrapper min-h-[200px] space-y-5 w-full"
             data-testid="home-responsive-dashboard"
         >
             {isLoading ? (
@@ -121,11 +121,18 @@ function ResponsiveOrgCard({ org }: { org: OrgNode }) {
     const orgHref = org.orgType === "SUPPLIER" ? `/app/s/${org.id}` : org.orgType === "CLIENT" ? `/app/clients/${org.id}` : undefined;
 
     return (
-        <Card variant="structural" className={cn("shadow-xs overflow-hidden border bg-card text-card-foreground", meta.borderColor)}>
+        <Card
+            variant="structural"
+            data-testid="responsive-org-card"
+            className={cn(
+                "@container/org-card @container shadow-xs overflow-hidden border bg-card text-card-foreground",
+                meta.borderColor
+            )}
+        >
             <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
                 {/* 1. Section Header Row (Rendered ONCE per organization section) */}
                 <div className="flex items-center justify-between px-4 pt-3.5 pb-2 bg-muted/60 border-b border-border text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-                    <div className="flex items-center gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 flex-1 mr-4">
                         {hasChildren ? (
                             <CollapsibleTrigger asChild>
                                 <Button variant="ghost" size="sm" className="h-6 w-6 p-0 hover:bg-muted rounded-md shrink-0">
@@ -189,7 +196,7 @@ function ResponsiveOrgCard({ org }: { org: OrgNode }) {
 
                 {/* 2. Org Summary Row (Org-level summary totals span multiple LEs, so metrics remain non-clickable) */}
                 <div className="flex items-center justify-between px-4 py-3 bg-card border-b border-border text-card-foreground">
-                    <div className="flex items-center gap-2.5 min-w-0 pl-8">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1 mr-4 pl-8">
                         {org.orgType === "SUPPLIER" ? (
                             <Link href={`/app/s/${org.id}`} className="font-semibold text-sm text-foreground hover:text-teal-500 truncate">
                                 Organisation Totals
@@ -284,6 +291,7 @@ function ResponsiveTreeNode({ item, level, orgType, orgId }: { item: OrgChild; l
     return (
         <Collapsible open={isOpen} onOpenChange={handleOpenChange}>
             <div
+                data-testid="responsive-tree-row"
                 className={cn(
                     "flex items-center justify-between px-4 py-2.5 hover:bg-muted/40 transition-colors",
                     level > 1 && "bg-muted/20 text-card-foreground",
@@ -291,7 +299,7 @@ function ResponsiveTreeNode({ item, level, orgType, orgId }: { item: OrgChild; l
                 )}
             >
                 <div
-                    className="flex items-center gap-2.5 min-w-0"
+                    className="flex items-center gap-2.5 min-w-0 flex-1 mr-4"
                     style={{ paddingLeft: `${(level - 1) * 20}px` }}
                 >
                     <div className="w-6 flex justify-center shrink-0">
@@ -336,7 +344,7 @@ function ResponsiveTreeNode({ item, level, orgType, orgId }: { item: OrgChild; l
                     )}
 
                     {item.subtitle && (
-                        <span className="text-xs text-slate-400 truncate hidden sm:inline">
+                        <span className="text-xs text-slate-400 truncate hidden sm:inline shrink-0">
                             {item.subtitle}
                         </span>
                     )}

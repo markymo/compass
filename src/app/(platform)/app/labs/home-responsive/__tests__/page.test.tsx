@@ -120,6 +120,20 @@ describe("Responsive Home Lab Page (/app/labs/home-responsive)", () => {
         expect(screen.queryByTestId("home-variant-switcher")).toBeNull();
     });
 
+    it("renders the responsive-home page shell with fluid container width and no redundant nested horizontal padding", async () => {
+        const pageElement = await ResponsiveHomeLabPage();
+        render(pageElement);
+
+        const homeRoot = screen.getByTestId("responsive-home");
+        expect(homeRoot).toBeDefined();
+
+        // The content wrapper has w-full and max-w-7xl without px-6 (which would duplicate platform p-4/md:p-8)
+        const contentWrapper = homeRoot.querySelector(".max-w-7xl");
+        expect(contentWrapper).toBeDefined();
+        expect(contentWrapper?.className).toContain("w-full");
+        expect(contentWrapper?.className).not.toContain("px-6");
+    });
+
     it("renders the unobtrusive 'Responsive Home Lab' identifier in the header", async () => {
         const pageElement = await ResponsiveHomeLabPage();
         render(pageElement);

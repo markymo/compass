@@ -5,6 +5,8 @@ import "@testing-library/jest-dom/vitest";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import React from "react";
 import { render, screen, cleanup } from "@testing-library/react";
+import fs from "fs";
+import path from "path";
 import { HomeResponsiveContent } from "../home-responsive-content";
 import { HomeResponsiveMetricSummary } from "../home-responsive-metric-summary";
 import { DashboardContexts } from "@/actions/dashboard";
@@ -144,6 +146,16 @@ describe("HomeResponsiveContent Component (Labs Dedicated Renderer)", () => {
         expect(screen.getByText("Acme Client Corp")).toBeDefined();
     });
 
+    it("B2. Establishes intended container-query boundaries on dashboard and organisation cards", () => {
+        render(<HomeResponsiveContent contexts={mockClientContexts} />);
+
+        const dashboardRoot = screen.getByTestId("home-responsive-dashboard");
+        expect(dashboardRoot.className).toContain("@container/dashboard");
+
+        const orgCard = screen.getByTestId("responsive-org-card");
+        expect(orgCard.className).toContain("@container/org-card");
+    });
+
     it("C. Renders representative Client data: organisation, LE, Common Questionnaires, and metrics", () => {
         render(<HomeResponsiveContent contexts={mockClientContexts} />);
 
@@ -162,6 +174,10 @@ describe("HomeResponsiveContent Component (Labs Dedicated Renderer)", () => {
         expect(screen.getAllByText("147").length).toBeGreaterThanOrEqual(1);
         expect(screen.getAllByText("83").length).toBeGreaterThanOrEqual(1);
         expect(screen.getAllByText("41").length).toBeGreaterThanOrEqual(1);
+
+        // Semantic test hooks
+        expect(screen.getAllByTestId("responsive-tree-row").length).toBeGreaterThanOrEqual(1);
+        expect(screen.getAllByTestId("responsive-metrics").length).toBeGreaterThanOrEqual(1);
     });
 
     it("D. Renders representative Supplier data safely", () => {
@@ -219,6 +235,38 @@ describe("HomeResponsiveContent Component (Labs Dedicated Renderer)", () => {
             const supplierLink = screen.getByRole("link", { name: "Riskbridge Bank" });
             expect(supplierLink).toBeDefined();
             expect(supplierLink.getAttribute("href")).toBe("/app/s/fi-1");
+        });
+    });
+
+    describe("Architectural Constraints Verification", () => {
+        it("C-contract: Confirms no JS/device detection (window.innerWidth, matchMedia, resize listener, isMobile) exists in lab component", () => {
+            const filePath = path.resolve(__dirname, "../home-responsive-content.tsx");
+            const fileContent = fs.readFileSync(filePath, "utf-8");
+
+            expect(fileContent).not.toContain("window.innerWidth");
+            expect(fileContent).not.toContain("window.matchMedia");
+            expect(fileContent).not.toContain("addEventListener('resize'");
+            expect(fileContent).not.toContain('addEventListener("resize"');
+            expect(fileContent).not.toContain("isMobile");
+            expect(fileContent).not.toContain("useMediaQuery");
+        });
+
+        it("D-contract: Confirms no horizontal-scroll wrapper has been introduced around metrics", () => {
+            render(<HomeResponsiveContent contexts={mockClientContexts} />);
+
+            const metricsBlocks = screen.getAllByTestId("responsive-metrics");
+            expect(metricsBlocks.length).toBeGreaterThanOrEqual(1);
+
+            for (const mb of metricsBlocks) {
+                // Ensure neither the metric container nor its immediate parent uses horizontal scroll classes
+                expect(mb.className).not.toContain("overflow-x-auto");
+                expect(mb.className).not.toContain("overflow-x-scroll");
+                const parent = mb.parentElement;
+                if (parent) {
+                    expect(parent.className).not.toContain("overflow-x-auto");
+                    expect(parent.className).not.toContain("overflow-x-scroll");
+                }
+            }
         });
     });
 

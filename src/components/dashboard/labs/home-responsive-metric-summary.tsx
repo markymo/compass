@@ -140,7 +140,7 @@ export function HomeResponsiveMetricSummary({
 
     return (
         <div
-            data-testid="responsive-metric-summary"
+            data-testid="responsive-metrics"
             className={cn(
                 "grid grid-cols-[80px_80px_80px_75px_85px] gap-2 items-center text-right shrink-0",
                 className
