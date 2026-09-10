@@ -244,15 +244,9 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
 
     const categoryList = useMemo(() => {
         return categories.map((cat: any) => {
-            let icon = FileText;
-            const k = cat.key.toLowerCase();
-            if (k.includes('identity')) icon = Fingerprint;
-            if (k.includes('constitutional') || k.includes('entity')) icon = Building2;
-            if (k.includes('relationship') || k.includes('owners')) icon = Users;
-            if (k.includes('lei') || k.includes('registration')) icon = ShieldCheck;
             return {
                 ...cat,
-                icon
+                icon: FileText
             };
         });
     }, [categories]);
@@ -939,72 +933,80 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                     )}
                 </div>
 
-                {/* Master Record Content */}
-                <div className="space-y-6">
+                {/* Master Record Content — Compact Grouped Accordion */}
+                <div className="rounded-lg border border-border bg-card shadow-sm divide-y divide-border overflow-hidden">
                     {/* Custom Fields */}
                     {filteredCustomFields.length > 0 && (
-                        <Card className={MASTER_CATEGORY_CARD_CLASS}>
-                            <CardHeader 
-                                className="pb-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 cursor-pointer hover:bg-slate-100/50 transition-colors group/header"
+                        <div className="transition-colors">
+                            <div
+                                tabIndex={0}
+                                role="button"
+                                aria-label="Toggle Custom Fields category"
+                                className="w-full flex items-center justify-between px-4 py-2.5 min-h-[40px] cursor-pointer select-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:z-10 group/header"
                                 onClick={() => toggleCategory("CUSTOM")}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        toggleCategory("CUSTOM");
+                                    }
+                                }}
                             >
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <CardTitle className="flex items-center gap-2 text-lg text-slate-900">
-                                            <Sparkles className="h-5 w-5 text-slate-500" />
-                                            Custom Fields
-                                            <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-600 border-purple-200 ml-1 font-medium">
-                                                Custom
-                                            </Badge>
-                                        </CardTitle>
-                                        <CardDescription className="text-slate-500">
-                                            Organization-specific data points
-                                        </CardDescription>
-                                    </div>
-                                    <div className="flex items-center gap-3 text-slate-500">
-                                        <span className="text-sm font-medium hidden sm:inline-block">
-                                            {filteredCustomFields.length}{filteredCustomFields.length !== customDefinitions.length ? ` of ${customDefinitions.length}` : ''} fields
-                                        </span>
-                                        {effectiveExpandedCategories.has("CUSTOM") ? <ChevronUp className="h-5 w-5 group-hover/header:text-slate-800 transition-colors" /> : <ChevronDown className="h-5 w-5 group-hover/header:text-slate-800 transition-colors" />}
-                                    </div>
+                                <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                                    <FileText className="h-4 w-4 text-muted-foreground shrink-0 group-hover/header:text-foreground transition-colors" />
+                                    <span className="text-sm font-semibold text-foreground tracking-tight truncate">
+                                        Custom Fields
+                                    </span>
+                                    <Badge variant="outline" className="text-[10px] bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-800 ml-1 font-medium shrink-0">
+                                        Custom
+                                    </Badge>
                                 </div>
-                            </CardHeader>
+                                <div className="flex items-center gap-3 shrink-0 text-muted-foreground">
+                                    <span className="text-xs font-medium tabular-nums">
+                                        {filteredCustomFields.length}{filteredCustomFields.length !== customDefinitions.length ? ` of ${customDefinitions.length}` : ''} fields
+                                    </span>
+                                    {effectiveExpandedCategories.has("CUSTOM") ? (
+                                        <ChevronUp className="h-4 w-4 text-muted-foreground group-hover/header:text-foreground transition-colors" />
+                                    ) : (
+                                        <ChevronDown className="h-4 w-4 text-muted-foreground group-hover/header:text-foreground transition-colors" />
+                                    )}
+                                </div>
+                            </div>
                             {effectiveExpandedCategories.has("CUSTOM") && (
-                            <CardContent className="pt-6 space-y-4">
-                                {filteredCustomFields.map((def: any) => {
-                                    const value = customData[def.id] || customData[def.key];
-                                    return (
-                                        <MasterFieldDisplay
-                                            key={def.id}
-                                            label={def.label}
-                                            fieldNo={0}
-                                            value={value?.value || value}
-                                            source={value?.source || 'USER_INPUT'}
-                                            description={def.description}
-                                            isCustom={true}
-                                            onClick={() => setSelectedField({
-                                                fieldNo: 0,
-                                                name: def.label,
-                                                customFieldId: def.id,
-                                                mappingStats: undefined
-                                            })}
-                                        />
-                                    );
-                                })}
-                            </CardContent>
+                                <div className="px-4 py-4 border-t border-border bg-muted/15 space-y-4">
+                                    {filteredCustomFields.map((def: any) => {
+                                        const value = customData[def.id] || customData[def.key];
+                                        return (
+                                            <MasterFieldDisplay
+                                                key={def.id}
+                                                label={def.label}
+                                                fieldNo={0}
+                                                value={value?.value || value}
+                                                source={value?.source || 'USER_INPUT'}
+                                                description={def.description}
+                                                isCustom={true}
+                                                onClick={() => setSelectedField({
+                                                    fieldNo: 0,
+                                                    name: def.label,
+                                                    customFieldId: def.id,
+                                                    mappingStats: undefined
+                                                })}
+                                            />
+                                        );
+                                    })}
+                                </div>
                             )}
-                        </Card>
+                        </div>
                     )}
 
                     {filteredCategories.map((group: any) => {
                         const Icon = group.icon;
                         return (
-                            <Card key={group.id} className={MASTER_CATEGORY_CARD_CLASS}>
-                                <CardHeader 
+                            <div key={group.id} className="transition-colors">
+                                <div
                                     tabIndex={0}
                                     role="button"
                                     aria-label={`Toggle ${group.displayName} category`}
-                                    className="pb-4 border-b border-border bg-muted/50 cursor-pointer hover:bg-muted transition-colors group/header focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                    className="w-full flex items-center justify-between px-4 py-2.5 min-h-[40px] cursor-pointer select-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:z-10 group/header"
                                     onClick={() => toggleCategory(group.id)}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' || e.key === ' ') {
@@ -1013,22 +1015,91 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                         }
                                     }}
                                 >
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle className="flex items-center gap-2 text-lg text-foreground">
-                                            <Icon className="h-5 w-5 text-muted-foreground" />
+                                    <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                                        <Icon className="h-4 w-4 text-muted-foreground shrink-0 group-hover/header:text-foreground transition-colors" />
+                                        <span className="text-sm font-semibold text-foreground tracking-tight truncate">
                                             {group.displayName}
-                                        </CardTitle>
-                                        <div className="flex items-center gap-3 text-muted-foreground">
-                                            <span className="text-sm font-medium hidden sm:inline-block">
-                                                {group.fields.length}{group.fields.length !== (categoryList.find((c: any) => c.id === group.id)?.fields.length || 0) ? ` of ${categoryList.find((c: any) => c.id === group.id)?.fields.length || 0}` : ''} fields
-                                            </span>
-                                            {effectiveExpandedCategories.has(group.id) ? <ChevronUp className="h-5 w-5 group-hover/header:text-foreground transition-colors" /> : <ChevronDown className="h-5 w-5 group-hover/header:text-foreground transition-colors" />}
-                                        </div>
+                                        </span>
                                     </div>
-                                </CardHeader>
+                                    <div className="flex items-center gap-3 shrink-0 text-muted-foreground">
+                                        <span className="text-xs font-medium tabular-nums">
+                                            {group.fields.length}{group.fields.length !== (categoryList.find((c: any) => c.id === group.id)?.fields.length || 0) ? ` of ${categoryList.find((c: any) => c.id === group.id)?.fields.length || 0}` : ''} fields
+                                        </span>
+                                        {effectiveExpandedCategories.has(group.id) ? (
+                                            <ChevronUp className="h-4 w-4 text-muted-foreground group-hover/header:text-foreground transition-colors" />
+                                        ) : (
+                                            <ChevronDown className="h-4 w-4 text-muted-foreground group-hover/header:text-foreground transition-colors" />
+                                        )}
+                                    </div>
+                                </div>
                                 {effectiveExpandedCategories.has(group.id) && (
-                                <CardContent className="pt-6 space-y-4">
-                                    {group.fields.map((field: any) => {
+                                    <div className="px-4 py-4 border-t border-border bg-muted/15 space-y-4">
+                                        {group.fields.map((field: any) => {
+                                            const data = masterData[field.fieldNo];
+                                            return (
+                                                <MasterFieldDisplay
+                                                    key={field.fieldNo}
+                                                    label={field.fieldName}
+                                                    fieldNo={field.fieldNo}
+                                                    fieldDef={field}
+                                                    value={data?.value}
+                                                    formattedDisplayValue={data?.formattedDisplayValue}
+                                                    source={data?.source as any}
+                                                    sourceReference={data?.sourceReference}
+                                                    description={field.description}
+                                                    registrationAuthorityId={registrationAuthorityId}
+                                                    groups={fieldGroupMap.get(field.fieldNo)}
+                                                    displayState={data?.displayState}
+                                                    defaultResponse={data?.defaultResponse}
+                                                    mappingStats={data?.mappingStats}
+                                                    canonicalDisplayModel={data?.canonicalDisplayModel}
+                                                    sourceCheckedAt={(data as any)?.sourceCheckedAt}
+                                                    assignment={(data as any)?.assignment}
+                                                    onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName, mappingStats: data?.mappingStats })}
+                                                />
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+
+                    {filteredUncategorized.length > 0 && (
+                        <div className="transition-colors">
+                            <div
+                                tabIndex={0}
+                                role="button"
+                                aria-label="Toggle Uncategorized category"
+                                className="w-full flex items-center justify-between px-4 py-2.5 min-h-[40px] cursor-pointer select-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:z-10 group/header"
+                                onClick={() => toggleCategory("UNCATEGORIZED")}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        toggleCategory("UNCATEGORIZED");
+                                    }
+                                }}
+                            >
+                                <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                                    <FileText className="h-4 w-4 text-muted-foreground shrink-0 group-hover/header:text-foreground transition-colors" />
+                                    <span className="text-sm font-semibold text-foreground tracking-tight truncate">
+                                        Uncategorized
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-3 shrink-0 text-muted-foreground">
+                                    <span className="text-xs font-medium tabular-nums">
+                                        {filteredUncategorized.length}{filteredUncategorized.length !== uncategorizedFields.length ? ` of ${uncategorizedFields.length}` : ''} fields
+                                    </span>
+                                    {effectiveExpandedCategories.has("UNCATEGORIZED") ? (
+                                        <ChevronUp className="h-4 w-4 text-muted-foreground group-hover/header:text-foreground transition-colors" />
+                                    ) : (
+                                        <ChevronDown className="h-4 w-4 text-muted-foreground group-hover/header:text-foreground transition-colors" />
+                                    )}
+                                </div>
+                            </div>
+                            {effectiveExpandedCategories.has("UNCATEGORIZED") && (
+                                <div className="px-4 py-4 border-t border-border bg-muted/15 space-y-4">
+                                    {filteredUncategorized.map((field: any) => {
                                         const data = masterData[field.fieldNo];
                                         return (
                                             <MasterFieldDisplay
@@ -1053,73 +1124,13 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                             />
                                         );
                                     })}
-                                </CardContent>
-                                )}
-                            </Card>
-                        );
-                    })}
-
-                    {filteredUncategorized.length > 0 && (
-                        <Card className={cn(MASTER_CATEGORY_CARD_CLASS, "opacity-80")}>
-                            <CardHeader 
-                                tabIndex={0}
-                                role="button"
-                                aria-label="Toggle Uncategorized category"
-                                className="pb-4 border-b border-border bg-muted/50 cursor-pointer hover:bg-muted transition-colors group/header focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                                onClick={() => toggleCategory("UNCATEGORIZED")}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                        e.preventDefault();
-                                        toggleCategory("UNCATEGORIZED");
-                                    }
-                                }}
-                            >
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="flex items-center gap-2 text-lg text-foreground">
-                                        <FileText className="h-5 w-5 text-muted-foreground" />
-                                        Uncategorized
-                                    </CardTitle>
-                                    <div className="flex items-center gap-3 text-muted-foreground">
-                                        <span className="text-sm font-medium hidden sm:inline-block">
-                                            {filteredUncategorized.length}{filteredUncategorized.length !== uncategorizedFields.length ? ` of ${uncategorizedFields.length}` : ''} fields
-                                        </span>
-                                        {effectiveExpandedCategories.has("UNCATEGORIZED") ? <ChevronUp className="h-5 w-5 group-hover/header:text-foreground transition-colors" /> : <ChevronDown className="h-5 w-5 group-hover/header:text-foreground transition-colors" />}
-                                    </div>
                                 </div>
-                            </CardHeader>
-                            {effectiveExpandedCategories.has("UNCATEGORIZED") && (
-                            <CardContent className="pt-6 space-y-4">
-                                {filteredUncategorized.map((field: any) => {
-                                    const data = masterData[field.fieldNo];
-                                    return (
-                                        <MasterFieldDisplay
-                                            key={field.fieldNo}
-                                            label={field.fieldName}
-                                            fieldNo={field.fieldNo}
-                                            fieldDef={field}
-                                            value={data?.value}
-                                            formattedDisplayValue={data?.formattedDisplayValue}
-                                            source={data?.source as any}
-                                            sourceReference={data?.sourceReference}
-                                            description={field.description}
-                                            registrationAuthorityId={registrationAuthorityId}
-                                            groups={fieldGroupMap.get(field.fieldNo)}
-                                            displayState={data?.displayState}
-                                            defaultResponse={data?.defaultResponse}
-                                            mappingStats={data?.mappingStats}
-                                            canonicalDisplayModel={data?.canonicalDisplayModel}
-                                            sourceCheckedAt={(data as any)?.sourceCheckedAt}
-                                            assignment={(data as any)?.assignment}
-                                            onClick={() => setSelectedField({ fieldNo: field.fieldNo, name: field.fieldName, mappingStats: data?.mappingStats })}
-                                        />
-                                    );
-                                })}
-                            </CardContent>
                             )}
-                        </Card>
+                        </div>
                     )}
+                </div>
 
-                    {totalVisible === 0 && (
+                {totalVisible === 0 && (
                         <div className="py-20 text-center bg-card text-card-foreground rounded-xl border border-dashed border-border animate-in fade-in duration-300">
                             <AlertCircle className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
                             <h3 className="text-lg font-medium text-foreground">No matching fields</h3>
@@ -1134,7 +1145,6 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                         </div>
                     )}
                 </div>
-            </div>
 
             {/* Inspector Panel */}
             <FieldDetailPanel
