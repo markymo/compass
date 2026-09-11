@@ -97,9 +97,25 @@ test.describe('Client Operational Smoke Suite', () => {
          */
         const manifest = loadUATManifest();
         await page.goto(`/app/le/${manifest.alphaClientLE.id}/master`);
+        await page.waitForLoadState('networkidle').catch(() => {});
 
+        // Under ONP-194, categories default to collapsed; expand Identity category first
         const field3Button = page.locator('div[role="button"][aria-label*="Inspect field 3"]').first();
-        await expect(field3Button).toBeVisible();
+        if (!await field3Button.isVisible()) {
+            const identityToggle = page.getByRole('button', { name: /Toggle Identity category/i }).first();
+            await expect(identityToggle).toBeVisible({ timeout: 15000 });
+            await identityToggle.click();
+        }
+
+        // Resiliently ensure Field 3 is visible even if initial click was clobbered by async preferences hydration
+        try {
+            await expect(field3Button).toBeVisible({ timeout: 4000 });
+        } catch {
+            const identityToggle = page.getByRole('button', { name: /Toggle Identity category/i }).first();
+            await identityToggle.click();
+            await expect(field3Button).toBeVisible({ timeout: 10000 });
+        }
+
         await field3Button.click();
 
         // Verify that the FieldDetailPanel sheet opens and displays field details

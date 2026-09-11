@@ -73,6 +73,7 @@ interface DataSchemaTabProps {
         localRegistrationNumber: string;
         lastSyncSucceededAt: Date | null;
         lastSyncStatus: string | null;
+        status?: string | null;
     } | null;
     /** The GLEIF RA code for this specific entity, e.g. RA000585. Threaded into SourceBadge
      *  to show the entity-specific authority identifier alongside the canonical source name. */
@@ -545,23 +546,31 @@ export function DataSchemaTab({ leId, masterData, customData = {}, customDefinit
                                         {nationalRegistryData.authorityName} - {nationalRegistryData.localRegistrationNumber}
                                     </div>
                                     <div className="text-xs text-muted-foreground truncate">
-                                        {nationalRegistryData.lastSyncSucceededAt
-                                            ? <>Last synced: <span className="font-medium text-secondary-foreground">{formatSystemDateTime(nationalRegistryData.lastSyncSucceededAt, (session?.user as any)?.timezone || 'UTC')}</span></>
-                                            : "Never synced"}
-                                        {nationalRegistryData.lastSyncStatus === "FAILED" && <span className="ml-2 text-red-500 font-medium">Sync Failed</span>}
+                                        {nationalRegistryData.status === "UNSUPPORTED" ? (
+                                            <span>No automated connector</span>
+                                        ) : (
+                                            <>
+                                                {nationalRegistryData.lastSyncSucceededAt
+                                                    ? <>Last synced: <span className="font-medium text-secondary-foreground">{formatSystemDateTime(nationalRegistryData.lastSyncSucceededAt, (session?.user as any)?.timezone || 'UTC')}</span></>
+                                                    : "Never synced"}
+                                                {nationalRegistryData.lastSyncStatus === "FAILED" && <span className="ml-2 text-red-500 font-medium">Sync Failed</span>}
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleRefreshRegistry}
-                                disabled={isRefreshingRegistry}
-                                className="shrink-0"
-                            >
-                                <RefreshCcw className={cn("mr-2 h-4 w-4", isRefreshingRegistry && "animate-spin")} />
-                                {isRefreshingRegistry ? "Checking..." : "Check for Updates"}
-                            </Button>
+                            {nationalRegistryData.status !== "UNSUPPORTED" && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleRefreshRegistry}
+                                    disabled={isRefreshingRegistry}
+                                    className="shrink-0"
+                                >
+                                    <RefreshCcw className={cn("mr-2 h-4 w-4", isRefreshingRegistry && "animate-spin")} />
+                                    {isRefreshingRegistry ? "Checking..." : "Check for Updates"}
+                                </Button>
+                            )}
                         </div>
                     )}
                 </div>

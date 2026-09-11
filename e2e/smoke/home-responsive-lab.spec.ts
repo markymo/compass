@@ -20,8 +20,8 @@ test.describe('Responsive Home Lab Smoke Suite', () => {
             await expect(page.getByRole('heading', { name: 'Relationships' })).toBeVisible();
             await expect(page.getByText('Responsive Home Lab').first()).toBeVisible();
 
-            // Confirms the existing current dashboard renderer mounts and displays user's permitted entity
-            await expect(page.locator('[data-testid="experimental-dashboard"]')).toBeVisible({ timeout: 15000 });
+            // Confirms the responsive dashboard renderer mounts and displays user's permitted entity
+            await expect(page.locator('[data-testid="home-responsive-dashboard"]')).toBeVisible({ timeout: 15000 });
             await expect(page.getByText(manifest.alphaClientLE.name).first()).toBeVisible();
         });
     });
@@ -34,7 +34,7 @@ test.describe('Responsive Home Lab Smoke Suite', () => {
             await page.goto('/app/labs/home-responsive');
 
             await expect(page).toHaveURL(/\/app\/labs\/home-responsive/);
-            await expect(page.locator('[data-testid="experimental-dashboard"]')).toBeVisible({ timeout: 15000 });
+            await expect(page.locator('[data-testid="home-responsive-dashboard"]')).toBeVisible({ timeout: 15000 });
             await expect(page.getByText(manifest.supplierOrgA.name).first()).toBeVisible();
         });
     });
