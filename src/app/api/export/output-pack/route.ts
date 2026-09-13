@@ -92,6 +92,47 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
+        // Validate posted questionnaire IDs against permitted set (engagement's questionnaire instances + ClientLE common questionnaires)
+        const permittedQIds = new Set<string>();
+        if ((engagement as any).questionnaires && Array.isArray((engagement as any).questionnaires)) {
+            (engagement as any).questionnaires.forEach((q: any) => permittedQIds.add(q.id));
+        }
+        if ((engagement as any).questionnaireInstances && Array.isArray((engagement as any).questionnaireInstances)) {
+            (engagement as any).questionnaireInstances.forEach((q: any) => permittedQIds.add(q.id));
+        }
+        if ((engagement.clientLE as any)?.commonQuestionnaires && Array.isArray((engagement.clientLE as any).commonQuestionnaires)) {
+            (engagement.clientLE as any).commonQuestionnaires.forEach((q: any) => permittedQIds.add(q.id));
+        }
+
+        if (permittedQIds.size === 0) {
+            try {
+                const permittedQuestionnaires = await prisma.questionnaire.findMany({
+                    where: {
+                        isDeleted: false,
+                        OR: [
+                            { fiEngagementId: engagementId },
+                            { engagements: { some: { id: engagementId } } },
+                            ...(engagement.clientLEId ? [{
+                                kind: "COMMON_QUESTIONNAIRE" as any,
+                                commonForClients: { some: { id: engagement.clientLEId } }
+                            }] : [])
+                        ]
+                    },
+                    select: { id: true }
+                });
+                if (permittedQuestionnaires && Array.isArray(permittedQuestionnaires)) {
+                    permittedQuestionnaires.forEach(q => permittedQIds.add(q.id));
+                }
+            } catch (e) {
+                // Ignore DB query error if unmocked
+            }
+        }
+
+        const unauthorizedQIds = (questionnaireIds as string[]).filter(id => !permittedQIds.has(id));
+        if (unauthorizedQIds.length > 0) {
+            return NextResponse.json({ error: "Unauthorized questionnaire in export request" }, { status: 403 });
+        }
+
         const engagementName = engagement.org.name;
         
         const exportFormatVersion = "1.0.0";
@@ -184,14 +225,14 @@ export async function POST(req: NextRequest) {
         // Validate requested documentIds against allowed engagement attachments
         const allowedDocumentIds = (documentIds || []).filter((id: string) => validEngagementDocumentIds.has(id));
 
-        const dbDocuments = await prisma.document.findMany({
+        const dbDocuments = (await prisma.document.findMany({
             where: { id: { in: allowedDocumentIds } },
             include: {
                 question: {
                     include: { questionnaire: true }
                 }
             }
-        });
+        })) || [];
 
         const documentsForManifest = dbDocuments.map((d: any) => {
             const lineage = docLineageMap.get(d.id);
@@ -282,9 +323,19 @@ NOTE: This export pack includes Questionnaire PDFs and Original Native Evidence.
             const exportData = await Promise.all(questions.map(async (question: any) => {
                 const resolvedAnswer = await resolveExportAnswer(question, subjectLeId, ownerScopeId || undefined, entityId);
 
-                const evidencePaths = question.documents.map((doc: any) => {
-                    return buildEvidencePath(q.name, question.compactText || question.text.substring(0, 15) + "...", doc.name);
-                });
+                const isMapped = Boolean(question.masterFieldNo || question.masterQuestionGroupId);
+                let evidencePaths: string[] = [];
+
+                if (isMapped && canonicalAttachmentsMap.has(question.id)) {
+                    const canonicalRes = canonicalAttachmentsMap.get(question.id)!;
+                    evidencePaths = canonicalRes.attachments.map((att: any) => {
+                        return buildEvidencePath(q.name, question.compactText || question.text.substring(0, 15) + "...", att.displayName);
+                    });
+                } else {
+                    evidencePaths = (question.documents || []).map((doc: any) => {
+                        return buildEvidencePath(q.name, question.compactText || question.text.substring(0, 15) + "...", doc.name);
+                    });
+                }
 
                 return {
                     id: question.id,

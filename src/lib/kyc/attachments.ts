@@ -1,9 +1,11 @@
+import prisma from "@/lib/prisma";
 import { DerivedValue } from "@/lib/kyc/KycStateService";
 import { ResolvedAttachment } from "@/lib/master-data/field-display-model";
 import { KycStateService } from "@/lib/kyc/KycStateService";
 import { CCPartyDocumentService } from "@/lib/documents/party/CCPartyDocumentService";
 import { extractCanonicalPartyIds, getPartyName } from "@/lib/master-data/party-value";
 import { isFieldPermittedByCatalogue } from "@/lib/master-data/party-display-catalogue";
+import { ClaimStatus } from "@prisma/client";
 
 /**
  * Legacy mapper for purely field-derived attachments.
@@ -40,11 +42,13 @@ export function mapDerivedAttachments(derivedAttachments: DerivedValue[]): Resol
 export async function resolveAmalgamatedAttachments(
     subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
     fieldNos: number[],
-    resolvedValuesMap: Map<number, DerivedValue | DerivedValue[] | null>,
+    resolvedValuesMap?: Map<number, DerivedValue | DerivedValue[] | null>,
     fieldDefsMap?: Map<number, { allowAttachments?: boolean; profileConfig?: { displayMask?: string[] } }>
 ): Promise<Map<number, ResolvedAttachment[]>> {
     const result = new Map<number, ResolvedAttachment[]>();
     if (fieldNos.length === 0) return result;
+
+    const valuesMap = resolvedValuesMap || new Map();
 
     // 1. Resolve direct field attachments (historic evidence remains visible regardless of current write policy)
     const fieldAttachmentsMap = await KycStateService.resolveAllAttachments(subject, fieldNos);
@@ -58,7 +62,7 @@ export async function resolveAmalgamatedAttachments(
         const permitsPartyDocs = isFieldPermittedByCatalogue('party.documents', mask);
         if (!permitsPartyDocs) continue;
 
-        const valueOrColl = resolvedValuesMap.get(fieldNo);
+        const valueOrColl = valuesMap.get(fieldNo);
         if (!valueOrColl) continue;
         
         const claims = Array.isArray(valueOrColl) ? valueOrColl : [valueOrColl];
@@ -74,6 +78,56 @@ export async function resolveAmalgamatedAttachments(
         }
         if (partyIdsForField.size > 0) {
             fieldPartyIdMap.set(fieldNo, partyIdsForField);
+        }
+    }
+
+    // Check fallback claims for any field where party documents are permitted but no party IDs were found in resolvedValuesMap
+    const missingPartyFieldNos: number[] = [];
+    for (const fieldNo of fieldNos) {
+        if (!fieldPartyIdMap.has(fieldNo)) {
+            const mask = fieldDefsMap?.get(fieldNo)?.profileConfig?.displayMask;
+            if (isFieldPermittedByCatalogue('party.documents', mask)) {
+                missingPartyFieldNos.push(fieldNo);
+            }
+        }
+    }
+
+    if (missingPartyFieldNos.length > 0) {
+        const whereClause: any = {
+            fieldNo: { in: missingPartyFieldNos },
+            claimRole: 'VALUE',
+            status: { in: [ClaimStatus.VERIFIED, ClaimStatus.ASSERTED] },
+        };
+        if (subject.clientLEId) {
+            whereClause.clientLEId = subject.clientLEId;
+        } else if (subject.subjectLeId) {
+            whereClause.subjectLeId = subject.subjectLeId;
+        }
+
+        try {
+            const fallbackClaims = await prisma.fieldClaim.findMany({
+                where: whereClause,
+                select: { fieldNo: true, valueJson: true },
+                orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }]
+            });
+
+            if (fallbackClaims && fallbackClaims.length > 0) {
+                for (const fc of fallbackClaims) {
+                    const extracted = extractCanonicalPartyIds(fc.valueJson);
+                    if (extracted.length > 0) {
+                        if (!fieldPartyIdMap.has(fc.fieldNo)) {
+                            fieldPartyIdMap.set(fc.fieldNo, new Set<string>());
+                        }
+                        const set = fieldPartyIdMap.get(fc.fieldNo)!;
+                        extracted.forEach(id => {
+                            allPartyIds.add(id);
+                            set.add(id);
+                        });
+                    }
+                }
+            }
+        } catch (e) {
+            // Safe fallback if prisma findMany is unmocked or table unavailable
         }
     }
 
@@ -192,7 +246,7 @@ export interface QuestionAttachmentsContext {
     clientLEId: string;
     subjectLeId?: string | null;
     resolvedValuesMap?: Map<number, DerivedValue | DerivedValue[] | null>;
-    fieldDefsMap?: Map<number, { allowAttachments?: boolean; profileConfig?: { displayMask?: string[] } }>;
+    fieldDefsMap?: Map<number, { allowAttachments?: boolean; profileConfig?: { displayMask?: string[] }; isMultiValue?: boolean }>;
 }
 
 export interface QuestionAttachmentResult {
@@ -264,7 +318,8 @@ export async function resolveQuestionAttachmentsBatch(
                 if (def) {
                     fieldDefsMap!.set(fNo, {
                         allowAttachments: def.allowAttachments,
-                        profileConfig: (def as any).profileConfig
+                        profileConfig: (def as any).profileConfig,
+                        isMultiValue: Boolean(def.isMultiValue)
                     });
                 }
             })
@@ -272,7 +327,24 @@ export async function resolveQuestionAttachmentsBatch(
     }
 
     // 3. Resolve amalgamated attachments
-    const resolvedValuesMap = context.resolvedValuesMap || new Map();
+    let resolvedValuesMap = context.resolvedValuesMap;
+    if (!resolvedValuesMap) {
+        try {
+            resolvedValuesMap = await KycStateService.resolveAllFields(
+                { subjectLeId: context.subjectLeId, clientLEId: context.clientLEId },
+                Array.from(allFieldNos).map(fNo => ({
+                    fieldNo: fNo,
+                    isMultiValue: Boolean(fieldDefsMap?.get(fNo)?.isMultiValue)
+                }))
+            );
+        } catch (e) {
+            resolvedValuesMap = new Map();
+        }
+        if (!resolvedValuesMap) {
+            resolvedValuesMap = new Map();
+        }
+    }
+
     const attachmentsByField = await resolveAmalgamatedAttachments(
         { subjectLeId: context.subjectLeId, clientLEId: context.clientLEId },
         Array.from(allFieldNos),

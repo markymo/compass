@@ -169,6 +169,19 @@ export async function resolveExportAnswer(
                 };
             }
 
+            if (attachmentFilenames.length > 0) {
+                const displayValue = attachmentFilenames.length === 1 ? "Document attached" : "Documents attached";
+                return {
+                    displayValue,
+                    rawValue: null,
+                    answerState: "HAS_VALUE",
+                    sourceCategory: 'USER',
+                    sourceLabel: subAnswer.provenanceJson?.sourceLabel || "Master Data attachment",
+                    sourceTimestamp: subAnswer.provenanceJson?.assertedAt || subAnswer.provenanceJson?.submittedAt || null,
+                    attachmentFilenames
+                };
+            }
+
             return {
                 displayValue: "No response recorded",
                 rawValue: null,
