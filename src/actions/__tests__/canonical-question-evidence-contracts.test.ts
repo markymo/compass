@@ -30,7 +30,7 @@ vi.mock("@/lib/auth/permissions", async (importOriginal) => {
 });
 
 vi.mock("@/actions/kyc-query", () => ({
-    getFieldDetail: vi.fn(),
+    getFieldDetail: vi.fn().mockResolvedValue({ isRepeating: false, fieldNo: 74, dataType: "DOCUMENT" }),
     resolveMasterDataBatch: vi.fn(),
     enrichPartyReferences: vi.fn().mockImplementation(async () => {}),
     enrichAddressReferences: vi.fn().mockImplementation(async () => {}),
@@ -48,7 +48,7 @@ vi.mock("@/lib/kyc/KycStateService", () => ({
         getAuthoritativeValue: vi.fn(),
         getAuthoritativeCollection: vi.fn(),
         resolveAllAttachments: vi.fn(),
-        resolveAllFields: vi.fn(),
+        resolveAllFields: vi.fn().mockResolvedValue(new Map()),
         calculateDisplayState: vi.fn().mockReturnValue("HAS_VALUE"),
         evaluateSyncAttempt: vi.fn().mockReturnValue({ hasApplicableMapping: false, hasApplicableEvaluationAttempt: false }),
     },
@@ -77,7 +77,7 @@ vi.mock("@/lib/prisma", () => {
             findMany: vi.fn(),
         },
         fieldClaim: {
-            findMany: vi.fn(),
+            findMany: vi.fn().mockResolvedValue([]),
             findUnique: vi.fn(),
         },
         cCPartyDocument: {
@@ -88,7 +88,7 @@ vi.mock("@/lib/prisma", () => {
         },
         document: {
             findUnique: vi.fn(),
-            findMany: vi.fn(),
+            findMany: vi.fn().mockResolvedValue([]),
         },
         membership: {
             findMany: vi.fn(),
@@ -98,7 +98,7 @@ vi.mock("@/lib/prisma", () => {
             findUnique: vi.fn(),
         },
         questionnaire: {
-            findMany: vi.fn(),
+            findMany: vi.fn().mockResolvedValue([]),
             findUnique: vi.fn(),
         },
         questionnaireDefinitionVersion: {
@@ -636,21 +636,53 @@ describe("Canonical Questionnaire Evidence Contracts (ONP-179 Authoritative Cont
             expect(result.documents[0].questionnaireId).toBe(COMMON_QUESTIONNAIRE_ID);
             expect(result.documents[0].documents).toHaveLength(1);
             expect(result.documents[0].documents[0].id).toBe(FIELD_DOC.id);
+
+            // AND Output Pack POST accepts Common Questionnaire via clientLE.commonQuestionnaires relation
+            vi.mocked(prisma.questionnaire.findMany).mockResolvedValue([
+                { id: COMMON_QUESTIONNAIRE_ID, name: "Group AML Standard" } as any,
+            ]);
+            vi.mocked(prisma.fIEngagement.findUnique).mockResolvedValue({
+                id: ENGAGEMENT_ID,
+                clientLEId: CLIENT_LE_ID,
+                org: { name: "Barclays" },
+                clientLE: {
+                    id: CLIENT_LE_ID,
+                    name: "Alpha Corp",
+                    owners: [],
+                    commonQuestionnaires: [{ id: COMMON_QUESTIONNAIRE_ID, name: "Group AML Standard" }],
+                },
+                questionnaires: [],
+                questionnaireInstances: [],
+            } as any);
+
+            const postReq = new NextRequest("http://localhost/api/export/output-pack", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                    engagementId: ENGAGEMENT_ID,
+                    questionnaireIds: [COMMON_QUESTIONNAIRE_ID],
+                    documentIds: [FIELD_DOC.id],
+                }),
+            });
+
+            const postRes = await postOutputPack(postReq);
+            expect(postRes.status).toBe(200);
         });
 
         it("B3: Unauthorized/non-permitted questionnaire ID posted to Output Pack → rejected using permitted-set contract", async () => {
             const PERMITTED_QID = QUESTIONNAIRE_ID;
             const ROGUE_UNAUTHORIZED_QID = "q-rogue-other-client-corp";
 
-            // Mock engagement permitted questionnaire contract:
+            // Mock engagement permitted questionnaire contract matching getEngagementDetails:
+            // questionnaires + questionnaireInstances + clientLE.commonQuestionnaires
             // Permitted set for ENGAGEMENT_ID is [PERMITTED_QID]. ROGUE_UNAUTHORIZED_QID is NOT permitted.
             vi.mocked(prisma.fIEngagement.findUnique).mockResolvedValue({
                 id: ENGAGEMENT_ID,
                 clientLEId: CLIENT_LE_ID,
                 org: { name: "Barclays" },
-                clientLE: { id: CLIENT_LE_ID, name: "Alpha Corp", owners: [] },
-                questionnaires: [{ id: PERMITTED_QID }],
-                questionnaireInstances: [{ id: PERMITTED_QID }],
+                clientLE: { id: CLIENT_LE_ID, name: "Alpha Corp", owners: [], commonQuestionnaires: [] },
+                questionnaires: [{ id: PERMITTED_QID, name: "Barclays Questionnaire" }],
+                questionnaireInstances: [],
             } as any);
 
             const req = new NextRequest("http://localhost/api/export/output-pack", {
@@ -665,22 +697,8 @@ describe("Canonical Questionnaire Evidence Contracts (ONP-179 Authoritative Cont
 
             const res = await postOutputPack(req);
 
-            // TARGET CONTRACT: Route MUST reject or discard questionnaires outside the permitted set
-            // It should NOT blindly process ROGUE_UNAUTHORIZED_QID!
-            if (res.status === 200) {
-                // If it filters out invalid questionnaires, verify ROGUE_UNAUTHORIZED_QID was not queried/included
-                expect(vi.mocked(prisma.question.findMany)).not.toHaveBeenCalledWith(
-                    expect.objectContaining({
-                        where: expect.objectContaining({
-                            questionnaireId: expect.objectContaining({
-                                in: expect.arrayContaining([ROGUE_UNAUTHORIZED_QID]),
-                            }),
-                        }),
-                    })
-                );
-            } else {
-                expect(res.status).toBe(403);
-            }
+            // TARGET CONTRACT: Route MUST reject questionnaires outside the permitted set with 403
+            expect(res.status).toBe(403);
         });
     });
 

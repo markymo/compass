@@ -56,9 +56,21 @@ export async function POST(req: NextRequest) {
                         owners: {
                             where: { endAt: null },
                             include: { party: true }
+                        },
+                        commonQuestionnaires: {
+                            where: { isDeleted: false },
+                            select: { id: true, name: true }
                         }
                     }
-                } 
+                },
+                questionnaires: {
+                    where: { isDeleted: false },
+                    select: { id: true, name: true }
+                },
+                questionnaireInstances: {
+                    where: { isDeleted: false },
+                    select: { id: true, name: true }
+                }
             }
         });
 
@@ -92,40 +104,17 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
-        // Validate posted questionnaire IDs against permitted set (engagement's questionnaire instances + ClientLE common questionnaires)
+        // Validate posted questionnaire IDs against permitted set matching getEngagementDetails contract:
+        // engagement.questionnaires + engagement.questionnaireInstances + engagement.clientLE.commonQuestionnaires
         const permittedQIds = new Set<string>();
-        if ((engagement as any).questionnaires && Array.isArray((engagement as any).questionnaires)) {
-            (engagement as any).questionnaires.forEach((q: any) => permittedQIds.add(q.id));
+        for (const q of engagement.questionnaires || []) {
+            permittedQIds.add(q.id);
         }
-        if ((engagement as any).questionnaireInstances && Array.isArray((engagement as any).questionnaireInstances)) {
-            (engagement as any).questionnaireInstances.forEach((q: any) => permittedQIds.add(q.id));
+        for (const q of engagement.questionnaireInstances || []) {
+            permittedQIds.add(q.id);
         }
-        if ((engagement.clientLE as any)?.commonQuestionnaires && Array.isArray((engagement.clientLE as any).commonQuestionnaires)) {
-            (engagement.clientLE as any).commonQuestionnaires.forEach((q: any) => permittedQIds.add(q.id));
-        }
-
-        if (permittedQIds.size === 0) {
-            try {
-                const permittedQuestionnaires = await prisma.questionnaire.findMany({
-                    where: {
-                        isDeleted: false,
-                        OR: [
-                            { fiEngagementId: engagementId },
-                            { engagements: { some: { id: engagementId } } },
-                            ...(engagement.clientLEId ? [{
-                                kind: "COMMON_QUESTIONNAIRE" as any,
-                                commonForClients: { some: { id: engagement.clientLEId } }
-                            }] : [])
-                        ]
-                    },
-                    select: { id: true }
-                });
-                if (permittedQuestionnaires && Array.isArray(permittedQuestionnaires)) {
-                    permittedQuestionnaires.forEach(q => permittedQIds.add(q.id));
-                }
-            } catch (e) {
-                // Ignore DB query error if unmocked
-            }
+        for (const q of engagement.clientLE?.commonQuestionnaires || []) {
+            permittedQIds.add(q.id);
         }
 
         const unauthorizedQIds = (questionnaireIds as string[]).filter(id => !permittedQIds.has(id));
@@ -150,10 +139,10 @@ export async function POST(req: NextRequest) {
         archive.pipe(passThrough);
 
         // --- Prepare Metadata & Data ---
-        const dbQuestionnaires = await prisma.questionnaire.findMany({
+        const dbQuestionnaires = (await prisma.questionnaire.findMany({
             where: { id: { in: questionnaireIds }, isDeleted: false },
             select: { id: true, name: true }
-        });
+        })) || [];
 
         // Resolve canonical question attachments for questionnaires in this pack
         const allEngagementQuestions = await prisma.question.findMany({
@@ -350,7 +339,7 @@ NOTE: This export pack includes Questionnaire PDFs and Original Native Evidence.
                     sourceTimestamp: resolvedAnswer.sourceTimestamp ? new Date(resolvedAnswer.sourceTimestamp).toISOString() : null,
                     sourceCategory: resolvedAnswer.sourceCategory,
                     answerState: resolvedAnswer.answerState,
-                    notes: question.comments.map((c: any) => `[${c.user?.name || 'User'}]: ${c.text}`).join("\n"),
+                    notes: (question.comments || []).map((c: any) => `[${c.user?.name || 'User'}]: ${c.text}`).join("\n"),
                     evidencePaths,
                     groupFields: resolvedAnswer.groupFields,
                     groupDisplayStyle: resolvedAnswer.groupDisplayStyle,

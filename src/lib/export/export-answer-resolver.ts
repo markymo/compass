@@ -203,7 +203,7 @@ export async function resolveExportAnswer(
         let primaryDerived: any = null;
         let attachmentFilenames: string[] = [];
 
-        if (fieldDetail.isRepeating) {
+        if (fieldDetail?.isRepeating) {
             const collection = await KycStateService.getAuthoritativeCollection(
                 { subjectLeId, clientLEId: entityId },
                 question.masterFieldNo,

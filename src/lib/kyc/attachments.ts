@@ -104,30 +104,26 @@ export async function resolveAmalgamatedAttachments(
             whereClause.subjectLeId = subject.subjectLeId;
         }
 
-        try {
-            const fallbackClaims = await prisma.fieldClaim.findMany({
-                where: whereClause,
-                select: { fieldNo: true, valueJson: true },
-                orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }]
-            });
+        const fallbackClaims = await prisma.fieldClaim.findMany({
+            where: whereClause,
+            select: { fieldNo: true, valueJson: true },
+            orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }]
+        });
 
-            if (fallbackClaims && fallbackClaims.length > 0) {
-                for (const fc of fallbackClaims) {
-                    const extracted = extractCanonicalPartyIds(fc.valueJson);
-                    if (extracted.length > 0) {
-                        if (!fieldPartyIdMap.has(fc.fieldNo)) {
-                            fieldPartyIdMap.set(fc.fieldNo, new Set<string>());
-                        }
-                        const set = fieldPartyIdMap.get(fc.fieldNo)!;
-                        extracted.forEach(id => {
-                            allPartyIds.add(id);
-                            set.add(id);
-                        });
+        if (fallbackClaims && fallbackClaims.length > 0) {
+            for (const fc of fallbackClaims) {
+                const extracted = extractCanonicalPartyIds(fc.valueJson);
+                if (extracted.length > 0) {
+                    if (!fieldPartyIdMap.has(fc.fieldNo)) {
+                        fieldPartyIdMap.set(fc.fieldNo, new Set<string>());
                     }
+                    const set = fieldPartyIdMap.get(fc.fieldNo)!;
+                    extracted.forEach(id => {
+                        allPartyIds.add(id);
+                        set.add(id);
+                    });
                 }
             }
-        } catch (e) {
-            // Safe fallback if prisma findMany is unmocked or table unavailable
         }
     }
 
@@ -329,17 +325,13 @@ export async function resolveQuestionAttachmentsBatch(
     // 3. Resolve amalgamated attachments
     let resolvedValuesMap = context.resolvedValuesMap;
     if (!resolvedValuesMap) {
-        try {
-            resolvedValuesMap = await KycStateService.resolveAllFields(
-                { subjectLeId: context.subjectLeId, clientLEId: context.clientLEId },
-                Array.from(allFieldNos).map(fNo => ({
-                    fieldNo: fNo,
-                    isMultiValue: Boolean(fieldDefsMap?.get(fNo)?.isMultiValue)
-                }))
-            );
-        } catch (e) {
-            resolvedValuesMap = new Map();
-        }
+        resolvedValuesMap = await KycStateService.resolveAllFields(
+            { subjectLeId: context.subjectLeId, clientLEId: context.clientLEId },
+            Array.from(allFieldNos).map(fNo => ({
+                fieldNo: fNo,
+                isMultiValue: Boolean(fieldDefsMap?.get(fNo)?.isMultiValue)
+            }))
+        );
         if (!resolvedValuesMap) {
             resolvedValuesMap = new Map();
         }
