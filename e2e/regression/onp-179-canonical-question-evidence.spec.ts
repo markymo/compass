@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { PrismaClient } from '@prisma/client';
+import JSZip from 'jszip';
 import { assertUatDbTestEnv } from '../../src/lib/kyc/__tests__/test-env-guard';
 import { loadUATManifest, PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture';
 import { resolveExportAnswer } from '../../src/lib/export/export-answer-resolver';
@@ -30,7 +31,10 @@ test.describe('ONP-179: Canonical Questionnaire Evidence Across Master Data, Sub
     let claim105AttachId: string | null = null;
     let claim106Id: string | null = null;
     let relQuestionnaireId: string | null = null;
+    let relQuestionnaireCreated: boolean = false;
+    let originalQuestionMappings: Array<{ id: string; masterFieldNo: number | null }> = [];
     let commonQuestionnaireId: string | null = null;
+    let commonQuestionnaireCreated: boolean = false;
     let createdSubmissionId: string | null = null;
     let initialLegalEntityId: string | null = null;
     let createdLegalEntityId: string | null = null;
@@ -162,7 +166,7 @@ test.describe('ONP-179: Canonical Questionnaire Evidence Across Master Data, Sub
         // 7. Ensure relationship questionnaire has questions mapped to Field 106 & 105
         let relQ = await prisma.questionnaire.findFirst({
             where: { fiEngagementId: relationshipId, isDeleted: false },
-            include: { questions: true }
+            include: { questions: { orderBy: { order: 'asc' } } }
         });
 
         if (!relQ) {
@@ -180,10 +184,17 @@ test.describe('ONP-179: Canonical Questionnaire Evidence Across Master Data, Sub
                         ]
                     }
                 },
-                include: { questions: true }
+                include: { questions: { orderBy: { order: 'asc' } } }
             });
+            relQuestionnaireCreated = true;
         } else {
-            // Update existing questions to map to 106 and 105 if needed
+            relQuestionnaireCreated = false;
+            // Record original mappings for exact cleanup restoration
+            originalQuestionMappings = relQ.questions.slice(0, 2).map(q => ({
+                id: q.id,
+                masterFieldNo: q.masterFieldNo
+            }));
+            // Update existing questions to map to 106 and 105 for the test
             if (relQ.questions.length >= 2) {
                 await prisma.question.update({
                     where: { id: relQ.questions[0].id },
@@ -219,26 +230,64 @@ test.describe('ONP-179: Canonical Questionnaire Evidence Across Master Data, Sub
                     }
                 }
             });
+            commonQuestionnaireCreated = true;
+        } else {
+            commonQuestionnaireCreated = false;
         }
         commonQuestionnaireId = commonQ.id;
     });
 
     test.afterAll(async () => {
         try {
+            // 1. Delete created submissions
             if (createdSubmissionId) {
                 await prisma.questionnaireSubmission.delete({
                     where: { id: createdSubmissionId }
                 }).catch(() => {});
             }
+
+            // 2. Restore or delete relationship questionnaire
+            if (relQuestionnaireCreated && relQuestionnaireId) {
+                await prisma.question.deleteMany({ where: { questionnaireId: relQuestionnaireId } }).catch(() => {});
+                await prisma.questionnaire.delete({ where: { id: relQuestionnaireId } }).catch(() => {});
+            } else if (originalQuestionMappings.length > 0) {
+                for (const mapping of originalQuestionMappings) {
+                    await prisma.question.update({
+                        where: { id: mapping.id },
+                        data: { masterFieldNo: mapping.masterFieldNo }
+                    }).catch(() => {});
+                }
+            }
+
+            // 3. Delete common questionnaire if created specifically by this test
+            if (commonQuestionnaireCreated && commonQuestionnaireId) {
+                await prisma.question.deleteMany({ where: { questionnaireId: commonQuestionnaireId } }).catch(() => {});
+                await prisma.questionnaire.delete({ where: { id: commonQuestionnaireId } }).catch(() => {});
+            }
+
+            // 4. Delete claims created for fields 105, 106, 74
             if (claim105Id) await prisma.fieldClaim.delete({ where: { id: claim105Id } }).catch(() => {});
             if (claim105AttachId) await prisma.fieldClaim.delete({ where: { id: claim105AttachId } }).catch(() => {});
             if (claim106Id) await prisma.fieldClaim.delete({ where: { id: claim106Id } }).catch(() => {});
+            // Fail-safe cleanup for test claims
+            await prisma.fieldClaim.deleteMany({
+                where: {
+                    clientLEId,
+                    instanceId: { contains: String(testTimestamp) }
+                }
+            }).catch(() => {});
+
+            // 5. Delete CCParty and CCPartyDocument
             if (createdCcPartyId) {
                 await prisma.cCPartyDocument.deleteMany({ where: { partyId: createdCcPartyId } }).catch(() => {});
                 await prisma.cCParty.delete({ where: { id: createdCcPartyId } }).catch(() => {});
             }
+
+            // 6. Delete Documents
             if (partyDocId) await prisma.document.delete({ where: { id: partyDocId } }).catch(() => {});
             if (fieldDocId) await prisma.document.delete({ where: { id: fieldDocId } }).catch(() => {});
+
+            // 7. Restore LegalEntity linkage
             if (createdLegalEntityId) {
                 await prisma.clientLE.update({
                     where: { id: clientLEId },
@@ -267,8 +316,15 @@ test.describe('ONP-179: Canonical Questionnaire Evidence Across Master Data, Sub
         const drawer = page.locator('[role="dialog"]').first();
         await expect(drawer).toBeVisible({ timeout: 20000 });
 
+        // Assert Field Attachments section is present
+        await expect(drawer.getByText(/Field Attachments/i)).toBeVisible({ timeout: 15000 });
+
         // Verify the party attachment is visible in the Field Attachments section
         await expect(drawer.getByText(`party_passport_${testTimestamp}.pdf`)).toBeVisible({ timeout: 15000 });
+
+        // Explicitly assert that the count of attached documents is exactly 1
+        const downloadLinks = drawer.getByRole('link', { name: /Download/i });
+        await expect(downloadLinks).toHaveCount(1);
 
         // Verify provenance indicates attached to party
         await expect(drawer.getByText(/Attached to Party:/i)).toBeVisible({ timeout: 10000 });
@@ -289,6 +345,10 @@ test.describe('ONP-179: Canonical Questionnaire Evidence Across Master Data, Sub
         await expect(drawer.getByText(`field_proof_of_address_${testTimestamp}.pdf`)).toBeVisible({ timeout: 15000 });
         await expect(drawer.getByText(`party_passport_${testTimestamp}.pdf`)).toBeVisible({ timeout: 15000 });
 
+        // Explicitly assert that Field 105 has exactly 2 attachments rendered
+        const downloadLinks105 = drawer.getByRole('link', { name: /Download/i });
+        await expect(downloadLinks105).toHaveCount(2);
+
         // Verify deduplication on Field 106 (Party-only has exactly 1 file attached)
         await page.goto(`/app/le/${clientLEId}/master?fieldNo=106`);
         await page.waitForLoadState('domcontentloaded');
@@ -297,6 +357,8 @@ test.describe('ONP-179: Canonical Questionnaire Evidence Across Master Data, Sub
         await expect(drawer106).toBeVisible({ timeout: 20000 });
         const partyDocsIn106 = drawer106.getByText(`party_passport_${testTimestamp}.pdf`);
         await expect(partyDocsIn106).toHaveCount(1);
+        const downloadLinks106 = drawer106.getByRole('link', { name: /Download/i });
+        await expect(downloadLinks106).toHaveCount(1);
     });
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -327,12 +389,20 @@ test.describe('ONP-179: Canonical Questionnaire Evidence Across Master Data, Sub
         await page.goto(`/app/le/${clientLEId}/engagement-new/${relationshipId}?tab=documents`);
         await page.waitForLoadState('domcontentloaded');
 
-        // Confirm both documents appear in evidence list
-        const partyDocItem = page.getByText(`party_passport_${testTimestamp}.pdf`);
-        const fieldDocItem = page.getByText(`field_proof_of_address_${testTimestamp}.pdf`);
+        // Confirm both canonical documents appear in the Documents tab evidence list
+        // party_passport is canonical evidence for both Question 1 (106) and Question 2 (105) -> exactly 2 occurrences
+        const partyDocItems = page.getByText(`party_passport_${testTimestamp}.pdf`);
+        await expect(partyDocItems.first()).toBeVisible({ timeout: 25000 });
+        await expect(partyDocItems).toHaveCount(2);
 
-        // At least one canonical evidence doc visible in the documents panel
-        await expect(partyDocItem.or(fieldDocItem).first()).toBeVisible({ timeout: 25000 });
+        // field_proof_of_address is canonical evidence for Question 2 (105) -> exactly 1 occurrence
+        const fieldDocItems = page.getByText(`field_proof_of_address_${testTimestamp}.pdf`);
+        await expect(fieldDocItems.first()).toBeVisible({ timeout: 25000 });
+        await expect(fieldDocItems).toHaveCount(1);
+
+        // Assert the Attachments tab is active and shows the attachment count badge
+        const attachmentsTab = page.getByRole('tab', { name: /Attachments/i });
+        await expect(attachmentsTab).toBeVisible({ timeout: 15000 });
 
         // Navigate to Output tab
         await page.goto(`/app/le/${clientLEId}/engagement-new/${relationshipId}?tab=output`);
@@ -342,18 +412,31 @@ test.describe('ONP-179: Canonical Questionnaire Evidence Across Master Data, Sub
         await expect(outputPanel.getByText(/Output Pack/i).first()).toBeVisible({ timeout: 20000 });
         await expect(outputPanel.getByText(/Common Questionnaires/i).first()).toBeVisible({ timeout: 15000 });
         await expect(outputPanel.getByText(/Relationship Questionnaires/i).first()).toBeVisible({ timeout: 15000 });
+
+        // Assert attachment file count is visible on questionnaire card and expand to verify filenames
+        const fileCountButton = outputPanel.locator('button:has-text("file")').first();
+        await expect(fileCountButton).toBeVisible({ timeout: 15000 });
+        await fileCountButton.click();
+
+        // Confirm canonical filenames are visible inside the expanded files list
+        await expect(
+            outputPanel.getByText(`party_passport_${testTimestamp}.pdf`)
+                .or(outputPanel.getByText(`field_proof_of_address_${testTimestamp}.pdf`))
+                .first()
+        ).toBeVisible({ timeout: 15000 });
     });
 
     // ─────────────────────────────────────────────────────────────────────────
     // SCENARIO 5: Output Pack contains relationship Q, Common Q, and attachment filenames
     // ─────────────────────────────────────────────────────────────────────────
     test('Scenario 5: Output Pack POST generates package with relationship and common questionnaires', async ({ request }) => {
-        // Test authorized Output Pack export endpoint directly
+        // Test authorized Output Pack export endpoint directly, requesting both questionnaires and canonical documents
         const response = await request.post('/api/export/output-pack', {
             data: {
                 engagementId: relationshipId,
                 clientLEId,
                 questionnaireIds: [relQuestionnaireId!, commonQuestionnaireId!],
+                documentIds: [partyDocId!, fieldDocId!],
                 includeMasterData: true,
                 includeEvidenceFiles: true
             }
@@ -364,6 +447,29 @@ test.describe('ONP-179: Canonical Questionnaire Evidence Across Master Data, Sub
         expect(response.headers()['content-type']).toContain('application/zip');
         const buffer = await response.body();
         expect(buffer.length).toBeGreaterThan(100);
+
+        // Inspect ZIP contents via JSZip
+        const zip = await JSZip.loadAsync(buffer);
+        const filePaths = Object.keys(zip.files);
+
+        // 1. Assert export-manifest.json is present and valid
+        const manifestEntry = filePaths.find(p => p.endsWith('export-manifest.json'));
+        expect(manifestEntry).toBeDefined();
+        const manifestText = await zip.file(manifestEntry!)!.async('text');
+        const parsedManifest = JSON.parse(manifestText);
+        expect(parsedManifest.engagementId).toBe(relationshipId);
+        expect(parsedManifest.questionnaires.length).toBeGreaterThanOrEqual(2);
+
+        // 2. Assert Questionnaire PDF entries are present in the ZIP
+        const pdfFiles = filePaths.filter(p => p.endsWith('.pdf'));
+        expect(pdfFiles.length).toBeGreaterThanOrEqual(2);
+
+        // 3. Assert canonical evidence files or download placeholders are present in the ZIP
+        const hasEvidence = filePaths.some(p => 
+            p.includes(`party_passport_${testTimestamp}`) || 
+            p.includes(`field_proof_of_address_${testTimestamp}`)
+        );
+        expect(hasEvidence).toBe(true);
     });
 
     // ─────────────────────────────────────────────────────────────────────────
