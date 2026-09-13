@@ -91,8 +91,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const exportData = await Promise.all(questions.map(async (question: any) => {
             const resolvedAnswer = await resolveExportAnswer(question, subjectLeId, ownerScopeId || undefined, entityId, submissionId);
 
-            // For standalone PDF, we just list the document names
-            const evidencePaths = question.documents.map((doc: any) => doc.name);
+            // For standalone PDF, use canonical resolved attachment filenames if available, fallback to legacy direct documents
+            const evidencePaths = (resolvedAnswer.attachmentFilenames && resolvedAnswer.attachmentFilenames.length > 0)
+                ? resolvedAnswer.attachmentFilenames
+                : question.documents.map((doc: any) => doc.name);
 
             return {
                 id: question.id,

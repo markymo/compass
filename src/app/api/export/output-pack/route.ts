@@ -56,9 +56,21 @@ export async function POST(req: NextRequest) {
                         owners: {
                             where: { endAt: null },
                             include: { party: true }
+                        },
+                        commonQuestionnaires: {
+                            where: { isDeleted: false },
+                            select: { id: true, name: true }
                         }
                     }
-                } 
+                },
+                questionnaires: {
+                    where: { isDeleted: false },
+                    select: { id: true, name: true }
+                },
+                questionnaireInstances: {
+                    where: { isDeleted: false },
+                    select: { id: true, name: true }
+                }
             }
         });
 
@@ -92,6 +104,24 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         }
 
+        // Validate posted questionnaire IDs against permitted set matching getEngagementDetails contract:
+        // engagement.questionnaires + engagement.questionnaireInstances + engagement.clientLE.commonQuestionnaires
+        const permittedQIds = new Set<string>();
+        for (const q of engagement.questionnaires || []) {
+            permittedQIds.add(q.id);
+        }
+        for (const q of engagement.questionnaireInstances || []) {
+            permittedQIds.add(q.id);
+        }
+        for (const q of engagement.clientLE?.commonQuestionnaires || []) {
+            permittedQIds.add(q.id);
+        }
+
+        const unauthorizedQIds = (questionnaireIds as string[]).filter(id => !permittedQIds.has(id));
+        if (unauthorizedQIds.length > 0) {
+            return NextResponse.json({ error: "Unauthorized questionnaire in export request" }, { status: 403 });
+        }
+
         const engagementName = engagement.org.name;
         
         const exportFormatVersion = "1.0.0";
@@ -109,10 +139,10 @@ export async function POST(req: NextRequest) {
         archive.pipe(passThrough);
 
         // --- Prepare Metadata & Data ---
-        const dbQuestionnaires = await prisma.questionnaire.findMany({
+        const dbQuestionnaires = (await prisma.questionnaire.findMany({
             where: { id: { in: questionnaireIds }, isDeleted: false },
             select: { id: true, name: true }
-        });
+        })) || [];
 
         // Resolve canonical question attachments for questionnaires in this pack
         const allEngagementQuestions = await prisma.question.findMany({
@@ -184,14 +214,14 @@ export async function POST(req: NextRequest) {
         // Validate requested documentIds against allowed engagement attachments
         const allowedDocumentIds = (documentIds || []).filter((id: string) => validEngagementDocumentIds.has(id));
 
-        const dbDocuments = await prisma.document.findMany({
+        const dbDocuments = (await prisma.document.findMany({
             where: { id: { in: allowedDocumentIds } },
             include: {
                 question: {
                     include: { questionnaire: true }
                 }
             }
-        });
+        })) || [];
 
         const documentsForManifest = dbDocuments.map((d: any) => {
             const lineage = docLineageMap.get(d.id);
@@ -282,9 +312,19 @@ NOTE: This export pack includes Questionnaire PDFs and Original Native Evidence.
             const exportData = await Promise.all(questions.map(async (question: any) => {
                 const resolvedAnswer = await resolveExportAnswer(question, subjectLeId, ownerScopeId || undefined, entityId);
 
-                const evidencePaths = question.documents.map((doc: any) => {
-                    return buildEvidencePath(q.name, question.compactText || question.text.substring(0, 15) + "...", doc.name);
-                });
+                const isMapped = Boolean(question.masterFieldNo || question.masterQuestionGroupId);
+                let evidencePaths: string[] = [];
+
+                if (isMapped && canonicalAttachmentsMap.has(question.id)) {
+                    const canonicalRes = canonicalAttachmentsMap.get(question.id)!;
+                    evidencePaths = canonicalRes.attachments.map((att: any) => {
+                        return buildEvidencePath(q.name, question.compactText || question.text.substring(0, 15) + "...", att.displayName);
+                    });
+                } else {
+                    evidencePaths = (question.documents || []).map((doc: any) => {
+                        return buildEvidencePath(q.name, question.compactText || question.text.substring(0, 15) + "...", doc.name);
+                    });
+                }
 
                 return {
                     id: question.id,
@@ -299,7 +339,7 @@ NOTE: This export pack includes Questionnaire PDFs and Original Native Evidence.
                     sourceTimestamp: resolvedAnswer.sourceTimestamp ? new Date(resolvedAnswer.sourceTimestamp).toISOString() : null,
                     sourceCategory: resolvedAnswer.sourceCategory,
                     answerState: resolvedAnswer.answerState,
-                    notes: question.comments.map((c: any) => `[${c.user?.name || 'User'}]: ${c.text}`).join("\n"),
+                    notes: (question.comments || []).map((c: any) => `[${c.user?.name || 'User'}]: ${c.text}`).join("\n"),
                     evidencePaths,
                     groupFields: resolvedAnswer.groupFields,
                     groupDisplayStyle: resolvedAnswer.groupDisplayStyle,

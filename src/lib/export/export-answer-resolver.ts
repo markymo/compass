@@ -169,6 +169,19 @@ export async function resolveExportAnswer(
                 };
             }
 
+            if (attachmentFilenames.length > 0) {
+                const displayValue = attachmentFilenames.length === 1 ? "Document attached" : "Documents attached";
+                return {
+                    displayValue,
+                    rawValue: null,
+                    answerState: "HAS_VALUE",
+                    sourceCategory: 'USER',
+                    sourceLabel: subAnswer.provenanceJson?.sourceLabel || "Master Data attachment",
+                    sourceTimestamp: subAnswer.provenanceJson?.assertedAt || subAnswer.provenanceJson?.submittedAt || null,
+                    attachmentFilenames
+                };
+            }
+
             return {
                 displayValue: "No response recorded",
                 rawValue: null,
@@ -190,7 +203,7 @@ export async function resolveExportAnswer(
         let primaryDerived: any = null;
         let attachmentFilenames: string[] = [];
 
-        if (fieldDetail.isRepeating) {
+        if (fieldDetail?.isRepeating) {
             const collection = await KycStateService.getAuthoritativeCollection(
                 { subjectLeId, clientLEId: entityId },
                 question.masterFieldNo,
