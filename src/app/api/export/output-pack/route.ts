@@ -312,19 +312,10 @@ NOTE: This export pack includes Questionnaire PDFs and Original Native Evidence.
             const exportData = await Promise.all(questions.map(async (question: any) => {
                 const resolvedAnswer = await resolveExportAnswer(question, subjectLeId, ownerScopeId || undefined, entityId);
 
-                const isMapped = Boolean(question.masterFieldNo || question.masterQuestionGroupId);
-                let evidencePaths: string[] = [];
-
-                if (isMapped && canonicalAttachmentsMap.has(question.id)) {
-                    const canonicalRes = canonicalAttachmentsMap.get(question.id)!;
-                    evidencePaths = canonicalRes.attachments.map((att: any) => {
-                        return buildEvidencePath(q.name, question.compactText || question.text.substring(0, 15) + "...", att.displayName);
-                    });
-                } else {
-                    evidencePaths = (question.documents || []).map((doc: any) => {
-                        return buildEvidencePath(q.name, question.compactText || question.text.substring(0, 15) + "...", doc.name);
-                    });
-                }
+                const attachmentFilenames =
+                    resolvedAnswer.attachmentFilenames?.length
+                        ? resolvedAnswer.attachmentFilenames
+                        : (question.documents || []).map((doc: any) => doc.name);
 
                 return {
                     id: question.id,
@@ -340,10 +331,9 @@ NOTE: This export pack includes Questionnaire PDFs and Original Native Evidence.
                     sourceCategory: resolvedAnswer.sourceCategory,
                     answerState: resolvedAnswer.answerState,
                     notes: (question.comments || []).map((c: any) => `[${c.user?.name || 'User'}]: ${c.text}`).join("\n"),
-                    evidencePaths,
                     groupFields: resolvedAnswer.groupFields,
                     groupDisplayStyle: resolvedAnswer.groupDisplayStyle,
-                    attachmentFilenames: resolvedAnswer.attachmentFilenames
+                    attachmentFilenames: attachmentFilenames.length > 0 ? attachmentFilenames : undefined
                 };
             }));
 

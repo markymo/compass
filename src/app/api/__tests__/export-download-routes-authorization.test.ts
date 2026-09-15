@@ -9,6 +9,8 @@ import { isSystemAdmin } from '@/actions/security';
 import { resolveQuestionnaireContext } from '@/lib/kyc/engagement-context';
 import prisma from '@/lib/prisma';
 import { NextRequest } from 'next/server';
+import { renderToStream } from '@react-pdf/renderer';
+import { resolveExportAnswer } from '@/lib/export/export-answer-resolver';
 
 vi.mock('@/lib/auth', () => ({
     getIdentity: vi.fn(),
@@ -30,6 +32,10 @@ vi.mock('@/lib/kyc/KycStateService', () => ({
 
 vi.mock('@/lib/kyc/engagement-context', () => ({
     resolveQuestionnaireContext: vi.fn(),
+}));
+
+vi.mock('@/lib/kyc/attachments', () => ({
+    resolveQuestionAttachmentsBatch: vi.fn().mockResolvedValue(new Map()),
 }));
 
 vi.mock('@react-pdf/renderer', async (importOriginal) => {
@@ -535,6 +541,111 @@ describe('Export & Download API Routes Authorization Remediation', () => {
             const res = await postOutputPack(createPackReq({ engagementId: ENGAGEMENT_ID }));
 
             expect(res.status).toBe(200);
+        });
+
+        it('ONP-201: output-pack questionnaire PDF preserves canonical attachment precedence, unmapped fallback, and omits evidencePaths', async () => {
+            vi.mocked(getIdentity).mockResolvedValue({ userId: CLIENT_USER_ID } as any);
+
+            const qId = 'q-pack-test-1';
+            const testEngagement = {
+                ...mockEngagement,
+                questionnaires: [{ id: qId, name: 'Pack Questionnaire' }],
+                questionnaireInstances: [],
+                clientLE: {
+                    ...mockEngagement.clientLE,
+                    commonQuestionnaires: [],
+                },
+            };
+            vi.mocked(prisma.fIEngagement.findUnique).mockResolvedValue(testEngagement as any);
+
+            vi.mocked(prisma.membership.findMany).mockResolvedValue([
+                {
+                    userId: CLIENT_USER_ID,
+                    clientLEId: CLIENT_LE_ID,
+                    role: 'LE_USER',
+                    clientLE: { isDeleted: false, status: 'ACTIVE' },
+                }
+            ] as any);
+
+            vi.mocked(prisma.questionnaire.findMany).mockResolvedValue([
+                { id: qId, name: 'Pack Questionnaire' } as any
+            ]);
+
+            const mappedQuestion = {
+                id: 'q-mapped-pack',
+                questionnaireId: qId,
+                text: 'Mapped Q',
+                compactText: 'Mapped Q',
+                status: 'RELEASED',
+                order: 1,
+                masterFieldNo: 74,
+                documents: [{ id: 'doc-fallback', name: 'fallback_mapped.pdf' }],
+                comments: []
+            };
+            const unmappedQuestion = {
+                id: 'q-unmapped-pack',
+                questionnaireId: qId,
+                text: 'Unmapped Q',
+                compactText: 'Unmapped Q',
+                status: 'RELEASED',
+                order: 2,
+                masterFieldNo: null,
+                masterQuestionGroupId: null,
+                documents: [{ id: 'doc-legacy', name: 'legacy_doc.pdf' }],
+                comments: []
+            };
+
+            vi.mocked(prisma.question.findMany).mockResolvedValue([
+                mappedQuestion as any,
+                unmappedQuestion as any
+            ]);
+
+            vi.mocked(resolveExportAnswer).mockImplementation(async (q: any) => {
+                if (q.id === 'q-mapped-pack') {
+                    return {
+                        displayValue: 'Document attached',
+                        rawValue: null,
+                        answerState: 'HAS_VALUE',
+                        sourceCategory: 'USER',
+                        attachmentFilenames: ['canonical_pack_file.pdf']
+                    };
+                }
+                return {
+                    displayValue: 'Plain answer',
+                    rawValue: 'Plain answer',
+                    answerState: 'HAS_VALUE',
+                    sourceCategory: 'USER'
+                };
+            });
+
+            vi.mocked(renderToStream).mockClear();
+
+            const res = await postOutputPack(createPackReq({
+                engagementId: ENGAGEMENT_ID,
+                questionnaireIds: [qId],
+                documentIds: []
+            }));
+
+            expect(res.status).toBe(200);
+
+            // Verify QuestionnairePDF element passed to renderToStream
+            const renderCalls = vi.mocked(renderToStream).mock.calls;
+            const qPdfCall = renderCalls.find((call: any) => {
+                return call[0]?.props?.title === 'Pack Questionnaire';
+            });
+
+            expect(qPdfCall).toBeDefined();
+            const pdfData = (qPdfCall![0] as any).props.data;
+
+            // Invariant 1: Mapped question uses canonical attachmentFilenames
+            const mappedItem = pdfData.find((d: any) => d.id === 'q-mapped-pack');
+            expect(mappedItem.attachmentFilenames).toEqual(['canonical_pack_file.pdf']);
+            expect(mappedItem).not.toHaveProperty('evidencePaths');
+
+            // Invariant 2: Unmapped question falls back to question.documents
+            const unmappedItem = pdfData.find((d: any) => d.id === 'q-unmapped-pack');
+            expect(unmappedItem.attachmentFilenames).toEqual(['legacy_doc.pdf']);
+            expect(unmappedItem).not.toHaveProperty('evidencePaths');
         });
     });
 

@@ -195,4 +195,120 @@ describe('Export API Route', () => {
         expect(renderArgs.props.exportMetadata.supplierDisplayName).toBe('Common Supplier Org');
         expect(renderArgs.props.exportMetadata.clientDisplayName).toBe('Client Entity');
     });
+
+    describe('ONP-201: Questionnaire Export Route Attachment Mapping & evidencePaths Removal', () => {
+        const questionnaireId = 'q-att-test';
+
+        beforeEach(() => {
+            vi.mocked(resolveQuestionnaireContext).mockResolvedValue({
+                questionnaire: { id: questionnaireId, name: 'Attachment Test QN', isDeleted: false },
+                engagement: { org: { name: 'Supplier Org' } },
+                clientLE: { id: 'cle-1', legalEntityId: 'le-1', name: 'Client Entity', owners: [] },
+                clientLeId: 'cle-1',
+                subjectLeId: 'le-1',
+                ownerScopeId: 'scope-1'
+            } as any);
+        });
+
+        it('uses canonical resolvedAnswer.attachmentFilenames when supplied and does not pass evidencePaths', async () => {
+            const mockQuestion = {
+                id: 'q-mapped',
+                questionnaireId,
+                text: 'Certificate of Good Standing',
+                status: 'RELEASED',
+                order: 1,
+                documents: [{ id: 'doc-fallback', name: 'fallback_doc.pdf' }],
+                comments: []
+            };
+            vi.mocked(prisma.question.findMany).mockResolvedValue([mockQuestion as any]);
+
+            vi.mocked(resolveExportAnswer).mockResolvedValue({
+                displayValue: 'Document attached',
+                rawValue: null,
+                answerState: 'HAS_VALUE',
+                sourceCategory: 'USER',
+                attachmentFilenames: ['canonical_cert_2026.pdf']
+            });
+
+            const req = new NextRequest(`http://localhost/api/export/questionnaire/${questionnaireId}`);
+            const response = await GET(req, { params: Promise.resolve({ id: questionnaireId }) } as any);
+            expect(response.status).toBe(200);
+
+            const renderArgs = vi.mocked(renderToStream).mock.calls[0][0] as any;
+            const mappedItem = renderArgs.props.data[0];
+
+            // Invariant 1: Canonical attachmentFilenames takes precedence over direct documents
+            expect(mappedItem.attachmentFilenames).toEqual(['canonical_cert_2026.pdf']);
+
+            // Invariant 2: evidencePaths is completely removed from PDF data
+            expect(mappedItem).not.toHaveProperty('evidencePaths');
+        });
+
+        it('falls back to direct question.documents filenames when canonical attachmentFilenames is absent', async () => {
+            const mockQuestion = {
+                id: 'q-unmapped',
+                questionnaireId,
+                text: 'Legacy Attached Document',
+                status: 'RELEASED',
+                order: 1,
+                documents: [
+                    { id: 'doc-1', name: 'legacy_evidence_a.pdf' },
+                    { id: 'doc-2', name: 'legacy_evidence_b.pdf' }
+                ],
+                comments: []
+            };
+            vi.mocked(prisma.question.findMany).mockResolvedValue([mockQuestion as any]);
+
+            // Canonical resolver returns no attachments (e.g. unmapped question)
+            vi.mocked(resolveExportAnswer).mockResolvedValue({
+                displayValue: 'Documents attached',
+                rawValue: null,
+                answerState: 'HAS_VALUE',
+                sourceCategory: 'USER'
+            });
+
+            const req = new NextRequest(`http://localhost/api/export/questionnaire/${questionnaireId}`);
+            const response = await GET(req, { params: Promise.resolve({ id: questionnaireId }) } as any);
+            expect(response.status).toBe(200);
+
+            const renderArgs = vi.mocked(renderToStream).mock.calls[0][0] as any;
+            const mappedItem = renderArgs.props.data[0];
+
+            // Invariant 1: Falls back cleanly to direct documents
+            expect(mappedItem.attachmentFilenames).toEqual(['legacy_evidence_a.pdf', 'legacy_evidence_b.pdf']);
+
+            // Invariant 2: evidencePaths is completely removed
+            expect(mappedItem).not.toHaveProperty('evidencePaths');
+        });
+
+        it('leaves attachmentFilenames undefined when neither canonical attachments nor documents exist', async () => {
+            const mockQuestion = {
+                id: 'q-no-docs',
+                questionnaireId,
+                text: 'Plain Text Question',
+                status: 'RELEASED',
+                order: 1,
+                documents: [],
+                comments: []
+            };
+            vi.mocked(prisma.question.findMany).mockResolvedValue([mockQuestion as any]);
+
+            vi.mocked(resolveExportAnswer).mockResolvedValue({
+                displayValue: 'Simple answer',
+                rawValue: 'Simple answer',
+                answerState: 'HAS_VALUE',
+                sourceCategory: 'USER'
+            });
+
+            const req = new NextRequest(`http://localhost/api/export/questionnaire/${questionnaireId}`);
+            const response = await GET(req, { params: Promise.resolve({ id: questionnaireId }) } as any);
+            expect(response.status).toBe(200);
+
+            const renderArgs = vi.mocked(renderToStream).mock.calls[0][0] as any;
+            const mappedItem = renderArgs.props.data[0];
+
+            expect(mappedItem.attachmentFilenames).toBeUndefined();
+            expect(mappedItem).not.toHaveProperty('evidencePaths');
+        });
+    });
 });
