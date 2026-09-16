@@ -91,8 +91,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         const exportData = await Promise.all(questions.map(async (question: any) => {
             const resolvedAnswer = await resolveExportAnswer(question, subjectLeId, ownerScopeId || undefined, entityId, submissionId);
 
-            // For standalone PDF, we just list the document names
-            const evidencePaths = question.documents.map((doc: any) => doc.name);
+            const attachmentFilenames =
+                resolvedAnswer.attachmentFilenames?.length
+                    ? resolvedAnswer.attachmentFilenames
+                    : (question.documents || []).map((doc: any) => doc.name);
 
             return {
                 id: question.id,
@@ -108,10 +110,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
                 sourceCategory: resolvedAnswer.sourceCategory,
                 answerState: resolvedAnswer.answerState,
                 notes: question.comments.map((c: any) => `[${c.user?.name || 'User'}]: ${c.text}`).join("\n"),
-                evidencePaths,
                 groupFields: resolvedAnswer.groupFields,
                 groupDisplayStyle: resolvedAnswer.groupDisplayStyle,
-                attachmentFilenames: resolvedAnswer.attachmentFilenames
+                attachmentFilenames: attachmentFilenames.length > 0 ? attachmentFilenames : undefined
             };
         }));
 

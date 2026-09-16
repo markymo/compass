@@ -5,7 +5,7 @@ import { loadUATManifest, PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture
 const prisma = new PrismaClient();
 
 test.describe('ONP-194: Master Record Category Expand/Collapse Persistence & Default State', () => {
-    test.use({ storageState: PERSONA_STORAGE_STATES.leAdminAlpha });
+    test.use({ storageState: process.env.PLAYWRIGHT_STORAGE_STATE || PERSONA_STORAGE_STATES.leAdminAlpha });
     test.setTimeout(60000);
 
     let manifest: ReturnType<typeof loadUATManifest>;
@@ -14,8 +14,8 @@ test.describe('ONP-194: Master Record Category Expand/Collapse Persistence & Def
 
     test.beforeAll(async () => {
         manifest = loadUATManifest();
-        clientLEId = manifest.alphaClientLE.id;
-        userEmail = manifest.actors.leAdminAlpha.email;
+        clientLEId = process.env.CLIENT_LE_ID || manifest.alphaClientLE.id;
+        userEmail = process.env.USER_EMAIL || manifest.actors.leAdminAlpha.email;
     });
 
     test.afterAll(async () => {
@@ -143,4 +143,60 @@ test.describe('ONP-194: Master Record Category Expand/Collapse Persistence & Def
         // Must return to collapsed state without needing explicit collapse action
         await expect(field3Badge).not.toBeVisible({ timeout: 5000 });
     });
+
+    test('5. Compact collapsed layout: categories form dense register list (38-44px rows, no 24px gaps, total list height <= 850px)', async ({ page }) => {
+        await page.goto(`/app/le/${clientLEId}/master`);
+        await page.waitForLoadState('domcontentloaded');
+
+        // Master Record heading and category accordion headers must be visible
+        await expect(page.getByRole('heading', { name: 'Master Record', level: 2 })).toBeVisible({ timeout: 15000 });
+
+        // Ensure all categories are collapsed
+        const collapseAllBtn = page.getByRole('button', { name: 'Collapse all', exact: true });
+        await expect(collapseAllBtn).toBeVisible({ timeout: 15000 });
+        await collapseAllBtn.click();
+        await page.waitForTimeout(500);
+
+        const categoryHeaders = page.locator('[aria-label^="Toggle "]');
+        const count = await categoryHeaders.count();
+        expect(count).toBeGreaterThanOrEqual(15);
+
+        // Measure row heights and gaps in the DOM
+        const stats = await page.evaluate(() => {
+            const headers = Array.from(document.querySelectorAll('[aria-label^="Toggle "]'));
+            const boxes = headers.map(h => {
+                const card = h.closest('[data-slot="card"]') || h.parentElement;
+                const b = h.getBoundingClientRect();
+                const cardBox = card ? card.getBoundingClientRect() : b;
+                return {
+                    top: cardBox.top,
+                    bottom: cardBox.bottom,
+                    headerHeight: b.height,
+                    cardHeight: cardBox.height
+                };
+            });
+
+            const gaps = [];
+            for (let i = 0; i < boxes.length - 1; i++) {
+                gaps.push(boxes[i + 1].top - boxes[i].bottom);
+            }
+
+            const totalHeight = boxes.length > 0 ? boxes[boxes.length - 1].bottom - boxes[0].top : 0;
+            const avgRowHeight = boxes.reduce((a, b) => a + b.headerHeight, 0) / boxes.length;
+            const avgGap = gaps.length > 0 ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 0;
+
+            return { count: boxes.length, totalHeight, avgRowHeight, avgGap, maxGap: Math.max(...gaps) };
+        });
+
+        // ONP-194 Compact criteria:
+        // On unpatched code: avgRowHeight is ~61px, card height is 111px, avgGap is 24px, totalHeight is ~2,676px.
+        // Under compact design:
+        // - Row height roughly 38-44px
+        // - Inter-category gaps effectively removed (<= 2px border divider)
+        // - Total height of collapsed category list is <= 850px (~3.3x density increase)
+        expect(stats.avgRowHeight).toBeLessThanOrEqual(44);
+        expect(stats.maxGap).toBeLessThanOrEqual(2);
+        expect(stats.totalHeight).toBeLessThanOrEqual(850);
+    });
 });
+

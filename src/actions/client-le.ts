@@ -1059,20 +1059,21 @@ export async function getFullMasterData(clientLEId: string) {
             authorityName: primaryRef.authority.name,
             localRegistrationNumber: primaryRef.localRegistrationNumber,
             lastSyncSucceededAt: primaryRef.lastSyncSucceededAt,
-            lastSyncStatus: primaryRef.lastSyncStatus
+            lastSyncStatus: primaryRef.lastSyncStatus,
+            status: primaryRef.status
         };
 
-        if (primaryRef.lastSyncStatus === 'SUCCESS') {
-            computedEnrichmentStatus = 'ENRICHED';
-        } else if (primaryRef.lastSyncStatus === 'FAILED') {
-            computedEnrichmentStatus = 'FAILED';
-        } else if (primaryRef.status === 'UNSUPPORTED') {
+        if (primaryRef.status === 'UNSUPPORTED') {
             // Unsupported registry has no connector: check alternative source (GLEIF)
             if (clientLE.gleifFetchedAt) {
                 computedEnrichmentStatus = 'ENRICHED';
             } else {
                 computedEnrichmentStatus = 'PENDING_LEI';
             }
+        } else if (primaryRef.lastSyncStatus === 'SUCCESS') {
+            computedEnrichmentStatus = 'ENRICHED';
+        } else if (primaryRef.lastSyncStatus === 'FAILED') {
+            computedEnrichmentStatus = 'FAILED';
         } else {
             computedEnrichmentStatus = 'PENDING_ENRICHMENT';
         }

@@ -224,23 +224,7 @@ const styles = StyleSheet.create({
         marginLeft: 10,
         marginTop: 2
     },
-    evidenceBlock: { 
-        marginTop: 8, 
-        padding: 8, 
-        backgroundColor: '#f8fafc', 
-        borderLeft: '2px solid #cbd5e1' 
-    },
-    evidenceLabel: { 
-        fontSize: 8, 
-        fontStyle: 'italic', 
-        color: '#64748b', 
-        marginBottom: 4 
-    },
-    evidencePath: { 
-        fontSize: 9, 
-        color: '#2563eb', 
-        marginBottom: 2 
-    },
+
     
     // Attachments
     attachmentsHeader: {
@@ -407,7 +391,7 @@ export interface QuestionnairePDFProps {
         sourceLabel?: string;
         sourceTimestamp?: string;
         notes?: string;
-        evidencePaths?: string[];
+        attachmentFilenames?: string[];
         groupFields?: {
             fieldNo: number;
             label: string;
@@ -416,6 +400,7 @@ export interface QuestionnairePDFProps {
             order: number;
             sourceLabel?: string;
             sourceTimestamp?: string | null;
+            attachmentFilenames?: string[];
         }[];
         groupDisplayStyle?: 'LIST' | 'COMPACT' | 'GRID';
     }[];
@@ -609,7 +594,7 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                             )
                         ) : (
                             <View>
-                                <Text style={styles.answer}>Answer: {item.answer || "No response recorded"}</Text>
+                                <Text style={styles.answer}>{item.answer || "No response recorded"}</Text>
                                 {item.displayContext && item.answerState === 'HAS_VALUE' && (
                                     <Text style={{ fontSize: 8, color: '#64748b', fontStyle: 'italic', marginTop: 2, marginBottom: 2 }}>
                                         {item.displayContext}
@@ -633,15 +618,6 @@ export const QuestionnairePDF = ({ data, title, exportMetadata }: QuestionnaireP
                             {item.sourceLabel && <Text style={styles.provenanceText}>Source: {item.sourceLabel}</Text>}
                             {item.sourceTimestamp && <Text style={styles.provenanceText}>Last validated: {formatSystemDateTime(item.sourceTimestamp, exportMetadata?.timezone || 'UTC')}</Text>}
                         </View>
-                        
-                        {item.evidencePaths && item.evidencePaths.length > 0 && (
-                            <View style={styles.evidenceBlock}>
-                                <Text style={styles.evidenceLabel}>Evidence Attached:</Text>
-                                {item.evidencePaths.map((path: string, j: number) => (
-                                    <Text key={j} style={styles.evidencePath}>📄 {path}</Text>
-                                ))}
-                            </View>
-                        )}
 
                         {item.notes && item.notes.length > 0 && (
                             <View>

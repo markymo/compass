@@ -172,7 +172,14 @@ export async function getBoardQuestions(engagementId: string) {
                         isDeleted: false,
                         fiEngagementId: engagementId
                     }
-                }
+                },
+                ...(clientLEId ? [{
+                    questionnaire: {
+                        isDeleted: false,
+                        kind: "COMMON_QUESTIONNAIRE" as any,
+                        commonForClients: { some: { id: clientLEId } }
+                    }
+                }] : [])
             ]
         },
         orderBy: { order: 'asc' },
@@ -198,6 +205,22 @@ export async function getBoardQuestions(engagementId: string) {
             }
         }
     });
+
+    // Pre-resolve canonical attachments for mapped questions
+    let canonicalMap = new Map<string, import("@/lib/kyc/attachments").QuestionAttachmentResult>();
+    if (clientLEId && questions.length > 0) {
+        canonicalMap = await resolveQuestionAttachmentsBatch(
+            questions.map((q: any) => ({
+                id: q.id,
+                masterFieldNo: q.masterFieldNo,
+                masterQuestionGroupId: q.masterQuestionGroupId,
+            })),
+            {
+                clientLEId,
+                subjectLeId,
+            }
+        );
+    }
 
     // 1. Resolve Master Data for each question
     const resolvedQuestions = await Promise.all(questions.map(async (q: any) => {
@@ -293,12 +316,23 @@ export async function getBoardQuestions(engagementId: string) {
             // @ts-ignore
             allowAttachments: q.allowAttachments,
             // @ts-ignore
-            documents: q.documents ? q.documents.map((d: any) => ({
-                id: d.id,
-                name: d.name,
-                fileType: d.mimeType || 'unknown',
-                kbSize: d.sizeBytes ? Math.round(Number(d.sizeBytes) / 1024) : null
-            })) : [],
+            documents: (() => {
+                const isMapped = Boolean(q.masterFieldNo || (q as any).masterQuestionGroupId);
+                if (isMapped && canonicalMap.has(q.id)) {
+                    return canonicalMap.get(q.id)!.attachments.map((d: any) => ({
+                        id: d.documentId,
+                        name: d.displayName,
+                        fileType: d.mimeType || 'unknown',
+                        kbSize: d.sizeBytes ? Math.round(Number(d.sizeBytes) / 1024) : null
+                    }));
+                }
+                return q.documents ? q.documents.map((d: any) => ({
+                    id: d.id,
+                    name: d.name,
+                    fileType: d.mimeType || 'unknown',
+                    kbSize: d.sizeBytes ? Math.round(Number(d.sizeBytes) / 1024) : null
+                })) : [];
+            })(),
             masterFieldNo: q.masterFieldNo,
             customFieldDefinitionId: (q as any).customFieldDefinitionId,
             masterQuestionGroupId: (q as any).masterQuestionGroupId,
@@ -1425,7 +1459,14 @@ export async function getEngagementEvidenceDocuments(engagementId: string) {
                             isDeleted: false,
                             fiEngagementId: engagementId
                         }
-                    }
+                    },
+                    ...(engagement?.clientLEId ? [{
+                        questionnaire: {
+                            isDeleted: false,
+                            kind: "COMMON_QUESTIONNAIRE" as any,
+                            commonForClients: { some: { id: engagement.clientLEId } }
+                        }
+                    }] : [])
                 ]
             },
             select: {

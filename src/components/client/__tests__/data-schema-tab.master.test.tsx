@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { DataSchemaTab } from '../data-schema-tab';
 
 // Mock next-auth to avoid next/server errors
@@ -347,5 +347,41 @@ describe('DataSchemaTab - /master rendering boundary', () => {
             expect(uncatDescSpan?.querySelector('em')?.textContent).toBe('italic');
         });
     });
+
+    describe('Unsupported national registry UI invariant', () => {
+        it("Unsupported national registry UI displays 'No automated connector', suppresses 'Sync Failed', and omits 'Check for Updates' action", () => {
+            render(
+                <DataSchemaTab
+                    leId="cle_unsupported_ui"
+                    masterData={{}}
+                    masterFields={[]}
+                    masterGroups={[]}
+                    categories={[]}
+                    uncategorizedFields={[]}
+                    nationalRegistryData={{
+                        id: 'ref_ra592_ui',
+                        authorityName: 'Financial Conduct Authority',
+                        localRegistrationNumber: '730398',
+                        lastSyncSucceededAt: null,
+                        lastSyncStatus: 'FAILED',
+                        status: 'UNSUPPORTED',
+                    } as any}
+                />
+            );
+
+            // 1. "Sync Failed" must NOT be displayed
+            expect(screen.queryByText(/Sync Failed/i)).toBeNull();
+
+            // 2. "No automated connector" MUST be displayed
+            expect(screen.getByText(/No automated connector/i)).toBeTruthy();
+
+            // 3. The card must NOT offer an actionable "Check for Updates" sync button
+            const registryLabel = screen.getByText(/Financial Conduct Authority - 730398/i);
+            const registryCard = registryLabel.closest('div.flex.items-center.justify-between');
+            expect(registryCard).toBeTruthy();
+            expect(within(registryCard!).queryByRole('button', { name: /Check for Updates/i })).toBeNull();
+        });
+    });
 });
+
 

@@ -28,6 +28,7 @@ vi.mock('@/lib/prisma', () => ({
             update: vi.fn().mockResolvedValue({}),
         },
         registryReference: { upsert: vi.fn() },
+        registryAuthority: { findUnique: vi.fn(), upsert: vi.fn() },
         fIEngagement: { findMany: vi.fn().mockResolvedValue([]) },
         masterFieldGroup: { findMany: vi.fn().mockResolvedValue([]) },
     },
@@ -83,6 +84,8 @@ vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 // ─── Imports (after mocks) ────────────────────────────────────────────────────
 import { mapGleifPayloadToFieldCandidates } from '@/services/kyc/normalization/GleifNormalizer';
 import { refreshGleifProposals } from '@/actions/kyc-proposals';
+import { deriveRegistryReferencesFromGleif, RegistryEnrichmentService } from '@/domain/registry';
+import prisma from '@/lib/prisma';
 
 const gleifNormalizerMock = mapGleifPayloadToFieldCandidates as ReturnType<typeof vi.fn>;
 
@@ -199,5 +202,65 @@ describe('refreshGleifProposals — auto-apply and notify flow', () => {
         expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('999'));
 
         warnSpy.mockRestore();
+    });
+
+    it('T5: unsupported national registry (RA000592) does not poison GLEIF refresh', async () => {
+        gleifNormalizerMock.mockResolvedValue([
+            { fieldNo: 3, value: 'ZZOOMM PLC', source: 'GLEIF', evidenceId: 'ev-001', confidence: 1.0 },
+        ]);
+
+        mocks._getMasterFieldDefinitionMock.mockImplementation(async (n: number) => makeDbField(3, 'Legal name'));
+
+        // Mock unsupported registry reference derived from GLEIF
+        vi.mocked(deriveRegistryReferencesFromGleif).mockReturnValue([
+            {
+                clientLEId: 'client-le-001',
+                sourceSystem: 'GLEIF',
+                sourceRecordId: '213800TEST0000000001',
+                registryAuthorityId: 'RA000592',
+                localRegistrationNumber: '730398',
+                status: 'NEW',
+                confidence: 1.0,
+            } as any
+        ]);
+
+        (prisma.registryAuthority.findUnique as any).mockResolvedValue({
+            id: 'RA000592',
+            name: 'Financial Conduct Authority',
+            countryCode: 'GB',
+        });
+
+        (prisma.registryReference.upsert as any).mockResolvedValue({
+            id: 'ref-fca-001',
+            clientLEId: 'client-le-001',
+            registryAuthorityId: 'RA000592',
+            localRegistrationNumber: '730398',
+            status: 'UNSUPPORTED',
+            lastSyncStatus: null,
+        });
+
+        // RegistryEnrichmentService returns failure because RA000592 has no connector
+        vi.mocked(RegistryEnrichmentService.enrich).mockResolvedValue({
+            success: false,
+            error: 'No connector for authority RA000592',
+        });
+
+        const result = await refreshGleifProposals('client-le-001');
+
+        // 1. Refresh action succeeds
+        expect(result.success).toBe(true);
+        // 2. GLEIF proposals are still successfully generated
+        expect(result.proposals).toHaveLength(1);
+        expect(result.proposals![0].fieldNo).toBe(3);
+        expect(result.proposals![0].action).toBe('AUTO_APPLIED');
+        // 3. GLEIF master cache persistence occurs
+        expect(prisma.clientLE.update).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: { id: 'client-le-001' },
+                data: expect.objectContaining({
+                    gleifFetchedAt: expect.any(Date),
+                }),
+            })
+        );
     });
 });

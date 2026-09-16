@@ -759,6 +759,36 @@ describe('ONP-183: Multi-Dossier Enrichment & Registry Failure Isolation (8 Scen
             expect((masterData as any).enrichmentStatus).not.toBe('ENRICHED');
             expect((masterData as any).enrichmentStatus).not.toBe('FAILED');
         });
+
+        it('G5 (Historical Unsupported State Invariant): Historical record with status = UNSUPPORTED and lastSyncStatus = FAILED does not compute FAILED when GLEIF succeeded', async () => {
+            (prisma.clientLE.findFirst as any).mockResolvedValue({
+                id: 'clientLE_historical_unsupported',
+                name: 'Historical Entity',
+                status: 'ACTIVE',
+                isDeleted: false,
+                legalEntityId: 'le_historical',
+                gleifFetchedAt: new Date('2026-08-20T10:00:00Z'),
+                registryReferences: [
+                    {
+                        id: 'ref_historical_unsupported',
+                        status: 'UNSUPPORTED',
+                        lastSyncStatus: 'FAILED',
+                        lastSyncSucceededAt: null,
+                        localRegistrationNumber: '730398',
+                        authority: {
+                            id: 'RA000592',
+                            name: 'Financial Conduct Authority',
+                        },
+                    },
+                ],
+            });
+
+            const masterData = await getFullMasterData('clientLE_historical_unsupported');
+
+            expect(masterData.success).toBe(true);
+            expect((masterData as any).enrichmentStatus).toBe('ENRICHED');
+            expect((masterData as any).enrichmentStatus).not.toBe('FAILED');
+        });
     });
 
     // ─── SCENARIO H: Companies House RA Routing & Persistent Self-Healing ───

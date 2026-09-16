@@ -4,7 +4,13 @@
  * Bulk-insert / upsert MasterDataOptionSet records directly into Neon via Prisma.
  *
  * Usage:
- *   npx ts-node -r tsconfig-paths/register scripts/seed-option-sets.ts
+ *   # Seed all option sets:
+ *   npm run db:seed:option-sets
+ *
+ *   # Targeted seed for a single option set:
+ *   npm run db:seed:option-sets -- ISO_Currency_Code
+ *   # or:
+ *   npx ts-node -O '{"module":"commonjs"}' scripts/seed-option-sets.ts ISO_Currency_Code
  *
  * Behaviour:
  *   - Each entry below is upserted by `name` (unique key).
@@ -22,6 +28,7 @@
 
 // @ts-nocheck
 import { PrismaClient } from "@prisma/client";
+import isoCurrencies from "./iso-currencies.json";
 
 const prisma = new PrismaClient();
 
@@ -29,12 +36,20 @@ const prisma = new PrismaClient();
 //  ADD / EDIT YOUR OPTION SETS HERE
 // ─────────────────────────────────────────────────────────────────────────────
 
-const OPTION_SETS: Array<{
+export const OPTION_SETS: Array<{
     name: string;
     description?: string;
     valueType: "STRING" | "NUMBER" | "BOOLEAN";
     options: Array<{ label: string; value: string | number | boolean }>;
 }> = [
+
+    // ── ISO 4217 Currencies (ONP-190) ─────────────────────────────────────────
+    {
+        name: "ISO_Currency_Code",
+        description: "ISO 4217:2015 3 letter currency code (https://www.six-group.com/en/products-services/financial-information/data-standards.html)",
+        valueType: "STRING",
+        options: isoCurrencies,
+    },
 
     // ── Example: Legal Entity Types ──────────────────────────────────────────
     {
@@ -116,26 +131,29 @@ const OPTION_SETS: Array<{
         ],
     },
 
-    // ── Paste your next set below this line ───────────────────────────────────
-    // {
-    //     name: "My_New_Set",
-    //     description: "...",
-    //     valueType: "STRING",
-    //     options: [
-    //         { label: "Display Label", value: "RAW_VALUE" },
-    //     ],
-    // },
-
 ];
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Runner — no need to edit below this line
+//  Runner — supports seeding all or a single targeted option set
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function main() {
-    console.log(`\n🌱  Seeding ${OPTION_SETS.length} option set(s) into Neon…\n`);
+export async function main(targetName?: string) {
+    const args = process.argv.slice(2).filter((arg) => !arg.startsWith("-"));
+    const requested = targetName || args[0];
 
-    for (const set of OPTION_SETS) {
+    const setsToSeed = requested
+        ? OPTION_SETS.filter((s) => s.name === requested)
+        : OPTION_SETS;
+
+    if (requested && setsToSeed.length === 0) {
+        console.error(`\n❌  No option set found matching: "${requested}"`);
+        console.error(`Available option sets: ${OPTION_SETS.map((s) => s.name).join(", ")}\n`);
+        process.exit(1);
+    }
+
+    console.log(`\n🌱  Seeding ${setsToSeed.length} option set(s) into Neon…\n`);
+
+    for (const set of setsToSeed) {
         const existing = await prisma.masterDataOptionSet.findUnique({
             where: { name: set.name },
             select: { id: true, name: true },
@@ -169,9 +187,11 @@ async function main() {
     console.log("\n✔  Done.\n");
 }
 
-main()
-    .catch((e) => {
-        console.error("❌  Seed failed:", e);
-        process.exit(1);
-    })
-    .finally(() => prisma.$disconnect());
+if (require.main === module) {
+    main()
+        .catch((e) => {
+            console.error("❌  Seed failed:", e);
+            process.exit(1);
+        })
+        .finally(() => prisma.$disconnect());
+}
