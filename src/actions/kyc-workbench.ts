@@ -92,11 +92,14 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
     const subjectLeId = clientLE?.legalEntityId;
 
     // Load all claims + all source mappings in parallel (2 queries, no waterfall)
-    const [allClaims, allSourceMappings] = subjectLeId
+    const [allClaims, allSourceMappings] = (subjectLeId || leId)
         ? await Promise.all([
             prisma.fieldClaim.findMany({
                 where: {
-                    subjectLeId,
+                    OR: [
+                        ...(subjectLeId ? [{ subjectLeId }] : []),
+                        { clientLEId: leId }
+                    ],
                     claimRole: 'VALUE',
                     status: { in: ['VERIFIED', 'ASSERTED'] },
                     OR: [{ ownerScopeId: ownerScopeId || null }, { ownerScopeId: null }]
@@ -130,11 +133,11 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
 
     // Resolve Master Data values using the canonical batch resolver
     let resolvedValues: Record<string, Record<string, import("./kyc-query").HydratedValue>> = {};
-    if (subjectLeId) {
+    if (subjectLeId || leId) {
         const provenanceMap = await fetchProvenanceMap({ clientLEId: leId });
 
         const batchInput: BatchResolverInput = {
-            subjectLeId,
+            subjectLeId: subjectLeId || leId,
             ownerScopeId,
             questions: [
                 ...mappedQuestions
@@ -169,7 +172,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
         }
         const allFieldNos = allFields.map((f: any) => f.fieldNo);
         const fieldDefsMap = new Map(allFields.map((f: any) => [f.fieldNo, { allowAttachments: f.allowAttachments, profileConfig: f.profileConfig }]));
-        const resolvedAttachments = await resolveAmalgamatedAttachments({ subjectLeId, clientLEId: leId }, allFieldNos, resolvedValuesMap, fieldDefsMap);
+        const resolvedAttachments = await resolveAmalgamatedAttachments({ subjectLeId: subjectLeId || leId, clientLEId: leId }, allFieldNos, resolvedValuesMap, fieldDefsMap);
 
         for (const hvMap of Object.values(resolvedValues)) {
             for (const [fNo, hv] of Object.entries(hvMap)) {

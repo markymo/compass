@@ -1,8 +1,22 @@
 import { test, expect } from '@playwright/test';
+import { PrismaClient } from '@prisma/client';
 import { loadUATManifest, PERSONA_STORAGE_STATES } from '../fixtures/uat-fixture';
+import PDFParser from 'pdf2json';
+
+function parsePdfBuffer(buffer: Buffer): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const parser = new PDFParser(null, true);
+        parser.on("pdfParser_dataError", (err: any) => reject(err.parserError));
+        parser.on("pdfParser_dataReady", () => resolve(parser.getRawTextContent()));
+        parser.parseBuffer(buffer);
+    });
+}
+
+const prisma = new PrismaClient();
 
 test.describe('ONP-190 — ISO Currency Code Smoke Test on dev.onpro.tech', () => {
     test.use({ storageState: PERSONA_STORAGE_STATES.leAdminAlpha });
+    test.setTimeout(90000);
 
     test('Field 116 (SSI 1 Currency) renders corrected currency options with GBP/EUR/USD pinned', async ({ page }) => {
         const manifest = loadUATManifest();
@@ -122,5 +136,60 @@ test.describe('ONP-190 — ISO Currency Code Smoke Test on dev.onpro.tech', () =
         // Reload page and verify /master main field row displays GBP – Pound Sterling
         await page.reload({ waitUntil: 'networkidle' });
         await expect(fieldRow).toContainText('GBP – Pound Sterling');
+    });
+
+    test('Question Bank / Workbench4 and PDF export render canonical currency label (GBP – Pound Sterling)', async ({ page, request }) => {
+        const manifest = loadUATManifest();
+        const clientLEId = manifest.alphaClientLE.id;
+        const qnId = 'aefdb294-6796-472d-bb30-7959c3f744fd'; // Alpha Common Due Diligence
+        const questionId = '56622fc5-5861-4d98-acb0-848cf851abe3'; // Common Question 1
+
+        try {
+            // Ensure question is mapped to Field 116
+            await prisma.question.update({
+                where: { id: questionId },
+                data: { masterFieldNo: 116 }
+            });
+
+            // Verify raw stored value on latest claim in database is strictly 'GBP'
+            const latestClaim = await prisma.fieldClaim.findFirst({
+                where: {
+                    fieldNo: 116,
+                    clientLEId
+                },
+                orderBy: { assertedAt: 'desc' }
+            });
+            expect(latestClaim?.valueText).toBe('GBP');
+
+            // 1. Surface 3: Question Bank / Workbench4
+            await page.goto(`/app/le/${clientLEId}/workbench4`, { waitUntil: 'networkidle' });
+
+            // Locate Question card for Common Question 1
+            const questionHeading = page.getByText('Common Question 1', { exact: true });
+            await expect(questionHeading).toBeVisible({ timeout: 15000 });
+            const questionCard = questionHeading.locator('xpath=ancestor::div[contains(@class, "p-4")][1]');
+            await expect(questionCard).toBeVisible({ timeout: 5000 });
+
+            // Confirm it renders canonical display label "GBP – Pound Sterling" and not merely "GBP"
+            await expect(questionCard).toContainText('GBP – Pound Sterling');
+
+            // 2. Surface 4: PDF Export
+            const response = await request.get(`/api/export/questionnaire/${qnId}`);
+            expect(response.status()).toBe(200);
+            expect(response.headers()['content-type']).toContain('application/pdf');
+
+            const pdfBuffer = await response.body();
+            expect(pdfBuffer.length).toBeGreaterThan(1000);
+
+            const pdfText = await parsePdfBuffer(pdfBuffer);
+            expect(pdfText).toContain('Common Question 1');
+            expect(pdfText).toContain('GBP – Pound Sterling');
+        } finally {
+            // Cleanup: restore question mapping to null
+            await prisma.question.update({
+                where: { id: questionId },
+                data: { masterFieldNo: null }
+            });
+        }
     });
 });
