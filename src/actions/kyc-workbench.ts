@@ -259,7 +259,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
     });
 
     // Populate resolved values onto the questions array
-    if (mappedQuestions.length > 0 && subjectLeId) {
+    if (mappedQuestions.length > 0 && (subjectLeId || leId)) {
         questions.forEach((q: any) => {
             if (q.customFieldDefinitionId) {
                 const val = customData[q.customFieldDefinitionId];
