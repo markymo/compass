@@ -26,7 +26,7 @@ import { resolveAmalgamatedAttachments } from "@/lib/kyc/attachments";
 import { FieldClaimService } from "@/lib/kyc/FieldClaimService";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import { toExportText } from "@/lib/export/toExportText";
-import { resolveFieldForDisplay, resolveFieldCollectionForDisplay } from "@/lib/master-data/field-interpreter";
+import { resolveFieldForDisplay, resolveFieldCollectionForDisplay, extractFieldOptions } from "@/lib/master-data/field-interpreter";
 import { compareAndLogShadowRender } from "@/lib/master-data/shadow-logger";
 import { FieldDisplayModel } from "@/lib/master-data/field-display-model";
 import * as Sentry from "@sentry/nextjs";
@@ -943,7 +943,8 @@ export async function getFullMasterData(clientLEId: string) {
                                 allowAttachments: def.allowAttachments,
                                 attachments: resolvedAttachments.get(def.fieldNo) || [],
                                 clientLEId,
-                                rawSource
+                                rawSource,
+                                options: extractFieldOptions(def)
                             }
                         ) : resolveFieldForDisplay(
                             valueToSet,
@@ -963,7 +964,8 @@ export async function getFullMasterData(clientLEId: string) {
                                 })(),
                                 allowAttachments: def.allowAttachments,
                                 attachments: resolvedAttachments.get(def.fieldNo) || [],
-                                clientLEId
+                                clientLEId,
+                                options: extractFieldOptions(def)
                             }
                         );
                     const t3 = performance.now();

@@ -29,6 +29,34 @@ export interface FieldInterpreterMetadata {
     rawSource?: RawFieldSource | null;
     /** Admin-configured display context resolved via resolveFieldDisplayContext(). */
     displayContext?: string;
+    /** Configured dropdown options for option-set or SELECT fields (used for display label resolution). */
+    options?: Array<string | { value: string; label: string }>;
+}
+
+/**
+ * Extracts and normalizes options from a Master Field definition.
+ * Prefers optionSet.options ({ label, value } array) over legacy def.options.
+ */
+export function extractFieldOptions(
+    def: { options?: any; optionSet?: { options?: any } | null } | null | undefined
+): Array<{ value: string; label: string }> | undefined {
+    if (!def) return undefined;
+    const optionSet = def.optionSet;
+    if (optionSet?.options && Array.isArray(optionSet.options) && optionSet.options.length > 0) {
+        return optionSet.options.map((o: any) =>
+            typeof o === 'object' && o !== null && o.label !== undefined
+                ? { label: String(o.label), value: String(o.value ?? o.label) }
+                : { label: String(o), value: String(o) }
+        );
+    }
+    if (def.options && Array.isArray(def.options) && def.options.length > 0) {
+        return def.options.map((o: any) =>
+            typeof o === 'object' && o !== null && o.label !== undefined
+                ? { label: String(o.label), value: String(o.value ?? o.label) }
+                : { label: String(o), value: String(o) }
+        );
+    }
+    return undefined;
 }
 
 /**
@@ -77,7 +105,7 @@ export function resolveFieldCollectionForDisplay(
         if (typeof innerVal === 'string' && (innerVal.startsWith('{') || innerVal.startsWith('['))) {
             try { innerVal = JSON.parse(innerVal); } catch (e) {}
         }
-        const val = parseAnyValue(innerVal, metadata.profileConfig?.displayMask, metadata.codeSystem, metadata.appDataType, metadata.fieldNo);
+        const val = parseAnyValue(innerVal, metadata.profileConfig?.displayMask, metadata.codeSystem, metadata.appDataType, metadata.fieldNo, metadata.options);
 
         let itemAttachments: ResolvedAttachment[] | undefined;
         let ccPartyId: string | undefined;
@@ -184,7 +212,7 @@ export function resolveFieldForDisplay(
         : undefined;
 
     const state = resolveState(metadata.displayState, parsedValue, normalizedDefaultText);
-    const resolvedValue = resolveValue(parsedValue, state, normalizedDefaultText, metadata.profileConfig?.displayMask, metadata.codeSystem, metadata.appDataType, metadata.fieldNo);
+    const resolvedValue = resolveValue(parsedValue, state, normalizedDefaultText, metadata.profileConfig?.displayMask, metadata.codeSystem, metadata.appDataType, metadata.fieldNo, metadata.options);
     const source = resolveSource(rawSource, state);
 
     return {
@@ -240,7 +268,8 @@ function resolveValue(
     displayMask?: string[],
     codeSystem?: string,
     appDataType?: string,
-    fieldNo?: number
+    fieldNo?: number,
+    options?: Array<string | { value: string; label: string }>
 ): ResolvedFieldValue {
     if (state === 'EXPLICIT_NONE' || state === 'NO_DATA' || state === 'UNMAPPED') {
         return { kind: 'empty' };
@@ -254,13 +283,20 @@ function resolveValue(
         };
     }
 
-    return parseAnyValue(parsedValue, displayMask, codeSystem, appDataType, fieldNo);
+    return parseAnyValue(parsedValue, displayMask, codeSystem, appDataType, fieldNo, options);
 }
 
 import { normaliseCCPartyData as normalisePartyReadModel } from './party-v2/normaliser';
 import { getPartyLabel } from './party-v2/label-helper';
 
-export function parseAnyValue(val: any, displayMask?: string[], codeSystem?: string, appDataType?: string, fieldNo?: number): ResolvedFieldValue {
+export function parseAnyValue(
+    val: any,
+    displayMask?: string[],
+    codeSystem?: string,
+    appDataType?: string,
+    fieldNo?: number,
+    options?: Array<string | { value: string; label: string }>
+): ResolvedFieldValue {
     if (val === null || val === undefined) return { kind: 'empty' };
 
     if (val instanceof Date) {
@@ -314,7 +350,7 @@ export function parseAnyValue(val: any, displayMask?: string[], codeSystem?: str
         return {
             kind: 'collection',
             items: val.map(item => ({ 
-                value: parseAnyValue(item, displayMask, codeSystem, appDataType, fieldNo),
+                value: parseAnyValue(item, displayMask, codeSystem, appDataType, fieldNo, options),
                 source: item?.sourceType ? (resolveSource({ type: item.sourceType, reference: item.sourceReference }, 'POPULATED') ?? undefined) : undefined
             }))
         };
@@ -323,7 +359,7 @@ export function parseAnyValue(val: any, displayMask?: string[], codeSystem?: str
     if (typeof val === 'object') {
         // Unwrap envelope { value, source } if present
         if (val !== null && 'value' in val && ('source' in val || 'sourceType' in val)) {
-            return parseAnyValue(val.value, displayMask, codeSystem, appDataType, fieldNo);
+            return parseAnyValue(val.value, displayMask, codeSystem, appDataType, fieldNo, options);
         }
         if (val.ccPartyId) {
             const rawResolvedParty = val.ccParty?.data || val._resolvedData?.ccParty?.data;
@@ -429,6 +465,18 @@ export function parseAnyValue(val: any, displayMask?: string[], codeSystem?: str
                 return { kind: 'scalar', display, rawValue: val };
             }
         } catch {}
+    }
+    
+    if (options && options.length > 0) {
+        const rawStr = String(val);
+        const matched = options.find(opt => {
+            const optVal = typeof opt === 'object' && opt !== null ? opt.value : opt;
+            return String(optVal) === rawStr;
+        });
+        if (matched) {
+            const displayLabel = typeof matched === 'object' && matched !== null ? matched.label : matched;
+            return { kind: 'scalar', display: String(displayLabel), rawValue: val };
+        }
     }
     
     return { kind: 'scalar', display: String(val), rawValue: val };

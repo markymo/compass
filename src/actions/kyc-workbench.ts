@@ -5,7 +5,7 @@ import { getConsoleQuestions, ConsoleQuestion, resolveMasterData, resolveMasterD
 import { fetchProvenanceMap } from "@/lib/kyc/provenance-enricher";
 import { fetchRaNameLookup } from "@/lib/kyc/source-label.server";
 import { KycStateService } from "@/lib/kyc/KycStateService";
-import { listAllMasterFields, listAllMasterGroups, listAllMasterGroupsWithItems, getMasterFieldGroup } from "@/services/masterData/definitionService";
+import { listAllMasterFields, listAllMasterGroups, listAllMasterGroupsWithItems, getMasterFieldGroup, getMasterFieldDefinition } from "@/services/masterData/definitionService";
 import { extractCanonicalPartyIds } from "@/lib/master-data/party-value";
 import { resolveAmalgamatedAttachments } from "@/lib/kyc/attachments";
 import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
@@ -16,7 +16,7 @@ import { generateObject } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { ensureQuestionNotReferenceSnapshot } from "./questionnaire";
-import { resolveFieldForDisplay, resolveFieldCollectionForDisplay, resolveFieldDisplayContext } from "@/lib/master-data/field-interpreter";
+import { resolveFieldForDisplay, resolveFieldCollectionForDisplay, resolveFieldDisplayContext, extractFieldOptions } from "@/lib/master-data/field-interpreter";
 
 import { getIdentity } from "@/lib/auth";
 import { can, Action } from "@/lib/auth/permissions";
@@ -111,8 +111,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
         : [[], []] as [any[], any[]];
         
     // Build fieldDefMap from already-loaded allFields
-    const fieldDefMap = new Map<number, { fieldNo: number; fieldName: string; appDataType: string; isMultiValue: boolean; profileConfig?: any; defaultResponse?: string | null; displayContext?: string | null; displayContextEnabled?: boolean }>(
-        allFields.map((f: any) => [f.fieldNo, { fieldNo: f.fieldNo, fieldName: f.fieldName ?? '', appDataType: f.appDataType, isMultiValue: f.isMultiValue, profileConfig: f.profileConfig, defaultResponse: f.defaultResponse, displayContext: f.displayContext, displayContextEnabled: f.displayContextEnabled }])
+    const fieldDefMap = new Map<number, { fieldNo: number; fieldName: string; appDataType: string; isMultiValue: boolean; profileConfig?: any; defaultResponse?: string | null; displayContext?: string | null; displayContextEnabled?: boolean; options?: any; optionSet?: any }>(
+        allFields.map((f: any) => [f.fieldNo, { fieldNo: f.fieldNo, fieldName: f.fieldName ?? '', appDataType: f.appDataType, isMultiValue: f.isMultiValue, profileConfig: f.profileConfig, defaultResponse: f.defaultResponse, displayContext: f.displayContext, displayContextEnabled: f.displayContextEnabled, options: f.options, optionSet: f.optionSet }])
     );
 
     // Build groupFieldMap from already-loaded allGroupsWithItems
@@ -339,6 +339,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
                             attachments: hydratedVal.attachments,
                             rawSource: rawSourceToUse,
                             displayContext: resolveFieldDisplayContext(def),
+                            options: extractFieldOptions(def),
                         };
 
                         const canonicalDisplayModel = hydratedVal ? (
@@ -426,6 +427,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
                             attachments: fv.attachments,
                             rawSource: rawSourceToUse,
                             displayContext: resolveFieldDisplayContext(def),
+                            options: extractFieldOptions(def),
                         };
 
                         q.canonicalDisplayModel = (isMulti && Array.isArray(fv.value))
@@ -579,7 +581,10 @@ export async function mapQuestionToField(
                         newSource = fv.source;
                         newUpdatedAt = fv.updatedAt || null;
 
-                        const def = await prisma.masterFieldDefinition.findUnique({ where: { fieldNo: mapping.fieldNo! } });
+                        const def = await prisma.masterFieldDefinition.findUnique({
+                            where: { fieldNo: mapping.fieldNo! },
+                            include: { optionSet: true }
+                        });
                         newCanonicalDisplayModel = resolveFieldForDisplay(
                             fv.value,
                             fv.source ? { type: fv.source as any, reference: fv.sourceReference, timestamp: fv.updatedAt ?? null, sourceCheckedAt: fv.sourceCheckedAt ?? null } : null,
@@ -589,7 +594,8 @@ export async function mapQuestionToField(
                                 displayState: fv.isSynced ? 'HAS_VALUE' : 'CHECKED_NO_DATA',
                                 appDataType: (def?.appDataType || 'JSON') as any,
                                 profileConfig: def?.profileConfig as { displayMask?: string[] } | undefined,
-                                isMultiValue: def?.isMultiValue || false
+                                isMultiValue: def?.isMultiValue || false,
+                                options: extractFieldOptions(def)
                             }
                         );
                     }

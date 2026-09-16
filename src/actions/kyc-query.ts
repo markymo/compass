@@ -9,7 +9,7 @@ import { getComplexFieldConfig } from "@/lib/master-data/complex-field-config";
 import { MasterFieldDefinition, FieldClaim, MasterFieldAssignmentStatus } from "@prisma/client";
 import { FieldDefinition } from "@/domain/kyc/FieldDefinitions";
 import { getPartySummary } from "@/lib/master-data/party-value";
-import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
+import { resolveFieldForDisplay, extractFieldOptions } from "@/lib/master-data/field-interpreter";
 import { resolveSourceCheckedAt } from "@/lib/kyc/provenance-enricher";
 import { ResolvedAttachment } from "@/lib/master-data/field-display-model";
 import { resolveAmalgamatedAttachments } from "@/lib/kyc/attachments";
@@ -945,7 +945,8 @@ export async function getFieldDetail(
                                     isMultiValue: def.isMultiValue,
                                     codeSystem,
                                     allowAttachments: def.allowAttachments,
-                                    attachments: mappedAttachments
+                                    attachments: mappedAttachments,
+                                    options: extractFieldOptions(def)
                                 }
                             ),
                         });
@@ -988,7 +989,8 @@ export async function getFieldDetail(
                                     codeSystem,
                                     allowAttachments: def.allowAttachments,
                                     attachments: mappedAttachments,
-                                    rawSource: subRawSource
+                                    rawSource: subRawSource,
+                                    options: extractFieldOptions(def)
                                 }
                             ),
                         });
@@ -1029,7 +1031,8 @@ export async function getFieldDetail(
                                     isMultiValue: def.isMultiValue,
                                     codeSystem,
                                     allowAttachments: def.allowAttachments,
-                                    attachments: mappedAttachments
+                                    attachments: mappedAttachments,
+                                    options: extractFieldOptions(def)
                                 }
                             ),
                         });
@@ -1070,7 +1073,8 @@ export async function getFieldDetail(
                                     codeSystem,
                                     allowAttachments: def.allowAttachments,
                                     attachments: mappedAttachments,
-                                    rawSource: subRawSource
+                                    rawSource: subRawSource,
+                                    options: extractFieldOptions(def)
                                 }
                             ),
                         });
@@ -1739,7 +1743,8 @@ export async function getFieldDetail(
         isMultiValue: result.isRepeating,
         codeSystem: result.codeSystem,
         allowAttachments: def?.allowAttachments,
-        attachments: amalgamatedAttachmentsMap.get(fieldNo) || []
+        attachments: amalgamatedAttachmentsMap.get(fieldNo) || [],
+        options: result.options
     };
 
     if (result.current) {

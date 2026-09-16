@@ -83,7 +83,7 @@ test.describe('ONP-190 — ISO Currency Code Smoke Test on dev.onpro.tech', () =
         await expect(saveButton).toBeVisible();
         await saveButton.click();
 
-        // Verify save completes and UI reflects the saved 3-letter code
-        await expect(sheet.getByText('JPY', { exact: true }).first()).toBeVisible({ timeout: 10000 });
+        // Verify save completes and UI reflects the canonical display label (JPY – Yen)
+        await expect(sheet.getByText('JPY – Yen', { exact: true }).first()).toBeVisible({ timeout: 10000 });
     });
 });
