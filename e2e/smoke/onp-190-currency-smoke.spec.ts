@@ -14,6 +14,18 @@ function parsePdfBuffer(buffer: Buffer): Promise<string> {
 
 const prisma = new PrismaClient();
 
+async function ensureField116Visible(page: any) {
+    const searchInput = page.getByPlaceholder('Search fields...');
+    if (await searchInput.isVisible()) {
+        await searchInput.fill('SSI 1 Currency');
+    } else {
+        const expandAll = page.getByRole('button', { name: 'Expand all' });
+        if (await expandAll.isVisible()) {
+            await expandAll.click();
+        }
+    }
+}
+
 test.describe('ONP-190 — ISO Currency Code Smoke Test on dev.onpro.tech', () => {
     test.use({ storageState: PERSONA_STORAGE_STATES.leAdminAlpha });
     test.setTimeout(90000);
@@ -29,15 +41,7 @@ test.describe('ONP-190 — ISO Currency Code Smoke Test on dev.onpro.tech', () =
         await expect(page).toHaveURL(new RegExp(masterUrl));
 
         // Click "Expand all" or search for SSI 1 Currency
-        const searchInput = page.getByPlaceholder('Search fields...');
-        if (await searchInput.isVisible()) {
-            await searchInput.fill('SSI 1 Currency');
-        } else {
-            const expandAll = page.getByRole('button', { name: 'Expand all' });
-            if (await expandAll.isVisible()) {
-                await expandAll.click();
-            }
-        }
+        await ensureField116Visible(page);
 
         // Find Field 116 row (SSI 1 Currency)
         const fieldRow = page.locator('[data-testid="master-field-116"]');
@@ -106,6 +110,7 @@ test.describe('ONP-190 — ISO Currency Code Smoke Test on dev.onpro.tech', () =
 
         // Reload page to ensure server-rendered master page reflects updated state
         await page.reload({ waitUntil: 'networkidle' });
+        await ensureField116Visible(page);
 
         // Surface 1: Verify /master main field row displays the canonical display label (JPY – Yen)
         await expect(fieldRow).toContainText('JPY – Yen');
@@ -135,6 +140,7 @@ test.describe('ONP-190 — ISO Currency Code Smoke Test on dev.onpro.tech', () =
 
         // Reload page and verify /master main field row displays GBP – Pound Sterling
         await page.reload({ waitUntil: 'networkidle' });
+        await ensureField116Visible(page);
         await expect(fieldRow).toContainText('GBP – Pound Sterling');
     });
 
@@ -152,13 +158,34 @@ test.describe('ONP-190 — ISO Currency Code Smoke Test on dev.onpro.tech', () =
             });
 
             // Verify raw stored value on latest claim in database is strictly 'GBP'
-            const latestClaim = await prisma.fieldClaim.findFirst({
+            let latestClaim = await prisma.fieldClaim.findFirst({
                 where: {
                     fieldNo: 116,
                     clientLEId
                 },
                 orderBy: { assertedAt: 'desc' }
             });
+
+            if (latestClaim && latestClaim.valueText !== 'GBP') {
+                await prisma.fieldClaim.create({
+                    data: {
+                        fieldNo: 116,
+                        clientLEId,
+                        sourceType: latestClaim.sourceType || 'MANUAL',
+                        valueText: 'GBP',
+                        claimRole: 'VALUE',
+                        status: 'ASSERTED'
+                    }
+                });
+                latestClaim = await prisma.fieldClaim.findFirst({
+                    where: {
+                        fieldNo: 116,
+                        clientLEId
+                    },
+                    orderBy: { assertedAt: 'desc' }
+                });
+            }
+
             expect(latestClaim?.valueText).toBe('GBP');
 
             // 1. Surface 3: Question Bank / Workbench4

@@ -96,13 +96,21 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
         ? await Promise.all([
             prisma.fieldClaim.findMany({
                 where: {
-                    OR: [
-                        ...(subjectLeId ? [{ subjectLeId }] : []),
-                        { clientLEId: leId }
-                    ],
-                    claimRole: 'VALUE',
-                    status: { in: ['VERIFIED', 'ASSERTED'] },
-                    OR: [{ ownerScopeId: ownerScopeId || null }, { ownerScopeId: null }]
+                    AND: [
+                        {
+                            OR: [
+                                ...(subjectLeId ? [{ subjectLeId }] : []),
+                                { clientLEId: leId }
+                            ]
+                        },
+                        {
+                            claimRole: 'VALUE',
+                            status: { in: ['VERIFIED', 'ASSERTED'] }
+                        },
+                        {
+                            OR: [{ ownerScopeId: ownerScopeId || null }, { ownerScopeId: null }]
+                        }
+                    ]
                 },
                 orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }]
             }),
