@@ -144,7 +144,7 @@ test.describe('ONP-190 — ISO Currency Code Smoke Test on dev.onpro.tech', () =
         await expect(fieldRow).toContainText('GBP – Pound Sterling');
     });
 
-    test('Question Bank / Workbench4 and PDF export render canonical currency label (GBP – Pound Sterling)', async ({ page, request }) => {
+    test('Question Bank / Workbench4 and PDF export render canonical currency label (GBP – Pound Sterling)', async ({ page }) => {
         const manifest = loadUATManifest();
         const clientLEId = manifest.alphaClientLE.id;
         const qnId = 'aefdb294-6796-472d-bb30-7959c3f744fd'; // Alpha Common Due Diligence
@@ -201,7 +201,7 @@ test.describe('ONP-190 — ISO Currency Code Smoke Test on dev.onpro.tech', () =
             await expect(questionCard).toContainText('GBP – Pound Sterling');
 
             // 2. Surface 4: PDF Export
-            const response = await request.get(`/api/export/questionnaire/${qnId}`);
+            const response = await page.request.get(`/api/export/questionnaire/${qnId}?engagementId=${manifest.relationshipAlpha.id}`);
             expect(response.status()).toBe(200);
             expect(response.headers()['content-type']).toContain('application/pdf');
 
