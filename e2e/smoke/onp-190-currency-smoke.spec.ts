@@ -26,7 +26,7 @@ test.describe('ONP-190 — ISO Currency Code Smoke Test on dev.onpro.tech', () =
         }
 
         // Find Field 116 row (SSI 1 Currency)
-        const fieldRow = page.locator('tr, div').filter({ hasText: /^SSI 1 Currency/ }).first();
+        const fieldRow = page.locator('[data-testid="master-field-116"]');
         await expect(fieldRow).toBeVisible({ timeout: 15000 });
         await fieldRow.click();
 
@@ -83,7 +83,44 @@ test.describe('ONP-190 — ISO Currency Code Smoke Test on dev.onpro.tech', () =
         await expect(saveButton).toBeVisible();
         await saveButton.click();
 
-        // Verify save completes and UI reflects the canonical display label (JPY – Yen)
+        // Surface 2: Verify RHS inspection drawer read-only view reflects canonical display label (JPY – Yen)
         await expect(sheet.getByText('JPY – Yen', { exact: true }).first()).toBeVisible({ timeout: 10000 });
+
+        // Close the drawer
+        await page.keyboard.press('Escape');
+        await expect(sheet).not.toBeVisible({ timeout: 5000 });
+
+        // Reload page to ensure server-rendered master page reflects updated state
+        await page.reload({ waitUntil: 'networkidle' });
+
+        // Surface 1: Verify /master main field row displays the canonical display label (JPY – Yen)
+        await expect(fieldRow).toContainText('JPY – Yen');
+
+        // Reopen drawer to verify persisted read-only state
+        await fieldRow.click();
+        await expect(sheet).toBeVisible({ timeout: 5000 });
+        await expect(sheet.getByText('JPY – Yen', { exact: true }).first()).toBeVisible({ timeout: 5000 });
+
+        // Restore to GBP
+        const editButton2 = sheet.getByRole('button', { name: /Add value|Edit/i }).first();
+        await expect(editButton2).toBeVisible({ timeout: 5000 });
+        await editButton2.click();
+        await expect(comboboxButton).toBeVisible({ timeout: 5000 });
+        await comboboxButton.click();
+        await cmdkInput.fill('GBP');
+        const gbpItem = page.locator('[cmdk-item]').filter({ hasText: /GBP/i });
+        await expect(gbpItem).toBeVisible();
+        await gbpItem.click();
+        await expect(saveButton).toBeVisible();
+        await saveButton.click();
+
+        // Verify restored to GBP – Pound Sterling in drawer
+        await expect(sheet.getByText('GBP – Pound Sterling', { exact: true }).first()).toBeVisible({ timeout: 10000 });
+        await page.keyboard.press('Escape');
+        await expect(sheet).not.toBeVisible({ timeout: 5000 });
+
+        // Reload page and verify /master main field row displays GBP – Pound Sterling
+        await page.reload({ waitUntil: 'networkidle' });
+        await expect(fieldRow).toContainText('GBP – Pound Sterling');
     });
 });
