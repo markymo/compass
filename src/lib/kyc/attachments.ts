@@ -112,11 +112,13 @@ export async function resolveAmalgamatedAttachments(
             whereClause.subjectLeId = subject.subjectLeId;
         }
 
-        const fallbackClaims = await prisma.fieldClaim.findMany({
-            where: whereClause,
-            select: { fieldNo: true, valueJson: true },
-            orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }]
-        });
+        const fallbackClaims = prisma.fieldClaim
+            ? await prisma.fieldClaim.findMany({
+                where: whereClause,
+                select: { fieldNo: true, valueJson: true },
+                orderBy: [{ assertedAt: 'desc' }, { id: 'desc' }]
+            })
+            : [];
 
         if (fallbackClaims && fallbackClaims.length > 0) {
             for (const fc of fallbackClaims) {
