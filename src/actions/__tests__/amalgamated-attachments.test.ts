@@ -42,7 +42,7 @@ describe("resolveAmalgamatedAttachments", () => {
         const resolvedValues = new Map();
         resolvedValues.set(10, { value: { ccPartyId: "partyA" } } as any);
 
-        const result = await resolveAmalgamatedAttachments({ clientLEId: "client1" }, [10], resolvedValues);
+        const result = await resolveAmalgamatedAttachments({ clientLEId: "client1" }, [10], resolvedValues, new Map([[10, { allowAttachments: true }]]));
         const atts = result.get(10)!;
 
         expect(atts).toHaveLength(2);

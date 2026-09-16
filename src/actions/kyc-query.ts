@@ -1726,7 +1726,7 @@ export async function getFieldDetail(
     if (result.current?.value) {
         resolvedValuesMap.set(fieldNo, { value: result.current.value } as any);
     }
-    const fieldDefMap = def ? new Map([[fieldNo, { allowAttachments: def.allowAttachments, profileConfig: (def as any).profileConfig }]]) : undefined;
+    const fieldDefMap = def ? new Map([[fieldNo, { allowAttachments: def.allowAttachments, profileConfig: (def as any).profileConfig }]]) : new Map();
     const amalgamatedAttachmentsMap = await resolveAmalgamatedAttachments({ subjectLeId: subjectLeId || undefined, clientLEId: entityType === 'CLIENT_LE' ? entityId : undefined }, [fieldNo], resolvedValuesMap, fieldDefMap);
     
     const metadataForDisplay = {

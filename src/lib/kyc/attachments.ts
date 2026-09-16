@@ -42,8 +42,8 @@ export function mapDerivedAttachments(derivedAttachments: DerivedValue[]): Resol
 export async function resolveAmalgamatedAttachments(
     subject: { subjectLeId?: string | null; subjectPersonId?: string | null; subjectOrgId?: string | null; clientLEId?: string },
     fieldNos: number[],
-    resolvedValuesMap?: Map<number, DerivedValue | DerivedValue[] | null>,
-    fieldDefsMap?: Map<number, { allowAttachments?: boolean; profileConfig?: { displayMask?: string[] } }>
+    resolvedValuesMap: Map<number, DerivedValue | DerivedValue[] | null> | undefined,
+    fieldDefsMap: Map<number, { allowAttachments?: boolean; profileConfig?: { displayMask?: string[] }; isMultiValue?: boolean }>
 ): Promise<Map<number, ResolvedAttachment[]>> {
     const result = new Map<number, ResolvedAttachment[]>();
     if (fieldNos.length === 0) return result;
@@ -58,7 +58,13 @@ export async function resolveAmalgamatedAttachments(
     const fieldPartyIdMap = new Map<number, Set<string>>(); // fieldNo -> partyIds
     
     for (const fieldNo of fieldNos) {
-        const mask = fieldDefsMap?.get(fieldNo)?.profileConfig?.displayMask;
+        const fieldDef = fieldDefsMap?.get(fieldNo);
+        // A field definition must be present to evaluate party.documents permission.
+        // If the caller failed to provide an entry for fieldNo, do NOT grant party.documents.
+        // If fieldDef exists and profileConfig.displayMask is omitted/null/undefined, that represents
+        // the valid backwards-compatible unrestricted default.
+        if (!fieldDef) continue;
+        const mask = fieldDef.profileConfig?.displayMask;
         const permitsPartyDocs = isFieldPermittedByCatalogue('party.documents', mask);
         if (!permitsPartyDocs) continue;
 
@@ -85,7 +91,9 @@ export async function resolveAmalgamatedAttachments(
     const missingPartyFieldNos: number[] = [];
     for (const fieldNo of fieldNos) {
         if (!fieldPartyIdMap.has(fieldNo)) {
-            const mask = fieldDefsMap?.get(fieldNo)?.profileConfig?.displayMask;
+            const fieldDef = fieldDefsMap?.get(fieldNo);
+            if (!fieldDef) continue;
+            const mask = fieldDef.profileConfig?.displayMask;
             if (isFieldPermittedByCatalogue('party.documents', mask)) {
                 missingPartyFieldNos.push(fieldNo);
             }
