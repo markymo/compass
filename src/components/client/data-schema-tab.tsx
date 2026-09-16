@@ -1370,7 +1370,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                         <div className="flex justify-between items-start w-full">
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{value.length} Items</span>
-                                {canonicalDisplayModel?.allowAttachments && (
+                                {canonicalDisplayModel && (canonicalDisplayModel.allowAttachments || (canonicalDisplayModel.attachments || []).some(a => a.provenance?.some(p => p.type === 'FIELD'))) && (
                                     <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                                         <FieldAttachments 
                                             clientLEId={canonicalDisplayModel.clientLEId || ''}
@@ -1480,7 +1480,7 @@ function MasterFieldDisplay({ label, fieldNo, value, formattedDisplayValue, sour
                                 ) ? (
                                     <div className="flex flex-col gap-1">
                                         <FieldValueRenderer field={canonicalDisplayModel} />
-                                        {canonicalDisplayModel.allowAttachments && (
+                                        {(canonicalDisplayModel.allowAttachments || (canonicalDisplayModel.attachments || []).some(a => a.provenance?.some(p => p.type === 'FIELD'))) && (
                                             <div onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                                                 <FieldAttachments 
                                                     clientLEId={canonicalDisplayModel.clientLEId || ''}

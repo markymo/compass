@@ -236,6 +236,13 @@ export async function resolveExportAnswer(
             }
         }
         
+        let masterFieldDef: any = null;
+        try {
+            masterFieldDef = await getMasterFieldDefinition(question.masterFieldNo);
+        } catch (e) {
+            masterFieldDef = null;
+        }
+
         let resolvedValuesMap = new Map();
         if (fieldDetail.isRepeating && Array.isArray(derivedValueToDisplay)) {
              resolvedValuesMap.set(question.masterFieldNo, derivedValueToDisplay);
@@ -243,7 +250,15 @@ export async function resolveExportAnswer(
              resolvedValuesMap.set(question.masterFieldNo, primaryDerived);
         }
 
-        const attachmentsMap = await resolveAmalgamatedAttachments({ subjectLeId, clientLEId: entityId }, [question.masterFieldNo], resolvedValuesMap);
+        const fieldDefsMap = new Map<number, { allowAttachments?: boolean; profileConfig?: { displayMask?: string[] }; isMultiValue?: boolean }>([
+            [question.masterFieldNo, {
+                allowAttachments: masterFieldDef?.allowAttachments,
+                profileConfig: masterFieldDef?.profileConfig || fieldDetail?.profileConfig,
+                isMultiValue: Boolean(masterFieldDef?.isMultiValue ?? fieldDetail?.isRepeating)
+            }]
+        ]);
+
+        const attachmentsMap = await resolveAmalgamatedAttachments({ subjectLeId, clientLEId: entityId }, [question.masterFieldNo], resolvedValuesMap, fieldDefsMap);
         const derivedAttachments = attachmentsMap?.get(question.masterFieldNo) || [];
         if (derivedAttachments.length > 0) {
             attachmentFilenames = derivedAttachments
@@ -252,12 +267,6 @@ export async function resolveExportAnswer(
         }
 
         if (primaryDerived && derivedValueToDisplay !== null && derivedValueToDisplay !== undefined && derivedValueToDisplay !== "" && (!Array.isArray(derivedValueToDisplay) || derivedValueToDisplay.length > 0)) {
-            let masterFieldDef: any = null;
-            try {
-                masterFieldDef = await getMasterFieldDefinition(question.masterFieldNo);
-            } catch (e) {
-                masterFieldDef = null;
-            }
             const meta = {
                 fieldNo: question.masterFieldNo,
                 label: "Export Field", // Not used by toExportText, but required by metadata
@@ -447,7 +456,15 @@ export async function resolveExportAnswer(
             for (const [fieldNo, hydrated] of Object.entries(hydratedValues)) {
                 resolvedValuesMap.set(Number(fieldNo), { value: (hydrated as any).value });
             }
-            const attachmentsMap = await resolveAmalgamatedAttachments({ subjectLeId, clientLEId: entityId }, fieldNos, resolvedValuesMap);
+            const fieldDefsMap = new Map<number, { allowAttachments?: boolean; profileConfig?: { displayMask?: string[] }; isMultiValue?: boolean }>();
+            for (const [fNo, d] of fieldDefMap.entries()) {
+                fieldDefsMap.set(fNo, {
+                    allowAttachments: d?.allowAttachments,
+                    profileConfig: d?.profileConfig,
+                    isMultiValue: Boolean(d?.isMultiValue)
+                });
+            }
+            const attachmentsMap = await resolveAmalgamatedAttachments({ subjectLeId, clientLEId: entityId }, fieldNos, resolvedValuesMap, fieldDefsMap);
 
             const fields: ExportGroupField[] = [];
             for (const item of group.items) {
