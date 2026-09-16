@@ -32,7 +32,7 @@ export interface ExportAnswerResult {
 }
 
 import { toExportText } from "@/lib/export/toExportText";
-import { resolveFieldForDisplay, resolveFieldCollectionForDisplay, RawFieldSource, FieldInterpreterMetadata, resolveFieldDisplayContext } from "@/lib/master-data/field-interpreter";
+import { resolveFieldForDisplay, resolveFieldCollectionForDisplay, RawFieldSource, FieldInterpreterMetadata, resolveFieldDisplayContext, extractFieldOptions } from "@/lib/master-data/field-interpreter";
 import { FieldDisplayModel } from "@/lib/master-data/field-display-model";
 import { getMasterFieldGroup, getMasterFieldDefinition } from "@/services/masterData/definitionService";
 import { resolveMasterDataBatch } from "@/actions/kyc-query";
@@ -138,7 +138,8 @@ export async function resolveExportAnswer(
                     label: question.text,
                     displayState: "HAS_VALUE",
                     isMultiValue: Array.isArray(subAnswer.valueJson),
-                    profileConfig: (masterFieldDef as any)?.profileConfig
+                    profileConfig: (masterFieldDef as any)?.profileConfig,
+                    options: extractFieldOptions(masterFieldDef)
                 };
 
                 const primarySource: RawFieldSource | null = subAnswer.provenanceJson ? {
@@ -274,7 +275,8 @@ export async function resolveExportAnswer(
                 appDataType: fieldDetail.dataType,
                 profileConfig: fieldDetail.profileConfig,
                 isMultiValue: fieldDetail.isRepeating,
-                displayContext: resolveFieldDisplayContext(masterFieldDef)
+                displayContext: resolveFieldDisplayContext(masterFieldDef),
+                options: extractFieldOptions(masterFieldDef)
             };
 
             const primarySource: RawFieldSource = {
@@ -491,7 +493,8 @@ export async function resolveExportAnswer(
                         appDataType: def.appDataType,
                         profileConfig: def.profileConfig,
                         isMultiValue: def.isMultiValue,
-                        displayContext: resolveFieldDisplayContext(def)
+                        displayContext: resolveFieldDisplayContext(def),
+                        options: extractFieldOptions(def)
                     };
 
                     const primarySource: RawFieldSource | null = hv.source ? {

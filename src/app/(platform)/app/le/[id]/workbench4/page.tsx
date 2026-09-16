@@ -4,6 +4,8 @@ import { CrossQuestionnaireMapper } from "@/components/client/workbench/cross-qu
 import { notFound } from "next/navigation";
 import { SetPageBreadcrumbs } from "@/context/breadcrumb-context";
 
+export const dynamic = 'force-dynamic';
+
 export default async function Workbench4Page({ params }: { params: Promise<{ id: string }> }) {
     const { id: leId } = await params;
 

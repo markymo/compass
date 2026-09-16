@@ -38,7 +38,8 @@ export async function applyMasterToQuestion(
                 label: "Propagated Field",
                 displayState: "HAS_VALUE",
                 appDataType: fieldDetail.dataType,
-                profileConfig: fieldDetail.profileConfig
+                profileConfig: fieldDetail.profileConfig,
+                options: fieldDetail.options
             });
             answerText = toExportText(displayModel);
         } else {
