@@ -1,0 +1,1298 @@
+[
+  {
+    "value": "AD",
+    "label": "AD – Andorra"
+  },
+  {
+    "value": "AE",
+    "label": "AE – United Arab Emirates"
+  },
+  {
+    "value": "AE-AJ",
+    "label": "AE-AJ – ‘Ajmān (United Arab Emirates)"
+  },
+  {
+    "value": "AE-AZ",
+    "label": "AE-AZ – Abu Dhabi (United Arab Emirates)"
+  },
+  {
+    "value": "AE-DU",
+    "label": "AE-DU – Dubai (United Arab Emirates)"
+  },
+  {
+    "value": "AE-FU",
+    "label": "AE-FU – Fujairah (United Arab Emirates)"
+  },
+  {
+    "value": "AE-RK",
+    "label": "AE-RK – Ras Al Khaimah (United Arab Emirates)"
+  },
+  {
+    "value": "AE-SH",
+    "label": "AE-SH – Sharjah (United Arab Emirates)"
+  },
+  {
+    "value": "AE-UQ",
+    "label": "AE-UQ – Umm Al Quwain (United Arab Emirates)"
+  },
+  {
+    "value": "AF",
+    "label": "AF – Afghanistan"
+  },
+  {
+    "value": "AG",
+    "label": "AG – Antigua and Barbuda"
+  },
+  {
+    "value": "AI",
+    "label": "AI – Anguilla"
+  },
+  {
+    "value": "AL",
+    "label": "AL – Albania"
+  },
+  {
+    "value": "AM",
+    "label": "AM – Armenia"
+  },
+  {
+    "value": "AO",
+    "label": "AO – Angola"
+  },
+  {
+    "value": "AQ",
+    "label": "AQ – Antarctica"
+  },
+  {
+    "value": "AR",
+    "label": "AR – Argentina"
+  },
+  {
+    "value": "AS",
+    "label": "AS – American Samoa"
+  },
+  {
+    "value": "AT",
+    "label": "AT – Austria"
+  },
+  {
+    "value": "AU",
+    "label": "AU – Australia"
+  },
+  {
+    "value": "AW",
+    "label": "AW – Aruba"
+  },
+  {
+    "value": "AX",
+    "label": "AX – Åland Islands"
+  },
+  {
+    "value": "AZ",
+    "label": "AZ – Azerbaijan"
+  },
+  {
+    "value": "BA",
+    "label": "BA – Bosnia and Herzegovina"
+  },
+  {
+    "value": "BB",
+    "label": "BB – Barbados"
+  },
+  {
+    "value": "BD",
+    "label": "BD – Bangladesh"
+  },
+  {
+    "value": "BE",
+    "label": "BE – Belgium"
+  },
+  {
+    "value": "BE-VLG",
+    "label": "BE-VLG – Flemish Region (Belgium)"
+  },
+  {
+    "value": "BF",
+    "label": "BF – Burkina Faso"
+  },
+  {
+    "value": "BG",
+    "label": "BG – Bulgaria"
+  },
+  {
+    "value": "BH",
+    "label": "BH – Bahrain"
+  },
+  {
+    "value": "BI",
+    "label": "BI – Burundi"
+  },
+  {
+    "value": "BJ",
+    "label": "BJ – Benin"
+  },
+  {
+    "value": "BM",
+    "label": "BM – Bermuda"
+  },
+  {
+    "value": "BN",
+    "label": "BN – Brunei Darussalam"
+  },
+  {
+    "value": "BO",
+    "label": "BO – Bolivia (Plurinational State of)"
+  },
+  {
+    "value": "BQ",
+    "label": "BQ – Bonaire, Sint Eustatius and Saba"
+  },
+  {
+    "value": "BR",
+    "label": "BR – Brazil"
+  },
+  {
+    "value": "BS",
+    "label": "BS – Bahamas"
+  },
+  {
+    "value": "BT",
+    "label": "BT – Bhutan"
+  },
+  {
+    "value": "BV",
+    "label": "BV – Bouvet Island"
+  },
+  {
+    "value": "BW",
+    "label": "BW – Botswana"
+  },
+  {
+    "value": "BY",
+    "label": "BY – Belarus"
+  },
+  {
+    "value": "BZ",
+    "label": "BZ – Belize"
+  },
+  {
+    "value": "CA",
+    "label": "CA – Canada"
+  },
+  {
+    "value": "CA-AB",
+    "label": "CA-AB – Alberta (Canada)"
+  },
+  {
+    "value": "CA-BC",
+    "label": "CA-BC – British Columbia (Canada)"
+  },
+  {
+    "value": "CA-MB",
+    "label": "CA-MB – Manitoba (Canada)"
+  },
+  {
+    "value": "CA-NB",
+    "label": "CA-NB – New Brunswick (Canada)"
+  },
+  {
+    "value": "CA-NL",
+    "label": "CA-NL – Newfoundland and Labrador (Canada)"
+  },
+  {
+    "value": "CA-NS",
+    "label": "CA-NS – Nova Scotia (Canada)"
+  },
+  {
+    "value": "CA-NT",
+    "label": "CA-NT – Northwest Territories (Canada)"
+  },
+  {
+    "value": "CA-NU",
+    "label": "CA-NU – Nunavut (Canada)"
+  },
+  {
+    "value": "CA-ON",
+    "label": "CA-ON – Ontario (Canada)"
+  },
+  {
+    "value": "CA-PE",
+    "label": "CA-PE – Prince Edward Island (Canada)"
+  },
+  {
+    "value": "CA-QC",
+    "label": "CA-QC – Quebec (Canada)"
+  },
+  {
+    "value": "CA-SK",
+    "label": "CA-SK – Saskatchewan (Canada)"
+  },
+  {
+    "value": "CA-YT",
+    "label": "CA-YT – Yukon (Canada)"
+  },
+  {
+    "value": "CC",
+    "label": "CC – Cocos (Keeling) Islands"
+  },
+  {
+    "value": "CD",
+    "label": "CD – Congo (the Democratic Republic of the)"
+  },
+  {
+    "value": "CF",
+    "label": "CF – Central African Republic"
+  },
+  {
+    "value": "CG",
+    "label": "CG – Congo"
+  },
+  {
+    "value": "CH",
+    "label": "CH – Switzerland"
+  },
+  {
+    "value": "CI",
+    "label": "CI – Côte d'Ivoire"
+  },
+  {
+    "value": "CK",
+    "label": "CK – Cook Islands"
+  },
+  {
+    "value": "CL",
+    "label": "CL – Chile"
+  },
+  {
+    "value": "CM",
+    "label": "CM – Cameroon"
+  },
+  {
+    "value": "CN",
+    "label": "CN – China"
+  },
+  {
+    "value": "CO",
+    "label": "CO – Colombia"
+  },
+  {
+    "value": "CR",
+    "label": "CR – Costa Rica"
+  },
+  {
+    "value": "CU",
+    "label": "CU – Cuba"
+  },
+  {
+    "value": "CV",
+    "label": "CV – Cabo Verde"
+  },
+  {
+    "value": "CW",
+    "label": "CW – Curaçao"
+  },
+  {
+    "value": "CX",
+    "label": "CX – Christmas Island"
+  },
+  {
+    "value": "CY",
+    "label": "CY – Cyprus"
+  },
+  {
+    "value": "CZ",
+    "label": "CZ – Czechia"
+  },
+  {
+    "value": "DE",
+    "label": "DE – Germany"
+  },
+  {
+    "value": "DJ",
+    "label": "DJ – Djibouti"
+  },
+  {
+    "value": "DK",
+    "label": "DK – Denmark"
+  },
+  {
+    "value": "DM",
+    "label": "DM – Dominica"
+  },
+  {
+    "value": "DO",
+    "label": "DO – Dominican Republic"
+  },
+  {
+    "value": "DZ",
+    "label": "DZ – Algeria"
+  },
+  {
+    "value": "EC",
+    "label": "EC – Ecuador"
+  },
+  {
+    "value": "EE",
+    "label": "EE – Estonia"
+  },
+  {
+    "value": "EG",
+    "label": "EG – Egypt"
+  },
+  {
+    "value": "EH",
+    "label": "EH – Western Sahara* (*Provisional name)"
+  },
+  {
+    "value": "ER",
+    "label": "ER – Eritrea"
+  },
+  {
+    "value": "ES",
+    "label": "ES – Spain"
+  },
+  {
+    "value": "ET",
+    "label": "ET – Ethiopia"
+  },
+  {
+    "value": "EU",
+    "label": "EU – European Union"
+  },
+  {
+    "value": "FI",
+    "label": "FI – Finland"
+  },
+  {
+    "value": "FJ",
+    "label": "FJ – Fiji"
+  },
+  {
+    "value": "FK",
+    "label": "FK – Falkland Islands [Malvinas]"
+  },
+  {
+    "value": "FM",
+    "label": "FM – Micronesia (Federated States of)"
+  },
+  {
+    "value": "FO",
+    "label": "FO – Faroe Islands"
+  },
+  {
+    "value": "FR",
+    "label": "FR – France"
+  },
+  {
+    "value": "GA",
+    "label": "GA – Gabon"
+  },
+  {
+    "value": "GB",
+    "label": "GB – United Kingdom of Great Britain and Northern Ireland"
+  },
+  {
+    "value": "GB-NIR",
+    "label": "GB-NIR – Northern Ireland (United Kingdom of Great Britain and Northern Ireland)"
+  },
+  {
+    "value": "GB-SCT",
+    "label": "GB-SCT – Scotland (United Kingdom of Great Britain and Northern Ireland)"
+  },
+  {
+    "value": "GD",
+    "label": "GD – Grenada"
+  },
+  {
+    "value": "GE",
+    "label": "GE – Georgia"
+  },
+  {
+    "value": "GG",
+    "label": "GG – Guernsey"
+  },
+  {
+    "value": "GH",
+    "label": "GH – Ghana"
+  },
+  {
+    "value": "GI",
+    "label": "GI – Gibraltar"
+  },
+  {
+    "value": "GL",
+    "label": "GL – Greenland"
+  },
+  {
+    "value": "GM",
+    "label": "GM – Gambia"
+  },
+  {
+    "value": "GN",
+    "label": "GN – Guinea"
+  },
+  {
+    "value": "GQ",
+    "label": "GQ – Equatorial Guinea"
+  },
+  {
+    "value": "GR",
+    "label": "GR – Greece"
+  },
+  {
+    "value": "GS",
+    "label": "GS – South Georgia and the South Sandwich Islands"
+  },
+  {
+    "value": "GT",
+    "label": "GT – Guatemala"
+  },
+  {
+    "value": "GU",
+    "label": "GU – Guam"
+  },
+  {
+    "value": "GW",
+    "label": "GW – Guinea-Bissau"
+  },
+  {
+    "value": "GY",
+    "label": "GY – Guyana"
+  },
+  {
+    "value": "HK",
+    "label": "HK – Hong Kong"
+  },
+  {
+    "value": "HM",
+    "label": "HM – Heard Island and McDonald Islands"
+  },
+  {
+    "value": "HN",
+    "label": "HN – Honduras"
+  },
+  {
+    "value": "HR",
+    "label": "HR – Croatia"
+  },
+  {
+    "value": "HT",
+    "label": "HT – Haiti"
+  },
+  {
+    "value": "HU",
+    "label": "HU – Hungary"
+  },
+  {
+    "value": "ID",
+    "label": "ID – Indonesia"
+  },
+  {
+    "value": "IE",
+    "label": "IE – Ireland"
+  },
+  {
+    "value": "IL",
+    "label": "IL – Israel"
+  },
+  {
+    "value": "IM",
+    "label": "IM – Isle of Man"
+  },
+  {
+    "value": "IN",
+    "label": "IN – India"
+  },
+  {
+    "value": "IO",
+    "label": "IO – British Indian Ocean Territory"
+  },
+  {
+    "value": "IQ",
+    "label": "IQ – Iraq"
+  },
+  {
+    "value": "IR",
+    "label": "IR – Iran (Islamic Republic of)"
+  },
+  {
+    "value": "IS",
+    "label": "IS – Iceland"
+  },
+  {
+    "value": "IT",
+    "label": "IT – Italy"
+  },
+  {
+    "value": "JE",
+    "label": "JE – Jersey"
+  },
+  {
+    "value": "JM",
+    "label": "JM – Jamaica"
+  },
+  {
+    "value": "JO",
+    "label": "JO – Jordan"
+  },
+  {
+    "value": "JP",
+    "label": "JP – Japan"
+  },
+  {
+    "value": "KE",
+    "label": "KE – Kenya"
+  },
+  {
+    "value": "KG",
+    "label": "KG – Kyrgyzstan"
+  },
+  {
+    "value": "KH",
+    "label": "KH – Cambodia"
+  },
+  {
+    "value": "KI",
+    "label": "KI – Kiribati"
+  },
+  {
+    "value": "KM",
+    "label": "KM – Comoros"
+  },
+  {
+    "value": "KN",
+    "label": "KN – Saint Kitts and Nevis"
+  },
+  {
+    "value": "KN-N",
+    "label": "KN-N – Nevis (Saint Kitts and Nevis)"
+  },
+  {
+    "value": "KP",
+    "label": "KP – Korea (the Democratic People's Republic of)"
+  },
+  {
+    "value": "KR",
+    "label": "KR – Korea (Republic of)"
+  },
+  {
+    "value": "KW",
+    "label": "KW – Kuwait"
+  },
+  {
+    "value": "KY",
+    "label": "KY – Cayman Islands"
+  },
+  {
+    "value": "KZ",
+    "label": "KZ – Kazakhstan"
+  },
+  {
+    "value": "LA",
+    "label": "LA – Lao People's Democratic Republic"
+  },
+  {
+    "value": "LB",
+    "label": "LB – Lebanon"
+  },
+  {
+    "value": "LC",
+    "label": "LC – Saint Lucia"
+  },
+  {
+    "value": "LI",
+    "label": "LI – Liechtenstein"
+  },
+  {
+    "value": "LK",
+    "label": "LK – Sri Lanka"
+  },
+  {
+    "value": "LR",
+    "label": "LR – Liberia"
+  },
+  {
+    "value": "LS",
+    "label": "LS – Lesotho"
+  },
+  {
+    "value": "LT",
+    "label": "LT – Lithuania"
+  },
+  {
+    "value": "LU",
+    "label": "LU – Luxembourg"
+  },
+  {
+    "value": "LV",
+    "label": "LV – Latvia"
+  },
+  {
+    "value": "LY",
+    "label": "LY – Libya"
+  },
+  {
+    "value": "MA",
+    "label": "MA – Morocco"
+  },
+  {
+    "value": "MC",
+    "label": "MC – Monaco"
+  },
+  {
+    "value": "MD",
+    "label": "MD – Moldova (the Republic of)"
+  },
+  {
+    "value": "ME",
+    "label": "ME – Montenegro"
+  },
+  {
+    "value": "MG",
+    "label": "MG – Madagascar"
+  },
+  {
+    "value": "MH",
+    "label": "MH – Marshall Islands"
+  },
+  {
+    "value": "MK",
+    "label": "MK – North Macedonia"
+  },
+  {
+    "value": "ML",
+    "label": "ML – Mali"
+  },
+  {
+    "value": "MM",
+    "label": "MM – Myanmar"
+  },
+  {
+    "value": "MN",
+    "label": "MN – Mongolia"
+  },
+  {
+    "value": "MO",
+    "label": "MO – Macao"
+  },
+  {
+    "value": "MP",
+    "label": "MP – Northern Mariana Islands"
+  },
+  {
+    "value": "MR",
+    "label": "MR – Mauritania"
+  },
+  {
+    "value": "MS",
+    "label": "MS – Montserrat"
+  },
+  {
+    "value": "MT",
+    "label": "MT – Malta"
+  },
+  {
+    "value": "MU",
+    "label": "MU – Mauritius"
+  },
+  {
+    "value": "MV",
+    "label": "MV – Maldives"
+  },
+  {
+    "value": "MW",
+    "label": "MW – Malawi"
+  },
+  {
+    "value": "MX",
+    "label": "MX – Mexico"
+  },
+  {
+    "value": "MY",
+    "label": "MY – Malaysia"
+  },
+  {
+    "value": "MY-15",
+    "label": "MY-15 – Labuan (Malaysia)"
+  },
+  {
+    "value": "MZ",
+    "label": "MZ – Mozambique"
+  },
+  {
+    "value": "NA",
+    "label": "NA – Namibia"
+  },
+  {
+    "value": "NC",
+    "label": "NC – New Caledonia"
+  },
+  {
+    "value": "NE",
+    "label": "NE – Niger"
+  },
+  {
+    "value": "NF",
+    "label": "NF – Norfolk Island"
+  },
+  {
+    "value": "NG",
+    "label": "NG – Nigeria"
+  },
+  {
+    "value": "NI",
+    "label": "NI – Nicaragua"
+  },
+  {
+    "value": "NL",
+    "label": "NL – Netherlands"
+  },
+  {
+    "value": "NO",
+    "label": "NO – Norway"
+  },
+  {
+    "value": "NP",
+    "label": "NP – Nepal"
+  },
+  {
+    "value": "NR",
+    "label": "NR – Nauru"
+  },
+  {
+    "value": "NU",
+    "label": "NU – Niue"
+  },
+  {
+    "value": "NZ",
+    "label": "NZ – New Zealand"
+  },
+  {
+    "value": "OM",
+    "label": "OM – Oman"
+  },
+  {
+    "value": "PA",
+    "label": "PA – Panama"
+  },
+  {
+    "value": "PE",
+    "label": "PE – Peru"
+  },
+  {
+    "value": "PF",
+    "label": "PF – French Polynesia"
+  },
+  {
+    "value": "PG",
+    "label": "PG – Papua New Guinea"
+  },
+  {
+    "value": "PH",
+    "label": "PH – Philippines"
+  },
+  {
+    "value": "PK",
+    "label": "PK – Pakistan"
+  },
+  {
+    "value": "PL",
+    "label": "PL – Poland"
+  },
+  {
+    "value": "PM",
+    "label": "PM – Saint Pierre and Miquelon"
+  },
+  {
+    "value": "PN",
+    "label": "PN – Pitcairn"
+  },
+  {
+    "value": "PR",
+    "label": "PR – Puerto Rico"
+  },
+  {
+    "value": "PS",
+    "label": "PS – Palestine, State of"
+  },
+  {
+    "value": "PT",
+    "label": "PT – Portugal"
+  },
+  {
+    "value": "PT-20",
+    "label": "PT-20 – Região Autónoma dos Açores (Portugal)"
+  },
+  {
+    "value": "PT-30",
+    "label": "PT-30 – Madeira (Portugal)"
+  },
+  {
+    "value": "PW",
+    "label": "PW – Palau"
+  },
+  {
+    "value": "PY",
+    "label": "PY – Paraguay"
+  },
+  {
+    "value": "QA",
+    "label": "QA – Qatar"
+  },
+  {
+    "value": "RO",
+    "label": "RO – Romania"
+  },
+  {
+    "value": "RS",
+    "label": "RS – Serbia"
+  },
+  {
+    "value": "RU",
+    "label": "RU – Russian Federation"
+  },
+  {
+    "value": "RW",
+    "label": "RW – Rwanda"
+  },
+  {
+    "value": "SA",
+    "label": "SA – Saudi Arabia"
+  },
+  {
+    "value": "SB",
+    "label": "SB – Solomon Islands"
+  },
+  {
+    "value": "SC",
+    "label": "SC – Seychelles"
+  },
+  {
+    "value": "SD",
+    "label": "SD – Sudan"
+  },
+  {
+    "value": "SE",
+    "label": "SE – Sweden"
+  },
+  {
+    "value": "SG",
+    "label": "SG – Singapore"
+  },
+  {
+    "value": "SH",
+    "label": "SH – Saint Helena, Ascension and Tristan da Cunha"
+  },
+  {
+    "value": "SI",
+    "label": "SI – Slovenia"
+  },
+  {
+    "value": "SJ",
+    "label": "SJ – Svalbard and Jan Mayen"
+  },
+  {
+    "value": "SK",
+    "label": "SK – Slovakia"
+  },
+  {
+    "value": "SL",
+    "label": "SL – Sierra Leone"
+  },
+  {
+    "value": "SM",
+    "label": "SM – San Marino"
+  },
+  {
+    "value": "SN",
+    "label": "SN – Senegal"
+  },
+  {
+    "value": "SO",
+    "label": "SO – Somalia"
+  },
+  {
+    "value": "SR",
+    "label": "SR – Suriname"
+  },
+  {
+    "value": "SS",
+    "label": "SS – South Sudan"
+  },
+  {
+    "value": "ST",
+    "label": "ST – Sao Tome and Principe"
+  },
+  {
+    "value": "SV",
+    "label": "SV – El Salvador"
+  },
+  {
+    "value": "SX",
+    "label": "SX – Sint Maarten"
+  },
+  {
+    "value": "SY",
+    "label": "SY – Syrian Arab Republic"
+  },
+  {
+    "value": "SZ",
+    "label": "SZ – Eswatini"
+  },
+  {
+    "value": "TC",
+    "label": "TC – Turks and Caicos Islands"
+  },
+  {
+    "value": "TD",
+    "label": "TD – Chad"
+  },
+  {
+    "value": "TF",
+    "label": "TF – French Southern Territories"
+  },
+  {
+    "value": "TG",
+    "label": "TG – Togo"
+  },
+  {
+    "value": "TH",
+    "label": "TH – Thailand"
+  },
+  {
+    "value": "TJ",
+    "label": "TJ – Tajikistan"
+  },
+  {
+    "value": "TK",
+    "label": "TK – Tokelau"
+  },
+  {
+    "value": "TL",
+    "label": "TL – Timor-Leste"
+  },
+  {
+    "value": "TM",
+    "label": "TM – Turkmenistan"
+  },
+  {
+    "value": "TN",
+    "label": "TN – Tunisia"
+  },
+  {
+    "value": "TO",
+    "label": "TO – Tonga"
+  },
+  {
+    "value": "TR",
+    "label": "TR – Türkiye"
+  },
+  {
+    "value": "TT",
+    "label": "TT – Trinidad and Tobago"
+  },
+  {
+    "value": "TV",
+    "label": "TV – Tuvalu"
+  },
+  {
+    "value": "TW",
+    "label": "TW – Taiwan (Province of China)"
+  },
+  {
+    "value": "TZ",
+    "label": "TZ – Tanzania, the United Republic of"
+  },
+  {
+    "value": "UA",
+    "label": "UA – Ukraine"
+  },
+  {
+    "value": "UG",
+    "label": "UG – Uganda"
+  },
+  {
+    "value": "UM",
+    "label": "UM – United States Minor Outlying Islands"
+  },
+  {
+    "value": "UN",
+    "label": "UN – United Nations"
+  },
+  {
+    "value": "US",
+    "label": "US – United States of America"
+  },
+  {
+    "value": "US-AK",
+    "label": "US-AK – Alaska (United States of America)"
+  },
+  {
+    "value": "US-AL",
+    "label": "US-AL – Alabama (United States of America)"
+  },
+  {
+    "value": "US-AR",
+    "label": "US-AR – Arkansas (United States of America)"
+  },
+  {
+    "value": "US-AZ",
+    "label": "US-AZ – Arizona (United States of America)"
+  },
+  {
+    "value": "US-CA",
+    "label": "US-CA – California (United States of America)"
+  },
+  {
+    "value": "US-CO",
+    "label": "US-CO – Colorado (United States of America)"
+  },
+  {
+    "value": "US-CT",
+    "label": "US-CT – Connecticut (United States of America)"
+  },
+  {
+    "value": "US-DC",
+    "label": "US-DC – District of Columbia (United States of America)"
+  },
+  {
+    "value": "US-DE",
+    "label": "US-DE – Delaware (United States of America)"
+  },
+  {
+    "value": "US-FL",
+    "label": "US-FL – Florida (United States of America)"
+  },
+  {
+    "value": "US-GA",
+    "label": "US-GA – Georgia (United States of America)"
+  },
+  {
+    "value": "US-HI",
+    "label": "US-HI – Hawaii (United States of America)"
+  },
+  {
+    "value": "US-IA",
+    "label": "US-IA – Iowa (United States of America)"
+  },
+  {
+    "value": "US-ID",
+    "label": "US-ID – Idaho (United States of America)"
+  },
+  {
+    "value": "US-IL",
+    "label": "US-IL – Illinois (United States of America)"
+  },
+  {
+    "value": "US-IN",
+    "label": "US-IN – Indiana (United States of America)"
+  },
+  {
+    "value": "US-KS",
+    "label": "US-KS – Kansas (United States of America)"
+  },
+  {
+    "value": "US-KY",
+    "label": "US-KY – Kentucky (United States of America)"
+  },
+  {
+    "value": "US-LA",
+    "label": "US-LA – Louisiana (United States of America)"
+  },
+  {
+    "value": "US-MA",
+    "label": "US-MA – Massachusetts (United States of America)"
+  },
+  {
+    "value": "US-MD",
+    "label": "US-MD – Maryland (United States of America)"
+  },
+  {
+    "value": "US-ME",
+    "label": "US-ME – Maine (United States of America)"
+  },
+  {
+    "value": "US-MI",
+    "label": "US-MI – Michigan (United States of America)"
+  },
+  {
+    "value": "US-MN",
+    "label": "US-MN – Minnesota (United States of America)"
+  },
+  {
+    "value": "US-MO",
+    "label": "US-MO – Missouri (United States of America)"
+  },
+  {
+    "value": "US-MS",
+    "label": "US-MS – Mississippi (United States of America)"
+  },
+  {
+    "value": "US-MT",
+    "label": "US-MT – Montana (United States of America)"
+  },
+  {
+    "value": "US-NC",
+    "label": "US-NC – North Carolina (United States of America)"
+  },
+  {
+    "value": "US-ND",
+    "label": "US-ND – North Dakota (United States of America)"
+  },
+  {
+    "value": "US-NE",
+    "label": "US-NE – Nebraska (United States of America)"
+  },
+  {
+    "value": "US-NH",
+    "label": "US-NH – New Hampshire (United States of America)"
+  },
+  {
+    "value": "US-NJ",
+    "label": "US-NJ – New Jersey (United States of America)"
+  },
+  {
+    "value": "US-NM",
+    "label": "US-NM – New Mexico (United States of America)"
+  },
+  {
+    "value": "US-NV",
+    "label": "US-NV – Nevada (United States of America)"
+  },
+  {
+    "value": "US-NY",
+    "label": "US-NY – New York (United States of America)"
+  },
+  {
+    "value": "US-OH",
+    "label": "US-OH – Ohio (United States of America)"
+  },
+  {
+    "value": "US-OK",
+    "label": "US-OK – Oklahoma (United States of America)"
+  },
+  {
+    "value": "US-OR",
+    "label": "US-OR – Oregon (United States of America)"
+  },
+  {
+    "value": "US-PA",
+    "label": "US-PA – Pennsylvania (United States of America)"
+  },
+  {
+    "value": "US-RI",
+    "label": "US-RI – Rhode Island (United States of America)"
+  },
+  {
+    "value": "US-SC",
+    "label": "US-SC – South Carolina (United States of America)"
+  },
+  {
+    "value": "US-SD",
+    "label": "US-SD – South Dakota (United States of America)"
+  },
+  {
+    "value": "US-TN",
+    "label": "US-TN – Tennessee (United States of America)"
+  },
+  {
+    "value": "US-TX",
+    "label": "US-TX – Texas (United States of America)"
+  },
+  {
+    "value": "US-UT",
+    "label": "US-UT – Utah (United States of America)"
+  },
+  {
+    "value": "US-VA",
+    "label": "US-VA – Virginia (United States of America)"
+  },
+  {
+    "value": "US-VT",
+    "label": "US-VT – Vermont (United States of America)"
+  },
+  {
+    "value": "US-WA",
+    "label": "US-WA – Washington (United States of America)"
+  },
+  {
+    "value": "US-WI",
+    "label": "US-WI – Wisconsin (United States of America)"
+  },
+  {
+    "value": "US-WV",
+    "label": "US-WV – West Virginia (United States of America)"
+  },
+  {
+    "value": "US-WY",
+    "label": "US-WY – Wyoming (United States of America)"
+  },
+  {
+    "value": "UY",
+    "label": "UY – Uruguay"
+  },
+  {
+    "value": "UZ",
+    "label": "UZ – Uzbekistan"
+  },
+  {
+    "value": "VA",
+    "label": "VA – Holy See"
+  },
+  {
+    "value": "VC",
+    "label": "VC – Saint Vincent and the Grenadines"
+  },
+  {
+    "value": "VE",
+    "label": "VE – Venezuela (Bolivarian Republic of)"
+  },
+  {
+    "value": "VG",
+    "label": "VG – Virgin Islands (British)"
+  },
+  {
+    "value": "VI",
+    "label": "VI – Virgin Islands (U.S.)"
+  },
+  {
+    "value": "VN",
+    "label": "VN – Viet Nam"
+  },
+  {
+    "value": "VU",
+    "label": "VU – Vanuatu"
+  },
+  {
+    "value": "WF",
+    "label": "WF – Wallis and Futuna"
+  },
+  {
+    "value": "WS",
+    "label": "WS – Samoa"
+  },
+  {
+    "value": "XK",
+    "label": "XK – Kosovo"
+  },
+  {
+    "value": "XX",
+    "label": "XX – Unknown states"
+  },
+  {
+    "value": "YE",
+    "label": "YE – Yemen"
+  },
+  {
+    "value": "ZA",
+    "label": "ZA – South Africa"
+  },
+  {
+    "value": "ZM",
+    "label": "ZM – Zambia"
+  },
+  {
+    "value": "ZW",
+    "label": "ZW – Zimbabwe"
+  }
+]
