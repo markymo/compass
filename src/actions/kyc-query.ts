@@ -1554,6 +1554,25 @@ export async function getFieldDetail(
 
     let finalSourceBadgeForEmpty = (!hasValue && (displayState === 'MAPPED_NOT_CHECKED' || displayState === 'CHECKED_NO_DATA') && evalResult.evaluatedSourceBadge) ? evalResult.evaluatedSourceBadge : undefined;
 
+    // Prefer options from the linked MasterDataOptionSet (admin-managed dropdown list).
+    // The optionSet.options field is a Json array of {label, value} objects.
+    // Fall back to the legacy def.options string array for backward compat.
+    const referenceOptions = (() => {
+        const optionSet = (def as any)?.optionSet;
+        if (optionSet?.options && Array.isArray(optionSet.options) && optionSet.options.length > 0) {
+            // Return {label, value} objects for rich Select rendering
+            return optionSet.options.map((o: any) =>
+                typeof o === 'object' && o.label !== undefined
+                    ? { label: String(o.label), value: String(o.value ?? o.label) }
+                    : { label: String(o), value: String(o) }
+            );
+        }
+        // Legacy: plain string array — wrap as {label, value} for uniform handling
+        return (def?.options && def.options.length > 0)
+            ? def.options.map((s: string) => ({ label: s, value: s }))
+            : undefined;
+    })();
+
     const result = {
         fieldNo,
         fieldName: def?.fieldName,
@@ -1564,22 +1583,10 @@ export async function getFieldDetail(
         hasActiveSourceMappings: fieldMappings.length > 0,
         hasMapping: evalResult.hasApplicableMapping,
         modelField: (def as any).modelField || undefined,
-        // Prefer options from the linked MasterDataOptionSet (admin-managed dropdown list).
-        // The optionSet.options field is a Json array of {label, value} objects.
-        // Fall back to the legacy def.options string array for backward compat.
-        options: (() => {
-            const optionSet = (def as any)?.optionSet;
-            if (optionSet?.options && Array.isArray(optionSet.options) && optionSet.options.length > 0) {
-                // Return {label, value} objects for rich Select rendering
-                return optionSet.options.map((o: any) =>
-                    typeof o === 'object' && o.label !== undefined
-                        ? { label: String(o.label), value: String(o.value ?? o.label) }
-                        : { label: String(o), value: String(o) }
-                );
-            }
-            // Legacy: plain string array — wrap as {label, value} for uniform handling
-            return (def?.options || []).map((s: string) => ({ label: s, value: s }));
-        })(),
+        // Only expose selectable options to the UI editor for SELECT fields.
+        // For non-SELECT fields (e.g. TEXT fields with reference datasets like F134),
+        // referenceOptions is used exclusively for canonical display interpretation.
+        options: def?.appDataType === 'SELECT' ? referenceOptions : undefined,
         notes: def?.notes || undefined,
         description: def?.description || undefined,
         current: derived ? {
@@ -1744,7 +1751,7 @@ export async function getFieldDetail(
         codeSystem: result.codeSystem,
         allowAttachments: def?.allowAttachments,
         attachments: amalgamatedAttachmentsMap.get(fieldNo) || [],
-        options: result.options
+        options: referenceOptions
     };
 
     if (result.current) {

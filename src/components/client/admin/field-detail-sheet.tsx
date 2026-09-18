@@ -353,7 +353,9 @@ export function FieldDetailSheet({ field, open, onOpenChange, categories=[], all
                 displayContext: trimmedContext || null,
                 displayContextEnabled: formData.displayContextEnabled
             };
-            if (payload.optionSetId === "none" || payload.appDataType !== APP_DATA_TYPES.SELECT) {
+            if (payload.optionSetId === "none") {
+                payload.optionSetId = null;
+            } else if (payload.appDataType !== APP_DATA_TYPES.SELECT && payload.appDataType !== APP_DATA_TYPES.TEXT) {
                 payload.optionSetId = null;
             }
             if (payload.appDataType === 'PARTY' || payload.appDataType === 'ADDRESS') {

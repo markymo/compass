@@ -126,4 +126,78 @@ describe('Admin Field Settings - Allow file attachments', () => {
             });
         });
     });
+
+    describe('ONP-203 — Option Set reference metadata preservation on TEXT fields', () => {
+        it('preserves optionSetId on a scalar TEXT field (e.g. F134) when editing in FieldDetailSheet', async () => {
+            (governanceActions.updateMasterField as any).mockResolvedValue({ success: true });
+
+            render(
+                <FieldDetailSheet
+                    field={{
+                        fieldNo: 134,
+                        fieldName: 'Country of formation',
+                        appDataType: 'TEXT',
+                        optionSetId: '192aa8b1-a1bd-4e69-b50c-a9f06f61cf53',
+                        allowAttachments: false
+                    }}
+                    open={true}
+                    onOpenChange={vi.fn()}
+                    categories={[]}
+                />
+            );
+
+            const descInput = await screen.findByRole('textbox', { name: /Public Description/i });
+            fireEvent.change(descInput, { target: { value: 'Updated description' } });
+
+            const saveBtn = screen.getByRole('button', { name: /Save & Close/i });
+            fireEvent.click(saveBtn);
+
+            await waitFor(() => {
+                expect(governanceActions.updateMasterField).toHaveBeenCalledWith(
+                    134,
+                    expect.objectContaining({
+                        appDataType: 'TEXT',
+                        optionSetId: '192aa8b1-a1bd-4e69-b50c-a9f06f61cf53',
+                        description: 'Updated description'
+                    })
+                );
+            });
+        });
+
+        it('unrelated TEXT fields with no option set continue to submit optionSetId as null', async () => {
+            (governanceActions.updateMasterField as any).mockResolvedValue({ success: true });
+
+            render(
+                <FieldDetailSheet
+                    field={{
+                        fieldNo: 3,
+                        fieldName: 'Legal Name',
+                        appDataType: 'TEXT',
+                        optionSetId: null,
+                        allowAttachments: false
+                    }}
+                    open={true}
+                    onOpenChange={vi.fn()}
+                    categories={[]}
+                />
+            );
+
+            const descInput = await screen.findByRole('textbox', { name: /Public Description/i });
+            fireEvent.change(descInput, { target: { value: 'Legal name description' } });
+
+            const saveBtn = screen.getByRole('button', { name: /Save & Close/i });
+            fireEvent.click(saveBtn);
+
+            await waitFor(() => {
+                expect(governanceActions.updateMasterField).toHaveBeenCalledWith(
+                    3,
+                    expect.objectContaining({
+                        appDataType: 'TEXT',
+                        optionSetId: null,
+                        description: 'Legal name description'
+                    })
+                );
+            });
+        });
+    });
 });
