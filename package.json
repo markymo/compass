@@ -21,6 +21,7 @@
     "uat:permissions": "playwright test e2e/permissions --project=chromium",
     "uat:smoke": "playwright test e2e/smoke/client-smoke.spec.ts --project=chromium",
     "gleif:generate-elf": "ts-node -O '{\"module\":\"commonjs\"}' scripts/generate-elf-codes.ts",
+    "gleif:generate-jurisdictions": "ts-node -O '{\"module\":\"commonjs\"}' scripts/generate-gleif-jurisdictions.ts",
     "vercel:build": "node scripts/vercel-build.mjs",
     "test": "NODE_OPTIONS=\"--experimental-require-module\" vitest run --fileParallelism=false",
     "test:unit": "NODE_OPTIONS=\"--experimental-require-module\" vitest run --fileParallelism=false",

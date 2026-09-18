@@ -29,6 +29,7 @@
 // @ts-nocheck
 import { PrismaClient } from "@prisma/client";
 import isoCurrencies from "./iso-currencies.json";
+import gleifLegalJurisdictions from "./gleif-legal-jurisdictions.json";
 
 const prisma = new PrismaClient();
 
@@ -49,6 +50,14 @@ export const OPTION_SETS: Array<{
         description: "ISO 4217:2015 3 letter currency code (https://www.six-group.com/en/products-services/financial-information/data-standards.html)",
         valueType: "STRING",
         options: isoCurrencies,
+    },
+
+    // ── GLEIF Accepted Legal Jurisdictions (ONP-203) ──────────────────────────
+    {
+        name: "GLEIF_Legal_Jurisdictions",
+        description: "GLEIF Accepted Legal Jurisdictions Code List — Version 1.5 (https://www.gleif.org/en/lei-data/code-lists/gleif-accepted-legal-jurisdictions-code-list)",
+        valueType: "STRING",
+        options: gleifLegalJurisdictions,
     },
 
     // ── Example: Legal Entity Types ──────────────────────────────────────────
@@ -139,7 +148,12 @@ export const OPTION_SETS: Array<{
 
 export async function main(targetName?: string) {
     const args = process.argv.slice(2).filter((arg) => !arg.startsWith("-"));
-    const requested = targetName || args[0];
+    let requested = targetName || args[0];
+
+    // Backwards-compatible alias for previous Option Set name
+    if (requested === "ISO_Legal_Jurisdictions") {
+        requested = "GLEIF_Legal_Jurisdictions";
+    }
 
     const setsToSeed = requested
         ? OPTION_SETS.filter((s) => s.name === requested)
@@ -153,26 +167,55 @@ export async function main(targetName?: string) {
 
     console.log(`\n🌱  Seeding ${setsToSeed.length} option set(s) into Neon…\n`);
 
-    for (const set of setsToSeed) {
-        const existing = await prisma.masterDataOptionSet.findUnique({
-            where: { name: set.name },
-            select: { id: true, name: true },
-        });
+    const STABLE_IDS: Record<string, string> = {
+        GLEIF_Legal_Jurisdictions: "192aa8b1-a1bd-4e69-b50c-a9f06f61cf53",
+    };
+    const PREVIOUS_NAMES: Record<string, string> = {
+        GLEIF_Legal_Jurisdictions: "ISO_Legal_Jurisdictions",
+    };
 
+    for (const set of setsToSeed) {
+        const stableId = STABLE_IDS[set.name];
+        const prevName = PREVIOUS_NAMES[set.name];
+        let existing = null;
+
+        if (stableId) {
+            existing = await prisma.masterDataOptionSet.findUnique({
+                where: { id: stableId },
+                select: { id: true, name: true },
+            });
+        }
+        if (!existing && prevName) {
+            existing = await prisma.masterDataOptionSet.findUnique({
+                where: { name: prevName },
+                select: { id: true, name: true },
+            });
+        }
+        if (!existing) {
+            existing = await prisma.masterDataOptionSet.findUnique({
+                where: { name: set.name },
+                select: { id: true, name: true },
+            });
+        }
+
+        let optionSetId: string;
         if (existing) {
             await prisma.masterDataOptionSet.update({
                 where: { id: existing.id },
                 data: {
+                    name:        set.name,
                     description: set.description,
                     valueType:   set.valueType,
                     options:     set.options as any,
                     updatedAt:   new Date(),
                 },
             });
-            console.log(`  ✏️  Updated  "${set.name}"  (${set.options.length} options)`);
+            optionSetId = existing.id;
+            console.log(`  ✏️  Updated  "${set.name}" [${optionSetId}] (${set.options.length} options)`);
         } else {
-            await prisma.masterDataOptionSet.create({
+            const created = await prisma.masterDataOptionSet.create({
                 data: {
+                    id:          stableId || undefined,
                     name:        set.name,
                     description: set.description,
                     valueType:   set.valueType,
@@ -180,7 +223,24 @@ export async function main(targetName?: string) {
                     isActive:    true,
                 },
             });
-            console.log(`  ✅  Created  "${set.name}"  (${set.options.length} options)`);
+            optionSetId = created.id;
+            console.log(`  ✅  Created  "${set.name}" [${optionSetId}] (${set.options.length} options)`);
+        }
+
+        // Special link-up for GLEIF_Legal_Jurisdictions (ONP-203):
+        // Ensure F134, F143, F156, F157 are associated with this Option Set ID
+        if (set.name === "GLEIF_Legal_Jurisdictions") {
+            // Declaratively associate F134 (Country of formation) for display lookup while keeping appDataType: TEXT
+            await prisma.masterFieldDefinition.updateMany({
+                where: { fieldNo: 134, isActive: true },
+                data: { optionSetId },
+            });
+            // Ensure F143, F156, F157 continue pointing to this Option Set ID
+            await prisma.masterFieldDefinition.updateMany({
+                where: { fieldNo: { in: [143, 156, 157] }, isActive: true },
+                data: { optionSetId },
+            });
+            console.log(`  🔗  Linked F134, F143, F156, F157 to "${set.name}" [${optionSetId}]`);
         }
     }
 
