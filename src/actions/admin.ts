@@ -2,6 +2,7 @@
 import { put } from "@vercel/blob";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
+import { revalidateOrganizationMembership } from "@/lib/revalidate-organization-membership";
 import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import { isSystemAdmin } from "./security";
 export { isSystemAdmin };
@@ -128,7 +129,7 @@ export async function updateUserOrg(targetUserId: string, targetOrgId: string, f
         }
     });
 
-    revalidatePath("/app/admin/users");
+    revalidateOrganizationMembership(targetOrgId);
     return { success: true };
 }
 

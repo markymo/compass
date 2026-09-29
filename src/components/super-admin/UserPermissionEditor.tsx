@@ -1,5 +1,7 @@
 "use client";
 
+import { organizationDescription, organizationLabel } from "@/lib/organization-identity";
+import { notifyOrganizationMembershipChanged } from "@/lib/organization-membership-events";
 import { useState, useEffect } from "react";
 import { assignClientRole, assignLERole, searchClients, addUserToClient, createClientLEForOrg, updateUserBasicInfo, resetUserPassword, updateDemoActorStatus } from "@/actions/super-admin-users";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -56,6 +58,7 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
     async function refresh() {
         // In a real app we'd re-fetch the server action here or rely on parent re-render.
         // For now, we just reload the page to be simple and safe.
+        notifyOrganizationMembershipChanged();
         window.location.reload();
     }
 
@@ -216,7 +219,9 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
                                                 aria-expanded={orgSearchOpen}
                                                 className="w-full justify-between"
                                             >
-                                                {selectedOrg ? selectedOrg.name : "Search organization..."}
+                                                <span className="truncate" title={selectedOrg ? organizationLabel(selectedOrg) : undefined}>
+                                                    {selectedOrg ? organizationLabel(selectedOrg) : "Search organization..."}
+                                                </span>
                                                 <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
                                         </PopoverTrigger>
@@ -232,7 +237,7 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
                                                                 value={org.id}
                                                                 onSelect={() => {
                                                                     setSelectedOrg(org);
-                                                                    if (org.type === "SYSTEM") {
+                                                                    if ((org.types ?? [org.type]).includes("SYSTEM")) {
                                                                         setAddRole("SYSTEM_ADMIN");
                                                                     }
                                                                     setOrgSearchOpen(false);
@@ -240,8 +245,8 @@ export function UserPermissionEditor({ profile, userId }: UserPermissionEditorPr
                                                             >
                                                                 <div className="flex items-center gap-2">
                                                                     <Building2 className="mr-2 h-4 w-4 opacity-70" />
-                                                                    <span>{org.name}</span>
-                                                                    <Badge variant="outline" className="ml-2 text-[10px] h-5">{org.type}</Badge>
+                                                                    <span className="break-all">{organizationLabel(org)}</span>
+                                                                    {(org.types ?? [org.type]).map((type: string) => <Badge key={type} variant="outline" className="ml-2 text-[10px] h-5">{type}</Badge>)}
                                                                 </div>
                                                             </CommandItem>
                                                         ))}
@@ -319,6 +324,7 @@ function OrganizationCard({ membership, onUpdateClientRole, onUpdateLERole, load
             setIsCreateOpen(false);
             setNewLeName("");
             // Refresh logic - ideally we lift state up or trigger a reload
+            notifyOrganizationMembershipChanged();
             window.location.reload();
         } else {
             toast.error("Failed to create workspace");
@@ -331,8 +337,8 @@ function OrganizationCard({ membership, onUpdateClientRole, onUpdateLERole, load
                 <CardHeader className="py-4">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-4">
-                            <CollapsibleTrigger asChild disabled={org.type !== "CLIENT"}>
-                                <Button variant="ghost" size="sm" className={`p-0 h-auto hover:bg-transparent ${org.type !== "CLIENT" ? "opacity-0 cursor-default" : ""}`}>
+                            <CollapsibleTrigger asChild disabled={!(org.types ?? [org.type]).includes("CLIENT")}>
+                                <Button variant="ghost" size="sm" className={`p-0 h-auto hover:bg-transparent ${!(org.types ?? [org.type]).includes("CLIENT") ? "opacity-0 cursor-default" : ""}`}>
                                     {isOpen ? <ChevronDown className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
                                 </Button>
                             </CollapsibleTrigger>
@@ -347,10 +353,11 @@ function OrganizationCard({ membership, onUpdateClientRole, onUpdateLERole, load
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <CardTitle className="text-base">{org.name}</CardTitle>
-                                        <Badge variant="secondary" className="text-[10px] h-5">{org.type}</Badge>
+                                        {(org.types ?? [org.type]).map((type: string) => <Badge key={type} variant="secondary" className="text-[10px] h-5">{type}</Badge>)}
                                     </div>
+                                    <div className="text-xs text-muted-foreground break-all">{organizationDescription(org)}</div>
                                     <CardDescription>
-                                        {org.type === "CLIENT"
+                                        {(org.types ?? [org.type]).includes("CLIENT")
                                             ? `${membership.les.length} Client Legal Entity (LE) Workspaces Available`
                                             : "Supplier Organization (No Client Legal Entity (LE) Workspaces)"}
                                     </CardDescription>
@@ -380,7 +387,7 @@ function OrganizationCard({ membership, onUpdateClientRole, onUpdateLERole, load
                             </div>
 
                             {/* Create LE Button - Allow for CLIENT and FI (Super Admin Flexibilty) */}
-                            {["CLIENT", "FI"].includes(org.type) && (
+                            {(org.types ?? [org.type]).some((type: string) => ["CLIENT", "FI"].includes(type)) && (
                                 <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
                                     <DialogTrigger asChild>
                                         <Button variant="outline" size="sm" className="h-8 text-xs border-dashed gap-1"

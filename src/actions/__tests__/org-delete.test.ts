@@ -35,13 +35,22 @@ vi.mock('@/lib/prisma', () => ({
         },
         membership:                   { count: vi.fn(() => Promise.resolve(counts['membership'] ?? 0)) },
         clientLEOwner:                { count: vi.fn(() => Promise.resolve(counts['clientLEOwner'] ?? 0)) },
-        fIEngagement:                 { count: vi.fn(() => Promise.resolve(counts['fIEngagement'] ?? 0)) },
-        questionnaire:                { count: vi.fn(() => Promise.resolve(counts['questionnaire'] ?? 0)) },
+        fIEngagement:                 {
+            count: vi.fn(() => Promise.resolve(counts['fIEngagement'] ?? 0)),
+            findMany: vi.fn().mockResolvedValue([]),
+            deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        },
+        questionnaire:                {
+            count: vi.fn(() => Promise.resolve(counts['questionnaire'] ?? 0)),
+            findMany: vi.fn().mockResolvedValue([]),
+            deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        },
         customFieldDefinition:        { count: vi.fn(() => Promise.resolve(counts['customFieldDefinition'] ?? 0)) },
         fISchema:                     { count: vi.fn(() => Promise.resolve(counts['fISchema'] ?? 0)) },
         invitation:                   { count: vi.fn(() => Promise.resolve(counts['invitation'] ?? 0)) },
         fieldClaim:                   { count: vi.fn(() => Promise.resolve(counts['fieldClaim'] ?? 0)) },
         questionnaireVisibilityGrant: { count: vi.fn(() => Promise.resolve(counts['visibilityGrant'] ?? 0)) },
+        query:                        { deleteMany: vi.fn().mockResolvedValue({ count: 0 }) },
     },
 }));
 

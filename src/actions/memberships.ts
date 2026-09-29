@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { getIdentity } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { revalidateOrganizationMembership } from "@/lib/revalidate-organization-membership";
 
 export type UpdatePermissionData = {
     targetUserId: string;
@@ -100,6 +101,7 @@ export async function updateUserPermission(data: UpdatePermissionData) {
         }
 
         revalidatePath(`/app/clients/${orgIdToCheck}/team`);
+        if (data.scopeType === "ORG") revalidateOrganizationMembership(data.scopeId);
         return { success: true };
 
     } catch (e) {
@@ -164,6 +166,7 @@ export async function updateMembershipRole(membershipId: string, role: string) {
         data: { role },
     });
 
+    revalidateOrganizationMembership(orgIdToCheck);
     return { success: true };
 }
 
@@ -218,5 +221,6 @@ export async function removeMembership(membershipId: string) {
         where: { id: membershipId },
     });
 
+    revalidateOrganizationMembership(orgIdToCheck);
     return { success: true };
 }

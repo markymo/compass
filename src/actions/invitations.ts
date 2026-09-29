@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import crypto from "crypto";
 import { getIdentity } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
+import { revalidateOrganizationMembership } from "@/lib/revalidate-organization-membership";
 import { Action, can } from "@/lib/auth/permissions";
 import { Resend } from "resend";
 import { render } from "@react-email/render";
@@ -261,7 +262,7 @@ export async function inviteUser(payload: InvitePayload) {
             scope: getScopeType(payload),
         });
 
-        if (payload.organizationId) revalidatePath(`/app/clients/${payload.organizationId}/team`);
+        if (payload.organizationId) revalidateOrganizationMembership(payload.organizationId);
         if (payload.clientLEId) {
             const le = await prisma.clientLE.findUnique({ where: { id: payload.clientLEId }, include: { owners: true } });
             if (le?.owners[0]) revalidatePath(`/app/clients/${le.owners[0].partyId}/team`);
@@ -342,7 +343,7 @@ export async function inviteUser(payload: InvitePayload) {
     });
 
     // Revalidate relevant pages
-    if (payload.organizationId) revalidatePath(`/app/clients/${payload.organizationId}/team`);
+    if (payload.organizationId) revalidateOrganizationMembership(payload.organizationId);
     if (payload.clientLEId) {
         const le = await prisma.clientLE.findUnique({
             where: { id: payload.clientLEId },
@@ -463,7 +464,7 @@ export async function revokeInvitation(invitationId: string) {
         data: { revokedAt: new Date() },
     });
 
-    if (invite.organizationId) revalidatePath(`/app/clients/${invite.organizationId}/team`);
+    if (invite.organizationId) revalidateOrganizationMembership(invite.organizationId);
     if (invite.clientLEId) {
         const owner = await prisma.clientLEOwner.findFirst({ where: { clientLEId: invite.clientLEId, endAt: null } });
         if (owner) revalidatePath(`/app/clients/${owner.partyId}`);
@@ -735,6 +736,7 @@ export async function claimPendingInvitation(invitationId: string) {
     const identity = await getIdentity();
     if (!identity?.userId) return { success: false, error: "Unauthorized" };
 
+    let changedOrgId: string | null = null;
     try {
         let redirectUrl = "/app";
 
@@ -832,6 +834,8 @@ export async function claimPendingInvitation(invitationId: string) {
                 tx
             );
 
+            changedOrgId = invite.organizationId;
+
             // 8. Mark invitation used atomically
             await tx.invitation.update({
                 where: { id: invitationId },
@@ -844,6 +848,7 @@ export async function claimPendingInvitation(invitationId: string) {
             redirectUrl = await determineRedirectUrl(invite, prisma);
         });
 
+        revalidateOrganizationMembership(changedOrgId);
         revalidatePath("/app");
         return { success: true, redirectUrl };
     } catch (e: any) {

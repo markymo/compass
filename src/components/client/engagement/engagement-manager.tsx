@@ -311,7 +311,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                     <DialogHeader className="px-5 pt-5 pb-3 border-b border-border">
                         <DialogTitle className="text-lg font-bold text-foreground">Add Supplier Relationship</DialogTitle>
                         <DialogDescription className="text-xs text-muted-foreground">
-                            Search for a financial institution to add a relationship to this legal entity.
+                            Search for a supplier to add a relationship to this legal entity.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="p-0">
@@ -319,7 +319,7 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                             <div className="flex items-center border-b border-border px-4 overflow-hidden">
                                 <Search className="h-4 w-4 shrink-0 text-muted-foreground mr-2" />
                                 <CommandInput
-                                    placeholder="Search financial institutions..."
+                                    placeholder="Search suppliers..."
                                     autoFocus
                                     value={searchQuery}
                                     onValueChange={handleSearchValueChange}
@@ -330,17 +330,17 @@ export function EngagementManager({ leId, initialEngagements, leDueDate, commonQ
                             <CommandList className="max-h-[260px] min-h-[120px] p-2">
                                 {!searchQuery.trim() ? (
                                     <div className="py-10 px-4 text-center text-xs text-muted-foreground">
-                                        Type an institution name to search matching organizations.
+                                        Type a supplier name to search matching organizations.
                                     </div>
                                 ) : isSearching ? (
                                     <div className="py-10 px-4 text-center text-xs text-muted-foreground flex items-center justify-center gap-2">
                                         <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
-                                        Searching institutions...
+                                        Searching suppliers...
                                     </div>
                                 ) : searchResults.length === 0 ? (
                                     <CommandEmpty className="py-8 px-4 text-center">
                                         <p className="text-sm text-muted-foreground">
-                                            No financial institutions found matching &quot;{searchQuery}&quot;.
+                                            No suppliers found matching &quot;{searchQuery}&quot;.
                                         </p>
                                     </CommandEmpty>
                                 ) : (

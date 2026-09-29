@@ -3,6 +3,7 @@
 import prisma from "@/lib/prisma";
 import { isSystemAdmin } from "./admin";
 import { revalidatePath } from "next/cache";
+import { revalidateOrganizationMembership } from "@/lib/revalidate-organization-membership";
 import { randomUUID } from 'crypto';
 
 import { generateShortCode, makeUnique, normalizeDomain } from "@/lib/org-short-code";
@@ -104,10 +105,10 @@ export async function getOrganizations(filterType?: string) {
                 select: {
                     memberships: true,
                     ownedLEs: true,
-                    engagements: true,
-                    questionnaires: true,
-                    ownedQuestionnaires: true,
-                    customFieldDefinitions: true,
+                    engagements: { where: { isDeleted: false } },
+                    questionnaires: { where: { isDeleted: false } },
+                    ownedQuestionnaires: { where: { isDeleted: false } },
+                    customFieldDefinitions: { where: { isDeleted: false } },
                     fiSchemas: true,
                     invitations: true,
                     ownedClaims: true,
@@ -240,7 +241,7 @@ export async function addMemberToOrg(orgId: string, email: string, role: "ORG_AD
             });
         }
 
-        revalidatePath(`/app/admin/organizations/${orgId}`);
+        revalidateOrganizationMembership(orgId);
         return { success: true };
     } catch (e) {
         console.error(e);
@@ -360,6 +361,41 @@ export async function deleteOrganization(orgId: string): Promise<{
     }
 
     try {
+        // Clean up soft-deleted child records for this org to prevent foreign key constraint violations
+        if (prisma.fIEngagement?.findMany) {
+            const softEngs = await prisma.fIEngagement.findMany({
+                where: { fiOrgId: orgId, isDeleted: true },
+                select: { id: true },
+            });
+            if (softEngs.length > 0) {
+                const engIds = softEngs.map((e: any) => e.id);
+                if (prisma.query?.deleteMany) {
+                    await prisma.query.deleteMany({ where: { fiEngagementId: { in: engIds } } });
+                }
+                if (prisma.fIEngagement?.deleteMany) {
+                    await prisma.fIEngagement.deleteMany({ where: { id: { in: engIds } } });
+                }
+            }
+        }
+
+        if (prisma.questionnaire?.findMany) {
+            const softQuestionnaires = await prisma.questionnaire.findMany({
+                where: {
+                    OR: [
+                        { fiOrgId: orgId, isDeleted: true },
+                        { ownerOrgId: orgId, isDeleted: true },
+                    ],
+                },
+                select: { id: true },
+            });
+            if (softQuestionnaires.length > 0) {
+                const qIds = softQuestionnaires.map((q: any) => q.id);
+                if (prisma.questionnaire?.deleteMany) {
+                    await prisma.questionnaire.deleteMany({ where: { id: { in: qIds } } });
+                }
+            }
+        }
+
         await prisma.organization.delete({ where: { id: orgId } });
         revalidatePath("/app/admin/organizations");
         return { success: true };
@@ -390,9 +426,9 @@ async function getOrgBlockers(orgId: string): Promise<string[]> {
     ] = await Promise.all([
         prisma.membership.count({ where: { organizationId: orgId } }),
         prisma.clientLEOwner.count({ where: { partyId: orgId } }),
-        prisma.fIEngagement.count({ where: { fiOrgId: orgId } }),
-        prisma.questionnaire.count({ where: { fiOrgId: orgId } }),
-        prisma.questionnaire.count({ where: { ownerOrgId: orgId } }),
+        prisma.fIEngagement.count({ where: { fiOrgId: orgId, isDeleted: false } }),
+        prisma.questionnaire.count({ where: { fiOrgId: orgId, isDeleted: false } }),
+        prisma.questionnaire.count({ where: { ownerOrgId: orgId, isDeleted: false } }),
         prisma.customFieldDefinition.count({ where: { orgId: orgId, isDeleted: false } }),
         prisma.fISchema.count({ where: { fiOrgId: orgId } }),
         prisma.invitation.count({ where: { organizationId: orgId } }),

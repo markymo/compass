@@ -6,6 +6,7 @@ import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { Action, ensureAuthorization } from "@/lib/auth/permissions";
 import { revalidatePath } from "next/cache";
+import { revalidateOrganizationMembership } from "@/lib/revalidate-organization-membership";
 
 // Helper: Ensure System Admin via Action.SYSTEM_MANAGE_TENANTS
 async function ensureAdmin() {
@@ -20,7 +21,7 @@ export async function searchClients(query: string) {
     const clients = await prisma.organization.findMany({
         where: {
             name: { contains: query, mode: "insensitive" },
-            types: { hasSome: ["CLIENT", "FI", "SYSTEM"] }
+            types: { hasSome: ["CLIENT", "SUPPLIER", "FI", "LAW_FIRM", "OTHER", "SYSTEM"] }
         },
         take: 10,
         orderBy: { name: 'asc' }
@@ -30,6 +31,9 @@ export async function searchClients(query: string) {
         id: c.id,
         name: c.name,
         logoUrl: c.logoUrl,
+        shortCode: c.shortCode,
+        domain: c.domain,
+        types: c.types,
         type: c.types.length > 0 ? c.types[0] : "CLIENT"
     }));
 }
@@ -177,7 +181,7 @@ export async function assignClientRole(data: { userId: string, clientId: string,
                 });
             }
         }
-        revalidatePath("/app/admin/users");
+        revalidateOrganizationMembership(data.clientId);
         return { success: true };
     } catch (e) {
         console.error("Assign Client Role Error", e);
@@ -259,7 +263,7 @@ export async function addUserToClient(data: { email: string, clientId: string, n
             }
         });
 
-        revalidatePath("/app/admin/users");
+        revalidateOrganizationMembership(data.clientId);
         return { success: true };
 
     } catch (e) {
@@ -415,6 +419,9 @@ export async function getUserPermissionsProfile(targetUserId: string) {
                 id: om.organization.id,
                 name: om.organization.name,
                 logoUrl: om.organization.logoUrl,
+                shortCode: om.organization.shortCode,
+                domain: om.organization.domain,
+                types: om.organization.types,
                 type: om.organization.types.length > 0 ? om.organization.types[0] : "CLIENT"
             },
             role: om.role,
@@ -450,6 +457,9 @@ export async function getUserPermissionsProfile(targetUserId: string) {
                     id: ao.party.id,
                     name: ao.party.name,
                     logoUrl: ao.party.logoUrl,
+                    shortCode: ao.party.shortCode,
+                    domain: ao.party.domain,
+                    types: ao.party.types,
                     type: ao.party.types && ao.party.types.length > 0 ? ao.party.types[0] : "CLIENT"
                 },
                 les: []

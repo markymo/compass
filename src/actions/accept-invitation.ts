@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { getIdentity } from "@/lib/auth";
-import { revalidatePath } from "next/cache";
+import { revalidateOrganizationMembership } from "@/lib/revalidate-organization-membership";
 
 // ============================================================================
 // Shared Helpers
@@ -221,7 +221,7 @@ export async function registerAndAcceptInvitation(payload: {
         // 7. Determine redirect target
         const redirectUrl = await determineRedirectUrl(invite, prisma);
 
-        if (invite.organizationId) revalidatePath(`/app/clients/${invite.organizationId}/team`);
+        revalidateOrganizationMembership(invite.organizationId);
 
         return { success: true, redirectUrl, userId: newUser.id };
 
@@ -394,7 +394,7 @@ export async function acceptInvitation(rawToken: string) {
 
         const redirectUrl = await determineRedirectUrl(invite, prisma);
 
-        if (invite.organizationId) revalidatePath(`/app/clients/${invite.organizationId}/team`);
+        revalidateOrganizationMembership(invite.organizationId);
 
         return { success: true, redirectUrl };
 

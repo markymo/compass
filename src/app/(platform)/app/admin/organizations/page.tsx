@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { organizationDescription, organizationLabel } from "@/lib/organization-identity";
+import { ORGANIZATION_MEMBERSHIP_CHANGED } from "@/lib/organization-membership-events";
 import { getOrganizations, createOrganization, updateOrganization, checkOrgDeletable, deleteOrganization } from "@/actions/org";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -121,11 +123,12 @@ function InlineEditCell({
 
 // ── Delete confirmation dialog ───────────────────────────────────────────────
 
-function DeleteOrgButton({ orgId, orgName, orgCount, onDeleted }: {
+function DeleteOrgButton({ orgId, orgName, orgCount, onDeleted, onChecked }: {
     orgId: string;
     orgName: string;
     orgCount: Record<string, number>;
     onDeleted: () => void;
+    onChecked: () => void;
 }) {
     const [open, setOpen] = useState(false);
     const [checking, setChecking] = useState(false);
@@ -168,6 +171,7 @@ function DeleteOrgButton({ orgId, orgName, orgCount, onDeleted }: {
         const res = await checkOrgDeletable(orgId);
         setCheckResult({ deletable: res.deletable, error: res.error, blockers: res.blockers });
         setChecking(false);
+        onChecked();
     };
 
     const handleConfirmDelete = async () => {
@@ -180,6 +184,7 @@ function DeleteOrgButton({ orgId, orgName, orgCount, onDeleted }: {
             onDeleted();
         } else {
             toast.error(res.error || "Delete failed");
+            onChecked();
         }
     };
 
@@ -262,35 +267,62 @@ export default function OrganizationsPage() {
     const [domain, setDomain] = useState("");
     const [shortCode, setShortCode] = useState("");
     const [isShortCodeEdited, setIsShortCodeEdited] = useState(false);
-    const [types, setTypes] = useState<string[]>(filterType ? [filterType] : ["CLIENT"]);
+    const [types, setTypes] = useState<string[]>(filterType ? [filterType] : []);
     const [creating, setCreating] = useState(false);
 
     // Search and Filter State
     const [searchQuery, setSearchQuery] = useState("");
     const [roleFilter, setRoleFilter] = useState<"ALL" | "CLIENT" | "SUPPLIER">("ALL");
 
-    useEffect(() => {
-        loadData();
+    const requestVersion = useRef(0);
+    const loadData = useCallback(async () => {
+        const version = ++requestVersion.current;
+        try {
+            const data = await getOrganizations(filterType || undefined);
+            if (version === requestVersion.current) setOrgs(data);
+        } catch {
+            if (version === requestVersion.current) toast.error("Unable to refresh organizations. Please try again.");
+        } finally {
+            if (version === requestVersion.current) setLoading(false);
+        }
     }, [filterType]);
 
-    async function loadData() {
-        setLoading(true);
-        const data = await getOrganizations(filterType || undefined);
-        setOrgs(data);
-        setLoading(false);
-    }
+    useEffect(() => {
+        void loadData();
+        const refresh = () => { void loadData(); };
+        const onVisible = () => { if (document.visibilityState === "visible") refresh(); };
+        const onStorage = (event: StorageEvent) => {
+            if (event.key === ORGANIZATION_MEMBERSHIP_CHANGED) refresh();
+        };
+        window.addEventListener("focus", refresh);
+        window.addEventListener("pageshow", refresh);
+        window.addEventListener(ORGANIZATION_MEMBERSHIP_CHANGED, refresh);
+        window.addEventListener("storage", onStorage);
+        document.addEventListener("visibilitychange", onVisible);
+        return () => {
+            ++requestVersion.current;
+            window.removeEventListener("focus", refresh);
+            window.removeEventListener("pageshow", refresh);
+            window.removeEventListener(ORGANIZATION_MEMBERSHIP_CHANGED, refresh);
+            window.removeEventListener("storage", onStorage);
+            document.removeEventListener("visibilitychange", onVisible);
+        };
+    }, [loadData]);
 
     function resetForm() {
         setName("");
         setDomain("");
         setShortCode("");
         setIsShortCodeEdited(false);
+        setTypes(filterType ? [filterType] : []);
     }
 
     function handleOpenChange(newOpen: boolean) {
         setOpen(newOpen);
         if (!newOpen) {
             resetForm();
+        } else {
+            setTypes(filterType ? [filterType] : []);
         }
     }
 
@@ -365,8 +397,8 @@ export default function OrganizationsPage() {
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                             <div className="space-y-2">
-                                <Label>Organization Name</Label>
-                                <Input value={name} onChange={e => handleNameChange(e.target.value)} placeholder="e.g. Acme Legal LLP" />
+                                <Label htmlFor="name">Organization Name</Label>
+                                <Input id="name" value={name} onChange={e => handleNameChange(e.target.value)} placeholder="e.g. Acme Legal LLP" />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
@@ -446,7 +478,7 @@ export default function OrganizationsPage() {
                                     </div>
                                 </div>
                             </div>
-                            <Button onClick={handleCreate} disabled={creating} className="w-full">
+                            <Button onClick={handleCreate} disabled={creating || !name.trim() || types.length === 0} className="w-full">
                                 {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Organization"}
                             </Button>
                         </div>
@@ -503,7 +535,7 @@ export default function OrganizationsPage() {
                                     </TableCell>
                                 </TableRow>
                             ) : filteredOrgs.map((org: any) => (
-                                <TableRow key={org.id}>
+                                <TableRow key={org.id} data-organization-id={org.id}>
                                     <TableCell className="font-medium">
                                         <div className="flex items-center gap-2">
                                             <Building2 className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -515,6 +547,7 @@ export default function OrganizationsPage() {
                                                 onSaved={loadData}
                                             />
                                         </div>
+                                        <div className="text-xs font-normal text-muted-foreground break-all mt-1">{organizationDescription(org)}</div>
                                     </TableCell>
                                     <TableCell>
                                         <InlineEditCell
@@ -556,9 +589,10 @@ export default function OrganizationsPage() {
                                             </Link>
                                             <DeleteOrgButton
                                                 orgId={org.id}
-                                                orgName={org.name}
+                                                orgName={organizationLabel(org)}
                                                 orgCount={org._count ?? {}}
                                                 onDeleted={loadData}
+                                                onChecked={loadData}
                                             />
                                         </div>
                                     </TableCell>

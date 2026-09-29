@@ -1,5 +1,7 @@
 "use client";
 
+import { organizationDescription } from "@/lib/organization-identity";
+import { notifyOrganizationMembershipChanged } from "@/lib/organization-membership-events";
 import { useState, useEffect, useRef } from "react";
 import { getOrganizationDetails, updateOrganization } from "@/actions/org";
 import { inviteUser, getPendingInvitations } from "@/actions/invitations";
@@ -138,6 +140,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
         try {
             const res = await inviteUser({ email: inviteEmail, role: inviteRole, organizationId: org.id });
             if (res.success) {
+                notifyOrganizationMembershipChanged();
                 toast.success(`Invited ${inviteEmail} as ${inviteRole}`);
                 setInviteEmail("");
                 setInviteRole("ORG_MEMBER");
@@ -262,7 +265,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                             ))}
                         </h1>
                     )}
-                    <p className="text-muted-foreground text-sm">ID: {org.id}</p>
+                    <p className="text-muted-foreground text-sm">{organizationDescription(org)}</p>
                 </div>
             </div>
 
@@ -854,6 +857,7 @@ export default function OrganizationDetailPage({ params }: { params: Promise<{ i
                 onOpenChange={(open) => !open && setSelectedUser(null)} 
                 user={selectedUser} 
                 onSuccess={() => {
+                    notifyOrganizationMembershipChanged();
                     if (org) loadData(org.id);
                     // Keep modal open, but we could close it if we want.
                 }} 

@@ -1106,7 +1106,8 @@ export async function searchFIs(query: string) {
     try {
         const fis = await prisma.organization.findMany({
             where: {
-                types: { has: "FI" },
+                types: { hasSome: ["FI", "SUPPLIER", "LAW_FIRM", "OTHER"] },
+                NOT: { types: { has: "SYSTEM" } },
                 name: { contains: query, mode: "insensitive" }
             },
             take: 10,
@@ -1116,7 +1117,7 @@ export async function searchFIs(query: string) {
         return fis.map((fi: any) => ({
             value: fi.id, // Use ID as value for uniqueness
             label: fi.name,
-            description: fi.description || "Financial Institution"
+            description: fi.description || (fi.types.includes("LAW_FIRM") ? "Law Firm" : fi.types.includes("FI") ? "Financial Institution" : "Supplier")
         }));
     } catch (e) {
         console.error("Search FIs Failed", e);
