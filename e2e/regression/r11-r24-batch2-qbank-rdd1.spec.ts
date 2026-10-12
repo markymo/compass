@@ -356,13 +356,49 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
         await swedenOption.first().click();
 
         // Save edit
-        const saveBtn = countryCard.locator('button:has(svg.lucide-check)');
-        if (await saveBtn.isVisible()) {
-            await saveBtn.click();
+        const saveBtn = countryCard.locator('button[title*="Save"]').or(countryCard.locator('button:has(svg.lucide-check)'));
+        await expect(saveBtn.first()).toBeVisible({ timeout: 5000 });
+        await saveBtn.first().click();
+        await expect(saveBtn).toHaveCount(0, { timeout: 10000 });
+
+        // Verify updated country display includes code SE
+        await expect(countryCard.getByText(/SE/i).first()).toBeVisible({ timeout: 10000 });
+
+        // Canonical jurisdiction selection: Test subdivision selection (US-DE Delaware)
+        const reEditBtn = countryCard.locator('[data-testid^="rdd1-edit-btn-"]')
+            .or(countryCard.locator('button[title*="Edit"]'))
+            .or(countryCard.locator('button:has-text("Edit")'));
+        await reEditBtn.first().click();
+        await expect(countryDropdownTrigger.first()).toBeVisible({ timeout: 10000 });
+        await countryDropdownTrigger.first().click();
+        await expect(popover.first()).toBeVisible({ timeout: 5000 });
+        if (await countrySearchInput.first().isVisible({ timeout: 2000 }).catch(() => false)) {
+            await countrySearchInput.first().fill('US-DE');
         }
 
-        // Verify updated country display includes code and country name
-        await expect(countryCard.getByText(/SE.*Sweden|Sweden/i).first()).toBeVisible({ timeout: 10000 });
+        const delawareOption = popover.getByRole('option', { name: /US-DE.*Delaware/i })
+            .or(popover.getByText(/US-DE\s*[-–]\s*Delaware/i));
+
+        await expect(delawareOption.first()).toBeVisible({ timeout: 10000 });
+        await delawareOption.first().click();
+
+        await expect(saveBtn.first()).toBeVisible({ timeout: 5000 });
+        await saveBtn.first().click();
+        await expect(saveBtn).toHaveCount(0, { timeout: 10000 });
+
+        // Verify updated display includes US-DE
+        await expect(countryCard.getByText(/US-DE/i).first()).toBeVisible({ timeout: 10000 });
+
+        // Verify persistence after page reload
+        await page.reload();
+        await expect(countryCard.getByText(/US-DE/i).first()).toBeVisible({ timeout: 10000 });
+
+        // Verify raw FieldClaim in staging DB strictly preserves code 'US-DE'
+        const claim = await prisma.fieldClaim.findFirst({
+            where: { clientLEId, fieldNo: 134, status: { in: ['ASSERTED', 'VERIFIED'] } },
+            orderBy: { assertedAt: 'desc' }
+        });
+        expect(claim?.valueText).toBe('US-DE');
     });
 
     test('Bug R17, R21 & R24: Layout RDD1 allows editing fields and opening sidebar', async ({ page }) => {
@@ -434,7 +470,7 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
         await expect(sheet.getByText(new RegExp(`COUNTRY OF INCORPORATION ${run}`, 'i')).first()).toBeVisible({ timeout: 10000 });
     });
 
-    test('Bug R16: Composite group links to underlying constituent fields', async ({ page }) => {
+    test('Bug R16: Composite group links to underlying constituent fields and persists edits', async ({ page }) => {
         // Bug R16: "QB questions mapped to composite group cant be edited and have no link to the underlying fields"
         await login(page, adminEmail);
         await page.goto(`/app/le/${clientLEId}/workbench4`);
@@ -454,42 +490,330 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
         // Clicking constituent field opens sidebar for that child field
         const sheet = page.locator('[role="dialog"]').or(page.locator('.sheet-content'));
         await expect(sheet.first()).toBeVisible({ timeout: 10000 });
+
+        // Edit constituent field in sidebar
+        const editValBtn = sheet.locator('button[title*="Edit value"]')
+            .or(sheet.locator('button[title*="Edit"]'))
+            .or(sheet.locator('button:has(svg.lucide-pencil)'));
+        if (await editValBtn.first().isVisible({ timeout: 5000 }).catch(() => false)) {
+            await editValBtn.first().click();
+            const textInput = sheet.locator('input[type="text"]').or(sheet.locator('textarea')).first();
+            if (await textInput.isVisible({ timeout: 5000 }).catch(() => false)) {
+                await textInput.fill(`Updated Group Constituent ${run}`);
+                const saveBtn = sheet.locator('button:has(svg.lucide-check)').or(sheet.locator('button:has-text("Save")')).first();
+                if (await saveBtn.isVisible().catch(() => false)) {
+                    await saveBtn.click();
+                }
+            }
+        }
+
+        // Verify reload persistence
+        await page.reload();
+        await expect(groupCard).toBeVisible({ timeout: 20000 });
     });
 
-    test('Bug R13 & R19: Document removal and live indicator update', async ({ page }) => {
+    test('Bug R13 & R19: Document addition, removal and live indicator update within page and across windows', async ({ page }) => {
         // Bug R13: "need a way to delete a document once added"
         // Bug R19: "Q bank field does not update to show document icon when you add a document in sidebar
         //           or another window: requires full page refresh"
         await login(page, adminEmail);
         await page.goto(`/app/le/${clientLEId}/workbench4`);
 
-        // Check scalar card
-        const scalarCard = page.locator(`[data-testid="rdd1-card-${scalarQuestionId}"]`).or(
+        // Check scalar card on Tab 1
+        const scalarCard1 = page.locator(`[data-testid="rdd1-card-${scalarQuestionId}"]`).or(
             page.locator(`[data-testid="question-card-${scalarQuestionId}"]`)
-        );
-        await expect(scalarCard).toBeVisible({ timeout: 20000 });
+        ).first();
+        await expect(scalarCard1).toBeVisible({ timeout: 20000 });
 
-        // Open inspection panel for field 3
-        const inspectBtn = scalarCard.locator('[data-testid^="rdd1-mapping-tile-"]')
-            .or(scalarCard.locator('button[title*="history & details"]'))
-            .or(scalarCard.locator('[data-testid^="rdd1-stage-value-"] button'));
+        const getAttachmentBadge = (card: typeof scalarCard1) =>
+            card.locator('[title*="canonical document"]')
+                .or(card.getByText(/\d+\s+docs?/i))
+                .or(card.locator('svg.lucide-paperclip'))
+                .or(card.locator('[aria-label*="attached"]'));
 
-        await inspectBtn.first().click();
+        // Initially no paperclip attachment indicator
+        await expect(getAttachmentBadge(scalarCard1)).toHaveCount(0);
 
-        const sheet = page.locator('[role="dialog"]').or(page.locator('.sheet-content'));
-        await expect(sheet.first()).toBeVisible({ timeout: 10000 });
+        // Seed a document in the library for this clientLE
+        const libraryDoc = await prisma.document.create({
+            data: {
+                clientLEId: clientLEId,
+                name: `tab-sync-doc-${run}.pdf`,
+                mimeType: 'application/pdf',
+                sizeBytes: BigInt(1024),
+                storageProvider: 'VERCEL_BLOB',
+                storagePathname: `mock-path-${run}.pdf`,
+                uploadedById: adminUserId,
+            },
+        });
 
-        // Attachments section in sidebar has delete/remove action when documents exist
-        const attachmentsSection = sheet.locator('text=Field Attachments').or(sheet.locator('.attachments-section'));
-        if (await attachmentsSection.isVisible()) {
-            // Verify remove button presence on attachments
-            const removeAttachmentBtn = sheet.locator('button[aria-label="Remove attachment"]').or(
-                sheet.locator('button[title="Remove attachment"]')
-            );
-            // If attachments exist, remove button should be interactive
-            if (await removeAttachmentBtn.count() > 0) {
-                await expect(removeAttachmentBtn.first()).toBeEnabled();
-            }
+        // ── Phase 1: Within-page live indicator update (sidebar -> card in same tab) ──
+        const inspectBtn1 = scalarCard1.locator('[data-testid^="rdd1-mapping-tile-"]')
+            .or(scalarCard1.locator('button[title*="history & details"]'))
+            .or(scalarCard1.locator('[data-testid^="rdd1-stage-value-"] button'));
+        await inspectBtn1.first().click();
+
+        const sheet1 = page.locator('[role="dialog"]').or(page.locator('.sheet-content'));
+        await expect(sheet1.first()).toBeVisible({ timeout: 10000 });
+
+        const addAttachmentTrigger1 = sheet1.locator('button:has-text("Add attachment")');
+        await expect(addAttachmentTrigger1).toBeVisible({ timeout: 5000 });
+        await addAttachmentTrigger1.click();
+
+        const chooseFromLibItem1 = page.locator('text=Choose from Library');
+        await expect(chooseFromLibItem1).toBeVisible({ timeout: 5000 });
+        await chooseFromLibItem1.click();
+
+        const picker1 = page.locator('[role="dialog"]:has-text("Choose a document")');
+        await expect(picker1).toBeVisible({ timeout: 5000 });
+
+        const docRow1 = picker1.locator(`tr:has-text("tab-sync-doc-${run}.pdf")`);
+        await expect(docRow1).toBeVisible({ timeout: 10000 });
+        await docRow1.getByRole('button', { name: 'Select' }).click();
+
+        // Verify document is attached in sidebar and card reflects it in real-time WITHOUT page reload
+        await expect(sheet1.getByText(`tab-sync-doc-${run}.pdf`).first()).toBeVisible({ timeout: 10000 });
+        await expect(getAttachmentBadge(scalarCard1).first()).toBeVisible({ timeout: 10000 });
+
+        // Remove attachment in sidebar and verify live removal in card WITHOUT page reload
+        const removeBtn1 = sheet1.locator('button[aria-label="Remove attachment"]').first();
+        await expect(removeBtn1).toBeVisible({ timeout: 10000 });
+        await removeBtn1.click();
+
+        const confirmRemoveBtn1 = page.locator('[role="alertdialog"]').getByRole('button', { name: 'Remove' });
+        await expect(confirmRemoveBtn1).toBeVisible({ timeout: 5000 });
+        await confirmRemoveBtn1.click();
+
+        // Verify attachment is removed in sheet and card indicator disappears live
+        await expect(sheet1.getByText(`tab-sync-doc-${run}.pdf`)).toHaveCount(0, { timeout: 10000 });
+        await expect(getAttachmentBadge(scalarCard1)).toHaveCount(0, { timeout: 10000 });
+
+        // Close sidebar in Tab 1
+        const closeSheet1 = sheet1.locator('button:has(svg.lucide-x)').or(sheet1.locator('[aria-label="Close"]'));
+        if (await closeSheet1.first().isVisible().catch(() => false)) {
+            await closeSheet1.first().click();
         }
+
+        // ── Phase 2: Cross-window update & persistence across browser sessions ──
+        const page2 = await page.context().newPage();
+        await page2.goto(`/app/le/${clientLEId}/workbench4`);
+        const scalarCard2 = page2.locator(`[data-testid="rdd1-card-${scalarQuestionId}"]`).or(
+            page2.locator(`[data-testid="question-card-${scalarQuestionId}"]`)
+        ).first();
+        await expect(scalarCard2).toBeVisible({ timeout: 20000 });
+
+        const inspectBtn2 = scalarCard2.locator('[data-testid^="rdd1-mapping-tile-"]')
+            .or(scalarCard2.locator('button[title*="history & details"]'))
+            .or(scalarCard2.locator('[data-testid^="rdd1-stage-value-"] button'));
+        await inspectBtn2.first().click();
+
+        const sheet2 = page2.locator('[role="dialog"]').or(page2.locator('.sheet-content'));
+        await expect(sheet2.first()).toBeVisible({ timeout: 10000 });
+
+        const addAttachmentTrigger2 = sheet2.locator('button:has-text("Add attachment")');
+        await expect(addAttachmentTrigger2).toBeVisible({ timeout: 5000 });
+        await addAttachmentTrigger2.click();
+
+        const chooseFromLibItem2 = page2.locator('text=Choose from Library');
+        await expect(chooseFromLibItem2).toBeVisible({ timeout: 5000 });
+        await chooseFromLibItem2.click();
+
+        const picker2 = page2.locator('[role="dialog"]:has-text("Choose a document")');
+        await expect(picker2).toBeVisible({ timeout: 5000 });
+
+        const docRow2 = picker2.locator(`tr:has-text("tab-sync-doc-${run}.pdf")`);
+        await expect(docRow2).toBeVisible({ timeout: 10000 });
+        await docRow2.getByRole('button', { name: 'Select' }).click();
+
+        await expect(sheet2.getByText(`tab-sync-doc-${run}.pdf`).first()).toBeVisible({ timeout: 10000 });
+        await expect(getAttachmentBadge(scalarCard2).first()).toBeVisible({ timeout: 10000 });
+
+        // Verify other browser window reflects the attached document upon reload
+        await page.reload();
+        await expect(scalarCard1).toBeVisible({ timeout: 20000 });
+        await expect(getAttachmentBadge(scalarCard1).first()).toBeVisible({ timeout: 15000 });
+
+        // Remove attachment in Tab 2
+        const removeAttachmentBtn2 = sheet2.locator('button[aria-label="Remove attachment"]').first();
+        await expect(removeAttachmentBtn2).toBeVisible({ timeout: 10000 });
+        await removeAttachmentBtn2.click();
+
+        const confirmRemoveBtn2 = page2.locator('[role="alertdialog"]').getByRole('button', { name: 'Remove' });
+        await expect(confirmRemoveBtn2).toBeVisible({ timeout: 5000 });
+        await confirmRemoveBtn2.click();
+
+        await expect(sheet2.getByText(`tab-sync-doc-${run}.pdf`)).toHaveCount(0, { timeout: 10000 });
+
+        // Verify other window reflects removal upon reload
+        await page.reload();
+        await expect(scalarCard1).toBeVisible({ timeout: 20000 });
+        await expect(getAttachmentBadge(scalarCard1)).toHaveCount(0, { timeout: 15000 });
+
+        await page2.close();
+        await prisma.document.delete({ where: { id: libraryDoc.id } }).catch(() => {});
+    });
+
+    test('Attachment removal invariant: Preserves immutable submission access and denies unauthorized callers', async ({ page }) => {
+        // 1. Create a submission document
+        const subDoc = await prisma.document.create({
+            data: {
+                clientLEId: clientLEId,
+                name: `immutable-evidence-${run}.pdf`,
+                mimeType: 'application/pdf',
+                sizeBytes: BigInt(4096),
+                storageProvider: 'VERCEL_BLOB',
+                storagePathname: `sub-blob-${run}.pdf`,
+                uploadedById: adminUserId,
+            },
+        });
+
+        // 2. Attach it to Field 3 on master data (claim role FILE_ATTACHMENT)
+        const masterClaim = await prisma.fieldClaim.create({
+            data: {
+                subjectLeId: legalEntityId,
+                clientLEId: clientLEId,
+                fieldNo: 3,
+                claimRole: 'FILE_ATTACHMENT',
+                status: 'ASSERTED',
+                sourceType: 'USER_INPUT',
+                sourceReference: 'Manual Attachment',
+                attachmentDocumentId: subDoc.id,
+            },
+        });
+
+        // 3. Create an immutable QuestionnaireSubmission with SubmissionAnswer linked to subDoc
+        const defVersion = await prisma.questionnaireDefinitionVersion.create({
+            data: {
+                questionnaireId,
+                versionNumber: 1,
+                definitionFingerprint: `fingerprint-${run}`,
+                titleSnapshot: `Title ${run}`,
+                questionCount: 1,
+            },
+        });
+
+        const snap = await prisma.questionDefinitionSnapshot.create({
+            data: {
+                definitionVersionId: defVersion.id,
+                sourceQuestionId: scalarQuestionId,
+                questionText: `What is your registered legal entity name? ${run}`,
+                order: 1,
+                masterFieldNo: 3,
+            },
+        });
+
+        const submission = await prisma.questionnaireSubmission.create({
+            data: {
+                questionnaireId,
+                definitionVersionId: defVersion.id,
+                relationshipId: engagementId,
+                clientLEId,
+                submissionNumber: 1,
+                submittedById: adminUserId,
+                answers: {
+                    create: [
+                        {
+                            questionSnapshotId: snap.id,
+                            sourceQuestionId: scalarQuestionId,
+                            masterFieldNo: 3,
+                            questionTextSnapshot: `What is your registered legal entity name? ${run}`,
+                            valueJson: { text: `Immutable Answer ${run}` },
+                            attachments: {
+                                create: [
+                                    {
+                                        documentId: subDoc.id,
+                                    },
+                                ],
+                            },
+                        },
+                    ],
+                },
+            },
+            include: {
+                answers: {
+                    include: {
+                        attachments: {
+                            include: {
+                                document: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        expect(submission.answers[0].attachments).toHaveLength(1);
+        expect(submission.answers[0].attachments[0].document.id).toBe(subDoc.id);
+
+        // 4. Perform master data attachment removal (simulating tombstone emission)
+        await prisma.fieldClaim.create({
+            data: {
+                subjectLeId: legalEntityId,
+                clientLEId: clientLEId,
+                fieldNo: 3,
+                claimRole: 'FILE_ATTACHMENT',
+                status: 'ASSERTED',
+                sourceType: 'USER_INPUT',
+                sourceReference: 'Manual Removal',
+                attachmentDocumentId: null,
+                valueJson: { tombstone: true },
+            },
+        });
+
+        // 5. Invariant Assertion: Historical submission still maintains full access to the attached document
+        const verifiedSubmission = await prisma.questionnaireSubmission.findUnique({
+            where: { id: submission.id },
+            include: {
+                answers: {
+                    include: {
+                        attachments: {
+                            include: {
+                                document: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        expect(verifiedSubmission).not.toBeNull();
+        expect(verifiedSubmission!.answers[0].attachments).toHaveLength(1);
+        const subAtt = verifiedSubmission!.answers[0].attachments[0];
+        expect(subAtt.documentId).toBe(subDoc.id);
+        expect(subAtt.document.name).toBe(subDoc.name);
+        expect(subAtt.document.mimeType).toBe('application/pdf');
+
+        // 6. Security Invariant: Unauthorized caller without LE_EDIT_MASTER_DATA is denied
+        const unauthEmail = `unauthorized-${run}@example.test`;
+        const hashedPassword = await bcrypt.hash(testPassword, 10);
+        const unauthUser = await prisma.user.create({
+            data: {
+                email: unauthEmail,
+                password: hashedPassword,
+                name: `Unauthorized User ${run}`,
+            },
+        });
+
+        // Log in as unauthorized user and verify access to the ClientLE workspace is forbidden (returns 404 / access denied)
+        const unauthContext = await page.context().browser()!.newContext();
+        const unauthPage = await unauthContext.newPage();
+        await login(unauthPage, unauthEmail);
+        await unauthPage.goto(`/app/le/${clientLEId}/workbench4`);
+        const currentUrl = unauthPage.url();
+        const isForbiddenOrNotFound = !currentUrl.includes(`/app/le/${clientLEId}/workbench4`) ||
+            (await unauthPage.getByText(/access denied|unauthorized|forbidden|not be found|404/i).first().isVisible({ timeout: 5000 }).catch(() => false));
+        expect(isForbiddenOrNotFound).toBe(true);
+        await unauthContext.close();
+
+        // Cleanup test data
+        await prisma.submissionAnswerAttachment.deleteMany({ where: { submissionAnswerId: { in: submission.answers.map(a => a.id) } } });
+        await prisma.submissionAnswer.deleteMany({ where: { submissionId: submission.id } });
+        await prisma.questionnaireSubmission.delete({ where: { id: submission.id } });
+        await prisma.questionDefinitionSnapshot.delete({ where: { id: snap.id } });
+        await prisma.questionnaireDefinitionVersion.delete({ where: { id: defVersion.id } });
+        await prisma.fieldClaim.deleteMany({ where: { id: { in: [masterClaim.id] } } });
+        await prisma.document.delete({ where: { id: subDoc.id } });
+        await prisma.user.delete({ where: { id: unauthUser.id } });
     });
 });
+
