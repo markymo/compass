@@ -6,7 +6,13 @@ import * as fs from 'fs';
 const envUatLocal = path.resolve(process.cwd(), '.env.uat.local');
 const envLocal = path.resolve(process.cwd(), '.env.local');
 
-if (fs.existsSync(envUatLocal)) {
+if (process.env.PLAYWRIGHT_BASE_URL?.includes('localhost') || process.env.PLAYWRIGHT_ENV === 'local') {
+  if (fs.existsSync(envLocal)) {
+    dotenv.config({ path: envLocal, override: true });
+  } else {
+    dotenv.config({ override: true });
+  }
+} else if (fs.existsSync(envUatLocal)) {
   dotenv.config({ path: envUatLocal, override: false });
 } else if (fs.existsSync(envLocal)) {
   dotenv.config({ path: envLocal, override: false });

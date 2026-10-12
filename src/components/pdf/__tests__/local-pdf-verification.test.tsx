@@ -100,7 +100,8 @@ describe('Local Questionnaire PDF Verification (ONP-200 & ONP-201)', () => {
         for await (const chunk of stream) {
             chunks.push(Buffer.from(chunk));
         }
-        const buffer = Buffer.concat(chunks);
+        const rawBuffer = Buffer.concat(chunks);
+        const buffer = Buffer.from(new Uint8Array(rawBuffer));
         expect(buffer.length).toBeGreaterThan(1000);
 
         const rawText = await new Promise<string>((resolve, reject) => {

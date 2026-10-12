@@ -114,7 +114,7 @@ export function AddressValueEditor({ value, onChange, disabled }: AddressValueEd
                                 disabled={disabled}
                                 className={cn("w-full justify-between bg-white text-left font-normal h-8 text-sm px-3", !addr.countryCode && "text-slate-500")}
                             >
-                                {addr.countryName || (addr.countryCode ? COUNTRY_CODES[addr.countryCode.toUpperCase()] || addr.countryCode : "Select country...")}
+                                {addr.countryCode ? `${addr.countryCode.toUpperCase()} – ${addr.countryName || COUNTRY_CODES[addr.countryCode.toUpperCase()] || addr.countryCode}` : "Select country..."}
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
                         </PopoverTrigger>
@@ -127,14 +127,15 @@ export function AddressValueEditor({ value, onChange, disabled }: AddressValueEd
                                         {Object.entries(COUNTRY_CODES).map(([code, name]) => (
                                             <CommandItem
                                                 key={code}
-                                                value={name} // CommandItem matches by value
+                                                value={`${code} ${name}`} // CommandItem matches by code and name
                                                 onSelect={() => {
                                                     onChange({ ...addr, countryCode: code, countryName: name, rawCountry: null });
                                                     setCountryOpen(false);
                                                 }}
                                             >
                                                 <Check className={cn("mr-2 h-4 w-4", addr.countryCode?.toUpperCase() === code ? "opacity-100" : "opacity-0")} />
-                                                {name}
+                                                <span className="font-mono text-xs font-semibold mr-1.5 text-muted-foreground">{code}</span>
+                                                <span>– {name}</span>
                                             </CommandItem>
                                         ))}
                                     </CommandGroup>

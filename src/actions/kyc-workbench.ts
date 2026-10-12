@@ -23,7 +23,7 @@ import { can, Action } from "@/lib/auth/permissions";
 
 export interface Workbench4Data {
     questions: ConsoleQuestion[];
-    masterFields: Array<{ fieldNo: number; label: string; category?: string | null; dataType?: string | null; currentValue?: any; attachmentCount?: number }>;
+    masterFields: Array<{ fieldNo: number; label: string; category?: string | null; dataType?: string | null; currentValue?: any; attachmentCount?: number; options?: Array<{ value: string; label: string }> }>;
     masterGroups: Array<{ key: string; label: string; category?: string | null; dataType?: string | null; currentValue?: any }>;
     customFields: Array<{ id: string; label: string; dataType?: string | null; currentValue?: any }>;
     relationships: string[];
@@ -218,7 +218,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
             attachmentCount: hv?.attachmentCount ?? 0,
             displayState,
             defaultText,
-            profileConfig: def.profileConfig as { displayMask?: string[] } | undefined
+            profileConfig: def.profileConfig as { displayMask?: string[] } | undefined,
+            options: extractFieldOptions(def)
         };
     });
 
@@ -309,7 +310,8 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
                     for (const fieldNo of groupFieldNos) {
                         const def = fieldDefMap.get(fieldNo);
                         if (!def) continue;
-                        const hydratedVal = resolvedValues[q.id][String(fieldNo)];
+                        const rawHydrated = resolvedValues[q.id]?.[String(fieldNo)];
+                        const hydratedVal = rawHydrated ?? { value: null, source: null, isSynced: false, attachments: [] };
                         const cfg = getComplexFieldConfig(fieldNo);
                         const codeSystem = cfg && 'codeSystem' in cfg ? (cfg as any).codeSystem : undefined;
 
@@ -317,7 +319,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
                         const mappingsForField = allSourceMappings.filter((m: any) => m.targetFieldNo === fieldNo);
                         const evalResult = KycStateService.evaluateSyncAttempt(clientLE, mappingsForField);
                         const displayState = KycStateService.calculateDisplayState({
-                            hasValue: hydratedVal.isSynced,
+                            hasValue: Boolean(hydratedVal.isSynced),
                             hasApplicableMapping: evalResult.hasApplicableMapping,
                             hasApplicableEvaluationAttempt: evalResult.hasApplicableEvaluationAttempt,
                             defaultText: def.defaultResponse ?? undefined
@@ -333,9 +335,9 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
 
                         const rawSourceToUse = hydratedVal.source ? {
                             type: hydratedVal.source as any,
-                            reference: hydratedVal.sourceReference,
-                            timestamp: hydratedVal.updatedAt ?? null,
-                            sourceCheckedAt: hydratedVal.sourceCheckedAt ?? null
+                            reference: (hydratedVal as any).sourceReference,
+                            timestamp: (hydratedVal as any).updatedAt ?? null,
+                            sourceCheckedAt: (hydratedVal as any).sourceCheckedAt ?? null
                         } : evaluatedRawSource;
 
                         const metadata = {
@@ -353,7 +355,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
                             options: extractFieldOptions(def),
                         };
 
-                        const canonicalDisplayModel = hydratedVal ? (
+                        const canonicalDisplayModel = rawHydrated ? (
                             isMulti && Array.isArray(hydratedVal.value)
                                 ? resolveFieldCollectionForDisplay(hydratedVal.value, metadata)
                                 : resolveFieldForDisplay(
@@ -369,7 +371,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
                             appDataType: def.appDataType,
                             isMultiValue: def.isMultiValue,
                             ...(codeSystem ? { codeSystem } : {}),
-                            hydrated: hydratedVal ?? { value: null, source: null, isSynced: false },
+                            hydrated: hydratedVal,
                             canonicalDisplayModel
                         });
                     }
@@ -448,6 +450,7 @@ export async function getWorkbench4Data(leId: string): Promise<Workbench4Data | 
                                 rawSourceToUse,
                                 metadata
                             );
+                        (q as any).masterFieldOptions = extractFieldOptions(def);
                     }
                 }
             }

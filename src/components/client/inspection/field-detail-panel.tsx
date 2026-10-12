@@ -123,9 +123,10 @@ interface FieldDetailPanelProps {
         customFields: Array<{ id: string; label: string }>;
         disabled?: boolean;
     };
+    onAttachmentsUpdated?: (fieldNo: number, attachments: any[]) => void;
 }
 
-export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fieldName, customFieldId, isLocked, onUpdate, registrationAuthorityId, mappingStats, mappingContext }: FieldDetailPanelProps) {
+export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fieldName, customFieldId, isLocked, onUpdate, registrationAuthorityId, mappingStats, mappingContext, onAttachmentsUpdated }: FieldDetailPanelProps) {
     const [data, setData] = useState<FieldDetailData | null>(null);
     const [loading, setLoading] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -1197,7 +1198,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         <div className="flex flex-col gap-1.5 flex-1 min-w-0 pr-4">
                             <div className="flex items-start gap-2.5">
                                 <h2 className="text-xl font-bold text-slate-900 leading-tight">
-                                    {fieldName} <span className="text-slate-400 font-medium text-lg">({fieldNo || customFieldId})</span>
+                                    {data?.fieldName || fieldName} <span className="text-slate-400 font-medium text-lg">({fieldNo || customFieldId})</span>
                                 </h2>
                                 {customFieldId && fieldNo === 0 && (
                                     <Button variant="ghost" size="icon" onClick={openDeleteDialog} className="text-slate-400 hover:text-red-600 hover:bg-red-50 ml-2" title="Delete Custom Field">
@@ -1205,6 +1206,16 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                     </Button>
                                 )}
                             </div>
+
+                            {/* Bug R18: Underneath the field name, clearly show which question it is mapped to when opened in question context */}
+                            {mappingContext?.questionText && (
+                                <div className="mt-1 text-xs text-indigo-700 dark:text-indigo-300 font-medium flex items-center gap-1.5 bg-indigo-50/60 dark:bg-indigo-950/40 px-2 py-1 rounded border border-indigo-100 dark:border-indigo-900/60">
+                                    <HelpCircle className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
+                                    <span className="text-[10px] uppercase font-bold text-indigo-950 dark:text-indigo-200">Mapped to:</span>
+                                    <span className="truncate italic">"{mappingContext.questionText}"</span>
+                                </div>
+                            )}
+
                             {fieldNo > 0 && (
                                 <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
                                     {data?.category || `Field #${fieldNo}`}
@@ -2424,7 +2435,13 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                 attachments={data?.canonicalDisplayModel?.attachments || []} 
                                 isEditable={!isLocked && (data?.canonicalDisplayModel?.allowAttachments ?? false)}
                                 mode="manage" 
-                                onChange={loadData}
+                                onChange={async () => {
+                                    await loadData();
+                                    const refreshed = await getFieldDetail(clientLEId, data?.fieldNo || fieldNo, 'CLIENT_LE', customFieldId);
+                                    if (refreshed?.canonicalDisplayModel?.attachments) {
+                                        onAttachmentsUpdated?.(data?.fieldNo || fieldNo, refreshed.canonicalDisplayModel.attachments);
+                                    }
+                                }}
                             />
                         </div>
                     )}

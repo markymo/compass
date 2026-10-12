@@ -67,10 +67,10 @@ describe("EngagementManager + Add Supplier Relationship Search-First Flow", () =
         fireEvent.click(addButton);
 
         expect(await screen.findByText("Add Supplier Relationship")).toBeTruthy();
-        expect(screen.getByPlaceholderText("Search financial institutions...")).toBeTruthy();
+        expect(screen.getByPlaceholderText("Search suppliers...")).toBeTruthy();
         expect(screen.queryByText("Available Institutions")).toBeNull();
         expect(screen.queryByText("J.P. Morgan")).toBeNull();
-        expect(screen.getByText("Type an institution name to search matching organizations.")).toBeTruthy();
+        expect(screen.getByText("Type a supplier name to search matching organizations.")).toBeTruthy();
     });
 
     it("2. Entering a search term causes matching results to appear", async () => {
@@ -87,7 +87,7 @@ describe("EngagementManager + Add Supplier Relationship Search-First Flow", () =
         );
 
         fireEvent.click(screen.getByTitle("Add Supplier Relationship"));
-        const searchInput = screen.getByPlaceholderText("Search financial institutions...");
+        const searchInput = screen.getByPlaceholderText("Search suppliers...");
 
         fireEvent.change(searchInput, { target: { value: "Barclays" } });
         expect(searchFIs).toHaveBeenCalledWith("Barclays");
@@ -113,7 +113,7 @@ describe("EngagementManager + Add Supplier Relationship Search-First Flow", () =
         );
 
         fireEvent.click(screen.getByTitle("Add Supplier Relationship"));
-        const searchInput = screen.getByPlaceholderText("Search financial institutions...");
+        const searchInput = screen.getByPlaceholderText("Search suppliers...");
 
         fireEvent.change(searchInput, { target: { value: "HSBC" } });
         await waitFor(() => {
@@ -124,7 +124,7 @@ describe("EngagementManager + Add Supplier Relationship Search-First Flow", () =
 
         await waitFor(() => {
             expect(screen.queryByText("HSBC UK")).toBeNull();
-            expect(screen.getByText("Type an institution name to search matching organizations.")).toBeTruthy();
+            expect(screen.getByText("Type a supplier name to search matching organizations.")).toBeTruthy();
         });
     });
 
@@ -142,7 +142,7 @@ describe("EngagementManager + Add Supplier Relationship Search-First Flow", () =
         );
 
         fireEvent.click(screen.getByTitle("Add Supplier Relationship"));
-        const searchInput = screen.getByPlaceholderText("Search financial institutions...");
+        const searchInput = screen.getByPlaceholderText("Search suppliers...");
 
         fireEvent.change(searchInput, { target: { value: "Barclays" } });
         await waitFor(() => {
@@ -167,12 +167,12 @@ describe("EngagementManager + Add Supplier Relationship Search-First Flow", () =
         );
 
         fireEvent.click(screen.getByTitle("Add Supplier Relationship"));
-        const searchInput = screen.getByPlaceholderText("Search financial institutions...");
+        const searchInput = screen.getByPlaceholderText("Search suppliers...");
 
         fireEvent.change(searchInput, { target: { value: "NonExistentBank" } });
 
         await waitFor(() => {
-            expect(screen.getByText('No financial institutions found matching "NonExistentBank".')).toBeTruthy();
+            expect(screen.getByText('No suppliers found matching "NonExistentBank".')).toBeTruthy();
         });
 
         // Must NOT offer "+ Create New Entry"
@@ -204,7 +204,7 @@ describe("EngagementManager + Add Supplier Relationship Search-First Flow", () =
         );
 
         fireEvent.click(screen.getByTitle("Add Supplier Relationship"));
-        const searchInput = screen.getByPlaceholderText("Search financial institutions...");
+        const searchInput = screen.getByPlaceholderText("Search suppliers...");
 
         fireEvent.change(searchInput, { target: { value: "Barclays" } });
 

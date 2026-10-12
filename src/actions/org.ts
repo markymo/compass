@@ -367,7 +367,7 @@ export async function deleteOrganization(orgId: string): Promise<{
                 where: { fiOrgId: orgId, isDeleted: true },
                 select: { id: true },
             });
-            if (softEngs.length > 0) {
+            if (softEngs && softEngs.length > 0) {
                 const engIds = softEngs.map((e: any) => e.id);
                 if (prisma.query?.deleteMany) {
                     await prisma.query.deleteMany({ where: { fiEngagementId: { in: engIds } } });
@@ -388,7 +388,7 @@ export async function deleteOrganization(orgId: string): Promise<{
                 },
                 select: { id: true },
             });
-            if (softQuestionnaires.length > 0) {
+            if (softQuestionnaires && softQuestionnaires.length > 0) {
                 const qIds = softQuestionnaires.map((q: any) => q.id);
                 if (prisma.questionnaire?.deleteMany) {
                     await prisma.questionnaire.deleteMany({ where: { id: { in: qIds } } });

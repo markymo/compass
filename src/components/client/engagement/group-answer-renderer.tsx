@@ -15,7 +15,7 @@
  */
 
 import { useState } from "react";
-import { Database, Eye, EyeOff } from "lucide-react";
+import { Database, Eye, EyeOff, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RaNameLookup } from "@/lib/kyc/source-label";
 import type { HydratedValue } from "@/actions/kyc-query";
@@ -60,6 +60,8 @@ export interface GroupAnswerRendererProps {
     className?: string;
     /** The layout style to use for rendering the fields */
     displayStyle?: 'LIST' | 'COMPACT' | 'GRID';
+    /** Optional handler to inspect/edit a constituent child field */
+    onInspectField?: (fieldNo: number, fieldName: string) => void;
 }
 
 function GroupFieldRow({
@@ -67,12 +69,14 @@ function GroupFieldRow({
     raNameLookup,
     dimmed = false,
     displayStyle = 'LIST',
+    onInspectField,
 }: {
     field: GroupFieldData;
     raNameLookup: RaNameLookup;
     /** True for isSynced:false rows shown when the expand toggle is on */
     dimmed?: boolean;
     displayStyle?: 'LIST' | 'COMPACT' | 'GRID';
+    onInspectField?: (fieldNo: number, fieldName: string) => void;
 }) {
     const { fieldName } = field;
 
@@ -96,8 +100,22 @@ function GroupFieldRow({
                 "grid grid-cols-[40%_40%_20%] gap-x-2 items-center py-2 border-b border-slate-50 last:border-0 transition-opacity",
                 dimmed && "opacity-40"
             )}>
-                <div className="font-semibold text-slate-500 uppercase tracking-wider text-[10px] truncate pr-2">
-                    {fieldName}
+                <div className="font-semibold text-slate-500 uppercase tracking-wider text-[10px] truncate pr-2 flex items-center gap-1.5">
+                    <span className="truncate">{fieldName}</span>
+                    {onInspectField && (
+                        <button
+                            type="button"
+                            data-testid={`group-field-row-${field.fieldNo}`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onInspectField(field.fieldNo, fieldName);
+                            }}
+                            title={`Inspect ${fieldName} in sidebar`}
+                            className="p-0.5 rounded text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 inline-flex items-center shrink-0"
+                        >
+                            <Pencil className="h-2.5 w-2.5" />
+                        </button>
+                    )}
                 </div>
                 <div className="text-slate-900 text-xs">
                     {renderValue()}
@@ -140,15 +158,36 @@ function GroupFieldRow({
             dimmed && "opacity-40",
             isCompact ? "py-1 border-0" : "py-3 border-b border-slate-50 last:border-0"
         )}>
-            <div className="flex items-center gap-2 mb-1">
-                <p className={cn(
-                    "font-semibold text-slate-400 uppercase tracking-wider",
-                    isCompact ? "text-[9px]" : "text-[10px]"
-                )}>
-                    {fieldName}
-                </p>
+            <div className="flex items-center justify-between gap-2 mb-1">
+                <div
+                    className={cn("flex items-center gap-1.5 min-w-0", onInspectField && "cursor-pointer")}
+                    onClick={() => onInspectField?.(field.fieldNo, fieldName)}
+                >
+                    <p className={cn(
+                        "font-semibold text-slate-400 uppercase tracking-wider truncate",
+                        isCompact ? "text-[9px]" : "text-[10px]",
+                        onInspectField && "hover:text-indigo-600 dark:hover:text-indigo-400"
+                    )}>
+                        {fieldName}
+                    </p>
+                    {onInspectField && (
+                        <button
+                            type="button"
+                            data-testid={`group-field-row-${field.fieldNo}`}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onInspectField(field.fieldNo, fieldName);
+                            }}
+                            title={`Inspect ${fieldName} in sidebar`}
+                            className="p-0.5 rounded text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 inline-flex items-center gap-0.5 text-[9px] font-medium"
+                        >
+                            <Pencil className="h-2.5 w-2.5" />
+                            <span>Edit</span>
+                        </button>
+                    )}
+                </div>
                 {isCompact && !dimmed && field.canonicalDisplayModel?.source && (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 shrink-0">
                         <FieldSourceBadge source={field.canonicalDisplayModel.source} variant="span" showLastValidated={true} />
                         {field.hydrated.attachmentCount ? (
                             <FieldAttachmentIndicator count={field.hydrated.attachmentCount} />
@@ -200,6 +239,7 @@ export function GroupAnswerRenderer({
     raNameLookup,
     className,
     displayStyle = 'LIST',
+    onInspectField,
 }: GroupAnswerRendererProps) {
     const [showEmpty, setShowEmpty] = useState(false);
 
@@ -256,6 +296,7 @@ export function GroupAnswerRenderer({
                         raNameLookup={raNameLookup}
                         dimmed={!field.hydrated.isSynced}
                         displayStyle={displayStyle}
+                        onInspectField={onInspectField}
                     />
                 ))}
             </div>

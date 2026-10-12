@@ -17,6 +17,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Library, Upload } from 'lucide-react';
 import { DocumentPicker, PickerMode } from '@/components/client/documents/DocumentPicker';
 import { listLibraryDocumentsAction, DocumentPickerItem } from '@/actions/document-library-actions';
+import { notifyDocumentAttachmentChanged } from '@/lib/document-attachment-events';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -108,6 +109,7 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
                             resetState();
                             router.refresh();
                             onChange?.();
+                            notifyDocumentAttachmentChanged({ clientLEId, fieldNo });
                         } else {
                             setOpState('FAILED');
                             const errMsg = ('message' in actionRes ? actionRes.message : undefined) || 'Failed to attach document';
@@ -218,6 +220,7 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
                 resetState();
                 router.refresh();
                 onChange?.();
+                notifyDocumentAttachmentChanged({ clientLEId, fieldNo });
             } else {
                 setOpState('FAILED');
                 const errMsg = ('message' in actionRes ? actionRes.message : undefined) || 'Failed to attach document';
@@ -300,6 +303,7 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
                 toast.success('Attachment removed');
                 router.refresh();
                 onChange?.();
+                notifyDocumentAttachmentChanged({ clientLEId, fieldNo });
             } else {
                 showActionErrorToast(res as any, 'Failed to remove attachment');
             }
@@ -355,7 +359,7 @@ export function FieldAttachments({ clientLEId, fieldNo, attachments, isEditable,
             {attachments.map(att => {
                 const provenance = att.provenance ?? [];
                 const fieldProv = provenance.find(p => p.type === 'FIELD') as Extract<typeof provenance[0], {type: 'FIELD'}> | undefined;
-                const fieldInstanceId = fieldProv?.fieldAttachmentInstanceId;
+                const fieldInstanceId = fieldProv?.fieldAttachmentInstanceId || (att as any).instanceId || (att as any).id;
                 
                 const isReplacingThis = opType === 'replace' && targetInstanceId === fieldInstanceId;
                 const isRemovingThis = removingInstanceId === fieldInstanceId;

@@ -94,14 +94,56 @@ export async function updateFieldManually(
                     instanceId: rowId // For multi-value, rowId is the stable instance key
                 };
 
+                // Option set validation: if field is option-set backed, validate value against configured options
+                const optionSet = (def as any)?.optionSet;
+                if (optionSet?.options && Array.isArray(optionSet.options) && optionSet.options.length > 0) {
+                    const isClearing = value === null || value === undefined || value === "" || (typeof value === 'object' && value.explicitNone);
+                    if (!isClearing) {
+                        const allowedValues = new Set<string>();
+                        for (const opt of optionSet.options) {
+                            if (typeof opt === 'object' && opt !== null) {
+                                if (opt.value !== undefined) allowedValues.add(String(opt.value));
+                                if (opt.label !== undefined) allowedValues.add(String(opt.label));
+                            } else if (opt !== undefined && opt !== null) {
+                                allowedValues.add(String(opt));
+                            }
+                        }
+                        if (Array.isArray(value)) {
+                            for (const item of value) {
+                                const itemStr = typeof item === 'object' && item !== null && item.value !== undefined ? String(item.value) : String(item);
+                                if (!allowedValues.has(itemStr)) {
+                                    throw new ActionDomainError(`Invalid option '${itemStr}' for field ${fieldNo}. Value must be one of the configured options.`);
+                                }
+                            }
+                        } else {
+                            const valStr = typeof value === 'object' && value !== null && value.value !== undefined ? String(value.value) : String(value);
+                            if (!allowedValues.has(valStr)) {
+                                throw new ActionDomainError(`Invalid option '${valStr}' for field ${fieldNo}. Value must be one of the configured options.`);
+                            }
+                        }
+                    }
+                }
+
                 // Assign value to the correct slot
                 if (value && typeof value === 'object' && value.explicitNone) {
                     claimInput.valueJson = value;
                 } else {
                     switch (def.appDataType) {
                     case 'TEXT':
-                    case 'SELECT': // Option-set fields store the selected value as text
-                        claimInput.valueText = value; break;
+                    case 'SELECT': {
+                        // If matching an option by label, prefer canonical value
+                        let textVal = value;
+                        if (optionSet?.options && Array.isArray(optionSet.options) && typeof value === 'string') {
+                            const matchedOpt = optionSet.options.find((o: any) =>
+                                typeof o === 'object' && o !== null && (String(o.value) === value || String(o.label) === value)
+                            );
+                            if (matchedOpt?.value !== undefined) {
+                                textVal = String(matchedOpt.value);
+                            }
+                        }
+                        claimInput.valueText = textVal;
+                        break;
+                    }
                     case 'NUMBER': claimInput.valueNumber = value; break;
                     case 'DATE':
                     case 'DATETIME': claimInput.valueDate = new Date(value); break;

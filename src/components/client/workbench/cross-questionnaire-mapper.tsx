@@ -7,6 +7,9 @@ import { FieldAttachments } from "@/components/client/fields/FieldAttachments";
 import { FieldSourceBadge } from "@/components/client/fields/FieldSourceBadge";
 import { FieldAttachmentIndicator } from "@/components/shared/FieldAttachmentIndicator";
 import { resolveFieldForDisplay } from "@/lib/master-data/field-interpreter";
+import { CountryPicker, isCountryField } from "@/components/client/fields/CountryPicker";
+import { resolveCountry } from "@/lib/master-data/countries";
+import { DOCUMENT_ATTACHMENT_CHANGED } from "@/lib/document-attachment-events";
 
 import { useState, useEffect, useMemo, useTransition } from "react";
 import { Workbench4Data, mapQuestionToField, getAIFieldNameSuggestion } from "@/actions/kyc-workbench";
@@ -339,12 +342,54 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
     const urlView = searchParams.get("view");
     const viewMode = ((urlView === "flow" || urlView === "classic" || urlView === "compact" || urlView === "rdd1")
         ? urlView
-        : (preferences as any)?.workbenchCardView || "classic") as "classic" | "flow" | "compact" | "rdd1";
+        : (preferences as any)?.workbenchCardView || "rdd1") as "classic" | "flow" | "compact" | "rdd1";
 
     const handleViewChange = (mode: "classic" | "flow" | "compact" | "rdd1") => {
         updateUrl({ view: mode });
         updatePreference("workbenchCardView", mode);
     };
+
+    // Bug R19: Listen for attachment change events across tabs and drawers to update live
+    useEffect(() => {
+        const handleAttachmentEvent = (e: any) => {
+            const detail = e.detail;
+            if (detail?.fieldNo) {
+                setData(prev => ({
+                    ...prev,
+                    masterFields: prev.masterFields.map((f: any) =>
+                        f.fieldNo === detail.fieldNo
+                            ? { ...f, attachmentCount: Math.max(0, (f.attachmentCount || 0) + 1) }
+                            : f
+                    ),
+                    questions: prev.questions.map((q: any) =>
+                        q.masterFieldNo === detail.fieldNo
+                            ? {
+                                ...q,
+                                canonicalDisplayModel: q.canonicalDisplayModel ? {
+                                    ...q.canonicalDisplayModel,
+                                    attachments: q.canonicalDisplayModel.attachments || []
+                                } : q.canonicalDisplayModel
+                            }
+                            : q
+                    )
+                }));
+            }
+            router.refresh();
+        };
+
+        const handleStorage = (e: StorageEvent) => {
+            if (e.key === DOCUMENT_ATTACHMENT_CHANGED) {
+                router.refresh();
+            }
+        };
+
+        window.addEventListener(DOCUMENT_ATTACHMENT_CHANGED, handleAttachmentEvent);
+        window.addEventListener("storage", handleStorage);
+        return () => {
+            window.removeEventListener(DOCUMENT_ATTACHMENT_CHANGED, handleAttachmentEvent);
+            window.removeEventListener("storage", handleStorage);
+        };
+    }, [router]);
 
     const isAutoFiltered = useMemo(() => {
         return (
@@ -895,7 +940,7 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
 
                                     setSelectedInspectionField({
                                         fieldNo: q.masterFieldNo || 0,
-                                        name: q.canonicalDisplayModel?.fieldName || q.text,
+                                        name: q.canonicalDisplayModel?.label || data.masterFields.find((f: any) => f.fieldNo === q.masterFieldNo)?.label || q.text,
                                         customFieldId: (q as any).customFieldDefinitionId,
                                         mappingContext: {
                                             questionId: q.id,
@@ -908,6 +953,39 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
                                             disabled: isPending || disabled || q.status === 'RELEASED'
                                         }
                                     });
+                                }}
+                                onInspect={(fieldNo, name, customFieldId) => {
+                                    const canonicalName = name || q.canonicalDisplayModel?.label || data.masterFields.find((f: any) => f.fieldNo === fieldNo)?.label || q.text;
+                                    setSelectedInspectionField({
+                                        fieldNo,
+                                        name: canonicalName,
+                                        customFieldId,
+                                        mappingContext: {
+                                            questionId: q.id,
+                                            questionText: q.text,
+                                            currentMappingValue: q.masterFieldNo
+                                                ? `master:${q.masterFieldNo}${q.masterFieldProjectionPath ? `:${q.masterFieldProjectionPath}` : ''}`
+                                                : q.masterQuestionGroupId
+                                                ? `group:${q.masterQuestionGroupId}`
+                                                : (q as any).customFieldDefinitionId
+                                                ? `custom:${(q as any).customFieldDefinitionId}`
+                                                : null,
+                                            onMap: (val: string) => handleMap(q.id, val),
+                                            masterFields: data.masterFields,
+                                            masterGroups: data.masterGroups,
+                                            customFields: data.customFields,
+                                            disabled: isPending || disabled || q.status === 'RELEASED'
+                                        }
+                                    });
+                                }}
+                                onInlineEdit={(val, src, date) => {
+                                    handleFieldUpdate(
+                                        q.masterFieldNo || 0,
+                                        (q as any).customFieldDefinitionId,
+                                        val,
+                                        src,
+                                        date
+                                    );
                                 }}
                             />
                         ))}
@@ -943,7 +1021,28 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
                                     raNameLookup={data.raNameLookup}
                                     onMap={(val) => handleMap(q.id, val)}
                                     onInspect={(fieldNo, name, customFieldId) => {
-                                        setSelectedInspectionField({ fieldNo, name, customFieldId });
+                                        const canonicalName = name || q.canonicalDisplayModel?.label || data.masterFields.find((f: any) => f.fieldNo === fieldNo)?.label || q.text;
+                                        setSelectedInspectionField({
+                                            fieldNo,
+                                            name: canonicalName,
+                                            customFieldId,
+                                            mappingContext: {
+                                                questionId: q.id,
+                                                questionText: q.text,
+                                                currentMappingValue: q.masterFieldNo
+                                                    ? `master:${q.masterFieldNo}${q.masterFieldProjectionPath ? `:${q.masterFieldProjectionPath}` : ''}`
+                                                    : q.masterQuestionGroupId
+                                                    ? `group:${q.masterQuestionGroupId}`
+                                                    : (q as any).customFieldDefinitionId
+                                                    ? `custom:${(q as any).customFieldDefinitionId}`
+                                                    : null,
+                                                onMap: (val: string) => handleMap(q.id, val),
+                                                masterFields: data.masterFields,
+                                                masterGroups: data.masterGroups,
+                                                customFields: data.customFields,
+                                                disabled: isPending || disabled || q.status === 'RELEASED'
+                                            }
+                                        });
                                     }}
                                     onInlineEdit={(val, src, date) => {
                                         handleFieldUpdate(
@@ -992,7 +1091,28 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
                             raNameLookup={data.raNameLookup}
                             onMap={(val) => handleMap(q.id, val)}
                             onInspect={(fieldNo, name, customFieldId) => {
-                                setSelectedInspectionField({ fieldNo, name, customFieldId });
+                                const canonicalName = name || q.canonicalDisplayModel?.label || data.masterFields.find((f: any) => f.fieldNo === fieldNo)?.label || q.text;
+                                setSelectedInspectionField({
+                                    fieldNo,
+                                    name: canonicalName,
+                                    customFieldId,
+                                    mappingContext: {
+                                        questionId: q.id,
+                                        questionText: q.text,
+                                        currentMappingValue: q.masterFieldNo
+                                            ? `master:${q.masterFieldNo}${q.masterFieldProjectionPath ? `:${q.masterFieldProjectionPath}` : ''}`
+                                            : q.masterQuestionGroupId
+                                            ? `group:${q.masterQuestionGroupId}`
+                                            : (q as any).customFieldDefinitionId
+                                            ? `custom:${(q as any).customFieldDefinitionId}`
+                                            : null,
+                                        onMap: (val: string) => handleMap(q.id, val),
+                                        masterFields: data.masterFields,
+                                        masterGroups: data.masterGroups,
+                                        customFields: data.customFields,
+                                        disabled: isPending || disabled || q.status === 'RELEASED'
+                                    }
+                                });
                             }}
                             onInlineEdit={(val, src, date) => {
                                 handleFieldUpdate(
@@ -1053,6 +1173,27 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
                         src,
                         date
                     );
+                }}
+                onAttachmentsUpdated={(fieldNo, attachments) => {
+                    setData(prev => ({
+                        ...prev,
+                        masterFields: prev.masterFields.map((f: any) =>
+                            f.fieldNo === fieldNo
+                                ? { ...f, attachmentCount: attachments.length }
+                                : f
+                        ),
+                        questions: prev.questions.map((q: any) =>
+                            q.masterFieldNo === fieldNo
+                                ? {
+                                    ...q,
+                                    canonicalDisplayModel: q.canonicalDisplayModel ? {
+                                        ...q.canonicalDisplayModel,
+                                        attachments
+                                    } : q.canonicalDisplayModel
+                                }
+                                : q
+                        )
+                    }));
                 }}
             />
 
@@ -1304,9 +1445,18 @@ function QuestionCard({
             const { applyManualOverride } = await import("@/actions/kyc-manual-update");
             const targetFieldId = question.masterFieldNo || (question as any).customFieldDefinitionId;
             if (!targetFieldId) return;
-            const res = await applyManualOverride(leId, targetFieldId, editValue, "Inline edit");
+
+            let valToSave = editValue;
+            if (isCountryField(question.masterFieldNo, question.canonicalDisplayModel?.label)) {
+                const resolved = resolveCountry(editValue);
+                if (resolved) {
+                    valToSave = resolved.code;
+                }
+            }
+
+            const res = await applyManualOverride(leId, targetFieldId, valToSave, "Inline edit");
             if (res.success) {
-                onInlineEdit(editValue, "USER_INPUT", new Date());
+                onInlineEdit(valToSave, "USER_INPUT", new Date());
                 toast.success("Value updated");
             } else {
                 showActionErrorToast(res, "Update failed");
@@ -1326,18 +1476,27 @@ function QuestionCard({
 
                 {isEditing ? (
                     <div className="flex items-center gap-2 w-full">
-                        <Input
-                            value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSaveEdit();
-                                if (e.key === 'Escape') handleCancelEdit();
-                            }}
-                            className="text-sm h-9 flex-1 bg-muted/50 border-border text-foreground"
-                            autoFocus
-                            disabled={isSaving}
-                            placeholder="Enter value..."
-                        />
+                        {isCountryField(question.masterFieldNo, question.canonicalDisplayModel?.label) ? (
+                            <CountryPicker
+                                value={editValue}
+                                onChange={setEditValue}
+                                disabled={isSaving}
+                                className="h-9 text-sm flex-1"
+                            />
+                        ) : (
+                            <Input
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveEdit();
+                                    if (e.key === 'Escape') handleCancelEdit();
+                                }}
+                                className="text-sm h-9 flex-1 bg-muted/50 border-border text-foreground"
+                                autoFocus
+                                disabled={isSaving}
+                                placeholder="Enter value..."
+                            />
+                        )}
                         <Button
                             variant="ghost"
                             size="icon"
@@ -1366,6 +1525,7 @@ function QuestionCard({
                                     fields={(question as any).masterDataGroupFields as GroupFieldData[]}
                                     raNameLookup={raNameLookup}
                                     displayStyle={question.masterDataGroupDisplayStyle}
+                                    onInspectField={(fNo, fName) => onInspect(fNo, fName)}
                                     className="py-0.5"
                                 />
                             ) : question.canonicalDisplayModel ? (
@@ -1427,39 +1587,26 @@ function QuestionCard({
                                     <ExternalLink className="h-3.5 w-3.5" />
                                 </a>
                             ) : isComplexValue || isProjectedValue ? (
-                                <>
-                                    <button
-                                        disabled
-                                        title={isProjectedValue ? "Projected values can't be edited inline — use the Master Data tab" : "Complex mapped answers must be edited in Master Data"}
-                                        className="p-1 rounded text-muted-foreground/30 cursor-not-allowed"
-                                    >
-                                        <Pencil className="h-3.5 w-3.5" />
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            const fNo = question.masterFieldNo || 0;
-                                            const customId = (question as any).customFieldDefinitionId;
-                                            onInspect(fNo, question.text, customId);
-                                        }}
-                                        title="View history & details"
-                                        className="p-1 rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                                    >
-                                        <PanelLeftOpen className="h-3.5 w-3.5" />
-                                    </button>
-                                    <a
-                                        href={`/app/le/${leId}/master`}
-                                        title="Complex mapped answers must be edited in Master Data"
-                                        className="p-1 rounded text-muted-foreground hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
-                                    >
-                                        <ExternalLink className="h-3.5 w-3.5" />
-                                    </a>
-                                </>
+                                <button
+                                    onClick={() => {
+                                        const fNo = question.masterFieldNo || 0;
+                                        const customId = (question as any).customFieldDefinitionId;
+                                        const canonicalName = question.canonicalDisplayModel?.label || masterFields.find(f => f.fieldNo === fNo)?.label || question.text;
+                                        onInspect(fNo, canonicalName, customId);
+                                    }}
+                                    data-testid="edit-person-btn"
+                                    title="Edit details in sidebar"
+                                    className="p-1 rounded text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 hover:text-indigo-700 transition-colors"
+                                >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                </button>
                             ) : (
                                 <>
                                     <button
                                         onClick={handleStartEdit}
                                         disabled={!isMapped || question.status === 'RELEASED'}
                                         title={question.status === 'RELEASED' ? "Cannot edit released questions" : isMapped ? "Edit value" : "Map a field first"}
+                                        data-testid="inline-edit-btn"
                                         className={cn(
                                             "p-1 rounded transition-colors",
                                             (isMapped && question.status !== 'RELEASED')
@@ -1473,7 +1620,8 @@ function QuestionCard({
                                         onClick={() => {
                                             const fNo = question.masterFieldNo || 0;
                                             const customId = (question as any).customFieldDefinitionId;
-                                            onInspect(fNo, question.text, customId);
+                                            const canonicalName = question.canonicalDisplayModel?.label || masterFields.find(f => f.fieldNo === fNo)?.label || question.text;
+                                            onInspect(fNo, canonicalName, customId);
                                         }}
                                         title="View history & details"
                                         className="p-1 rounded text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
@@ -1520,13 +1668,16 @@ function QuestionCard({
 
     if (viewMode === "flow") {
         return (
-            <Card className={cn(
-                "group transition-all shadow-sm overflow-hidden text-card-foreground",
-                "border border-border hover:border-indigo-500/50 hover:shadow-md",
-                "focus-within:border-indigo-500/50 focus-within:shadow-md",
-                isPinned ? "!border-green-400 ring-2 ring-green-500/20 z-10 scale-[1.01]" : "",
-                isMapped ? "bg-card" : "bg-muted/40 border-dashed"
-            )}>
+            <Card
+                data-testid={`question-card-${question.id}`}
+                className={cn(
+                    "group transition-all shadow-sm overflow-hidden text-card-foreground",
+                    "border border-border hover:border-indigo-500/50 hover:shadow-md",
+                    "focus-within:border-indigo-500/50 focus-within:shadow-md",
+                    isPinned ? "!border-green-400 ring-2 ring-green-500/20 z-10 scale-[1.01]" : "",
+                    isMapped ? "bg-card" : "bg-muted/40 border-dashed"
+                )}
+            >
                 <CardContent className="p-0">
                     {/* Row 1: 50% Left Context / 50% Right Mapping Grid */}
                     <div className={cn(
@@ -1706,13 +1857,16 @@ function QuestionCard({
     }
 
     return (
-        <Card className={cn(
-            "group transition-all shadow-sm overflow-hidden text-card-foreground",
-            "border border-border hover:border-indigo-500/50 hover:shadow-md",
-            "focus-within:border-indigo-500/50 focus-within:shadow-md",
-            isPinned ? "!border-green-400 ring-2 ring-green-500/20 z-10 scale-[1.01]" : "",
-            isMapped ? "bg-card" : "bg-muted/40 border-dashed"
-        )}>
+        <Card
+            data-testid={`question-card-${question.id}`}
+            className={cn(
+                "group transition-all shadow-sm overflow-hidden text-card-foreground",
+                "border border-border hover:border-indigo-500/50 hover:shadow-md",
+                "focus-within:border-indigo-500/50 focus-within:shadow-md",
+                isPinned ? "!border-green-400 ring-2 ring-green-500/20 z-10 scale-[1.01]" : "",
+                isMapped ? "bg-card" : "bg-muted/40 border-dashed"
+            )}
+        >
             <CardContent className="p-0">
                 <div className="flex items-stretch min-h-[100px]">
                     {/* Left Side: Context */}
@@ -2027,9 +2181,18 @@ function QuestionTableRow({
             const { applyManualOverride } = await import("@/actions/kyc-manual-update");
             const targetFieldId = question.masterFieldNo || (question as any).customFieldDefinitionId;
             if (!targetFieldId) return;
-            const res = await applyManualOverride(leId, targetFieldId, editValue, "Inline edit");
+
+            let valToSave = editValue;
+            if (isCountryField(question.masterFieldNo, question.canonicalDisplayModel?.label)) {
+                const resolved = resolveCountry(editValue);
+                if (resolved) {
+                    valToSave = resolved.code;
+                }
+            }
+
+            const res = await applyManualOverride(leId, targetFieldId, valToSave, "Inline edit");
             if (res.success) {
-                onInlineEdit(editValue, "USER_INPUT", new Date());
+                onInlineEdit(valToSave, "USER_INPUT", new Date());
                 toast.success("Value updated");
             } else {
                 showActionErrorToast(res, "Update failed");
@@ -2156,18 +2319,27 @@ function QuestionTableRow({
                         <span className="text-indigo-600 dark:text-indigo-400 font-bold text-xs shrink-0">A:</span>
                         {isEditing ? (
                             <div className="flex items-center gap-1 w-full">
-                                <Input
-                                    value={editValue}
-                                    onChange={(e) => setEditValue(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleSaveEdit();
-                                        if (e.key === 'Escape') handleCancelEdit();
-                                    }}
-                                    className="text-xs h-7 flex-1 bg-muted/50 border-border text-foreground"
-                                    autoFocus
-                                    disabled={isSaving}
-                                    placeholder="Enter value..."
-                                />
+                                {isCountryField(question.masterFieldNo, question.canonicalDisplayModel?.label) ? (
+                                    <CountryPicker
+                                        value={editValue}
+                                        onChange={setEditValue}
+                                        disabled={isSaving}
+                                        className="h-7 text-xs flex-1"
+                                    />
+                                ) : (
+                                    <Input
+                                        value={editValue}
+                                        onChange={(e) => setEditValue(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleSaveEdit();
+                                            if (e.key === 'Escape') handleCancelEdit();
+                                        }}
+                                        className="text-xs h-7 flex-1 bg-muted/50 border-border text-foreground"
+                                        autoFocus
+                                        disabled={isSaving}
+                                        placeholder="Enter value..."
+                                    />
+                                )}
                                 <Button variant="ghost" size="icon" className="h-6 w-6 text-green-600 dark:text-green-400" onClick={handleSaveEdit} disabled={isSaving}>
                                     <Check className="h-3 w-3" />
                                 </Button>
@@ -2184,6 +2356,7 @@ function QuestionTableRow({
                                             fields={(question as any).masterDataGroupFields as GroupFieldData[]}
                                             raNameLookup={raNameLookup}
                                             displayStyle={question.masterDataGroupDisplayStyle}
+                                            onInspectField={(fNo, fName) => onInspect(fNo, fName)}
                                             className="py-0"
                                         />
                                     ) : question.canonicalDisplayModel ? (
@@ -2217,7 +2390,8 @@ function QuestionTableRow({
                                         onClick={() => {
                                             const fNo = question.masterFieldNo || 0;
                                             const customId = (question as any).customFieldDefinitionId;
-                                            onInspect(fNo, question.text, customId);
+                                            const canonicalName = question.canonicalDisplayModel?.label || masterFields.find(f => f.fieldNo === fNo)?.label || question.text;
+                                            onInspect(fNo, canonicalName, customId);
                                         }}
                                         title="View history & details"
                                         className="p-1 rounded text-muted-foreground hover:bg-muted hover:text-foreground"

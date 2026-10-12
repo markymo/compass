@@ -15,6 +15,8 @@ interface Rdd1QuestionCardProps {
     customFields: Array<{ id: string; label: string }>;
     raNameLookup: Record<string, string>;
     onInspectMapping: () => void;
+    onInspect?: (fieldNo: number, name: string, customFieldId?: string) => void;
+    onInlineEdit?: (val: any, src: string, date: Date) => void;
     disabled?: boolean;
 }
 
@@ -26,6 +28,8 @@ export function Rdd1QuestionCard({
     customFields,
     raNameLookup,
     onInspectMapping,
+    onInspect,
+    onInlineEdit,
     disabled = false
 }: Rdd1QuestionCardProps) {
     const isMapped = !!(
@@ -87,7 +91,10 @@ export function Rdd1QuestionCard({
                         leId={leId}
                         isMapped={isMapped}
                         raNameLookup={raNameLookup}
+                        masterFields={masterFields}
                         disabled={disabled}
+                        onInspect={onInspect}
+                        onInlineEdit={onInlineEdit}
                     />
                 </div>
             </div>
