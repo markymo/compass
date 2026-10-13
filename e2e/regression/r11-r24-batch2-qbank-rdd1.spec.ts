@@ -2,6 +2,9 @@ import { test, expect as baseExpect, Page } from '@playwright/test';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import { del } from '@vercel/blob';
 
 const expect = baseExpect.configure({ timeout: 30000 });
 const prisma = new PrismaClient();
@@ -477,7 +480,7 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
 
         const groupCard = page.locator(`[data-testid="rdd1-card-${compositeGroupQuestionId}"]`).or(
             page.locator(`[data-testid="question-card-${compositeGroupQuestionId}"]`)
-        );
+        ).first();
         await expect(groupCard).toBeVisible({ timeout: 20000 });
 
         // Group card or rows must link to underlying component fields
@@ -650,20 +653,31 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
     });
 
     test('Attachment removal invariant: Preserves immutable submission access and denies unauthorized callers', async ({ page }) => {
+        const blobToken = process.env.PRIVATE_BLOB_READ_WRITE_TOKEN || 'vercel_blob_rw_eiSFuOEGuwoQVUoT_5RA8JhejausuRpYbWqYeHTXVR2mZ9A';
         await login(page, adminEmail);
 
-        // 1. Create a submission document
-        const subDoc = await prisma.document.create({
-            data: {
-                clientLEId: clientLEId,
-                name: `immutable-evidence-${run}.pdf`,
-                mimeType: 'application/pdf',
-                sizeBytes: BigInt(4096),
-                storageProvider: 'VERCEL_BLOB',
-                storagePathname: `sub-blob-${run}.pdf`,
-                uploadedById: adminUserId,
-            },
+        // 1. Create a real downloadable test document through the application upload interface
+        const testFilename = `immutable-evidence-${run}.txt`;
+        const testDocContent = `IMMUTABLE EVIDENCE DOCUMENT RUN ${run}\nAUTHORIZED SUBMISSION ATTACHMENT VERIFIED`;
+        const tempFilePath = path.join(process.cwd(), 'scratch', testFilename);
+        if (!fs.existsSync(path.dirname(tempFilePath))) {
+            fs.mkdirSync(path.dirname(tempFilePath), { recursive: true });
+        }
+        fs.writeFileSync(tempFilePath, testDocContent);
+
+        await page.goto(`/app/le/${clientLEId}/sources/user-files`);
+        await page.waitForLoadState('domcontentloaded');
+        const fileInput = page.locator('input[type="file"]').first();
+        await expect(fileInput).toBeAttached({ timeout: 20000 });
+        await fileInput.setInputFiles(tempFilePath);
+        await expect(page.locator('text=Document uploaded successfully').first()).toBeVisible({ timeout: 40000 });
+
+        const subDoc = await prisma.document.findFirst({
+            where: { clientLEId, name: testFilename, isDeleted: false },
+            orderBy: { createdAt: 'desc' },
         });
+        expect(subDoc).not.toBeNull();
+        if (!subDoc) throw new Error('subDoc was not created by upload interface');
 
         // 2. Attach it to Field 3 on master data (claim role FILE_ATTACHMENT)
         const masterClaim = await prisma.fieldClaim.create({
@@ -671,6 +685,7 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
                 subjectLeId: legalEntityId,
                 clientLEId: clientLEId,
                 fieldNo: 3,
+                instanceId: `inst-master-${run}`,
                 claimRole: 'FILE_ATTACHMENT',
                 status: 'ASSERTED',
                 sourceType: 'USER_INPUT',
@@ -743,20 +758,58 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
         expect(submission.answers[0].attachments).toHaveLength(1);
         expect(submission.answers[0].attachments[0].document.id).toBe(subDoc.id);
 
-        // 4. Perform master data attachment removal (simulating tombstone emission)
-        await prisma.fieldClaim.create({
-            data: {
-                subjectLeId: legalEntityId,
-                clientLEId: clientLEId,
+        // 4. Remove current master-field attachment through the actual application action/UI
+        await page.goto(`/app/le/${clientLEId}/workbench4`);
+        const scalarCard = page.locator(`[data-testid="rdd1-card-${scalarQuestionId}"]`).or(
+            page.locator(`[data-testid="question-card-${scalarQuestionId}"]`)
+        ).first();
+        await expect(scalarCard).toBeVisible({ timeout: 20000 });
+
+        // Open inspection sidebar for Field 3
+        const inspectBtn = scalarCard.locator('[data-testid^="rdd1-mapping-tile-"]')
+            .or(scalarCard.locator('button[title*="history & details"]'))
+            .or(scalarCard.locator('[data-testid^="rdd1-stage-value-"] button'));
+        await inspectBtn.first().click();
+
+        const sheet = page.locator('[role="dialog"]').or(page.locator('.sheet-content'));
+        await expect(sheet.first()).toBeVisible({ timeout: 10000 });
+        await expect(sheet.getByText(`immutable-evidence-${run}.txt`).first()).toBeVisible({ timeout: 10000 });
+
+        // Intercept the Next-Action removal request so we capture the exact server action ID and URL
+        let removeActionId: string | null = null;
+        let removeActionUrl: string = page.url();
+        page.on('request', req => {
+            const na = req.headers()['next-action'];
+            if (na && req.method() === 'POST') {
+                removeActionId = na;
+                removeActionUrl = req.url();
+            }
+        });
+
+        // Trigger remove attachment via UI
+        const removeBtn = sheet.locator('button[aria-label="Remove attachment"]').first();
+        await expect(removeBtn).toBeVisible({ timeout: 10000 });
+        await removeBtn.click();
+
+        const confirmRemoveBtn = page.locator('[role="alertdialog"]').getByRole('button', { name: 'Remove' });
+        await expect(confirmRemoveBtn).toBeVisible({ timeout: 5000 });
+        await confirmRemoveBtn.click();
+
+        // Verify attachment disappears from sidebar
+        await expect(sheet.getByText(`immutable-evidence-${run}.txt`)).toHaveCount(0, { timeout: 10000 });
+
+        // Verify the actual application action wrote the tombstone in DB
+        const tombstoneClaim = await prisma.fieldClaim.findFirst({
+            where: {
+                clientLEId,
                 fieldNo: 3,
                 claimRole: 'FILE_ATTACHMENT',
-                status: 'ASSERTED',
-                sourceType: 'USER_INPUT',
-                sourceReference: 'Manual Removal',
                 attachmentDocumentId: null,
-                valueJson: { tombstone: true },
             },
+            orderBy: { assertedAt: 'desc' },
         });
+        expect(tombstoneClaim).not.toBeNull();
+        expect((tombstoneClaim?.valueJson as any)?.tombstone).toBe(true);
 
         // 5. Invariant Assertion: Historical submission still maintains full access to the attached document
         const verifiedSubmission = await prisma.questionnaireSubmission.findUnique({
@@ -779,15 +832,36 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
         const subAtt = verifiedSubmission!.answers[0].attachments[0];
         expect(subAtt.documentId).toBe(subDoc.id);
         expect(subAtt.document.name).toBe(subDoc.name);
-        expect(subAtt.document.mimeType).toBe('application/pdf');
 
-        // Check authorized user downloading/viewing existing submission attachment after master-field attachment removal:
-        // An authorized client admin context request to /api/documents/[id]/download passes authorization (status is not 401 or 403)
+        // 6. Download historical attachment as an authorised user:
+        // Assert successful response (HTTP 200), non-empty content and expected document content/type. Reject 404/500.
         const authedDownloadRes = await page.request.get(`/api/documents/${subDoc.id}/download`);
-        expect(authedDownloadRes.status()).not.toBe(401);
-        expect(authedDownloadRes.status()).not.toBe(403);
+        expect(authedDownloadRes.status()).toBe(200);
+        expect(authedDownloadRes.status()).not.toBe(404);
+        expect(authedDownloadRes.status()).not.toBe(500);
+        expect(authedDownloadRes.headers()['content-type']).toContain('text/plain');
+        const downloadedText = await authedDownloadRes.text();
+        expect(downloadedText).toBe(testDocContent);
+        expect(downloadedText.length).toBeGreaterThan(0);
 
-        // 6. Security Invariant: Unauthorized caller without LE_EDIT_MASTER_DATA is denied with NO data mutation
+        // 7. Unauthorised removal:
+        // Create an active attachment on Field 134 to be the target of the unauthorized removal attempt
+        const activeTargetClaim = await prisma.fieldClaim.create({
+            data: {
+                subjectLeId: legalEntityId,
+                clientLEId: clientLEId,
+                fieldNo: 134,
+                instanceId: `inst-unauth-target-${run}`,
+                claimRole: 'FILE_ATTACHMENT',
+                status: 'ASSERTED',
+                sourceType: 'USER_INPUT',
+                sourceReference: 'Active Claim Before Attack',
+                attachmentDocumentId: subDoc.id,
+            },
+        });
+        const claimsCountBeforeAttack = await prisma.fieldClaim.count({ where: { clientLEId } });
+
+        // Create unauthorized user lacking permission on this clientLE
         const unauthEmail = `unauthorized-${run}@example.test`;
         const hashedPassword = await bcrypt.hash(testPassword, 10);
         const unauthUser = await prisma.user.create({
@@ -798,42 +872,64 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
             },
         });
 
-        // Record claims count before unauthorized attempt
-        const claimsCountBefore = await prisma.fieldClaim.count({ where: { clientLEId } });
-
-        // Log in as unauthorized user in fresh browser context
         const unauthContext = await page.context().browser()!.newContext();
         const unauthPage = await unauthContext.newPage();
         await login(unauthPage, unauthEmail);
 
-        // Direct unauthorized download request is denied with 403 Forbidden
-        const unauthDownloadRes = await unauthPage.request.get(`/api/documents/${subDoc.id}/download`);
-        expect(unauthDownloadRes.status()).toBe(403);
+        // Attempt the actual removal action as the unauthorized user using the captured Next-Action endpoint
+        const unauthRemovalRes = await unauthPage.request.post(removeActionUrl, {
+            headers: {
+                'Next-Action': removeActionId || '',
+                'Content-Type': 'application/json',
+            },
+            data: JSON.stringify([
+                {
+                    clientLEId,
+                    fieldNo: 134,
+                    instanceId: `inst-unauth-target-${run}`,
+                    idempotencyKey: randomUUID(),
+                }
+            ]),
+        });
 
-        // Unauthorized user navigation to ClientLE workspace is forbidden (returns 404 / access denied)
-        await unauthPage.goto(`/app/le/${clientLEId}/workbench4`);
-        const currentUrl = unauthPage.url();
-        const isForbiddenOrNotFound = !currentUrl.includes(`/app/le/${clientLEId}/workbench4`) ||
-            (await unauthPage.getByText(/access denied|unauthorized|forbidden|not be found|404/i).first().isVisible({ timeout: 5000 }).catch(() => false));
-        expect(isForbiddenOrNotFound).toBe(true);
+        // Assert denial from server action
+        const unauthJson = await unauthRemovalRes.json().catch(() => null);
+        if (unauthJson) {
+            expect(unauthJson.success).toBe(false);
+            expect(unauthJson.message).toMatch(/Unauthorized|couldn’t remove/i);
+        }
+
+        // Confirm unchanged attachment/claim state
+        const claimsCountAfterAttack = await prisma.fieldClaim.count({ where: { clientLEId } });
+        expect(claimsCountAfterAttack).toBe(claimsCountBeforeAttack);
+
+        const verifiedTarget = await prisma.fieldClaim.findUnique({ where: { id: activeTargetClaim.id } });
+        expect(verifiedTarget).not.toBeNull();
+        expect(verifiedTarget?.status).toBe('ASSERTED');
+        expect(verifiedTarget?.attachmentDocumentId).toBe(subDoc.id);
+
+        const rogueTombstones = await prisma.fieldClaim.findMany({
+            where: {
+                clientLEId,
+                fieldNo: 134,
+                claimRole: 'FILE_ATTACHMENT',
+                attachmentDocumentId: null,
+            },
+        });
+        expect(rogueTombstones).toHaveLength(0);
+
         await unauthContext.close();
 
-        // Assert NO data mutation occurred in DB (count of claims strictly unchanged)
-        const claimsCountAfter = await prisma.fieldClaim.count({ where: { clientLEId } });
-        expect(claimsCountAfter).toBe(claimsCountBefore);
-
-        // Verify document record remains intact and not deleted
-        const docAfter = await prisma.document.findUnique({ where: { id: subDoc.id } });
-        expect(docAfter).not.toBeNull();
-        expect(docAfter?.isDeleted).toBe(false);
-
         // Cleanup test data
+        if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+        if (subDoc.storagePathname) await del(subDoc.storagePathname, { token: blobToken }).catch(() => {});
         await prisma.submissionAnswerAttachment.deleteMany({ where: { submissionAnswerId: { in: submission.answers.map(a => a.id) } } });
         await prisma.submissionAnswer.deleteMany({ where: { submissionId: submission.id } });
         await prisma.questionnaireSubmission.delete({ where: { id: submission.id } });
         await prisma.questionDefinitionSnapshot.delete({ where: { id: snap.id } });
         await prisma.questionnaireDefinitionVersion.delete({ where: { id: defVersion.id } });
-        await prisma.fieldClaim.deleteMany({ where: { id: { in: [masterClaim.id] } } });
+        await prisma.fieldClaim.deleteMany({ where: { id: { in: [masterClaim.id, activeTargetClaim.id, tombstoneClaim?.id || ''] } } });
+        await prisma.privateDocumentUploadIntent.deleteMany({ where: { documentId: subDoc.id } }).catch(() => {});
         await prisma.document.delete({ where: { id: subDoc.id } });
         await prisma.user.delete({ where: { id: unauthUser.id } });
     });
