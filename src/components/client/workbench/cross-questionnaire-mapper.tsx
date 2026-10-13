@@ -13,7 +13,7 @@ import { DOCUMENT_ATTACHMENT_CHANGED } from "@/lib/document-attachment-events";
 
 import { useState, useEffect, useMemo, useTransition } from "react";
 import { Workbench4Data, mapQuestionToField, getAIFieldNameSuggestion } from "@/actions/kyc-workbench";
-import { ConsoleQuestion } from "@/actions/kyc-query";
+import { ConsoleQuestion, getFieldDetail } from "@/actions/kyc-query";
 import { createCustomFieldDefinition } from "@/actions/questionnaire";
 import { renameCustomField } from "@/actions/master-data-governance";
 import { approveQuestionMapping, shareQuestion, releaseQuestion } from "@/actions/kanban-actions";
@@ -349,36 +349,56 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
         updatePreference("workbenchCardView", mode);
     };
 
-    // Bug R19: Listen for attachment change events across tabs and drawers to update live
+    // Bug R19: Listen for attachment change events across tabs and drawers to update live without reload
     useEffect(() => {
+        const updateAttachmentsForField = async (fieldNo: number) => {
+            try {
+                const refreshed = await getFieldDetail(leId, fieldNo, 'CLIENT_LE');
+                if (refreshed?.canonicalDisplayModel?.attachments !== undefined) {
+                    const newAttachments = refreshed.canonicalDisplayModel.attachments;
+                    setData(prev => ({
+                        ...prev,
+                        masterFields: prev.masterFields.map((f: any) =>
+                            f.fieldNo === fieldNo
+                                ? { ...f, attachmentCount: newAttachments.length }
+                                : f
+                        ),
+                        questions: prev.questions.map((q: any) =>
+                            q.masterFieldNo === fieldNo
+                                ? {
+                                    ...q,
+                                    canonicalDisplayModel: q.canonicalDisplayModel ? {
+                                        ...q.canonicalDisplayModel,
+                                        attachments: newAttachments
+                                    } : q.canonicalDisplayModel
+                                }
+                                : q
+                        )
+                    }));
+                }
+            } catch (err) {
+                console.error("Failed to sync attachment changes", err);
+            }
+        };
+
         const handleAttachmentEvent = (e: any) => {
             const detail = e.detail;
             if (detail?.fieldNo) {
-                setData(prev => ({
-                    ...prev,
-                    masterFields: prev.masterFields.map((f: any) =>
-                        f.fieldNo === detail.fieldNo
-                            ? { ...f, attachmentCount: Math.max(0, (f.attachmentCount || 0) + 1) }
-                            : f
-                    ),
-                    questions: prev.questions.map((q: any) =>
-                        q.masterFieldNo === detail.fieldNo
-                            ? {
-                                ...q,
-                                canonicalDisplayModel: q.canonicalDisplayModel ? {
-                                    ...q.canonicalDisplayModel,
-                                    attachments: q.canonicalDisplayModel.attachments || []
-                                } : q.canonicalDisplayModel
-                            }
-                            : q
-                    )
-                }));
+                updateAttachmentsForField(detail.fieldNo);
             }
             router.refresh();
         };
 
         const handleStorage = (e: StorageEvent) => {
-            if (e.key === DOCUMENT_ATTACHMENT_CHANGED) {
+            if (e.key === DOCUMENT_ATTACHMENT_CHANGED && e.newValue) {
+                try {
+                    const parsed = JSON.parse(e.newValue);
+                    if (parsed?.fieldNo && (!parsed?.clientLEId || parsed.clientLEId === leId)) {
+                        updateAttachmentsForField(parsed.fieldNo);
+                    }
+                } catch (err) {
+                    console.error("Failed to parse storage event", err);
+                }
                 router.refresh();
             }
         };
@@ -389,7 +409,7 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
             window.removeEventListener(DOCUMENT_ATTACHMENT_CHANGED, handleAttachmentEvent);
             window.removeEventListener("storage", handleStorage);
         };
-    }, [router]);
+    }, [leId, router]);
 
     const isAutoFiltered = useMemo(() => {
         return (

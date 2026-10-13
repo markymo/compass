@@ -628,9 +628,7 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
         await expect(sheet2.getByText(`tab-sync-doc-${run}.pdf`).first()).toBeVisible({ timeout: 10000 });
         await expect(getAttachmentBadge(scalarCard2).first()).toBeVisible({ timeout: 10000 });
 
-        // Verify other browser window reflects the attached document upon reload
-        await page.reload();
-        await expect(scalarCard1).toBeVisible({ timeout: 20000 });
+        // Verify other already-open browser window reflects the attached document badge in real-time WITHOUT reload
         await expect(getAttachmentBadge(scalarCard1).first()).toBeVisible({ timeout: 15000 });
 
         // Remove attachment in Tab 2
@@ -644,9 +642,7 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
 
         await expect(sheet2.getByText(`tab-sync-doc-${run}.pdf`)).toHaveCount(0, { timeout: 10000 });
 
-        // Verify other window reflects removal upon reload
-        await page.reload();
-        await expect(scalarCard1).toBeVisible({ timeout: 20000 });
+        // Verify other already-open browser window reflects the badge removal in real-time WITHOUT reload
         await expect(getAttachmentBadge(scalarCard1)).toHaveCount(0, { timeout: 15000 });
 
         await page2.close();
@@ -783,7 +779,13 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
         expect(subAtt.document.name).toBe(subDoc.name);
         expect(subAtt.document.mimeType).toBe('application/pdf');
 
-        // 6. Security Invariant: Unauthorized caller without LE_EDIT_MASTER_DATA is denied
+        // Check authorized user downloading/viewing existing submission attachment after master-field attachment removal:
+        // An authorized client admin context request to /api/documents/[id]/download passes authorization (status is not 401 or 403)
+        const authedDownloadRes = await page.request.get(`/api/documents/${subDoc.id}/download`);
+        expect(authedDownloadRes.status()).not.toBe(401);
+        expect(authedDownloadRes.status()).not.toBe(403);
+
+        // 6. Security Invariant: Unauthorized caller without LE_EDIT_MASTER_DATA is denied with NO data mutation
         const unauthEmail = `unauthorized-${run}@example.test`;
         const hashedPassword = await bcrypt.hash(testPassword, 10);
         const unauthUser = await prisma.user.create({
@@ -794,16 +796,34 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
             },
         });
 
-        // Log in as unauthorized user and verify access to the ClientLE workspace is forbidden (returns 404 / access denied)
+        // Record claims count before unauthorized attempt
+        const claimsCountBefore = await prisma.fieldClaim.count({ where: { clientLEId } });
+
+        // Log in as unauthorized user in fresh browser context
         const unauthContext = await page.context().browser()!.newContext();
         const unauthPage = await unauthContext.newPage();
         await login(unauthPage, unauthEmail);
+
+        // Direct unauthorized download request is denied with 403 Forbidden
+        const unauthDownloadRes = await unauthPage.request.get(`/api/documents/${subDoc.id}/download`);
+        expect(unauthDownloadRes.status()).toBe(403);
+
+        // Unauthorized user navigation to ClientLE workspace is forbidden (returns 404 / access denied)
         await unauthPage.goto(`/app/le/${clientLEId}/workbench4`);
         const currentUrl = unauthPage.url();
         const isForbiddenOrNotFound = !currentUrl.includes(`/app/le/${clientLEId}/workbench4`) ||
             (await unauthPage.getByText(/access denied|unauthorized|forbidden|not be found|404/i).first().isVisible({ timeout: 5000 }).catch(() => false));
         expect(isForbiddenOrNotFound).toBe(true);
         await unauthContext.close();
+
+        // Assert NO data mutation occurred in DB (count of claims strictly unchanged)
+        const claimsCountAfter = await prisma.fieldClaim.count({ where: { clientLEId } });
+        expect(claimsCountAfter).toBe(claimsCountBefore);
+
+        // Verify document record remains intact and not deleted
+        const docAfter = await prisma.document.findUnique({ where: { id: subDoc.id } });
+        expect(docAfter).not.toBeNull();
+        expect(docAfter?.isDeleted).toBe(false);
 
         // Cleanup test data
         await prisma.submissionAnswerAttachment.deleteMany({ where: { submissionAnswerId: { in: submission.answers.map(a => a.id) } } });
