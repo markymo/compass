@@ -1173,7 +1173,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
 <ConfirmDeleteDialog open={!!candidateToApply} onOpenChange={(open) => { if (!open) setCandidateToApply(null); }} title="Apply Candidate?" description={`Are you sure you want to apply this value: ${candidateToApply?.value}?`} onConfirm={confirmApplyCandidate} isLoading={isApplyingCandidate} confirmLabel="Apply" buttonVariant="default" />
             <SheetContent className="w-[900px] sm:max-w-[800px] flex flex-col h-full">
                 <SheetHeader className="pb-3 border-b border-slate-100">
-                    <SheetTitle className="sr-only">{fieldName}</SheetTitle>
+                    <SheetTitle className="sr-only">{data?.fieldName || fieldName}{fieldNo > 0 ? ` (#${fieldNo})` : ''}</SheetTitle>
                     <SheetDescription className="sr-only">Details for {fieldName}</SheetDescription>
 
 
