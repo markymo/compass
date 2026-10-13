@@ -780,7 +780,8 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
         let removeActionUrl: string = page.url();
         page.on('request', req => {
             const na = req.headers()['next-action'];
-            if (na && req.method() === 'POST') {
+            const postData = req.postData() || '';
+            if (na && req.method() === 'POST' && postData.includes('idempotencyKey')) {
                 removeActionId = na;
                 removeActionUrl = req.url();
             }
@@ -876,11 +877,14 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
         const unauthPage = await unauthContext.newPage();
         await login(unauthPage, unauthEmail);
 
+        expect(removeActionId, 'Server action ID for removeFieldAttachment was not intercepted').toBeTruthy();
+
         // Attempt the actual removal action as the unauthorized user using the captured Next-Action endpoint
         const unauthRemovalRes = await unauthPage.request.post(removeActionUrl, {
             headers: {
                 'Next-Action': removeActionId || '',
                 'Content-Type': 'application/json',
+                'Accept': 'text/x-component',
             },
             data: JSON.stringify([
                 {
@@ -892,12 +896,43 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
             ]),
         });
 
-        // Assert denial from server action
-        const unauthJson = await unauthRemovalRes.json().catch(() => null);
-        if (unauthJson) {
-            expect(unauthJson.success).toBe(false);
-            expect(unauthJson.message).toMatch(/Unauthorized|couldn’t remove/i);
+        // Assert explicit, recognized authorization denial from server action
+        const resText = await unauthRemovalRes.text();
+        let parsedActionPayload: {
+            success?: boolean;
+            kind?: string;
+            message?: string;
+            error?: string;
+            operation?: string;
+        } | null = null;
+
+        // 1. Direct JSON parse
+        try {
+            parsedActionPayload = JSON.parse(resText);
+        } catch {
+            // 2. Next.js RSC Flight format lines (e.g. '0:{"a":...}\n1:{"success":false,...}')
+            const flightLines = resText.split('\n').filter(Boolean);
+            for (const line of flightLines) {
+                const colonIndex = line.indexOf(':');
+                if (colonIndex > 0) {
+                    const chunk = line.slice(colonIndex + 1);
+                    try {
+                        const parsed = JSON.parse(chunk);
+                        if (parsed && typeof parsed === 'object' && ('success' in parsed || 'message' in parsed || 'error' in parsed)) {
+                            parsedActionPayload = parsed;
+                            break;
+                        }
+                    } catch {}
+                }
+            }
         }
+
+        // Hard requirement: MUST establish explicit recognized authorization denial; fail unconditionally otherwise
+        expect(parsedActionPayload, `Failed to parse recognized server action payload from response: ${resText}`).not.toBeNull();
+        expect(parsedActionPayload?.success).toBe(false);
+        expect(parsedActionPayload?.kind).toBe('domain');
+        expect(parsedActionPayload?.message).toMatch(/Unauthorized|couldn’t remove/i);
+        expect(parsedActionPayload?.operation).toBe('Remove field attachment');
 
         // Confirm unchanged attachment/claim state
         const claimsCountAfterAttack = await prisma.fieldClaim.count({ where: { clientLEId } });
