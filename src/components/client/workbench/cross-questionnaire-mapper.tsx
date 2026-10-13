@@ -663,6 +663,9 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
             const customDef = customFieldId ? prev.customFields.find((f: any) => f.id === customFieldId) : undefined;
 
             const updatedQuestions = prev.questions.map((q: any) => {
+                let changed = false;
+                let updatedQ = { ...q };
+
                 const isMatch = customFieldId
                     ? (q as any).customFieldDefinitionId === customFieldId
                     : (fieldNo > 0 && q.masterFieldNo === fieldNo);
@@ -689,15 +692,58 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
                         metadata
                     );
 
-                    return {
-                        ...q,
+                    updatedQ = {
+                        ...updatedQ,
                         masterDataValue: newValue,
                         masterDataSource: newSource,
                         masterDataUpdatedAt: newUpdatedAt,
                         canonicalDisplayModel: updatedCanonicalModel
                     };
+                    changed = true;
                 }
-                return q;
+
+                // Also update constituent fields in composite groups if present
+                if (fieldNo > 0 && Array.isArray((q as any).masterDataGroupFields)) {
+                    const hasConstituent = (q as any).masterDataGroupFields.some((gf: any) => gf.fieldNo === fieldNo);
+                    if (hasConstituent) {
+                        const updatedGroupFields = (q as any).masterDataGroupFields.map((gf: any) => {
+                            if (gf.fieldNo === fieldNo) {
+                                const label = gf.fieldName || masterDef?.label || '';
+                                const appDataType = gf.appDataType || masterDef?.dataType || 'TEXT';
+                                const hasVal = newValue !== null && newValue !== undefined && newValue !== '';
+                                const metadata = {
+                                    fieldNo,
+                                    label,
+                                    displayState: hasVal ? ('HAS_VALUE' as const) : ('CHECKED_NO_DATA' as const),
+                                    appDataType: appDataType?.toUpperCase(),
+                                    isMultiValue: gf.isMultiValue || false,
+                                    attachments: gf.canonicalDisplayModel?.attachments || [],
+                                    allowAttachments: gf.canonicalDisplayModel?.allowAttachments,
+                                    displayContext: gf.canonicalDisplayModel?.displayContext
+                                };
+                                const updatedModel = resolveFieldForDisplay(newValue, rawSourceToUse, metadata);
+                                return {
+                                    ...gf,
+                                    hydrated: {
+                                        ...gf.hydrated,
+                                        value: newValue,
+                                        source: newSource,
+                                        timestamp: newUpdatedAt
+                                    },
+                                    canonicalDisplayModel: updatedModel
+                                };
+                            }
+                            return gf;
+                        });
+                        updatedQ = {
+                            ...updatedQ,
+                            masterDataGroupFields: updatedGroupFields
+                        };
+                        changed = true;
+                    }
+                }
+
+                return changed ? updatedQ : q;
             });
 
             const updatedMasterFields = prev.masterFields.map((f: any) => {
@@ -965,6 +1011,7 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
                                         mappingContext: {
                                             questionId: q.id,
                                             questionText: q.text,
+                                            questionnaireName: q.questionnaireName,
                                             currentMappingValue: currentMappingVal,
                                             onMap: (val: string) => handleMap(q.id, val),
                                             masterFields: data.masterFields,
@@ -975,7 +1022,8 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
                                     });
                                 }}
                                 onInspect={(fieldNo, name, customFieldId) => {
-                                    const canonicalName = name || q.canonicalDisplayModel?.label || data.masterFields.find((f: any) => f.fieldNo === fieldNo)?.label || q.text;
+                                    const masterField = data.masterFields.find((f: any) => f.fieldNo === fieldNo);
+                                    const canonicalName = name || masterField?.label || q.canonicalDisplayModel?.label || q.text;
                                     setSelectedInspectionField({
                                         fieldNo,
                                         name: canonicalName,
@@ -983,6 +1031,7 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
                                         mappingContext: {
                                             questionId: q.id,
                                             questionText: q.text,
+                                            questionnaireName: q.questionnaireName,
                                             currentMappingValue: q.masterFieldNo
                                                 ? `master:${q.masterFieldNo}${q.masterFieldProjectionPath ? `:${q.masterFieldProjectionPath}` : ''}`
                                                 : q.masterQuestionGroupId
@@ -1041,7 +1090,8 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
                                     raNameLookup={data.raNameLookup}
                                     onMap={(val) => handleMap(q.id, val)}
                                     onInspect={(fieldNo, name, customFieldId) => {
-                                        const canonicalName = name || q.canonicalDisplayModel?.label || data.masterFields.find((f: any) => f.fieldNo === fieldNo)?.label || q.text;
+                                        const masterField = data.masterFields.find((f: any) => f.fieldNo === fieldNo);
+                                        const canonicalName = name || masterField?.label || q.canonicalDisplayModel?.label || q.text;
                                         setSelectedInspectionField({
                                             fieldNo,
                                             name: canonicalName,
@@ -1049,6 +1099,7 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
                                             mappingContext: {
                                                 questionId: q.id,
                                                 questionText: q.text,
+                                                questionnaireName: q.questionnaireName,
                                                 currentMappingValue: q.masterFieldNo
                                                     ? `master:${q.masterFieldNo}${q.masterFieldProjectionPath ? `:${q.masterFieldProjectionPath}` : ''}`
                                                     : q.masterQuestionGroupId
@@ -1111,7 +1162,8 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
                             raNameLookup={data.raNameLookup}
                             onMap={(val) => handleMap(q.id, val)}
                             onInspect={(fieldNo, name, customFieldId) => {
-                                const canonicalName = name || q.canonicalDisplayModel?.label || data.masterFields.find((f: any) => f.fieldNo === fieldNo)?.label || q.text;
+                                const masterField = data.masterFields.find((f: any) => f.fieldNo === fieldNo);
+                                const canonicalName = name || masterField?.label || q.canonicalDisplayModel?.label || q.text;
                                 setSelectedInspectionField({
                                     fieldNo,
                                     name: canonicalName,
@@ -1119,6 +1171,7 @@ export function CrossQuestionnaireMapper({ leId, initialData, disabled = false }
                                     mappingContext: {
                                         questionId: q.id,
                                         questionText: q.text,
+                                        questionnaireName: q.questionnaireName,
                                         currentMappingValue: q.masterFieldNo
                                             ? `master:${q.masterFieldNo}${q.masterFieldProjectionPath ? `:${q.masterFieldProjectionPath}` : ''}`
                                             : q.masterQuestionGroupId

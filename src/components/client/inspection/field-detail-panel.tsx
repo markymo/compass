@@ -116,6 +116,7 @@ interface FieldDetailPanelProps {
     mappingContext?: {
         questionId: string;
         questionText: string;
+        questionnaireName?: string | null;
         currentMappingValue?: string | null;
         onMap: (val: string) => void;
         masterFields: Array<{ fieldNo: number; label: string; attachmentCount?: number }>;
@@ -237,6 +238,16 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
             setLoadingUsageDetails(false);
         }
     }, [open, clientLEId, fieldNo, customFieldId]);
+
+    // Other questions mapped to this same Master Data field (excluding originating question)
+    const otherQuestions = useMemo(() => {
+        if (!usageDetails?.questions || !mappingContext) return [];
+        return usageDetails.questions.filter((q) => {
+            if (mappingContext.questionId && q.id === mappingContext.questionId) return false;
+            if (mappingContext.questionText && q.text.trim().toLowerCase() === mappingContext.questionText.trim().toLowerCase()) return false;
+            return true;
+        });
+    }, [usageDetails?.questions, mappingContext]);
 
     // Date & value formatting helpers
     const isDateType = data?.dataType === 'DATE' || data?.dataType === 'DATETIME';
@@ -1165,40 +1176,13 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     <SheetTitle className="sr-only">{fieldName}</SheetTitle>
                     <SheetDescription className="sr-only">Details for {fieldName}</SheetDescription>
 
-                    {mappingContext && (
-                        <div data-testid="rdd1-alternative-mapping-selector" className="p-3 bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-lg space-y-2 mb-3 mr-8 text-left">
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold uppercase tracking-wider text-indigo-950 dark:text-indigo-200">
-                                    Question Mapping Target
-                                </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground truncate" title={mappingContext.questionText}>
-                                Question: <strong className="text-foreground font-semibold">{mappingContext.questionText}</strong>
-                            </p>
-                            <SuperFieldSelector
-                                value={mappingContext.currentMappingValue ?? null}
-                                onSelect={(val, type) => {
-                                    if (type === 'clear') mappingContext.onMap("UNMAP");
-                                    else if (type === 'create') mappingContext.onMap("CREATE_NEW");
-                                    else if (type === 'master') mappingContext.onMap(val);
-                                    else if (type === 'group') mappingContext.onMap(`GROUP_${val}`);
-                                    else if (type === 'custom') mappingContext.onMap(`CUSTOM_${val}`);
-                                }}
-                                masterFields={mappingContext.masterFields}
-                                masterGroups={mappingContext.masterGroups}
-                                customFields={mappingContext.customFields}
-                                questionText={mappingContext.questionText}
-                                disabled={mappingContext.disabled}
-                            />
-                        </div>
-                    )}
 
                     {/* Top row: Context + Assignment */}
                     <div className="flex items-start justify-between mr-8">
                         <div className="flex flex-col gap-1.5 flex-1 min-w-0 pr-4">
                             <div className="flex items-start gap-2.5">
                                 <h2 className="text-xl font-bold text-slate-900 leading-tight">
-                                    {data?.fieldName || fieldName} <span className="text-slate-400 font-medium text-lg">({fieldNo || customFieldId})</span>
+                                    {data?.fieldName || fieldName} <span className="text-slate-400 font-medium text-lg">({fieldNo > 0 ? `#${fieldNo}` : customFieldId})</span>
                                 </h2>
                                 {customFieldId && fieldNo === 0 && (
                                     <Button variant="ghost" size="icon" onClick={openDeleteDialog} className="text-slate-400 hover:text-red-600 hover:bg-red-50 ml-2" title="Delete Custom Field">
@@ -1206,15 +1190,6 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                     </Button>
                                 )}
                             </div>
-
-                            {/* Bug R18: Underneath the field name, clearly show which question it is mapped to when opened in question context */}
-                            {mappingContext?.questionText && (
-                                <div className="mt-1 text-xs text-indigo-700 dark:text-indigo-300 font-medium flex items-center gap-1.5 bg-indigo-50/60 dark:bg-indigo-950/40 px-2 py-1 rounded border border-indigo-100 dark:border-indigo-900/60">
-                                    <HelpCircle className="h-3.5 w-3.5 shrink-0 text-indigo-500" />
-                                    <span className="text-[10px] uppercase font-bold text-indigo-950 dark:text-indigo-200">Mapped to:</span>
-                                    <span className="truncate italic">"{mappingContext.questionText}"</span>
-                                </div>
-                            )}
 
                             {fieldNo > 0 && (
                                 <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">
@@ -1487,6 +1462,77 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                         </button>
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 2. The question we just came from */}
+                    {mappingContext && (
+                        <div data-testid="sidebar-originating-question" className="mt-3 p-3 bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-lg space-y-2 mr-8 text-left">
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                                    <HelpCircle className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                                    Originating Question
+                                </span>
+                                {mappingContext.questionnaireName && (
+                                    <Badge variant="outline" className="text-[10px] bg-indigo-100/60 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700 truncate max-w-[260px]">
+                                        {mappingContext.questionnaireName}
+                                    </Badge>
+                                )}
+                            </div>
+                            <p className="text-xs text-foreground font-semibold" title={mappingContext.questionText}>
+                                "{mappingContext.questionText}"
+                            </p>
+
+                            {mappingContext.onMap && (
+                                <div data-testid="rdd1-alternative-mapping-selector" className="pt-2 border-t border-indigo-200/60 dark:border-indigo-800/60 space-y-1.5">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-950/80 dark:text-indigo-200/80">
+                                            Question Mapping Target
+                                        </span>
+                                    </div>
+                                    <SuperFieldSelector
+                                        value={mappingContext.currentMappingValue ?? null}
+                                        onSelect={(val, type) => {
+                                            if (type === 'clear') mappingContext.onMap("UNMAP");
+                                            else if (type === 'create') mappingContext.onMap("CREATE_NEW");
+                                            else if (type === 'master') mappingContext.onMap(val);
+                                            else if (type === 'group') mappingContext.onMap(`GROUP_${val}`);
+                                            else if (type === 'custom') mappingContext.onMap(`CUSTOM_${val}`);
+                                        }}
+                                        masterFields={mappingContext.masterFields}
+                                        masterGroups={mappingContext.masterGroups}
+                                        customFields={mappingContext.customFields}
+                                        questionText={mappingContext.questionText}
+                                        disabled={mappingContext.disabled}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* 3. Other questions mapped to the same Master Data field, if any */}
+                    {mappingContext && otherQuestions.length > 0 && (
+                        <div data-testid="sidebar-other-mapped-questions" className="mt-2.5 p-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-lg space-y-2 mr-8 text-left">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                                    <FileText className="h-3.5 w-3.5 text-slate-500" />
+                                    Other Questions Mapped to this Field ({otherQuestions.length})
+                                </span>
+                            </div>
+                            <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                                {otherQuestions.map((q) => (
+                                    <div key={q.id} className="text-xs text-slate-700 dark:text-slate-300 flex items-start justify-between gap-2 p-1.5 rounded bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800">
+                                        <span className="font-medium italic truncate flex-1" title={q.text}>
+                                            "{q.text}"
+                                        </span>
+                                        {q.questionnaireName && (
+                                            <Badge variant="outline" className="text-[9px] bg-slate-50 text-slate-500 shrink-0 max-w-[160px] truncate">
+                                                {q.questionnaireName}
+                                            </Badge>
+                                        )}
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     )}
@@ -2446,8 +2492,8 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         </div>
                     )}
 
-                    {/* ─── Usage Section (Hierarchical Relationship Tree) ─── */}
-                    {!customFieldId && (() => {
+                    {/* ─── Usage Section (Hierarchical Relationship Tree - shown when opened directly from Master Data) ─── */}
+                    {!customFieldId && !mappingContext && (() => {
                         const effectiveStats = mappingStats || (usageDetails ? {
                             questions: usageDetails.totalQuestions,
                             questionnaires: usageDetails.totalQuestionnaires,

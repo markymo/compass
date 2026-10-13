@@ -329,16 +329,25 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
         );
         await expect(countryCard).toBeVisible({ timeout: 20000 });
 
-        // Trigger inline edit on country field
-        const editBtn = countryCard.locator('[data-testid="inline-edit-btn"]')
-            .or(countryCard.locator('button[title="Edit value"]'))
-            .or(countryCard.locator('[data-testid^="rdd1-stage-value-"] button[title*="Edit"]'));
+        // Trigger open master data on country field (R17: editing happens in sidebar)
+        const openBtn = countryCard.locator(`[data-testid="rdd1-open-master-data-btn-${countryFormQuestionId}"]`)
+            .or(countryCard.locator('button[title="Open Master Data"]'))
+            .or(countryCard.locator('[data-testid^="rdd1-mapping-tile-"]'));
 
-        await editBtn.first().click();
+        await openBtn.first().click();
+
+        const sheet = page.locator('[role="dialog"]').or(page.locator('.sheet-content'));
+        await expect(sheet.first()).toBeVisible({ timeout: 10000 });
+
+        // In sidebar, click edit value
+        const editTrigger = sheet.locator('button[title="Edit value"]').or(sheet.locator('button[title="Add value"]'));
+        if (await editTrigger.first().isVisible({ timeout: 3000 }).catch(() => false)) {
+            await editTrigger.first().click();
+        }
 
         // It must NOT be a generic unconstrained text input for Country; it must render a country picker
-        const countryDropdownTrigger = countryCard.locator('[role="combobox"]').or(
-            countryCard.locator('button:has-text("United Kingdom"), button:has-text("Select country")')
+        const countryDropdownTrigger = sheet.locator('[role="combobox"]').or(
+            sheet.locator('button:has-text("United Kingdom"), button:has-text("Select country")')
         );
         await expect(countryDropdownTrigger.first()).toBeVisible({ timeout: 10000 });
 
@@ -358,20 +367,20 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
         await expect(swedenOption.first()).toBeVisible({ timeout: 10000 });
         await swedenOption.first().click();
 
-        // Save edit
-        const saveBtn = countryCard.locator('button[title*="Save"]').or(countryCard.locator('button:has(svg.lucide-check)'));
+        // Save edit in sidebar
+        const saveBtn = sheet.locator('button:has-text("Save")').or(sheet.locator('button[title*="Save"]')).or(sheet.locator('button:has(svg.lucide-check)'));
         await expect(saveBtn.first()).toBeVisible({ timeout: 5000 });
         await saveBtn.first().click();
         await expect(saveBtn).toHaveCount(0, { timeout: 10000 });
 
-        // Verify updated country display includes code SE
+        // Verify updated country display includes code SE on the Question Bank card
         await expect(countryCard.getByText(/SE/i).first()).toBeVisible({ timeout: 10000 });
 
-        // Canonical jurisdiction selection: Test subdivision selection (US-DE Delaware)
-        const reEditBtn = countryCard.locator('[data-testid^="rdd1-edit-btn-"]')
-            .or(countryCard.locator('button[title*="Edit"]'))
-            .or(countryCard.locator('button:has-text("Edit")'));
-        await reEditBtn.first().click();
+        // Canonical jurisdiction selection: Test subdivision selection (US-DE Delaware) in sidebar
+        const reEditBtn = sheet.locator('button[title="Edit value"]').or(sheet.locator('button[title="Add value"]'));
+        if (await reEditBtn.first().isVisible({ timeout: 3000 }).catch(() => false)) {
+            await reEditBtn.first().click();
+        }
         await expect(countryDropdownTrigger.first()).toBeVisible({ timeout: 10000 });
         await countryDropdownTrigger.first().click();
         await expect(popover.first()).toBeVisible({ timeout: 5000 });
@@ -389,7 +398,7 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
         await saveBtn.first().click();
         await expect(saveBtn).toHaveCount(0, { timeout: 10000 });
 
-        // Verify updated display includes US-DE
+        // Verify updated display includes US-DE on Question Bank card
         await expect(countryCard.getByText(/US-DE/i).first()).toBeVisible({ timeout: 10000 });
 
         // Verify persistence after page reload
@@ -421,20 +430,33 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
         const scalarCard = page.locator(`[data-testid="rdd1-card-${scalarQuestionId}"]`);
         await expect(scalarCard).toBeVisible({ timeout: 20000 });
 
-        // Bug R17: Value stage must have active edit controls
-        const editTrigger = scalarCard.locator('[data-testid^="rdd1-stage-value-"] button[title*="Edit"]')
-            .or(scalarCard.locator('[data-testid="inline-edit-btn"]'))
-            .or(scalarCard.locator('button:has(svg.lucide-pencil)'));
+        // Bug R17: Value stage must have "Open Master Data" button (not an inline answer edit)
+        const openTrigger = scalarCard.locator(`[data-testid="rdd1-open-master-data-btn-${scalarQuestionId}"]`)
+            .or(scalarCard.locator('button[title="Open Master Data"]'))
+            .or(scalarCard.locator('[data-testid^="rdd1-mapping-tile-"]'));
 
-        await expect(editTrigger.first()).toBeVisible({ timeout: 10000 });
-        await editTrigger.first().click();
+        await expect(openTrigger.first()).toBeVisible({ timeout: 10000 });
+        await openTrigger.first().click();
 
-        // Edit value inline
-        const textInput = scalarCard.locator('input[type="text"]').or(page.locator('input[placeholder*="Enter value"]'));
+        const sheet = page.locator('[role="dialog"]').or(page.locator('.sheet-content'));
+        await expect(sheet.first()).toBeVisible({ timeout: 10000 });
+
+        // In sidebar, header must display Master Data field name and field number
+        const sheetHeader = sheet.locator('h2').first();
+        await expect(sheetHeader).toContainText(/Legal name/i);
+        await expect(sheetHeader).toContainText('#3');
+
+        // Edit value in sidebar
+        const editTrigger = sheet.locator('button[title="Edit value"]').or(sheet.locator('button[title="Add value"]'));
+        if (await editTrigger.first().isVisible({ timeout: 3000 }).catch(() => false)) {
+            await editTrigger.first().click();
+        }
+
+        const textInput = sheet.locator('input[type="text"]').or(sheet.locator('textarea')).or(page.locator('input[placeholder*="Enter value"]'));
         await expect(textInput.first()).toBeVisible({ timeout: 10000 });
         await textInput.first().fill(`Updated Legal Name ${run}`);
 
-        const confirmBtn = scalarCard.locator('button:has(svg.lucide-check)');
+        const confirmBtn = sheet.locator('button:has-text("Save")').or(sheet.locator('button:has(svg.lucide-check)'));
         await confirmBtn.first().click();
 
         // Verify updated value appears immediately in RDD1 card
@@ -454,23 +476,28 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
         );
         await expect(countryCard).toBeVisible({ timeout: 20000 });
 
-        // Click mapping tile or inspect button
-        const inspectBtn = countryCard.locator('[data-testid^="rdd1-mapping-tile-"]')
+        // Click open master data button or mapping tile
+        const inspectBtn = countryCard.locator(`[data-testid="rdd1-open-master-data-btn-${countryFormQuestionId}"]`)
+            .or(countryCard.locator('[data-testid^="rdd1-mapping-tile-"]'))
             .or(countryCard.locator('button[title*="history & details"]'))
-            .or(countryCard.locator('button:has(svg.lucide-panel-left-open)'));
+            .or(countryCard.locator('button[title="Open Master Data"]'));
 
         await inspectBtn.first().click();
 
         const sheet = page.locator('[role="dialog"]').or(page.locator('.sheet-content'));
         await expect(sheet.first()).toBeVisible({ timeout: 10000 });
 
-        // Header must show Master Field Name ("Country of formation"), NOT the question text
+        // Header must show Master Field Name ("Country of formation") and field number (#134), NOT the question text
         const sheetHeader = sheet.locator('h2').first();
         await expect(sheetHeader).toContainText(/Country of formation/i);
+        await expect(sheetHeader).toContainText('#134');
         await expect(sheetHeader).not.toContainText(`COUNTRY OF INCORPORATION ${run}`);
 
-        // Underneath the header, it must cleanly show which question it is mapped to
-        await expect(sheet.getByText(new RegExp(`COUNTRY OF INCORPORATION ${run}`, 'i')).first()).toBeVisible({ timeout: 10000 });
+        // Underneath the header, it must cleanly show the originating question and its questionnaire identity
+        const originatingQuestion = sheet.locator('[data-testid="sidebar-originating-question"]');
+        await expect(originatingQuestion).toBeVisible({ timeout: 10000 });
+        await expect(originatingQuestion.getByText(new RegExp(`COUNTRY OF INCORPORATION ${run}`, 'i'))).toBeVisible({ timeout: 10000 });
+        await expect(originatingQuestion.getByText('FSMB MASTER DRAFT')).toBeVisible({ timeout: 10000 });
     });
 
     test('Bug R16: Composite group links to underlying constituent fields and persists edits', async ({ page }) => {
