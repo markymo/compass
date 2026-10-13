@@ -650,6 +650,8 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
     });
 
     test('Attachment removal invariant: Preserves immutable submission access and denies unauthorized callers', async ({ page }) => {
+        await login(page, adminEmail);
+
         // 1. Create a submission document
         const subDoc = await prisma.document.create({
             data: {
