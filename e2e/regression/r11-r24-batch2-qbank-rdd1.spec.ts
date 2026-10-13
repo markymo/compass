@@ -341,14 +341,12 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
 
         // In sidebar, click edit value
         const editTrigger = sheet.locator('button[title="Edit value"]').or(sheet.locator('button[title="Add value"]'));
-        if (await editTrigger.first().isVisible({ timeout: 3000 }).catch(() => false)) {
-            await editTrigger.first().click();
-        }
+        await expect(editTrigger.first()).toBeVisible({ timeout: 10000 });
+        await editTrigger.first().click();
 
         // It must NOT be a generic unconstrained text input for Country; it must render a country picker
-        const countryDropdownTrigger = sheet.locator('[role="combobox"]').or(
-            sheet.locator('button:has-text("United Kingdom"), button:has-text("Select country")')
-        );
+        const countryDropdownTrigger = sheet.locator('.space-y-4 button[role="combobox"]')
+            .or(sheet.locator('button:has-text("United Kingdom"), button:has-text("Sweden"), button:has-text("Select country")'));
         await expect(countryDropdownTrigger.first()).toBeVisible({ timeout: 10000 });
 
         // Open the dropdown and inspect options
@@ -368,7 +366,7 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
         await swedenOption.first().click();
 
         // Save edit in sidebar
-        const saveBtn = sheet.locator('button:has-text("Save")').or(sheet.locator('button[title*="Save"]')).or(sheet.locator('button:has(svg.lucide-check)'));
+        const saveBtn = sheet.getByRole('button', { name: 'Save', exact: true });
         await expect(saveBtn.first()).toBeVisible({ timeout: 5000 });
         await saveBtn.first().click();
         await expect(saveBtn).toHaveCount(0, { timeout: 10000 });
@@ -378,9 +376,9 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
 
         // Canonical jurisdiction selection: Test subdivision selection (US-DE Delaware) in sidebar
         const reEditBtn = sheet.locator('button[title="Edit value"]').or(sheet.locator('button[title="Add value"]'));
-        if (await reEditBtn.first().isVisible({ timeout: 3000 }).catch(() => false)) {
-            await reEditBtn.first().click();
-        }
+        await expect(reEditBtn.first()).toBeVisible({ timeout: 10000 });
+        await reEditBtn.first().click();
+
         await expect(countryDropdownTrigger.first()).toBeVisible({ timeout: 10000 });
         await countryDropdownTrigger.first().click();
         await expect(popover.first()).toBeVisible({ timeout: 5000 });
@@ -448,15 +446,14 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
 
         // Edit value in sidebar
         const editTrigger = sheet.locator('button[title="Edit value"]').or(sheet.locator('button[title="Add value"]'));
-        if (await editTrigger.first().isVisible({ timeout: 3000 }).catch(() => false)) {
-            await editTrigger.first().click();
-        }
+        await expect(editTrigger.first()).toBeVisible({ timeout: 10000 });
+        await editTrigger.first().click();
 
-        const textInput = sheet.locator('input[type="text"]').or(sheet.locator('textarea')).or(page.locator('input[placeholder*="Enter value"]'));
+        const textInput = sheet.locator('.space-y-4 input[type="text"]').or(sheet.locator('.space-y-4 input')).or(page.locator('input[placeholder*="Enter value"]'));
         await expect(textInput.first()).toBeVisible({ timeout: 10000 });
         await textInput.first().fill(`Updated Legal Name ${run}`);
 
-        const confirmBtn = sheet.locator('button:has-text("Save")').or(sheet.locator('button:has(svg.lucide-check)'));
+        const confirmBtn = sheet.getByRole('button', { name: 'Save', exact: true });
         await confirmBtn.first().click();
 
         // Verify updated value appears immediately in RDD1 card

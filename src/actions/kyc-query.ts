@@ -1583,10 +1583,9 @@ export async function getFieldDetail(
         hasActiveSourceMappings: fieldMappings.length > 0,
         hasMapping: evalResult.hasApplicableMapping,
         modelField: (def as any).modelField || undefined,
-        // Only expose selectable options to the UI editor for SELECT fields.
-        // For non-SELECT fields (e.g. TEXT fields with reference datasets like F134),
-        // referenceOptions is used exclusively for canonical display interpretation.
-        options: def?.appDataType === 'SELECT' ? referenceOptions : undefined,
+        // Expose selectable options to the UI editor for SELECT fields and fields configured with an option set (e.g. F134).
+        // Fields without configured option sets (e.g. F22 Country of Registration) remain free-text.
+        options: (def?.appDataType === 'SELECT' || Boolean((def as any)?.optionSet)) ? referenceOptions : undefined,
         notes: def?.notes || undefined,
         description: def?.description || undefined,
         current: derived ? {
