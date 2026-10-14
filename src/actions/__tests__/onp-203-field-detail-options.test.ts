@@ -54,7 +54,7 @@ describe('ONP-203 — getFieldDetail Editor Options vs Canonical Display Resolut
         options: gleifLegalJurisdictions
     };
 
-    it('F134 (TEXT): returns options=undefined for editor, but resolves canonical display label via reference options', async () => {
+    it('F134 (TEXT with optionSet): returns populated options for editor and resolves canonical display label (R14)', async () => {
         vi.mocked(defService.getMasterFieldDefinition).mockResolvedValue({
             fieldNo: 134,
             fieldName: 'Country of formation',
@@ -74,8 +74,9 @@ describe('ONP-203 — getFieldDetail Editor Options vs Canonical Display Resolut
 
         const result = await getFieldDetail('cle_1', 134, 'CLIENT_LE');
 
-        // 1. Editor contract: options must NOT be exposed for TEXT fields
-        expect(result.options).toBeUndefined();
+        // 1. Editor contract: options must be exposed for fields configured with an option set (R14)
+        expect(result.options).toBeDefined();
+        expect(result.options?.length).toBe(gleifLegalJurisdictions.length);
 
         // 2. Current raw value remains untouched
         expect(result.current?.value).toBe('US-DE');
@@ -86,6 +87,19 @@ describe('ONP-203 — getFieldDetail Editor Options vs Canonical Display Resolut
         expect(displayModel.value.kind).toBe('scalar');
         expect(displayModel.value.rawValue).toBe('US-DE');
         expect(displayModel.value.display).toBe('US-DE \u2013 Delaware (United States of America)');
+    });
+
+    it('F22 (TEXT without optionSet): returns options=undefined for editor (retained as free text per product decision)', async () => {
+        vi.mocked(defService.getMasterFieldDefinition).mockResolvedValue({
+            fieldNo: 22,
+            fieldName: 'Country of registration',
+            appDataType: 'TEXT',
+            isMultiValue: false,
+            optionSet: null
+        } as any);
+
+        const result = await getFieldDetail('cle_1', 22, 'CLIENT_LE');
+        expect(result.options).toBeUndefined();
     });
 
     it('F143 (SELECT): returns populated options for editor and resolves canonical display label', async () => {
