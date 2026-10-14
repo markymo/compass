@@ -24,9 +24,11 @@ interface UnifiedPartyPickerProps {
     // For repeating fields, we might need a rowId, but usually 'add' creates a new row if undefined
     rowId?: string;
     allowedPartyTypes?: V2PartyType[];
+    allowedPartySubTypes?: string[];
+    partyPopulationPolicy?: string;
 }
 
-export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, rowId, allowedPartyTypes }: UnifiedPartyPickerProps) {
+export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, rowId, allowedPartyTypes, allowedPartySubTypes, partyPopulationPolicy }: UnifiedPartyPickerProps) {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<any[]>([]);
@@ -54,13 +56,13 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
         
         startSearchTransition(async () => {
             try {
-                const data = await searchCCParties(clientLEId, query, allowedPartyTypes);
+                const data = await searchCCParties(clientLEId, query, allowedPartyTypes, allowedPartySubTypes);
                 setResults(data);
             } catch (err) {
                 console.error("Search failed", err);
             }
         });
-    }, [query, clientLEId, open]);
+    }, [query, clientLEId, open, allowedPartyTypes, allowedPartySubTypes]);
 
     const handleSelectExisting = (party: any) => {
         startSaveTransition(async () => {
@@ -219,7 +221,7 @@ export function UnifiedPartyPicker({ clientLEId, fieldNo, trigger, onSuccess, ro
                                 </div>
                             )}
                             
-                            {(!allowedPartyTypes || allowedPartyTypes.length > 0) && (
+                            {partyPopulationPolicy !== 'SYSTEM_ONLY' && (!allowedPartyTypes || allowedPartyTypes.length > 0) && (
                                 <div className="p-3 border-t border-slate-100 bg-slate-50/50">
                                     <Button 
                                         variant="outline" 

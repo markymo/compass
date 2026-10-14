@@ -326,7 +326,12 @@ export async function getCCPartyUsage(clientLEId: string) {
 /**
  * Search curated parties for a client LE (used by UnifiedPartyPicker)
  */
-export async function searchCCParties(clientLEId: string, query: string, allowedPartyTypes?: V2PartyType[]) {
+export async function searchCCParties(
+    clientLEId: string,
+    query: string,
+    allowedPartyTypes?: V2PartyType[],
+    allowedPartySubTypes?: string[]
+) {
     if (!clientLEId) {
         return [];
     }
@@ -334,6 +339,9 @@ export async function searchCCParties(clientLEId: string, query: string, allowed
     await ensureApiAuthorization(Action.LE_VIEW_MASTER_DATA, { clientLEId });
 
     if (allowedPartyTypes && allowedPartyTypes.length === 0) {
+        return [];
+    }
+    if (allowedPartySubTypes && allowedPartySubTypes.length === 0) {
         return [];
     }
 
@@ -354,9 +362,15 @@ export async function searchCCParties(clientLEId: string, query: string, allowed
             if (!data) return false;
             
             // 1. Eligibility Filter
+            const pType = data.partyType ?? (data.contactType === 'PERSON' ? 'INDIVIDUAL' : 'INDIVIDUAL');
             if (allowedPartyTypes) {
-                const pType = data.partyType ?? (data.contactType === 'PERSON' ? 'INDIVIDUAL' : 'INDIVIDUAL');
                 if (!allowedPartyTypes.includes(pType as V2PartyType)) {
+                    return false;
+                }
+            }
+            if (allowedPartySubTypes && allowedPartySubTypes.length > 0) {
+                const pSubType = data.partySubType ?? (data.contactType ?? (pType === 'INDIVIDUAL' ? 'PERSON' : undefined));
+                if (pSubType && !allowedPartySubTypes.includes(pSubType)) {
                     return false;
                 }
             }

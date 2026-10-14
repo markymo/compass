@@ -75,7 +75,8 @@ export async function updateFieldManually(
                 // 2. Map value to correct slot based on FieldDefinition
                 const def = await getMasterFieldDefinition(fieldNo);
 
-                if (['PARTY', 'PARTY_REF'].includes(def.appDataType) && (def.profileConfig as any)?.partyPopulationPolicy === 'SYSTEM_ONLY') {
+                if (['PARTY', 'PARTY_REF', 'ADDRESS', 'ADDRESS_REF'].includes(def.appDataType) && 
+                    ((def.profileConfig as any)?.partyPopulationPolicy === 'SYSTEM_ONLY' || (def.profileConfig as any)?.addressPopulationPolicy === 'SYSTEM_ONLY')) {
                     throw new ActionDomainError(`Field ${fieldNo} is locked to authoritative sources. Manual curation is disabled.`);
                 }
 
@@ -665,9 +666,15 @@ export async function addExistingCCPartyReferenceToField(
         const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
         const def = await getMasterFieldDefinition(fieldNo);
 
+        const partyPopulationPolicy = (def.profileConfig as any)?.partyPopulationPolicy;
+        if (partyPopulationPolicy === 'SYSTEM_ONLY') {
+            throw new ActionDomainError(`Field ${fieldNo} is locked to authoritative sources. Manual curation is disabled.`);
+        }
+
         const allowedPartyTypes = (def.profileConfig as any)?.allowedPartyTypes as Array<'INDIVIDUAL'|'ORGANISATION'|'TEAM'> | undefined;
+        const allowedPartySubTypes = (def.profileConfig as any)?.allowedPartySubTypes as string[] | undefined;
         
-        if (allowedPartyTypes !== undefined) {
+        if (allowedPartyTypes !== undefined || (allowedPartySubTypes !== undefined && allowedPartySubTypes.length > 0)) {
             const existingParty = await prisma.cCParty.findUnique({
                 where: { id: ccPartyId }
             });
@@ -676,8 +683,14 @@ export async function addExistingCCPartyReferenceToField(
             }
             const data = existingParty.data as any;
             const pType = data.partyType ?? (data.contactType === 'PERSON' ? 'INDIVIDUAL' : 'INDIVIDUAL');
-            if (!allowedPartyTypes.includes(pType)) {
+            if (allowedPartyTypes !== undefined && !allowedPartyTypes.includes(pType)) {
                  throw new ActionDomainError(`Field ${fieldNo} does not allow party type ${pType}`);
+            }
+            if (allowedPartySubTypes !== undefined && allowedPartySubTypes.length > 0) {
+                const pSubType = data.partySubType ?? (data.contactType ?? (pType === 'INDIVIDUAL' ? 'PERSON' : undefined));
+                if (pSubType && !allowedPartySubTypes.includes(pSubType)) {
+                    throw new ActionDomainError(`Field ${fieldNo} does not allow party subtype ${pSubType}`);
+                }
             }
         }
 
@@ -772,11 +785,26 @@ export async function createCCPartyAndReferenceField(
             throw new ActionDomainError("Invalid CCPartyData V2 structure provided");
         }
         
+        const partyPopulationPolicy = (def.profileConfig as any)?.partyPopulationPolicy;
+        if (partyPopulationPolicy === 'SYSTEM_ONLY') {
+             throw new ActionDomainError(`Field ${fieldNo} is locked to authoritative sources. Manual curation is disabled.`);
+        }
+
         const allowedPartyTypes = (def.profileConfig as any)?.allowedPartyTypes as Array<'INDIVIDUAL'|'ORGANISATION'|'TEAM'> | undefined;
         if (allowedPartyTypes !== undefined) {
              const pType = enrichedPartyData.partyType;
              if (!allowedPartyTypes.includes(pType as any)) {
                   throw new ActionDomainError(`Field ${fieldNo} does not allow party type ${pType}`);
+             }
+        }
+
+        const allowedPartySubTypes = (def.profileConfig as any)?.allowedPartySubTypes as string[] | undefined;
+        if (allowedPartySubTypes !== undefined && allowedPartySubTypes.length > 0) {
+             const pSubType = (enrichedPartyData as any).partySubType ?? 
+                ((enrichedPartyData as any).contactType ?? 
+                (enrichedPartyData.partyType === 'INDIVIDUAL' ? 'PERSON' : undefined));
+             if (pSubType && !allowedPartySubTypes.includes(pSubType)) {
+                  throw new ActionDomainError(`Field ${fieldNo} does not allow party subtype ${pSubType}`);
              }
         }
 
@@ -880,6 +908,11 @@ export async function addExistingCCAddressReferenceToField(
         const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
         const def = await getMasterFieldDefinition(fieldNo);
 
+        const addressPopulationPolicy = (def.profileConfig as any)?.addressPopulationPolicy || (def.profileConfig as any)?.partyPopulationPolicy;
+        if (addressPopulationPolicy === 'SYSTEM_ONLY') {
+            throw new ActionDomainError(`Field ${fieldNo} is locked to authoritative sources. Manual curation is disabled.`);
+        }
+
         const actualRowId = def.isMultiValue ? (rowId || `ccaddress_${ccAddressId}`) : undefined;
 
         const claimResult = await updateFieldManually(
@@ -917,6 +950,11 @@ export async function createCCAddressAndReferenceField(
         const { getMasterFieldDefinition } = await import('@/services/masterData/definitionService');
         const def = await getMasterFieldDefinition(fieldNo);
         const originLabel = `Created manually from Field ${fieldNo} — ${def.fieldName}`;
+
+        const addressPopulationPolicy = (def.profileConfig as any)?.addressPopulationPolicy || (def.profileConfig as any)?.partyPopulationPolicy;
+        if (addressPopulationPolicy === 'SYSTEM_ONLY') {
+            throw new ActionDomainError(`Field ${fieldNo} is locked to authoritative sources. Manual curation is disabled.`);
+        }
 
         const { getIdentity } = await import('@/lib/auth');
         const identity = await getIdentity();

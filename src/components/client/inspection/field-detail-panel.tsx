@@ -270,6 +270,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
         (data?.hasActiveSourceMappings ? 'SYSTEM_ONLY' : 'SYSTEM_AND_CURATED');
     const isSystemOnlyParty = (isPartyField || isPartyRef) && partyPopulationPolicy === 'SYSTEM_ONLY';
     const isSystemOnlyAddress = (isAddressField || isAddressRef) && partyPopulationPolicy === 'SYSTEM_ONLY';
+    const isCurationDisabled = isLocked || isSystemOnlyParty || isSystemOnlyAddress;
 
     // Controlled-vocabulary collection: uses CodeListField UX instead of free-text
     const isCodeList = !!data?.codeSystem;
@@ -1921,6 +1922,9 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         <UnifiedPartyPicker
                                                             clientLEId={clientLEId}
                                                             fieldNo={fieldNo}
+                                                            allowedPartyTypes={(data?.profileConfig as any)?.allowedPartyTypes}
+                                                            allowedPartySubTypes={(data?.profileConfig as any)?.allowedPartySubTypes}
+                                                            partyPopulationPolicy={partyPopulationPolicy}
                                                             onSuccess={async () => {
                                                                 setNewEntryValue("");
                                                                 const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
@@ -1943,6 +1947,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                         <UnifiedAddressPicker
                                                             clientLEId={clientLEId}
                                                             fieldNo={fieldNo}
+                                                            partyPopulationPolicy={partyPopulationPolicy}
                                                             onSuccess={async () => {
                                                                 setNewEntryValue("");
                                                                 const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
@@ -2237,14 +2242,60 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                  </div>
                                                                              </div>
                                                                          </div>
-                                                                         {!isLocked && (
-                                                                             <button
-                                                                                 className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
-                                                                                 onClick={() => setIsEditing(true)}
-                                                                                 title="Add value"
-                                                                             >
-                                                                                 <Pencil className="h-3.5 w-3.5" />
-                                                                             </button>
+                                                                         {!isCurationDisabled && (
+                                                                             isPersonOrContactField || isCuratedPartyRef ? (
+                                                                                 <UnifiedPartyPicker
+                                                                                     clientLEId={clientLEId}
+                                                                                     fieldNo={fieldNo}
+                                                                                     allowedPartyTypes={(data?.profileConfig as any)?.allowedPartyTypes}
+                                                                                     allowedPartySubTypes={(data?.profileConfig as any)?.allowedPartySubTypes}
+                                                                                     partyPopulationPolicy={partyPopulationPolicy}
+                                                                                     onSuccess={async () => {
+                                                                                         const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                         setData(refreshed);
+                                                                                         if (onUpdate && refreshed?.current) {
+                                                                                             onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                                         }
+                                                                                     }}
+                                                                                     trigger={
+                                                                                         <button
+                                                                                             className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                             title="Add value"
+                                                                                         >
+                                                                                             <Pencil className="h-3.5 w-3.5" />
+                                                                                         </button>
+                                                                                     }
+                                                                                 />
+                                                                             ) : isAddressField || isCuratedAddressRef ? (
+                                                                                 <UnifiedAddressPicker
+                                                                                     clientLEId={clientLEId}
+                                                                                     fieldNo={fieldNo}
+                                                                                     partyPopulationPolicy={partyPopulationPolicy}
+                                                                                     onSuccess={async () => {
+                                                                                         const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                         setData(refreshed);
+                                                                                         if (onUpdate && refreshed?.current) {
+                                                                                             onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                                         }
+                                                                                     }}
+                                                                                     trigger={
+                                                                                         <button
+                                                                                             className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                             title="Add value"
+                                                                                         >
+                                                                                             <Pencil className="h-3.5 w-3.5" />
+                                                                                         </button>
+                                                                                     }
+                                                                                 />
+                                                                             ) : (
+                                                                                 <button
+                                                                                     className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                     onClick={() => setIsEditing(true)}
+                                                                                     title="Add value"
+                                                                                 >
+                                                                                     <Pencil className="h-3.5 w-3.5" />
+                                                                                 </button>
+                                                                             )
                                                                          )}
                                                                      </div>
                                                                  </div>
@@ -2262,22 +2313,74 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                                     <Badge variant="outline" className="text-[9px] uppercase tracking-wider text-blue-500 bg-blue-50 border-blue-200">Field Default</Badge>
                                                                                 </span>
                                                                             )}
-                                                                            {(!data?.displayState || data?.displayState === 'UNMAPPED_NO_RESPONSE' || data?.displayState === 'MAPPED_NOT_CHECKED') && 'No response recorded'}
+                                                                            {isSystemOnlyParty || isSystemOnlyAddress ? (
+                                                                                <span className="not-italic text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                                                                    Field is locked to authoritative sources. Manual curation is disabled.
+                                                                                </span>
+                                                                            ) : (
+                                                                                (!data?.displayState || data?.displayState === 'UNMAPPED_NO_RESPONSE' || data?.displayState === 'MAPPED_NOT_CHECKED') && 'No response recorded'
+                                                                            )}
                                                                         </div>
                                                                     </div>
-                                                                    {!isLocked && (
-                                                                        <button
-                                                                            className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
-                                                                            onClick={() => setIsEditing(true)}
-                                                                            title="Add value"
-                                                                        >
-                                                                            <Plus className="h-4 w-4" />
-                                                                        </button>
+                                                                    {!isCurationDisabled && (
+                                                                        isPersonOrContactField || isCuratedPartyRef ? (
+                                                                            <UnifiedPartyPicker
+                                                                                clientLEId={clientLEId}
+                                                                                fieldNo={fieldNo}
+                                                                                allowedPartyTypes={(data?.profileConfig as any)?.allowedPartyTypes}
+                                                                                allowedPartySubTypes={(data?.profileConfig as any)?.allowedPartySubTypes}
+                                                                                partyPopulationPolicy={partyPopulationPolicy}
+                                                                                onSuccess={async () => {
+                                                                                    const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                    setData(refreshed);
+                                                                                    if (onUpdate && refreshed?.current) {
+                                                                                        onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                                    }
+                                                                                }}
+                                                                                trigger={
+                                                                                    <button
+                                                                                        className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                        title="Add value"
+                                                                                    >
+                                                                                        <Plus className="h-4 w-4" />
+                                                                                    </button>
+                                                                                }
+                                                                            />
+                                                                        ) : isAddressField || isCuratedAddressRef ? (
+                                                                            <UnifiedAddressPicker
+                                                                                clientLEId={clientLEId}
+                                                                                fieldNo={fieldNo}
+                                                                                partyPopulationPolicy={partyPopulationPolicy}
+                                                                                onSuccess={async () => {
+                                                                                    const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                                    setData(refreshed);
+                                                                                    if (onUpdate && refreshed?.current) {
+                                                                                        onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                                    }
+                                                                                }}
+                                                                                trigger={
+                                                                                    <button
+                                                                                        className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                        title="Add value"
+                                                                                    >
+                                                                                        <Plus className="h-4 w-4" />
+                                                                                    </button>
+                                                                                }
+                                                                            />
+                                                                        ) : (
+                                                                            <button
+                                                                                className="p-1.5 rounded text-slate-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors shrink-0"
+                                                                                onClick={() => setIsEditing(true)}
+                                                                                title="Add value"
+                                                                            >
+                                                                                <Plus className="h-4 w-4" />
+                                                                            </button>
+                                                                        )
                                                                     )}
                                                                 </div>
                                                                 </div>
                                                             )
-                                                        ) : !isLocked ? (
+                                                        ) : !isCurationDisabled ? (
                                                             <div className="space-y-4">
                                                                 <div className="flex items-center justify-between">
                                                                     <span className="text-xs font-semibold text-slate-600 uppercase tracking-tight">Add Value</span>
@@ -2285,46 +2388,89 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                                                                         variant="ghost"
                                                                         size="sm"
                                                                         className="h-auto p-0 text-[10px] text-slate-500 hover:bg-transparent hover:underline"
-                                                                        onClick={() => setIsEditing(false)}
+                                                                        onClick={() => {
+                                                                            setIsEditing(false);
+                                                                            setManualValue("");
+                                                                        }}
                                                                     >
                                                                         Cancel
                                                                     </Button>
                                                                 </div>
-                                                                <CanonicalScalarEditor
-                                                                    dataType={data?.dataType}
-                                                                    value={manualValue}
-                                                                    onChange={setManualValue}
-                                                                    options={data?.options}
-                                                                    disabled={isSaving}
-                                                                    fieldName={fieldName}
-                                                                    autoFocus
-                                                                    onKeyDown={(e) => {
-                                                                        if (e.key === 'Enter' && (manualValue === true || manualValue === false || (typeof manualValue === 'string' ? manualValue.trim() : manualValue))) {
-                                                                            setIsEditing(true);
-                                                                            handleManualSave();
-                                                                        }
-                                                                    }}
-                                                                />
-                                                                {(manualValue === true || manualValue === false || (manualValue && typeof manualValue === 'string' ? manualValue.trim() : manualValue)) && (
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Button
-                                                                            size="sm"
-                                                                            className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
-                                                                            onClick={() => {
-                                                                                setIsEditing(true);
-                                                                                handleManualSave();
-                                                                            }}
+                                                                {isPersonOrContactField || isCuratedPartyRef ? (
+                                                                    <UnifiedPartyPicker
+                                                                        clientLEId={clientLEId}
+                                                                        fieldNo={fieldNo}
+                                                                        allowedPartyTypes={(data?.profileConfig as any)?.allowedPartyTypes}
+                                                                        allowedPartySubTypes={(data?.profileConfig as any)?.allowedPartySubTypes}
+                                                                        partyPopulationPolicy={partyPopulationPolicy}
+                                                                        onSuccess={async () => {
+                                                                            setIsEditing(false);
+                                                                            setManualValue("");
+                                                                            const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                            setData(refreshed);
+                                                                            if (onUpdate && refreshed?.current) {
+                                                                                onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                ) : isAddressField || isCuratedAddressRef ? (
+                                                                    <UnifiedAddressPicker
+                                                                        clientLEId={clientLEId}
+                                                                        fieldNo={fieldNo}
+                                                                        partyPopulationPolicy={partyPopulationPolicy}
+                                                                        onSuccess={async () => {
+                                                                            setIsEditing(false);
+                                                                            setManualValue("");
+                                                                            const refreshed = await getFieldDetail(clientLEId, fieldNo, 'CLIENT_LE', customFieldId);
+                                                                            setData(refreshed);
+                                                                            if (onUpdate && refreshed?.current) {
+                                                                                onUpdate(refreshed.current.value, refreshed.current.source, refreshed.current.timestamp || new Date());
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <>
+                                                                        <CanonicalScalarEditor
+                                                                            dataType={data?.dataType}
+                                                                            value={manualValue}
+                                                                            onChange={setManualValue}
+                                                                            options={data?.options}
                                                                             disabled={isSaving}
-                                                                        >
-                                                                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-                                                                            Save
-                                                                        </Button>
-                                                                        <span className="text-[10px] text-slate-400">or press Enter</span>
-                                                                    </div>
+                                                                            fieldName={fieldName}
+                                                                            autoFocus
+                                                                            onKeyDown={(e) => {
+                                                                                if (e.key === 'Enter' && (manualValue === true || manualValue === false || (typeof manualValue === 'string' ? manualValue.trim() : manualValue))) {
+                                                                                    setIsEditing(true);
+                                                                                    handleManualSave();
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                        {(manualValue === true || manualValue === false || (manualValue && typeof manualValue === 'string' ? manualValue.trim() : manualValue)) && (
+                                                                            <div className="flex items-center gap-2">
+                                                                                <Button
+                                                                                    size="sm"
+                                                                                    className="h-7 text-xs bg-indigo-600 hover:bg-indigo-700"
+                                                                                    onClick={() => {
+                                                                                        setIsEditing(true);
+                                                                                        handleManualSave();
+                                                                                    }}
+                                                                                    disabled={isSaving}
+                                                                                >
+                                                                                    {isSaving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                                                                                    Save
+                                                                                </Button>
+                                                                                <span className="text-[10px] text-slate-400">or press Enter</span>
+                                                                            </div>
+                                                                        )}
+                                                                    </>
                                                                 )}
                                                             </div>
                                                         ) : (
-                                                            <div className="text-[13px] text-slate-400 italic mt-2">No value provided.</div>
+                                                            <div className="text-[13px] text-slate-400 italic mt-2">
+                                                                {isSystemOnlyParty || isSystemOnlyAddress 
+                                                                    ? "Field is locked to authoritative sources. Manual curation is disabled."
+                                                                    : "No value provided."}
+                                                            </div>
                                                         )}
                                                     </div>
                                                 </div>
