@@ -1171,10 +1171,11 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
             </Dialog>
 
 <ConfirmDeleteDialog open={!!candidateToApply} onOpenChange={(open) => { if (!open) setCandidateToApply(null); }} title="Apply Candidate?" description={`Are you sure you want to apply this value: ${candidateToApply?.value}?`} onConfirm={confirmApplyCandidate} isLoading={isApplyingCandidate} confirmLabel="Apply" buttonVariant="default" />
-            <SheetContent className="w-[900px] sm:max-w-[800px] flex flex-col h-full">
-                <SheetHeader className="pb-3 border-b border-slate-100">
-                    <SheetTitle className="sr-only">{data?.fieldName || fieldName}{fieldNo > 0 ? ` (#${fieldNo})` : ''}</SheetTitle>
-                    <SheetDescription className="sr-only">Details for {fieldName}</SheetDescription>
+            <SheetContent className="w-[900px] sm:max-w-[800px] p-0 flex flex-col h-full overflow-hidden">
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    <SheetHeader className="pb-3 border-b border-slate-100">
+                        <SheetTitle className="sr-only">{data?.fieldName || fieldName}{fieldNo > 0 ? ` (#${fieldNo})` : ''}</SheetTitle>
+                        <SheetDescription className="sr-only">Details for {fieldName}</SheetDescription>
 
 
                     {/* Top row: Context + Assignment */}
@@ -1472,7 +1473,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                             <div className="flex items-center justify-between gap-2">
                                 <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
                                     <HelpCircle className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                                    Originating Question
+                                    This Question
                                 </span>
                                 {mappingContext.questionnaireName && (
                                     <Badge variant="outline" className="text-[10px] bg-indigo-100/60 dark:bg-indigo-900/40 text-indigo-800 dark:text-indigo-300 border-indigo-200 dark:border-indigo-700 truncate max-w-[260px]">
@@ -1538,7 +1539,7 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                     )}
                 </SheetHeader>
 
-                <div className="flex-1 overflow-y-auto pr-6 -mr-6 pt-3">
+                <div className="pt-3 space-y-6">
                     {/* ─── Current Authoritative Value ─── */}
                     <div className="space-y-3 shrink-0">
                         <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -2819,7 +2820,8 @@ export function FieldDetailPanel({ open, onOpenChange, clientLEId, fieldNo, fiel
                         </p>
                     </div>
                 </div>
-            </SheetContent>
+            </div>
+        </SheetContent>
             
             {partyEditDialogState && (
                 <CanonicalPartyEditDialog

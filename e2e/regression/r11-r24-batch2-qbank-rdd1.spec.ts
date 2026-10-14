@@ -490,9 +490,10 @@ test.describe.serial('Batch 2 Regression Suite: Question Bank, RDD1 Unification,
         await expect(sheetHeader).toContainText('#134');
         await expect(sheetHeader).not.toContainText(`COUNTRY OF INCORPORATION ${run}`);
 
-        // Underneath the header, it must cleanly show the originating question and its questionnaire identity
+        // Underneath the header, it must cleanly show the originating question ("This Question") and its questionnaire identity
         const originatingQuestion = sheet.locator('[data-testid="sidebar-originating-question"]');
         await expect(originatingQuestion).toBeVisible({ timeout: 10000 });
+        await expect(originatingQuestion.getByText('This Question')).toBeVisible({ timeout: 10000 });
         await expect(originatingQuestion.getByText(new RegExp(`COUNTRY OF INCORPORATION ${run}`, 'i'))).toBeVisible({ timeout: 10000 });
         await expect(originatingQuestion.getByText('FSMB MASTER DRAFT')).toBeVisible({ timeout: 10000 });
     });
